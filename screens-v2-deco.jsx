@@ -54,7 +54,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     const x = (e.clientX - rect.left) / rect.width * 100;
     const y = (e.clientY - rect.top) / rect.height * 100;
     setCurStroke((s) => ({ ...s, points: [...s.points, [x, y]] }));
-  }, []);
+  }, [curStroke]);
 
   const onDrawEnd = React.useCallback(() => {
     setCurStroke((s) => {
@@ -363,7 +363,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const resultFrame = (scale) =>
   <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
-      <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
+      <div ref={captureRef} style={{ position: 'relative', display: 'inline-block', width: layout === 'strip' || layout === 'trip' ? 180 : 220 }}>
         <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
       logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} />
         {/* Place stickers as static overlay */}

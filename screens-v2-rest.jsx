@@ -252,7 +252,7 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected }) {
           Tap in order — we'll place them in the frame the same way.
         </div>
       </div>
-      <div style={{ flex:1, display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap: mobile?8:14 }}>
+      <div style={{ flex:1, display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gridTemplateRows:'repeat(2, minmax(0, 1fr))', gap: mobile?8:14, minHeight: 0 }}>
         {shots.map((s,i)=>{
           const sel = selected.indexOf(i);
           const isSel = sel>=0;
@@ -260,6 +260,7 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected }) {
             <button key={i} onClick={()=>toggle(i)} style={{
               position:'relative', aspectRatio:'1', borderRadius: mobile?14:18, overflow:'hidden',
               padding:0, background:'#000', cursor:'pointer', border:'none',
+              maxWidth: '100%', maxHeight: '100%', placeSelf: 'center', width: '100%',
               boxShadow: isSel ? `0 14px 30px rgba(0,0,0,0.15), 0 0 0 3px ${T.ink}` : '0 1px 3px rgba(0,0,0,0.06)',
               transform: isSel? 'scale(0.96)':'scale(1)',
               transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',

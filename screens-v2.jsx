@@ -301,8 +301,9 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
 
   const preview =
   <div ref={setupContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: mobile ? '12px 0' : '16px', overflow: 'hidden', width: '100%', height: '100%', position: 'relative' }}>
-      <div ref={setupFrameRef} style={{ transform: `scale(${setupZoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0 }}>
-        <StickerCanvas T={T} stickers={preStickers} setStickers={setPreStickers} selectedId={selStId} setSelectedId={setSelStId}
+      <div style={{ width: 0, height: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <div ref={setupFrameRef} style={{ transform: `scale(${setupZoom})`, transformOrigin: 'center', position: 'absolute', flexShrink: 0 }}>
+          <StickerCanvas T={T} stickers={preStickers} setStickers={setPreStickers} selectedId={selStId} setSelectedId={setSelStId}
       width={
         layout === 'polaroid' ? 200 :
         (orientation === 'landscape' && layout === 'strip') ? 360 :
@@ -312,6 +313,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           <FrameThumb layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
         logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} />
         </StickerCanvas>
+        </div>
       </div>
     </div>;
 
