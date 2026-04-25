@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IMMM · Photobooth</title>
+<meta name="description" content="나와 그리고 우리의 순간. 나만의 포토부스.">
+<meta name="theme-color" content="#ffffff">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Caveat:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #ffffff;
+    font-family: 'Plus Jakarta Sans', Pretendard, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  button { font-family: inherit; }
+  button:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+
+  @keyframes pulse    { 0%,100%{transform:scale(1);opacity:0.35} 50%{transform:scale(1.08);opacity:0.15} }
+  @keyframes flash    { 0%{opacity:1} 100%{opacity:0} }
+  @keyframes popIn    { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+  @keyframes countPop { 0%{transform:scale(1.6);opacity:0} 30%{opacity:1} 100%{transform:scale(0.9);opacity:0.3} }
+  @keyframes spin     { to { transform: rotate(360deg); } }
+</style>
+
+<!-- React 18 -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+  integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+  crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+  integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+  crossorigin="anonymous"></script>
+
+<!-- Babel standalone (JSX → JS in-browser) -->
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+  integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+  crossorigin="anonymous"></script>
+
+<!-- html2canvas — frame PNG export -->
+<script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<!-- TWGL.js — lightweight WebGL helper -->
+<script src="https://twgljs.org/dist/4.x/twgl-full.min.js"></script>
+
+<!-- MediaPipe Tasks Vision — expose as globals for JSX scripts -->
+<script type="module">
+  try {
+    const { FaceLandmarker, FilesetResolver } =
+      await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
+    window.MediaPipeFaceLandmarker  = FaceLandmarker;
+    window.MediaPipeFilesetResolver = FilesetResolver;
+    window.dispatchEvent(new Event('mediapipe-ready'));
+  } catch (e) {
+    console.warn('[IMMM] MediaPipe load failed:', e.message);
+  }
+</script>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Shared globals: design tokens, icons, sticker assets -->
+<script type="text/babel" src="app.jsx"></script>
+<!-- CSS filter definitions -->
+<script type="text/babel" src="filters.jsx"></script>
+<!-- WebGL pipeline (TWGL + face warp + blush) -->
+<script type="text/babel" src="webgl-engine.jsx"></script>
+<!-- MediaPipe face landmark detection -->
+<script type="text/babel" src="mediapipe-face.jsx"></script>
+<!-- FrameThumb component -->
+<script type="text/babel" src="screens-edit.jsx"></script>
+<!-- Sticker drag/scale/rotate canvas -->
+<script type="text/babel" src="sticker-engine.jsx"></script>
+<!-- Landing + Setup screens + shared UI primitives -->
+<script type="text/babel" src="screens-v2.jsx"></script>
+<!-- Capture + Select screens -->
+<script type="text/babel" src="screens-v2-rest.jsx"></script>
+<!-- Deco Studio + Result screens -->
+<script type="text/babel" src="screens-v2-deco.jsx"></script>
+<!-- App entry point -->
+<script type="text/babel" src="main.jsx"></script>
+</body>
+</html>
