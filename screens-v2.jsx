@@ -292,6 +292,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     fit();
     const ro = new ResizeObserver(fit);
     if (setupContainerRef.current) ro.observe(setupContainerRef.current);
+    if (setupFrameRef.current) ro.observe(setupFrameRef.current);
     return () => { clearTimeout(tid); ro.disconnect(); };
   }, [layout, mobile, orientation]);
 
@@ -300,10 +301,9 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const zoomOut = () => setSetupZoom(z => Math.max(0.15, +(z - 0.15).toFixed(2)));
 
   const preview =
-  <div ref={setupContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: mobile ? '12px 0' : '16px', overflow: 'hidden', width: '100%', height: '100%', position: 'relative' }}>
-      <div style={{ width: 0, height: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-        <div ref={setupFrameRef} style={{ transform: `scale(${setupZoom})`, transformOrigin: 'center', position: 'absolute', flexShrink: 0 }}>
-          <StickerCanvas T={T} stickers={preStickers} setStickers={setPreStickers} selectedId={selStId} setSelectedId={setSelStId}
+  <div ref={setupContainerRef} style={{ overflow: 'hidden', width: '100%', height: '100%', position: 'relative' }}>
+      <div ref={setupFrameRef} style={{ position: 'absolute', top: '50%', left: '50%', transform: `translate(-50%, -50%) scale(${setupZoom})`, transformOrigin: 'center' }}>
+        <StickerCanvas T={T} stickers={preStickers} setStickers={setPreStickers} selectedId={selStId} setSelectedId={setSelStId}
       width={
         layout === 'polaroid' ? 200 :
         (orientation === 'landscape' && layout === 'strip') ? 360 :
@@ -313,7 +313,6 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           <FrameThumb layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
         logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} />
         </StickerCanvas>
-        </div>
       </div>
     </div>;
 

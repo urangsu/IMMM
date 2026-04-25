@@ -89,7 +89,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const thumbs = Array.from({length:6}, (_,i)=> shots[i]);
 
   const cameraArea = (
-    <div style={{ flex:1, position:'relative', borderRadius:24, overflow:'hidden', background:'#000', display:'flex', alignItems:'center', justifyContent:'center' }}>
+    <div style={{ flex:1, minHeight: 0, position:'relative', borderRadius:24, overflow:'hidden', background:'#000', display:'flex', alignItems:'center', justifyContent:'center' }}>
       {camOk === false ? (
         <div style={{ position:'absolute', inset:0 }}>
           <PlaceholderPortrait seed={idx} filter={filter}/>
@@ -188,17 +188,19 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           right={<div style={{fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui'}}>{FILTERS[filter].name}</div>}/>
         {cameraArea}
         {/* shutter row */}
-        <div style={{ marginTop:16, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
-          <button onClick={toggleAuto} style={{
-            padding:'10px 14px', borderRadius:999, border:'none',
-            background: auto? T.ink : 'rgba(26,26,31,0.06)',
-            color: auto? T.bg : T.ink, fontSize:12, fontWeight:600, cursor:'pointer',
-            display:'flex', alignItems:'center', gap:6, fontFamily:'"Plus Jakarta Sans",system-ui',
-            transition:'all 0.2s',
-          }}>
-            <div style={{ width:6, height:6, borderRadius:999, background: auto? T.pinkDeep : T.inkSoft, transition:'background 0.2s' }}/>
-            Auto-burst
-          </button>
+        <div style={{ marginTop:16, position:'relative', display:'flex', alignItems:'center', justifyContent:'center', height: 76 }}>
+          <div style={{ position: 'absolute', left: 0 }}>
+            <button onClick={toggleAuto} style={{
+              padding:'10px 14px', borderRadius:999, border:'none',
+              background: auto? T.ink : 'rgba(26,26,31,0.06)',
+              color: auto? T.bg : T.ink, fontSize:12, fontWeight:600, cursor:'pointer',
+              display:'flex', alignItems:'center', gap:6, fontFamily:'"Plus Jakarta Sans",system-ui',
+              transition:'all 0.2s',
+            }}>
+              <div style={{ width:6, height:6, borderRadius:999, background: auto? T.pinkDeep : T.inkSoft, transition:'background 0.2s' }}/>
+              Auto-burst
+            </button>
+          </div>
           <button onClick={startCountdown} disabled={idx>=6}
             style={{
               width: 76, height: 76, borderRadius:999,
@@ -213,6 +215,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           </button>
           <div style={{
+            position: 'absolute', right: 0,
             padding:'10px 14px', borderRadius:999, background:'rgba(26,26,31,0.06)',
             fontSize:12, color:T.inkSoft, fontFamily:'Pretendard,system-ui',
           }}>
