@@ -23,6 +23,7 @@ function App() {
   const [stickers, setStickers] = React.useState([]);
   const [drawStrokes, setDrawStrokes] = React.useState([]);
   const [photoEditMode, setPhotoEditMode] = React.useState(false);
+  const [lang, setLang] = React.useState('ko');
 
   // Responsive mobile detection
   const [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
@@ -57,6 +58,7 @@ function App() {
     logo: tweaks.logo,
     dateText: tweaks.dateText,
     accent,
+    lang, setLang,
   };
 
   const renderScreen = () => {

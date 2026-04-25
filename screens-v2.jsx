@@ -95,7 +95,36 @@ function TopBar({ step, back, T, mobile, title, right }) {
 // ═══════════════════════════════════════════════════════════════
 // 1. LANDING — Life Plus aesthetic
 // ═══════════════════════════════════════════════════════════════
-function LandingV2({ T, variant, go, mobile, onStart, onEdit }) {
+const I18N = {
+  ko: {
+    mobileSub: '나의 그리고 우리의 순간',
+    desc1: '나의 그리고 우리의 순간.',
+    desc2: '내 손안의 포토부스.',
+    start: '촬영하기',
+    edit: '편집하기',
+    noSignup: 'No signup required · 가입 불필요'
+  },
+  en: {
+    mobileSub: 'My moments, our memories',
+    desc1: 'My moments, our memories.',
+    desc2: 'A photobooth in the palm of your hand.',
+    start: 'Capture',
+    edit: 'Edit',
+    noSignup: 'No signup required'
+  },
+  jp: {
+    mobileSub: '私と私たちの瞬間',
+    desc1: '私と私たちの瞬間。',
+    desc2: '私の手の中のフォトブース。',
+    start: '撮影する',
+    edit: '編集する',
+    noSignup: 'No signup required · 登録不要'
+  }
+};
+
+function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLang }) {
+  const t = I18N[lang] || I18N.ko;
+  const toggleLang = () => setLang(l => l === 'ko' ? 'en' : l === 'en' ? 'jp' : 'ko');
 
   const logoMark = (size = 48) =>
   <svg width={size * 1.4} height={size} viewBox="0 0 70 50">
@@ -105,7 +134,10 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit }) {
 
   if (mobile) {
     return (
-      <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '60px 32px 40px' }}>
+      <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '60px 32px 40px', position: 'relative' }}>
+        <button onClick={toggleLang} style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(26,26,31,0.05)', borderRadius: 999, border: 'none', color: T.ink, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui', padding: '6px 12px', letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.2s' }}>
+          {lang}
+        </button>
         {/* Logo block */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
           {logoMark(42)}
@@ -114,7 +146,7 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit }) {
               I M M M
             </div>
             <div style={{ fontFamily: 'Pretendard,system-ui', fontSize: 11, letterSpacing: 1.5, color: T.inkSoft, marginTop: 4 }}>
-              나와 그리고 우리의 순간
+              {t.mobileSub}
             </div>
           </div>
         </div>
@@ -125,15 +157,15 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit }) {
             width: '100%', padding: '18px', background: T.ink, color: T.bg, border: 'none',
             borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 700,
             letterSpacing: 2, textTransform: 'uppercase', fontFamily: '"Plus Jakarta Sans",system-ui'
-          }}>촬영하기</button>
+          }}>{t.start}</button>
           <button onClick={onEdit} style={{
             width: '100%', padding: '17px', background: 'transparent', color: T.ink,
             border: `1px solid ${T.ink}`, borderRadius: 4, cursor: 'pointer',
             fontSize: 13, fontWeight: 500, letterSpacing: 1.5, textTransform: 'uppercase',
             fontFamily: '"Plus Jakarta Sans",system-ui'
-          }}>편집하기</button>
+          }}>{t.edit}</button>
           <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: T.inkSoft, fontFamily: 'Pretendard,system-ui', letterSpacing: 0.5 }}>
-            No signup required · 가입 불필요
+            {t.noSignup}
           </div>
         </div>
       </div>);
@@ -147,8 +179,11 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit }) {
       <div style={{ padding: '48px 56px', display: 'flex', flexDirection: 'column', borderRight: `1px solid ${T.line}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 11, fontWeight: 700, letterSpacing: 6, color: T.ink }}>I M M M</div>
-          <div style={{ display: 'flex', gap: 28, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-            <span>Gallery</span><span>Frames</span><span>KR / EN</span>
+          <div style={{ display: 'flex', gap: 28, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1.5, textTransform: 'uppercase', alignItems: 'center' }}>
+            <span>Gallery</span><span>Frames</span>
+            <button onClick={toggleLang} style={{ background: 'rgba(26,26,31,0.05)', borderRadius: 999, border: 'none', color: T.ink, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui', padding: '4px 10px', letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.2s' }}>
+              {lang}
+            </button>
           </div>
         </div>
 
@@ -166,21 +201,21 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit }) {
             <span style={{ fontFamily: 'Caveat,cursive', fontWeight: 400, fontSize: 88, letterSpacing: -1 }}>Uniquely Mine.</span>
           </h1>
           <div style={{ marginTop: 28, fontSize: 14, lineHeight: 1.6, color: T.inkSoft, fontFamily: 'Pretendard,system-ui', maxWidth: 380 }}>
-            나와 그리고 우리의 순간. 나만의 포토부스.<br />
-            Capture your vibe, express yourself, share instantly.
+            {t.desc1}<br />
+            {t.desc2}
           </div>
           <div style={{ marginTop: 40, display: 'flex', gap: 12 }}>
             <button onClick={onStart} style={{
               padding: '16px 36px', background: T.ink, color: T.bg, border: 'none',
               borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700,
               letterSpacing: 2.5, textTransform: 'uppercase', fontFamily: '"Plus Jakarta Sans",system-ui'
-            }}>촬영하기</button>
+            }}>{t.start}</button>
             <button onClick={onEdit} style={{
               padding: '16px 28px', background: 'transparent', color: T.ink,
               border: `1px solid ${T.ink}`, borderRadius: 4, cursor: 'pointer',
               fontSize: 11, fontWeight: 500, letterSpacing: 2, textTransform: 'uppercase',
               fontFamily: '"Plus Jakarta Sans",system-ui'
-            }}>편집하기</button>
+            }}>{t.edit}</button>
           </div>
         </div>
 
