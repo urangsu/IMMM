@@ -18,8 +18,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const faceDataRef = (typeof useFaceLandmarks === 'function')
     ? useFaceLandmarks(videoRef)
     : React.useRef({ detected: false });
+  // Mobile: WebGL disabled — Samsung Internet doesn't render video inside
+  // overflow:hidden+borderRadius containers, and WebGL canvas can cover the feed.
+  // CSS filter handles preview; canvas2D ctx.filter handles capture.
   const { engineRef, webglOk, firstFrame } = (typeof useFilterEngine === 'function')
-    ? useFilterEngine(canvasRef, videoRef, filter, faceDataRef)
+    ? useFilterEngine(canvasRef, videoRef, filter, faceDataRef, mobile)
     : { engineRef: null, webglOk: false, firstFrame: false };
 
   const canvasActive = webglOk && firstFrame;
@@ -29,8 +32,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     let active = true;
     (async () => {
       try {
+        // No width/height ideal constraints — Samsung Internet mishandles them
         const s = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: { ideal: 'user' } },
           audio: false,
         });
         if (!active) { s.getTracks().forEach(t=>t.stop()); return; }
@@ -162,34 +166,37 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       <div style={{ flex:1, minHeight:0, padding: mobile?'50px 16px 0':'24px', display:'flex', flexDirection:'column' }}>
         <TopBar step={1} back={()=>go('setup')} T={T} mobile={mobile} title={mobile?'Capture':'Step 2 · Shoot your 6'}
           right={<div style={{fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui'}}>{FILTERS[filter].name}</div>}/>
-        {/* Camera fills all remaining flex space */}
-        <div style={{ flex:1, minHeight:0, position:'relative', borderRadius:24, overflow:'hidden', background:'#000', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        {/* Camera fills all remaining flex space.
+            NO overflow:hidden here — Samsung Internet (Chromium) does not render
+            hardware-accelerated video inside overflow:hidden+borderRadius containers.
+            borderRadius is applied directly on video/canvas instead. */}
+        <div style={{ flex:1, minHeight:0, position:'relative', borderRadius:24, background:'#000', display:'flex', alignItems:'center', justifyContent:'center' }}>
           {camOk === false ? (
-            <div style={{ position:'absolute', inset:0 }}>
+            <div style={{ position:'absolute', inset:0, borderRadius:24, overflow:'hidden' }}>
               <PlaceholderPortrait seed={idx} filter={filter}/>
               <div style={{ position:'absolute', top:12, left:12, padding:'6px 10px', background:'rgba(0,0,0,0.55)', color:'#fff', borderRadius:999, fontSize:10, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui' }}>DEMO MODE</div>
             </div>
           ) : (
             <>
-              {/* Video: ALWAYS opacity:1. iOS Safari / Android Chrome stop
-                  painting video frames the moment opacity drops below ~0.05,
-                  causing WebGL texImage2D to return stale/black pixels.
-                  The canvas overlays the video when active; no opacity change needed. */}
+              {/* Video: always opacity:1, borderRadius directly on element.
+                  Mobile: canvasActive is always false (WebGL disabled on mobile)
+                  so this is the sole display layer — shows CSS filter live. */}
               <video ref={videoRef} playsInline muted autoPlay style={{
                 position:'absolute', inset:0, width:'100%', height:'100%',
                 objectFit:'cover', transform:'scaleX(-1)',
+                borderRadius:24,
                 filter: canvasActive ? 'none' : (FILTERS[filter]?.css || 'none'),
                 opacity: 1,
                 pointerEvents:'none',
               }}/>
-              {/* WebGL canvas: sits on top of video. Fades in once a non-black
-                  frame is confirmed via readPixels. alpha:false makes the canvas
-                  fully opaque when visible — completely covers the video below. */}
+              {/* WebGL canvas: desktop only (disabled on mobile).
+                  borderRadius matches video so edges align when it fades in. */}
               <canvas ref={canvasRef} style={{
                 display:'block', position:'absolute',
                 top:'50%', left:'50%',
                 transform:'translate(-50%,-50%)',
                 minWidth:'100%', minHeight:'100%',
+                borderRadius:24,
                 opacity: canvasActive ? 1 : 0,
                 transition: 'opacity 0.2s',
                 pointerEvents:'none',

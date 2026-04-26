@@ -554,7 +554,7 @@ class FilterEngine {
 // ═══════════════════════════════════════════════════════
 // useFilterEngine — React hook
 // ═══════════════════════════════════════════════════════
-function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef) {
+function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) {
   const engineRef    = React.useRef(null);
   const filterKeyRef = React.useRef(filterKey);
   const [webglOk, setWebglOk]     = React.useState(false);
@@ -563,6 +563,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef) {
   React.useEffect(() => { filterKeyRef.current = filterKey; }, [filterKey]);
 
   React.useEffect(() => {
+    if (disabled) return; // mobile: skip WebGL, use CSS filter + canvas2D capture instead
     const canvas = canvasRef.current;
     if (!canvas) return;
     let engine;
@@ -633,3 +634,4 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef) {
 }
 
 Object.assign(window, { FilterEngine, useFilterEngine, FILTER_PIPELINES });
+
