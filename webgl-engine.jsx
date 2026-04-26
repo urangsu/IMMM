@@ -364,49 +364,54 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),1.0),orig.a);
 }`,
 
-// ── Halation pass-1 H: extract bright → horizontal Gaussian blur ─
+// ── Halation pass-1 H: extract bright → horizontal Gaussian (unrolled for GLES1) ─
 halation_h: `
 precision mediump float;
 uniform sampler2D u_tex;
 uniform vec2 u_resolution;
 uniform float u_threshold;
 varying vec2 v_uv;
+float exB(vec3 c,float t){float l=dot(c,vec3(0.2126,0.7152,0.0722));float b=max(l-t,0.0)/max(1.0-t,0.001);return b*b;}
 void main(){
-  vec2 px=vec2(1.0/u_resolution.x, 0.0);
-  // Gaussian weights 9-tap sigma=2.0
-  float W[5]; W[0]=0.227; W[1]=0.194; W[2]=0.121; W[3]=0.054; W[4]=0.016;
-  vec3 sum=vec3(0.0); float wt=W[0];
+  float px=1.0/u_resolution.x;
+  float t=u_threshold;
   vec3 c0=texture2D(u_tex,v_uv).rgb;
-  float l0=dot(c0,vec3(0.2126,0.7152,0.0722));
-  float b0=max(l0-u_threshold,0.0)/(max(1.0-u_threshold,0.001));
-  sum=c0*b0*b0*W[0];
-  for(int i=1;i<=4;i++){
-    float fi=float(i);
-    vec3 sL=texture2D(u_tex,v_uv-px*fi*2.5).rgb;
-    vec3 sR=texture2D(u_tex,v_uv+px*fi*2.5).rgb;
-    float lL=dot(sL,vec3(0.2126,0.7152,0.0722)); float bL=max(lL-u_threshold,0.0)/(max(1.0-u_threshold,0.001)); bL=bL*bL;
-    float lR=dot(sR,vec3(0.2126,0.7152,0.0722)); float bR=max(lR-u_threshold,0.0)/(max(1.0-u_threshold,0.001)); bR=bR*bR;
-    sum+=sL*bL*W[i]+sR*bR*W[i];
-    wt+=W[i]*2.0;
-  }
+  vec3 c1=texture2D(u_tex,v_uv+vec2(px*2.5,0.0)).rgb;
+  vec3 cn1=texture2D(u_tex,v_uv-vec2(px*2.5,0.0)).rgb;
+  vec3 c2=texture2D(u_tex,v_uv+vec2(px*5.0,0.0)).rgb;
+  vec3 cn2=texture2D(u_tex,v_uv-vec2(px*5.0,0.0)).rgb;
+  vec3 c3=texture2D(u_tex,v_uv+vec2(px*7.5,0.0)).rgb;
+  vec3 cn3=texture2D(u_tex,v_uv-vec2(px*7.5,0.0)).rgb;
+  vec3 c4=texture2D(u_tex,v_uv+vec2(px*10.0,0.0)).rgb;
+  vec3 cn4=texture2D(u_tex,v_uv-vec2(px*10.0,0.0)).rgb;
+  vec3 sum=c0*exB(c0,t)*0.227
+    +(c1*exB(c1,t)+cn1*exB(cn1,t))*0.194
+    +(c2*exB(c2,t)+cn2*exB(cn2,t))*0.121
+    +(c3*exB(c3,t)+cn3*exB(cn3,t))*0.054
+    +(c4*exB(c4,t)+cn4*exB(cn4,t))*0.016;
+  float wt=0.227+(0.194+0.121+0.054+0.016)*2.0;
   gl_FragColor=vec4(sum/wt,1.0);
 }`,
 
-// ── Halation pass-2 V: vertical Gaussian ──────────────
+// ── Halation pass-2 V: vertical Gaussian (unrolled for GLES1) ────
 halation_v: `
 precision mediump float;
 uniform sampler2D u_tex;
 uniform vec2 u_resolution;
 varying vec2 v_uv;
 void main(){
-  vec2 px=vec2(0.0,1.0/u_resolution.y);
-  float W[5]; W[0]=0.227; W[1]=0.194; W[2]=0.121; W[3]=0.054; W[4]=0.016;
-  vec4 sum=texture2D(u_tex,v_uv)*W[0]; float wt=W[0];
-  for(int i=1;i<=4;i++){
-    float fi=float(i);
-    sum+=texture2D(u_tex,v_uv-px*fi*2.5)*W[i]+texture2D(u_tex,v_uv+px*fi*2.5)*W[i];
-    wt+=W[i]*2.0;
-  }
+  float py=1.0/u_resolution.y;
+  vec4 c0=texture2D(u_tex,v_uv);
+  vec4 c1=texture2D(u_tex,v_uv+vec2(0.0,py*2.5));
+  vec4 cn1=texture2D(u_tex,v_uv-vec2(0.0,py*2.5));
+  vec4 c2=texture2D(u_tex,v_uv+vec2(0.0,py*5.0));
+  vec4 cn2=texture2D(u_tex,v_uv-vec2(0.0,py*5.0));
+  vec4 c3=texture2D(u_tex,v_uv+vec2(0.0,py*7.5));
+  vec4 cn3=texture2D(u_tex,v_uv-vec2(0.0,py*7.5));
+  vec4 c4=texture2D(u_tex,v_uv+vec2(0.0,py*10.0));
+  vec4 cn4=texture2D(u_tex,v_uv-vec2(0.0,py*10.0));
+  vec4 sum=c0*0.227+(c1+cn1)*0.194+(c2+cn2)*0.121+(c3+cn3)*0.054+(c4+cn4)*0.016;
+  float wt=0.227+(0.194+0.121+0.054+0.016)*2.0;
   gl_FragColor=sum/wt;
 }`,
 
@@ -806,16 +811,19 @@ class FilterEngine {
         continue; // do NOT advance curTex/idx
       }
       if (step.shader === 'halation_v') {
-        // Pass 2-V: vertical blur on the fboInfos[2] content → write back to fboInfos[2]
-        this._pass('halation_v', this._fboInfos[2].attachments[0], this._fboInfos[2], {
+        // Pass 2-V: read from FBO[2] (H result), write to ping-pong — NOT back to FBO[2]!
+        const out = this._fboInfos[1 - idx];
+        this._pass('halation_v', this._fboInfos[2].attachments[0], out, {
           u_resolution: res,
           u_flipX: 0.0,
           ...step.uniforms,
         });
-        continue;
+        this._halBlurTex = out.attachments[0]; // save for halation_comp
+        idx = 1 - idx; // advance ping-pong
+        continue; // curTex still points to scene (for halation_comp u_tex)
       }
       if (step.shader === 'halation_comp') {
-        // Pass 3: composite blurred halation on scene
+        // Pass 3: composite scene (sceneTex) + blurred halation (_halBlurTex)
         const out = this._fboInfos[1 - idx];
         const prog = this._programs['halation_comp'];
         if (prog) {
@@ -825,7 +833,7 @@ class FilterEngine {
           twgl.setBuffersAndAttributes(gl, prog, this._bufInfo);
           twgl.setUniforms(prog, {
             u_tex: sceneTex,
-            u_halTex: this._fboInfos[2].attachments[0],
+            u_halTex: this._halBlurTex || this._fboInfos[2].attachments[0],
             u_flipX: 0.0,
             ...step.uniforms,
           });
