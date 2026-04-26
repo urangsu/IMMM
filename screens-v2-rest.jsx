@@ -24,52 +24,87 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
   const canvasActive = webglOk && firstFrame;
 
-  // Camera init
+  // Camera init — ideal constraints first, bare fallback for stricter mobile browsers
   React.useEffect(()=> {
     let active = true;
     (async () => {
       try {
-        const s = await navigator.mediaDevices.getUserMedia({ video:{facingMode:'user', width:720, height:720}, audio:false });
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
         if (!active) { s.getTracks().forEach(t=>t.stop()); return; }
         streamRef.current = s;
         setCamOk(true);
         if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play().catch(()=>{}); }
-      } catch(e) { setCamOk(false); }
+      } catch(e) {
+        try {
+          const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          if (!active) { s.getTracks().forEach(t=>t.stop()); return; }
+          streamRef.current = s;
+          setCamOk(true);
+          if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play().catch(()=>{}); }
+        } catch(_) { setCamOk(false); }
+      }
     })();
     return () => { active=false; streamRef.current?.getTracks().forEach(t=>t.stop()); };
+  }, []);
+
+  const captureFromVideo = React.useCallback((v) => {
+    if (!v || !v.videoWidth || !v.videoHeight) return null;
+    try {
+      const c = document.createElement('canvas');
+      c.width = 720; c.height = 720;
+      const ctx = c.getContext('2d');
+      ctx.save();
+      ctx.translate(c.width, 0); ctx.scale(-1, 1);
+      const vw = v.videoWidth, vh = v.videoHeight;
+      const size = Math.min(vw, vh);
+      const sx = (vw - size) / 2, sy = (vh - size) / 2;
+      ctx.drawImage(v, sx, sy, size, size, 0, 0, c.width, c.height);
+      ctx.restore();
+      return c.toDataURL('image/jpeg', 0.88);
+    } catch(e) { return null; }
   }, []);
 
   const takeShot = React.useCallback(() => {
     setFlashing(true);
     setTimeout(()=>setFlashing(false), 140);
-    let dataUrl = null;
-    const canvas = canvasRef.current;
-    if (canvas && canvasActive) {
-      dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-    } else {
-      const v = videoRef.current;
-      if (v && v.videoWidth) {
+
+    const doCapture = () => {
+      let dataUrl = null;
+      // WebGL canvas — only if actively rendering (blank check: real JPEG > 5KB)
+      const canvas = canvasRef.current;
+      if (canvas && canvasActive) {
         try {
-          const c = document.createElement('canvas');
-          const size = Math.min(v.videoWidth, v.videoHeight);
-          c.width=480; c.height=480;
-          const ctx = c.getContext('2d');
-          ctx.save(); ctx.translate(c.width,0); ctx.scale(-1,1);
-          const sx=(v.videoWidth-size)/2, sy=(v.videoHeight-size)/2;
-          ctx.drawImage(v, sx, sy, size, size, 0, 0, c.width, c.height);
-          ctx.restore();
-          dataUrl = c.toDataURL('image/jpeg', 0.85);
+          const raw = canvas.toDataURL('image/jpeg', 0.88);
+          if (raw && raw.length > 5000) dataUrl = raw;
         } catch(e) {}
       }
+      // Fallback: draw directly from video element (mirrored, 720px)
+      if (!dataUrl) {
+        const v = videoRef.current;
+        if (v && v.readyState >= 2 && v.videoWidth > 0) dataUrl = captureFromVideo(v);
+      }
+      setShots(prev => {
+        const copy = [...prev];
+        while (copy.length < 6) copy.push(null);
+        copy[idx] = { dataUrl, filter, ts: Date.now() };
+        return copy;
+      });
+      setIdx(i => Math.min(i+1, 6));
+    };
+
+    // Wait for video ready if needed
+    const v = videoRef.current;
+    if (v && v.readyState < 2) {
+      const onReady = () => { v.removeEventListener('canplay', onReady); doCapture(); };
+      v.addEventListener('canplay', onReady);
+      setTimeout(() => { v.removeEventListener('canplay', onReady); doCapture(); }, 800);
+    } else {
+      doCapture();
     }
-    setShots(prev => {
-      const copy = [...prev];
-      while (copy.length < 6) copy.push(null);
-      copy[idx] = { dataUrl, filter, ts: Date.now() };
-      return copy;
-    });
-    setIdx(i => Math.min(i+1, 6));
-  }, [idx, filter, setShots, canvasActive]);
+  }, [idx, filter, setShots, canvasActive, captureFromVideo]);
 
   React.useEffect(()=> {
     if (countdown <= 0) return;

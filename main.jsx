@@ -107,12 +107,10 @@ function App() {
   };
 
   return (
-    <div style={{ height: '100%', width: '100%', background: 'transparent', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <ScreenTransition id={screen}>
-          {renderScreen()}
-        </ScreenTransition>
-      </div>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'transparent', overflow: 'hidden' }}>
+      <ScreenTransition id={screen}>
+        {renderScreen()}
+      </ScreenTransition>
     </div>
   );
 }
