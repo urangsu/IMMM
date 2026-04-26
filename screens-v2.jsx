@@ -231,19 +231,13 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
       {/* Right — photo stack */}
       <div style={{ background: 'transparent', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ position: 'relative', width: 260, height: 380 }}>
-          {/* grid — behind, bigger, color */}
-          <div style={{ position: 'absolute', right: -10, bottom: -10, transform: 'rotate(4deg)', padding: 8, background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.12)', zIndex: 1, width: "200px", height: "230px" }}>
-            <div style={{ transform: 'scale(0.85)', transformOrigin: 'top left', width: '117%' }}>
-              <FrameThumb layout="grid" shots={dummyShots} selected={[0,1,2,3]} T={T} logo={false} dateText={false} scale={1} />
-            </div>
-            <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, fontFamily: 'Caveat,cursive', fontSize: 13, textAlign: 'center', color: T.ink }}>best day ♡</div>
+          {/* grid — behind, bigger */}
+          <div style={{ position: 'absolute', right: 0, bottom: -10, transform: 'rotate(4deg)', zIndex: 1 }}>
+            <FrameThumb layout="grid" shots={dummyShots} selected={[0,1,2,3]} T={T} logo={true} dateText={false} scale={0.7} accent={T.pinkDeep || '#111'} />
           </div>
           {/* strip 1 — in front */}
-          <div style={{ position: 'absolute', left: 0, top: 20, transform: 'rotate(-5deg)', width: 120, padding: 8, background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.12)', zIndex: 2 }}>
-            <div style={{ transform: 'scale(0.65)', transformOrigin: 'top left', width: '153%' }}>
-              <FrameThumb layout="strip" shots={dummyShots} selected={[0,1,2,3]} T={T} logo={false} dateText={false} scale={1} />
-            </div>
-            <div style={{ marginTop: 8, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 7, letterSpacing: 2, textAlign: 'center', color: T.inkSoft, textTransform: 'uppercase' }}>I M M M · 2026</div>
+          <div style={{ position: 'absolute', left: 40, top: 10, transform: 'rotate(-5deg)', zIndex: 2 }}>
+            <FrameThumb layout="strip" shots={dummyShots} selected={[0,1,2,3]} T={T} logo={true} dateText={false} scale={0.7} accent={T.pinkDeep || '#111'} />
           </div>
         </div>
         {/* Logo overlay */}
