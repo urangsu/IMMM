@@ -310,7 +310,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         (orientation === 'landscape' && layout === 'trip')  ? 280 :
         layout === 'grid' ? 220 : 160
       } height={'auto'}>
-          <FrameThumb layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
+          <FrameThumb key={frameColor} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
         logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} />
         </StickerCanvas>
       </div>
@@ -320,7 +320,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const frameTab =
   <div>
       <Kick T={T}>Choose your frame · 프레임 선택</Kick>
-      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, width: '100%' }}>
         {[
           { id: 'strip',    en: '1×4 Strip', ko: '스트립' },
           { id: 'trip',     en: '1×3',       ko: '트리플' },
@@ -335,8 +335,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
       }}>
             <div style={{ width: '100%', height: 84, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <div style={{ transform: 'scale(0.38)', transformOrigin: 'center center', display: 'flex', alignItems: 'center' }}>
-                <FrameThumb layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
+              <div style={{ transform: 'scale(0.3)', transformOrigin: 'center center', display: 'flex', alignItems: 'center' }}>
+                <FrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
                   logo={false} dateText={false} accent={accent} scale={1}
                   orientation="portrait" frameColor={frameColor} />
               </div>
@@ -437,7 +437,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         transition: 'all 0.2s'
       }}>
             <div style={{ aspectRatio: '1', position: 'relative', overflow: 'hidden' }}>
-              <img src="asset/filter-sample.png" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: v.css }} />
+              <img src="asset/filter-sample.png" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: v.thumbPos || 'center', transform: 'scale(4.8)' }} />
               <FilterOverlay filter={k} />
             </div>
             <div style={{ padding: '6px 10px', fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
