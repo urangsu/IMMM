@@ -492,14 +492,26 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
 
 
   const photoFileRefs = [uR(null), uR(null), uR(null), uR(null)];
-  const onPhotoUpload = (idx, e) => {
-    const f = e.target.files?.[0];if (!f) return;
-    const rd = new FileReader();
-    rd.onload = () => {
-      setShots((prev) => {const n = [...prev];n[idx] = { dataUrl: rd.result, filter };return n;});
-      setSelected((prev) => {const n = [...prev];if (!n.includes(idx)) n[idx] = idx;return [0, 1, 2, 3];});
-    };
-    rd.readAsDataURL(f);
+  const onPhotoUpload = async (idx, e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    
+    for (let i = 0; i < files.length; i++) {
+      const targetIdx = idx + i;
+      if (targetIdx >= 6) break;
+      const f = files[i];
+      const dataUrl = await new Promise(res => {
+        const rd = new FileReader();
+        rd.onload = () => res(rd.result);
+        rd.readAsDataURL(f);
+      });
+      setShots((prev) => {
+        const n = [...prev];
+        while (n.length <= targetIdx) n.push(null);
+        n[targetIdx] = { dataUrl, filter };
+        return n;
+      });
+    }
   };
 
   const photosTab = editMode ?

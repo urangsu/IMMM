@@ -156,21 +156,32 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,vec3(clamp(bw,0.0,1.0)),u_intensity),orig.a);
 }`,
 
-// ── Y2K ───────────────────────────────────────────────
+// ── Y2K — CRT + digital camera 2002 ──────────────────
 y2k: `
 precision mediump float;
 uniform sampler2D u_tex;
 uniform float u_intensity;
+uniform vec2 u_resolution;
 varying vec2 v_uv;
 void main(){
   vec4 orig=texture2D(u_tex,v_uv);
   vec3 c=orig.rgb;
   float lum=dot(c,vec3(0.299,0.587,0.114));
-  c=mix(vec3(lum),c,1.0+0.4*u_intensity);
-  c.b+=0.05*u_intensity; c.r-=0.02*u_intensity;
-  c*=1.0+0.05*u_intensity;
-  float hi=smoothstep(0.6,1.0,lum);
-  c.b+=hi*0.06*u_intensity;
+  // Heavy cyan-blue cast + oversaturation (CRT monitor)
+  c=mix(vec3(lum),c,1.0+0.5*u_intensity);
+  c.b+=0.13*u_intensity; c.g+=0.05*u_intensity; c.r-=0.06*u_intensity;
+  // Blown highlights (2002 digital camera)
+  float hi=smoothstep(0.60,1.0,lum);
+  c=mix(c,vec3(0.98,0.97,1.04),hi*0.22*u_intensity);
+  // Edge chromatic aberration
+  vec2 px=1.0/u_resolution;
+  c.r=mix(c.r,texture2D(u_tex,v_uv+vec2(2.5*px.x,0.0)).r,0.45*u_intensity);
+  c.b=mix(c.b,texture2D(u_tex,v_uv-vec2(2.5*px.x,0.0)).b,0.45*u_intensity);
+  // Subtle CRT scanlines
+  float scan=sin(v_uv.y*u_resolution.y*3.14159)*0.5+0.5;
+  c*=1.0-(1.0-scan)*0.04*u_intensity;
+  // Black lift (JPEG artifact feel)
+  c=max(c,vec3(0.045,0.040,0.060));
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
 }`,
 
@@ -318,6 +329,105 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),1.0),orig.a);
 }`,
 
+// ── Halation — 14-tap cross kernel bright-area glow ───
+halation: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_resolution;
+uniform float u_intensity;
+uniform float u_threshold;
+varying vec2 v_uv;
+void main(){
+  vec4 orig=texture2D(u_tex,v_uv);
+  vec2 px=1.0/u_resolution;
+  vec3 glow=vec3(0.0); float wt=0.0;
+  for(int i=-3;i<=3;i++){
+    float fi=float(i);
+    float w=exp(-0.5*fi*fi/3.5);
+    vec3 sh=texture2D(u_tex,v_uv+vec2(fi*px.x*4.0,0.0)).rgb;
+    float lh=dot(sh,vec3(0.2126,0.7152,0.0722));
+    float bh=max(lh-u_threshold,0.0)/(1.0-u_threshold);
+    glow+=bh*bh*vec3(1.8,0.55,0.18)*w;
+    vec3 sv=texture2D(u_tex,v_uv+vec2(0.0,fi*px.y*4.0)).rgb;
+    float lv=dot(sv,vec3(0.2126,0.7152,0.0722));
+    float bv=max(lv-u_threshold,0.0)/(1.0-u_threshold);
+    glow+=bv*bv*vec3(1.8,0.55,0.18)*w;
+    wt+=w*2.0;
+  }
+  glow=(glow/wt)*u_intensity;
+  vec3 c=orig.rgb+glow-orig.rgb*glow;
+  gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
+}`,
+
+// ── Split Tone — shadow/highlight colour toning ───────
+split_tone: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec3 u_shadowColor;
+uniform vec3 u_highlightColor;
+uniform float u_intensity;
+varying vec2 v_uv;
+void main(){
+  vec4 orig=texture2D(u_tex,v_uv);
+  vec3 c=orig.rgb;
+  float lum=dot(c,vec3(0.2126,0.7152,0.0722));
+  c=c*mix(u_shadowColor,vec3(1.0),smoothstep(0.0,0.5,lum))
+      *mix(vec3(1.0),u_highlightColor,smoothstep(0.5,1.0,lum));
+  gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
+}`,
+
+// ── Film Grain v2 — temporal, midtone-masked ──────────
+film_grain_v2: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform float u_time;
+uniform float u_amount;
+varying vec2 v_uv;
+float rand(vec2 co){return fract(sin(dot(co,vec2(12.9898,78.233)))*43758.5453);}
+void main(){
+  vec4 orig=texture2D(u_tex,v_uv);
+  float lum=dot(orig.rgb,vec3(0.2126,0.7152,0.0722));
+  float t=floor(u_time*24.0);
+  vec2 uv_g=floor(v_uv*512.0)/512.0;
+  float g=(rand(uv_g+t*0.01)+rand(uv_g*1.7+t*0.013+0.5))*0.5-0.5;
+  float mask=pow(1.0-abs(lum*2.0-1.0),0.7);
+  vec3 c=orig.rgb+g*u_amount*mask;
+  float gl=dot(c,vec3(0.2126,0.7152,0.0722));
+  c=mix(c,vec3(gl),abs(g)*u_amount*0.3);
+  gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
+}`,
+
+// ── Vignette — standalone radial darkening ────────────
+vignette: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform float u_strength;
+varying vec2 v_uv;
+void main(){
+  vec4 orig=texture2D(u_tex,v_uv);
+  vec2 uv=v_uv*2.0-1.0;
+  float v=1.0-dot(uv,uv)*u_strength*0.55;
+  v=clamp(pow(v,1.8),0.0,1.0);
+  gl_FragColor=vec4(orig.rgb*v,orig.a);
+}`,
+
+// ── Chromatic Aberration — lateral RGB channel offset ─
+chromatic_ab: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform float u_amount;
+varying vec2 v_uv;
+void main(){
+  vec2 center=v_uv-0.5;
+  float dist=length(center);
+  float ca=u_amount*(1.0+dist*1.8);
+  vec2 dir=normalize(center+0.0001);
+  float r=texture2D(u_tex,v_uv+dir*ca).r;
+  float g=texture2D(u_tex,v_uv).g;
+  float b=texture2D(u_tex,v_uv-dir*ca).b;
+  gl_FragColor=vec4(r,g,b,texture2D(u_tex,v_uv).a);
+}`,
+
 // ── Smooth (strong bilateral + warm lift) ─────────────
 smooth_skin: `
 precision mediump float;
@@ -355,47 +465,108 @@ void main(){
 // Filter pipeline presets
 // ═══════════════════════════════════════════════════════
 const FILTER_PIPELINES = {
-  original:  { pipeline:[] },
+  original: { pipeline:[] },
 
+  // ── 자연광 ─────────────────────────────────────────────
   porcelain: { pipeline:[
-    { shader:'bilateral_h', uniforms:{ u_sigmaSpace:3.0, u_sigmaColor:0.12 } },
-    { shader:'bilateral_v', uniforms:{ u_sigmaSpace:3.0, u_sigmaColor:0.12 } },
-    { shader:'porcelain',   uniforms:{ u_intensity:1.0 } },
-    { shader:'color_adjust',uniforms:{ u_exposure:0.08,u_contrast:-0.06,u_saturation:-0.08,u_temperature:0.2,u_tint:0,u_vibrance:0,u_highlights:0.04,u_shadows:0.02 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.5, u_sigmaColor:0.10 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.5, u_sigmaColor:0.10 } },
+    { shader:'porcelain',    uniforms:{ u_intensity:1.0 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.92,0.94,1.04], u_highlightColor:[1.04,1.01,0.97], u_intensity:0.7 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.04,u_saturation:-0.06,u_temperature:0.15,u_tint:0,u_vibrance:0,u_highlights:0.03,u_shadows:0.02 } },
   ]},
 
-  y2k:  { pipeline:[{ shader:'y2k',  uniforms:{ u_intensity:1.0 } }] },
-  bw:   { pipeline:[{ shader:'ilford_hp5', uniforms:{ u_intensity:1.0 } }] },
-  grain:{ pipeline:[{ shader:'classic_neg',uniforms:{ u_intensity:1.0 } }] },
-  vintage:{ pipeline:[{ shader:'kodak_portra',uniforms:{ u_intensity:1.0 } }] },
-  dream:{ pipeline:[{ shader:'dream', uniforms:{ u_intensity:1.0 } }] },
+  // ── 2002 ───────────────────────────────────────────────
+  y2k: { pipeline:[
+    { shader:'y2k',          uniforms:{ u_intensity:1.0 } },
+    { shader:'chromatic_ab', uniforms:{ u_amount:0.003 } },
+    { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.022 } },
+  ]},
 
+  // ── 한강 새벽 ──────────────────────────────────────────
+  bw: { pipeline:[
+    { shader:'ilford_hp5',   uniforms:{ u_intensity:1.0 } },
+    { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.055 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.85 } },
+  ]},
+
+  // ── 코닥 ───────────────────────────────────────────────
+  grain: { pipeline:[
+    { shader:'classic_neg',  uniforms:{ u_intensity:1.0 } },
+    { shader:'halation',     uniforms:{ u_intensity:0.55, u_threshold:0.52 } },
+    { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.042 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.65 } },
+  ]},
+
+  // ── 엄마 앨범 ──────────────────────────────────────────
+  vintage: { pipeline:[
+    { shader:'kodak_portra', uniforms:{ u_intensity:1.0 } },
+    { shader:'halation',     uniforms:{ u_intensity:0.70, u_threshold:0.48 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.90,0.92,1.06], u_highlightColor:[1.08,1.04,0.92], u_intensity:0.75 } },
+    { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.038 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.70 } },
+  ]},
+
+  // ── 새벽 두 시 ─────────────────────────────────────────
+  dream: { pipeline:[
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
+    { shader:'dream',        uniforms:{ u_intensity:1.0 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.85,0.87,1.12], u_highlightColor:[1.03,1.01,1.06], u_intensity:0.65 } },
+    { shader:'chromatic_ab', uniforms:{ u_amount:0.0018 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.55 } },
+  ]},
+
+  // ── 반짝 ───────────────────────────────────────────────
   glitter: { pipeline:[
     { shader:'color_adjust', uniforms:{ u_exposure:0.1,u_saturation:0.28,u_contrast:0.04,u_temperature:0,u_tint:0,u_vibrance:0.15,u_highlights:0.08,u_shadows:0 } },
-    { shader:'glitter',      uniforms:{ u_time:0.0, u_intensity:0.9 } }, // u_time injected per frame
+    { shader:'glitter',      uniforms:{ u_time:0.0, u_intensity:0.9 } },
+    { shader:'halation',     uniforms:{ u_intensity:0.45, u_threshold:0.60 } },
   ]},
 
+  // ── 하라주쿠 ────────────────────────────────────────────
   purikura: { pipeline:[
-    { shader:'bilateral_h', uniforms:{ u_sigmaSpace:4.5, u_sigmaColor:0.15 } },
-    { shader:'bilateral_v', uniforms:{ u_sigmaSpace:4.5, u_sigmaColor:0.15 } },
-    { shader:'purikura',    uniforms:{ u_intensity:1.0, u_eyeRadius:0.0, u_eyeScale:1.0,
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.14 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.14 } },
+    { shader:'purikura',     uniforms:{ u_intensity:1.0, u_eyeRadius:0.0, u_eyeScale:1.0,
         u_leftEyeCenter:[0.35,0.40], u_rightEyeCenter:[0.65,0.40] } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.94,0.90,1.05], u_highlightColor:[1.06,1.03,1.04], u_intensity:0.55 } },
   ]},
 
+  // ── 크림 스킨 ──────────────────────────────────────────
   smooth: { pipeline:[
-    { shader:'bilateral_h', uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.18 } },
-    { shader:'bilateral_v', uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.18 } },
-    { shader:'smooth_skin', uniforms:{ u_intensity:1.0 } },
-    { shader:'color_adjust',uniforms:{ u_exposure:0.08,u_contrast:-0.1,u_saturation:-0.06,u_temperature:0.15,u_tint:0,u_vibrance:0,u_highlights:0.05,u_shadows:0.05 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.18 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.18 } },
+    { shader:'smooth_skin',  uniforms:{ u_intensity:1.0 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.93,0.94,1.03], u_highlightColor:[1.05,1.02,0.98], u_intensity:0.6 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.08,u_saturation:-0.05,u_temperature:0.12,u_tint:0,u_vibrance:0,u_highlights:0.04,u_shadows:0.04 } },
   ]},
 
+  // ── 첫사랑 ─────────────────────────────────────────────
   blush: { pipeline:[
-    { shader:'color_adjust', uniforms:{ u_exposure:0.04,u_saturation:0.12,u_contrast:-0.04,u_temperature:0.18,u_tint:0,u_vibrance:0,u_highlights:0,u_shadows:0 } },
-    { shader:'blush', uniforms:{
-        u_leftCheek:[0.28,0.52], u_rightCheek:[0.72,0.52],
-        u_cheekRadius:0.22, u_blushStrength:0.85,
-        u_blushColor:[0.98,0.72,0.72],
-    }},
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.04,u_saturation:0.10,u_contrast:-0.04,u_temperature:0.18,u_tint:0,u_vibrance:0,u_highlights:0,u_shadows:0 } },
+    { shader:'blush',        uniforms:{ u_leftCheek:[0.28,0.52], u_rightCheek:[0.72,0.52],
+        u_cheekRadius:0.22, u_blushStrength:0.85, u_blushColor:[0.98,0.72,0.72] } },
+  ]},
+
+  // ── 골든아워 (신규) ────────────────────────────────────
+  golden: { pipeline:[
+    { shader:'kodak_portra', uniforms:{ u_intensity:0.7 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.88,0.90,1.02], u_highlightColor:[1.12,1.06,0.88], u_intensity:0.9 } },
+    { shader:'halation',     uniforms:{ u_intensity:0.85, u_threshold:0.44 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.10,u_contrast:0.06,u_saturation:0.08,u_temperature:0.35,u_tint:0,u_vibrance:0.10,u_highlights:-0.04,u_shadows:0.06 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.60 } },
+  ]},
+
+  // ── 로모 (신규) ────────────────────────────────────────
+  lomo: { pipeline:[
+    { shader:'classic_neg',  uniforms:{ u_intensity:0.8 } },
+    { shader:'chromatic_ab', uniforms:{ u_amount:0.004 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.82,0.88,1.10], u_highlightColor:[1.10,1.02,0.88], u_intensity:0.8 } },
+    { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.060 } },
+    { shader:'vignette',     uniforms:{ u_strength:1.10 } },
   ]},
 };
 
@@ -610,7 +781,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
         }
 
         const pipeline = preset.pipeline.map(step =>
-          step.shader === 'glitter'
+          (step.shader === 'glitter' || step.shader === 'film_grain_v2')
             ? { ...step, uniforms: { ...step.uniforms, u_time: time } }
             : step
         );

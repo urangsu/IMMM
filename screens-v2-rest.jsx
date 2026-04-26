@@ -20,11 +20,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const faceDataRef = (typeof useFaceLandmarks === 'function')
     ? useFaceLandmarks(videoRef)
     : React.useRef({ detected: false });
-  // Mobile: WebGL disabled — Samsung Internet doesn't render video inside
-  // overflow:hidden+borderRadius containers, and WebGL canvas can cover the feed.
-  // CSS filter handles preview; canvas2D ctx.filter handles capture.
+  // Enable WebGL across all devices now that the Samsung Internet overflow bug is fixed.
   const { engineRef, webglOk, firstFrame } = (typeof useFilterEngine === 'function')
-    ? useFilterEngine(canvasRef, videoRef, filter, faceDataRef, mobile)
+    ? useFilterEngine(canvasRef, videoRef, filter, faceDataRef, false)
     : { engineRef: null, webglOk: false, firstFrame: false };
 
   const canvasActive = webglOk && firstFrame;
@@ -219,6 +217,16 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 transition: 'opacity 0.2s',
                 pointerEvents:'none',
               }}/>
+              {/* Pre-Stickers mapped to this slot */}
+              {preStickers?.filter(s => s.frameSlot === idx).map(s => (
+                <div key={s.id} style={{
+                  position: 'absolute', left: `${s.slotX ?? 50}%`, top: `${s.slotY ?? 50}%`,
+                  transform: `translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`,
+                  pointerEvents: 'none', zIndex: 10
+                }}>
+                  {renderStickerInstance(s)}
+                </div>
+              ))}
             </>
           )}
           <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>

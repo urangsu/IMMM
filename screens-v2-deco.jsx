@@ -15,7 +15,8 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const [textInput, setTextInput] = React.useState('');
   const fileRef = React.useRef(null);
 
-  const [curStroke, setCurStroke] = React.useState(null);
+  const curStrokeRef = React.useRef(null);
+  const curPathElRef = React.useRef(null);
 
   const addPreset = (libId) => setStickers((p) => [...p, makeSticker('preset', { libId })]);
   const addUpload = (dataUrl) => setStickers((p) => [...p, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
@@ -45,24 +46,34 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     const rect = frameNativeRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width * 100;
     const y = (e.clientY - rect.top) / rect.height * 100;
-    setCurStroke({ color: drawColor, width: drawWidth, brush: drawBrush, points: [[x, y]] });
+    curStrokeRef.current = { color: drawColor, width: drawWidth, brush: drawBrush, points: [[x, y]] };
+    if (curPathElRef.current) {
+      curPathElRef.current.setAttribute('d', `M${x} ${y}`);
+      curPathElRef.current.setAttribute('stroke', drawColor);
+      curPathElRef.current.setAttribute('stroke-width', drawWidth);
+    }
   }, [drawColor, drawWidth, drawBrush]);
 
   const onDrawMove = React.useCallback((e) => {
-    if (!drawModeRef.current || !frameNativeRef.current) return;
+    if (!drawModeRef.current || !frameNativeRef.current || !curStrokeRef.current) return;
     const rect = frameNativeRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width * 100;
     const y = (e.clientY - rect.top) / rect.height * 100;
-    setCurStroke((s) => s ? { ...s, points: [...s.points, [x, y]] } : null);
+    curStrokeRef.current.points.push([x, y]);
+    if (curPathElRef.current) {
+      const d = curPathElRef.current.getAttribute('d');
+      curPathElRef.current.setAttribute('d', d + ` L${x} ${y}`);
+    }
   }, []);
 
   const onDrawEnd = React.useCallback(() => {
-    setCurStroke((s) => {
-      if (s && s.points.length > 1) {
-        setDrawStrokes((p) => [...p, s]);
-      }
-      return null;
-    });
+    if (curStrokeRef.current && curStrokeRef.current.points.length > 1) {
+      setDrawStrokes((p) => [...p, curStrokeRef.current]);
+    }
+    curStrokeRef.current = null;
+    if (curPathElRef.current) {
+      curPathElRef.current.setAttribute('d', '');
+    }
   }, [setDrawStrokes]);
   const undoStroke = () => setDrawStrokes((p) => p.slice(0, -1));
   const clearDraw = () => setDrawStrokes([]);
@@ -112,11 +123,10 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       width={layout === 'strip' || layout === 'trip' ? 180 : 220} height="auto">
           <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
         logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation||'portrait'} frameColor={frameColor} />
-          {/* Draw layer */}
           <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}>
             {drawStrokes.map((s, i) => renderStroke(s, i))}
-            {curStroke && renderStroke(curStroke, 'cur')}
+            <path ref={curPathElRef} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </StickerCanvas>
       </div>
@@ -504,6 +514,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         if (navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ files: [file], title: 'IMMM Photo' });
+            if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
             setDownloading(false); return;
           } catch(e) {
             if (e.name === 'AbortError') { setDownloading(false); return; }
@@ -516,6 +527,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       const a = document.createElement('a');
       a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
       // iOS Safari fallback: open blob in new tab so user can long-press → Save Image
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -586,9 +598,18 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       ctx.fillText('IMMM', W - 20, H - 16);
     };
 
-    const wait = ms => new Promise(res => setTimeout(res, ms));
+    const paintWait = async ms => {
+      const end = Date.now() + ms;
+      while (Date.now() < end) {
+        ctx.fillStyle = `rgba(0,0,0,0.001)`;
+        ctx.fillRect(0,0,1,1); // Force repaint
+        const track = stream.getVideoTracks()[0];
+        if (track && track.requestFrame) track.requestFrame();
+        await new Promise(r => requestAnimationFrame(r));
+      }
+    };
 
-    rec.start(100); // collect data every 100ms
+    rec.start();
 
     for (let i = 0; i < imgs.length; i++) {
       const s = allShots[i];
@@ -597,7 +618,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       // white flash in
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, W, H);
-      await wait(60);
+      await paintWait(60);
 
       // draw photo
       drawFrame(imgs[i], filterCss);
@@ -609,13 +630,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       ctx.textBaseline = 'top';
       ctx.fillText(`${String(i+1).padStart(2,'0')} / ${String(imgs.length).padStart(2,'0')}`, 18, 18);
 
-      await wait(1200);
+      await paintWait(1200);
 
       // brief white flash out before next
       if (i < imgs.length - 1) {
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.fillRect(0, 0, W, H);
-        await wait(50);
+        await paintWait(50);
       }
     }
 
@@ -630,7 +651,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     ctx.font = '300 18px sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.fillText('My moments, uniquely mine.', W/2, H/2 + 24);
-    await wait(800);
+    await paintWait(800);
 
     rec.stop();
   };
@@ -680,7 +701,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           </div>
           {/* Frame centered */}
           <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 18px' }}>
-            <div ref={frameRef} style={{ display: 'inline-block', animation: 'popIn 0.55s cubic-bezier(0.34,1.56,0.64,1)' }}>
+            <div ref={frameRef} style={{ display: 'inline-block', animation: 'polaroidReveal 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }}>
               {resultFrame(1)}
             </div>
           </div>
@@ -695,10 +716,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
               {videoRecording && <div style={{position:'absolute',top:-6,right:-6,background:T.pinkDeep,borderRadius:999,width:10,height:10,animation:'pulse 0.8s ease-in-out infinite'}}/>}
             </button>
             )}
-            <button title="Instagram" style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.7"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
+            <button title="카카오톡 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: '#FEE500', color: '#191919', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-5.523 0-10 3.51-10 7.84 0 2.766 1.761 5.184 4.417 6.551-.19.684-.684 2.458-.784 2.836-.128.487.165.483.35.358.146-.1.2.14 2.378-1.554 1.137.318 2.358.49 3.639.49 5.523 0 10-3.511 10-7.84C22 6.511 17.523 3 12 3z"/></svg>
             </button>
-            <button title="공유" onClick={() => { if (navigator.share) navigator.share({ title: 'IMMM', url: location.href }); }} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button title="Instagram 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.7"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
+            </button>
+            <button title="일반 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {I.share(20, T.ink)}
             </button>
           </div>

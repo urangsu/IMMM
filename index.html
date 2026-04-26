@@ -43,11 +43,18 @@
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
 
-  @keyframes pulse    { 0%,100%{transform:scale(1);opacity:0.35} 50%{transform:scale(1.08);opacity:0.15} }
-  @keyframes flash    { 0%{opacity:1} 100%{opacity:0} }
-  @keyframes popIn    { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
-  @keyframes countPop { 0%{transform:scale(1.6);opacity:0} 30%{opacity:1} 100%{transform:scale(0.9);opacity:0.3} }
-  @keyframes spin     { to { transform: rotate(360deg); } }
+  @keyframes pulse         { 0%,100%{transform:scale(1);opacity:0.35} 50%{transform:scale(1.08);opacity:0.15} }
+  @keyframes flash         { 0%{opacity:1} 100%{opacity:0} }
+  @keyframes popIn         { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+  @keyframes countPop      { 0%{transform:scale(1.6);opacity:0} 30%{opacity:1} 100%{transform:scale(0.9);opacity:0.3} }
+  @keyframes spin          { to { transform: rotate(360deg); } }
+  @keyframes polaroidReveal {
+    0%   { transform:scale(0.88) rotate(-2.5deg); opacity:0; }
+    40%  { transform:scale(1.04) rotate(1.2deg);  opacity:1; }
+    65%  { transform:scale(0.98) rotate(-0.6deg); }
+    80%  { transform:scale(1.01) rotate(0.3deg);  }
+    100% { transform:scale(1.0)  rotate(0deg);    opacity:1; }
+  }
 </style>
 
 <!-- React 18 -->
@@ -68,6 +75,9 @@
 
 <!-- TWGL.js — lightweight WebGL helper -->
 <script src="https://twgljs.org/dist/4.x/twgl-full.min.js"></script>
+
+<!-- canvas-confetti — result screen download celebration -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
 <!-- MediaPipe Tasks Vision — expose as globals for JSX scripts -->
 <script type="module">

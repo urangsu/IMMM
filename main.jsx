@@ -37,7 +37,12 @@ function App() {
   React.useEffect(() => { localStorage.setItem('immm.v2.screen', screen); }, [screen]);
   React.useEffect(() => { localStorage.setItem('immm.v2.sel', JSON.stringify(selected)); }, [selected]);
 
-  const go = (s) => setScreen(s);
+  const go = (s) => {
+    if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
+      setStickers([...preStickers]);
+    }
+    setScreen(s);
+  };
   const updateTweak = (k, v) => setTweaks(prev => ({ ...prev, [k]: v }));
 
   // Dummy-fill shots when jumping deep without capturing
