@@ -740,6 +740,14 @@ class FilterEngine {
   stop()    { if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; } }
   destroy() { this._destroyed = true; this.stop(); }
 
+  takeSnapshot(w, h, mirrorX, pipeline, faceUniforms) {
+    if (this._destroyed) return null;
+    const src = this._getSource();
+    if (!src || src.readyState < 2) return null;
+    this.render(src, pipeline, w, h, mirrorX, faceUniforms);
+    return this.canvas.toDataURL('image/jpeg', 0.9);
+  }
+
   _onLost(e)      { e.preventDefault(); this.stop(); }
   _onRestored()   { this._init(); if (this._getSource) this.startLoop(this._getSource, this._getParams, this._getSize, null); }
 }

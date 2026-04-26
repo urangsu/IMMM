@@ -79,6 +79,24 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const clearDraw = () => setDrawStrokes([]);
 
   const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
+  const renderStroke = (stroke, key) => {
+    if (stroke.brush === 'sparkle') {
+      const step = 12;
+      const sparkles = [];
+      for (let i = 0; i < stroke.points.length; i += step) {
+        const [x, y] = stroke.points[i];
+        const s = (stroke.width || 3) * 1.5;
+        sparkles.push(
+          <g key={i} transform={`translate(${x},${y})`}>
+            <path d={`M0,-${s} L${s * 0.25},-${s * 0.25} L${s},0 L${s * 0.25},${s * 0.25} L0,${s} L-${s * 0.25},${s * 0.25} L-${s},0 L-${s * 0.25},-${s * 0.25} Z`}
+            fill={stroke.color} opacity="0.8" />
+          </g>
+        );
+      }
+      return <g key={key}>{sparkles}</g>;
+    }
+    return <path key={key} d={pathFor(stroke)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
+  };
 
   const previewContainerRef = React.useRef(null);
   const frameNativeRef = React.useRef(null);
@@ -370,26 +388,9 @@ function chipBtn(T) {return {
 // ═══════════════════════════════════════════════════════════════
 function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation, stickers, drawStrokes, logo, dateText, accent, frameColor }) {
   const shotsWithFilter = shots.map((s) => s ? { ...s, filter } : null);
-  const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
 
-  const renderStroke = (stroke, key) => {
-    if (stroke.brush === 'sparkle') {
-      const step = 8;
-      const sparkles = [];
-      for (let i = 0; i < stroke.points.length; i += step) {
-        const [x, y] = stroke.points[i];
-        const s = (stroke.width || 3) * 1.5;
-        sparkles.push(
-          <g key={i} transform={`translate(${x},${y})`}>
-            <path d={`M0,-${s} L${s * 0.25},-${s * 0.25} L${s},0 L${s * 0.25},${s * 0.25} L0,${s} L-${s * 0.25},${s * 0.25} L-${s},0 L-${s * 0.25},-${s * 0.25} Z`}
-            fill={stroke.color} opacity="0.8" />
-          </g>
-        );
-      }
-      return <g key={key}>{sparkles}</g>;
-    }
-    return <path key={key} d={pathFor(stroke)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
-  };
+
+
 
   const resultFrame = (scale) =>
   <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
@@ -716,11 +717,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
               {videoRecording && <div style={{position:'absolute',top:-6,right:-6,background:T.pinkDeep,borderRadius:999,width:10,height:10,animation:'pulse 0.8s ease-in-out infinite'}}/>}
             </button>
             )}
-            <button title="카카오톡 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: '#FEE500', color: '#191919', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-5.523 0-10 3.51-10 7.84 0 2.766 1.761 5.184 4.417 6.551-.19.684-.684 2.458-.784 2.836-.128.487.165.483.35.358.146-.1.2.14 2.378-1.554 1.137.318 2.358.49 3.639.49 5.523 0 10-3.511 10-7.84C22 6.511 17.523 3 12 3z"/></svg>
+            <button title="카카오톡 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 3c-5.523 0-10 3.51-10 7.84 0 2.766 1.761 5.184 4.417 6.551-.19.684-.684 2.458-.784 2.836-.128.487.165.483.35.358.146-.1.2.14 2.378-1.554 1.137.318 2.358.49 3.639.49 5.523 0 10-3.511 10-7.84C22 6.511 17.523 3 12 3z"/></svg>
             </button>
-            <button title="Instagram 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.7"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
+            <button title="Instagram 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>
             </button>
             <button title="일반 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {I.share(20, T.ink)}

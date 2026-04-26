@@ -98,17 +98,22 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       let dataUrl = null;
       // WebGL canvas — only if actively rendering (blank check: real JPEG > 5KB)
       const canvas = canvasRef.current;
-      if (canvas && canvasActive) {
+      // WebGL canvas capture - use the engine directly if available for reliable filtered result
+      if (canvasActive && engineRef.current) {
         try {
-          const raw = canvas.toDataURL('image/jpeg', 0.88);
+          const { w, h, mirrorX } = engineRef.current._getSize();
+          const { pipeline, faceUniforms } = engineRef.current._getParams();
+          const raw = engineRef.current.takeSnapshot(w, h, mirrorX, pipeline, faceUniforms);
           if (raw && raw.length > 5000) dataUrl = raw;
-        } catch(e) {}
+        } catch(e) { console.error('WebGL Capture Error:', e); }
       }
-      // Fallback: draw from video with CSS filter so the captured photo matches preview
+      
+      // Fallback: draw from video with CSS filter (important for mobile/Safari)
       if (!dataUrl) {
         const v = videoRef.current;
         if (v && v.readyState >= 2 && v.videoWidth > 0) {
-          const cssFilter = canvasActive ? 'none' : (FILTERS[filter]?.css || 'none');
+          // If WebGL is supported but capture failed, we MUST still apply the CSS filter for the shot
+          const cssFilter = FILTERS[filter]?.css || 'none';
           dataUrl = captureFromVideo(v, cssFilter);
         }
       }
