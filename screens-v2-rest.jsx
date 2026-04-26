@@ -126,73 +126,6 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<6 && countdown===0) setCountdown(timerLen); };
   const thumbs = Array.from({length:6}, (_,i)=> shots[i]);
 
-  const cameraArea = (
-    <div style={{ flex:1, minHeight: 0, position:'relative', borderRadius:24, overflow:'hidden', background:'#000', display:'flex', alignItems:'center', justifyContent:'center' }}>
-      {camOk === false ? (
-        <div style={{ position:'absolute', inset:0 }}>
-          <PlaceholderPortrait seed={idx} filter={filter}/>
-          <div style={{ position:'absolute', top:12, left:12, padding:'6px 10px', background:'rgba(0,0,0,0.55)', color:'#fff', borderRadius:999, fontSize:10, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui' }}>DEMO MODE</div>
-        </div>
-      ) : (
-        <>
-          {/* Hidden video — used as WebGL source */}
-          <video ref={videoRef} playsInline muted autoPlay style={{
-            position:'absolute', inset:0, width:'100%', height:'100%',
-            objectFit:'cover', transform:'scaleX(-1)',
-            filter: canvasActive ? 'none' : (FILTERS[filter]?.css || 'none'),
-            opacity: canvasActive ? 0 : 1,
-            pointerEvents:'none',
-          }}/>
-          {/* WebGL canvas — object-fit:cover via absolute centering */}
-          <canvas ref={canvasRef} style={{
-            display: 'block',
-            position:'absolute',
-            top:'50%', left:'50%',
-            transform:'translate(-50%,-50%)',
-            minWidth:'100%', minHeight:'100%',
-            opacity: canvasActive ? 1 : 0,
-            pointerEvents:'none',
-          }}/>
-        </>
-      )}
-      {/* Pre-stickers overlay */}
-      <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
-        {preStickers.map(s => (
-          <div key={s.id} style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-            transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`, opacity:0.88 }}>
-            {renderStickerInstance(s)}
-          </div>
-        ))}
-      </div>
-      {/* Countdown */}
-      {countdown>0 && (
-        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
-          background:'radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.55))' }}>
-          <div key={countdown} style={{
-            fontFamily:'"Plus Jakarta Sans",system-ui', fontSize:220, fontWeight:300, color:'#fff',
-            letterSpacing:-8, textShadow:'0 20px 60px rgba(0,0,0,0.4)',
-            animation:'countPop 0.9s cubic-bezier(0.16,1,0.3,1)',
-          }}>{countdown}</div>
-        </div>
-      )}
-      {flashing && <div style={{ position:'absolute', inset:0, background:'#fff', animation:'flash 0.14s ease-out' }}/>}
-      {/* Shot counter chip */}
-      <div style={{ position:'absolute', top:14, right:14, padding:'8px 14px',
-        background:'rgba(0,0,0,0.3)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
-        color:'#fff', borderRadius:999, fontSize:11, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600 }}>
-        {String(Math.min(idx+1,6)).padStart(2,'0')} / 06
-      </div>
-      {/* WebGL indicator */}
-      {canvasActive && (
-        <div style={{ position:'absolute', top:14, left:14, padding:'5px 9px',
-          background:'rgba(0,0,0,0.28)', backdropFilter:'blur(10px)',
-          color:'rgba(255,255,255,0.75)', borderRadius:999, fontSize:9, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600 }}>
-          GL · {filter.toUpperCase()}
-        </div>
-      )}
-    </div>
-  );
-
   const shotsRail = (
     <div style={{ display:'flex', flexDirection: mobile?'row':'column',
       padding: mobile?'0 16px':'0', gap: mobile?6:8,
@@ -233,19 +166,21 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           ) : (
             <>
+              {/* Video: visible until WebGL renders its first real frame */}
               <video ref={videoRef} playsInline muted autoPlay style={{
                 position:'absolute', inset:0, width:'100%', height:'100%',
                 objectFit:'cover', transform:'scaleX(-1)',
-                filter: webglOk ? 'none' : (FILTERS[filter]?.css || 'none'),
-                opacity: webglOk ? 0 : 1,
+                filter: canvasActive ? 'none' : (FILTERS[filter]?.css || 'none'),
+                opacity: canvasActive ? 0 : 1,
                 pointerEvents:'none',
               }}/>
+              {/* WebGL canvas: overlays video once first frame is confirmed */}
               <canvas ref={canvasRef} style={{
                 display:'block', position:'absolute',
                 top:'50%', left:'50%',
                 transform:'translate(-50%,-50%)',
                 minWidth:'100%', minHeight:'100%',
-                opacity: webglOk ? 1 : 0,
+                opacity: canvasActive ? 1 : 0,
                 pointerEvents:'none',
               }}/>
             </>
@@ -274,7 +209,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             color:'#fff', borderRadius:999, fontSize:11, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600 }}>
             {String(Math.min(idx+1,6)).padStart(2,'0')} / 06
           </div>
-          {webglOk && (
+          {canvasActive && (
             <div style={{ position:'absolute', top:14, left:14, padding:'5px 9px',
               background:'rgba(0,0,0,0.28)', backdropFilter:'blur(10px)',
               color:'rgba(255,255,255,0.75)', borderRadius:999, fontSize:9, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600 }}>
