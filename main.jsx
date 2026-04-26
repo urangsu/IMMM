@@ -34,6 +34,46 @@ function App() {
     return () => window.removeEventListener('resize', handler);
   }, []);
 
+  // ═══════════════════════════════════════════════════════════════
+  // Persistent Background Engine (Pre-warming)
+  // ═══════════════════════════════════════════════════════════════
+  const videoRef  = React.useRef(null);
+  const canvasRef = React.useRef(null);
+  const faceDataRef = (typeof useFaceLandmarks === 'function')
+    ? useFaceLandmarks(videoRef)
+    : React.useRef({ detected: false });
+
+  // useFilterEngine stays active from the start, warming up shaders
+  const { engineRef, webglOk, firstFrame } = (typeof useFilterEngine === 'function')
+    ? useFilterEngine(canvasRef, videoRef, tweaks.filter, faceDataRef, false)
+    : { engineRef: null, webglOk: false, firstFrame: false };
+
+  // Shared Camera Stream
+  const [facingMode, setFacingMode] = React.useState('user');
+  const [camOk, setCamOk] = React.useState(null);
+  React.useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: facingMode } },
+          audio: false,
+        });
+        if (!active) { s.getTracks().forEach(t => t.stop()); return; }
+        setCamOk(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+          videoRef.current.play().catch(() => {});
+          videoRef.current.setAttribute('webkit-playsinline', 'true');
+          videoRef.current.setAttribute('playsinline', 'true');
+        }
+      } catch (e) {
+        setCamOk(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [facingMode]);
+
   React.useEffect(() => { localStorage.setItem('immm.v2.screen', screen); }, [screen]);
   React.useEffect(() => { localStorage.setItem('immm.v2.sel', JSON.stringify(selected)); }, [selected]);
 
@@ -92,6 +132,9 @@ function App() {
         return <CaptureV2 {...p}
           shots={shots} setShots={setShots}
           preStickers={preStickers} muted={!tweaks.sound}
+          videoRef={videoRef} canvasRef={canvasRef}
+          engineRef={engineRef} webglOk={webglOk} firstFrame={firstFrame}
+          camOk={camOk} facingMode={facingMode} setFacingMode={setFacingMode}
         />;
       case 'select':
         return <SelectV2 {...p}
@@ -115,7 +158,37 @@ function App() {
   };
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'transparent', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: T.bg, overflow: 'hidden' }}>
+      
+      {/* PERSISTENT CAMERA/ENGINE SURFACE (Pre-warmed) */}
+      <div id="global-camera-box" style={{
+        position: 'absolute',
+        // In capture mode, we'll position this to match the UI's camera box.
+        // For simplicity in this layout, we'll use a fixed overlay that matches CaptureV2's flex layout.
+        top: mobile ? 100 : 88,
+        left: mobile ? 16 : 24,
+        right: mobile ? 16 : 120,
+        bottom: mobile ? 180 : 112,
+        zIndex: screen === 'capture' ? 5 : -1,
+        opacity: screen === 'capture' ? 1 : 0,
+        pointerEvents: 'none',
+        borderRadius: 24,
+        overflow: 'hidden',
+        background: '#000',
+        transition: 'opacity 0.3s ease',
+      }}>
+        <video ref={videoRef} playsInline muted autoPlay style={{
+          width:'100%', height:'100%', objectFit:'cover',
+          transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+        }}/>
+        <canvas ref={canvasRef} style={{
+          display:'block', position:'absolute', inset:0,
+          width:'100%', height:'100%', borderRadius:24,
+          opacity: (webglOk && firstFrame) ? 1 : 0,
+          transition: 'opacity 0.2s',
+        }}/>
+      </div>
+
       <ScreenTransition id={screen}>
         {renderScreen()}
       </ScreenTransition>

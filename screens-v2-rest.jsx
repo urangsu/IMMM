@@ -3,67 +3,17 @@
 // ═══════════════════════════════════════════════════════════════
 // CAPTURE — 6 shots
 // ═══════════════════════════════════════════════════════════════
-function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, muted, onRequestCamera }) {
-  const videoRef  = React.useRef(null);
-  const canvasRef = React.useRef(null);
-  const streamRef = React.useRef(null);
+function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, muted, onRequestCamera,
+  videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode
+}) {
   const [idx, setIdx]           = React.useState(0);
   const [countdown, setCountdown] = React.useState(0);
   const [timerLen, setTimerLen]   = React.useState(3);
   const [flashing, setFlashing]   = React.useState(false);
   const [auto, setAuto]           = React.useState(false);
-  const [camOk, setCamOk]         = React.useState(null);
-  const [facingMode, setFacingMode] = React.useState('user');
   const touchStartY = React.useRef(null);
 
-  // WebGL engine + MediaPipe face detection
-  const faceDataRef = (typeof useFaceLandmarks === 'function')
-    ? useFaceLandmarks(videoRef)
-    : React.useRef({ detected: false });
-  // Enable WebGL across all devices now that the Samsung Internet overflow bug is fixed.
-  const { engineRef, webglOk, firstFrame } = (typeof useFilterEngine === 'function')
-    ? useFilterEngine(canvasRef, videoRef, filter, faceDataRef, false)
-    : { engineRef: null, webglOk: false, firstFrame: false };
-
   const canvasActive = webglOk && firstFrame;
-
-  // webkit-playsinline: Samsung Internet / iOS WebView inline 재생 필수
-  // JSX는 이 attribute를 지원하지 않으므로 ref로 직접 설정
-  React.useEffect(() => {
-    videoRef.current?.setAttribute('webkit-playsinline', '');
-    videoRef.current?.setAttribute('playsinline', '');
-  }, []);
-
-  // Camera init — ideal constraints first, bare fallback for stricter mobile browsers
-  React.useEffect(()=> {
-    let active = true;
-    (async () => {
-      try {
-        // No width/height ideal constraints — Samsung Internet mishandles them
-        const s = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: facingMode } },
-          audio: false,
-        });
-        if (!active) { s.getTracks().forEach(t=>t.stop()); return; }
-        streamRef.current = s;
-        setCamOk(true);
-        if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play().catch(()=>{}); }
-      } catch(e) {
-        try {
-          const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          if (!active) { s.getTracks().forEach(t=>t.stop()); return; }
-          streamRef.current = s;
-          setCamOk(true);
-          if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play().catch(()=>{}); }
-        } catch(_) { setCamOk(false); }
-      }
-    })();
-    // Add webkit-playsinline for older iOS/Samsung webviews
-    if (videoRef.current) {
-      videoRef.current.setAttribute('webkit-playsinline', 'true');
-    }
-    return () => { active=false; streamRef.current?.getTracks().forEach(t=>t.stop()); };
-  }, [facingMode]);
 
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
@@ -207,51 +157,16 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           onDoubleClick={toggleCamera}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          style={{ flex:1, minHeight:0, position:'relative', borderRadius:24, background:'#000', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          {camOk === false ? (
+          style={{ flex:1, minHeight:0, position:'relative', borderRadius:24, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          {camOk === false && (
             <div style={{ position:'absolute', inset:0, borderRadius:24, overflow:'hidden' }}>
               <PlaceholderPortrait seed={idx} filter={filter}/>
               <div style={{ position:'absolute', top:12, left:12, padding:'6px 10px', background:'rgba(0,0,0,0.55)', color:'#fff', borderRadius:999, fontSize:10, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui' }}>DEMO MODE</div>
             </div>
-          ) : (
-            <>
-              {/* CSS filter wrapper — webglOk=false일 때만 CSS 필터 적용
-                  video 엘리먼트에 직접 CSS filter 금지:
-                  Samsung GPU 컴포지터가 하드웨어 디코딩을 끊어 texImage2D가 검은 픽셀 반환 */}
-              <div style={{
-                position:'absolute', inset:0,
-                filter: !webglOk ? (FILTERS[filter]?.css || 'none') : 'none',
-              }}>
-                <video ref={videoRef} playsInline muted autoPlay style={{
-                  position:'absolute', inset:0, width:'100%', height:'100%',
-                  objectFit:'cover', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
-                  borderRadius:24,
-                  opacity: 1,
-                  pointerEvents:'none',
-                }}/>
-              </div>
-              <canvas ref={canvasRef} style={{
-                display:'block', position:'absolute',
-                top:'50%', left:'50%',
-                transform:'translate(-50%,-50%)',
-                minWidth:'100%', minHeight:'100%',
-                borderRadius:24,
-                opacity: canvasActive ? 1 : 0,
-                transition: 'opacity 0.2s',
-                pointerEvents:'none',
-              }}/>
-              {/* Pre-Stickers mapped to this slot */}
-              {preStickers?.filter(s => s.frameSlot === idx).map(s => (
-                <div key={s.id} style={{
-                  position: 'absolute', left: `${s.slotX ?? 50}%`, top: `${s.slotY ?? 50}%`,
-                  transform: `translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`,
-                  pointerEvents: 'none', zIndex: 10
-                }}>
-                  {renderStickerInstance(s)}
-                </div>
-              ))}
-            </>
           )}
+          
+          {/* Transparent hole for global camera box */}
+          
           <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
             {preStickers.map(s => (
               <div key={s.id} style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
@@ -262,7 +177,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           </div>
           {countdown>0 && (
             <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
-              background:'radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.55))' }}>
+              background:'radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.55))', zIndex:20 }}>
               <div key={countdown} style={{
                 fontFamily:'"Plus Jakarta Sans",system-ui', fontSize:220, fontWeight:300, color:'#fff',
                 letterSpacing:-8, textShadow:'0 20px 60px rgba(0,0,0,0.4)',
@@ -270,19 +185,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               }}>{countdown}</div>
             </div>
           )}
-          {flashing && <div style={{ position:'absolute', inset:0, background:'#fff', animation:'flash 0.14s ease-out' }}/>}
+          {flashing && <div style={{ position:'absolute', inset:0, background:'#fff', animation:'flash 0.14s ease-out', zIndex:30 }}/>}
           <div style={{ position:'absolute', top:14, right:14, padding:'8px 14px',
             background:'rgba(0,0,0,0.3)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
-            color:'#fff', borderRadius:999, fontSize:11, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600 }}>
+            color:'#fff', borderRadius:999, fontSize:11, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600, zIndex:15 }}>
             {String(Math.min(idx+1,6)).padStart(2,'0')} / 06
           </div>
-          {canvasActive && (
-            <div style={{ position:'absolute', top:14, left:14, padding:'5px 9px',
-              background:'rgba(0,0,0,0.28)', backdropFilter:'blur(10px)',
-              color:'rgba(255,255,255,0.75)', borderRadius:999, fontSize:9, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600 }}>
-              GL · {filter.toUpperCase()}
-            </div>
-          )}
         </div>
         {/* Shutter row - fixed height, centered */}
         <div style={{ flexShrink:0, height:88, display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
