@@ -107,10 +107,12 @@ function App() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: T.bg }}>
-      <ScreenTransition id={screen}>
-        {renderScreen()}
-      </ScreenTransition>
+    <div style={{ height: '100vh', background: T.bg, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <ScreenTransition id={screen}>
+          {renderScreen()}
+        </ScreenTransition>
+      </div>
     </div>
   );
 }

@@ -320,29 +320,29 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const frameTab =
   <div>
       <Kick T={T}>Choose your frame · 프레임 선택</Kick>
-      <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
         {[
-          { id: 'strip',    en: '1×4',     ko: '스트립' },
-          { id: 'trip',     en: '1×3',     ko: '트리플' },
-          { id: 'grid',     en: '2×2',     ko: '그리드' },
-          { id: 'polaroid', en: 'Polar',   ko: '폴라로이드' },
+          { id: 'strip',    en: '1×4 Strip', ko: '스트립' },
+          { id: 'trip',     en: '1×3',       ko: '트리플' },
+          { id: 'grid',     en: '2×2 Grid',  ko: '그리드' },
+          { id: 'polaroid', en: 'Polaroid',  ko: '폴라로이드' },
         ].map((o) =>
       <button key={o.id} onClick={() => setLayout(o.id)}
       style={{
-        padding: '8px 4px 6px', background: layout === o.id ? T.card : 'transparent',
-        border: 'none', borderRadius: 12, cursor: 'pointer',
+        padding: '14px 8px 10px', background: layout === o.id ? T.card : 'transparent',
+        border: 'none', borderRadius: 16, cursor: 'pointer',
         boxShadow: layout === o.id ? '0 1px 4px rgba(0,0,0,0.06), 0 0 0 1.5px rgba(26,26,31,0.9) inset' : '0 0 0 1px rgba(26,26,31,0.08) inset',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, transition: 'all 0.25s',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
       }}>
-            <div style={{ width: '100%', height: 68, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <div style={{ transform: 'scale(0.32)', transformOrigin: 'center center', display: 'flex', alignItems: 'center' }}>
+            <div style={{ width: '100%', height: 84, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+              <div style={{ transform: 'scale(0.38)', transformOrigin: 'center center', display: 'flex', alignItems: 'center' }}>
                 <FrameThumb layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
                   logo={false} dateText={false} accent={accent} scale={1}
                   orientation="portrait" />
               </div>
             </div>
-            <div style={{ fontSize: 9.5, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 700, textAlign: 'center', lineHeight: 1.2 }}>
-              {o.en}<br/><span style={{ color: T.inkSoft, fontWeight: 400, fontFamily: 'Pretendard,system-ui', fontSize: 9 }}>{o.ko}</span>
+            <div style={{ fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
+              {o.en}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4, fontFamily: 'Pretendard,system-ui' }}>{o.ko}</span>
             </div>
           </button>
       )}
