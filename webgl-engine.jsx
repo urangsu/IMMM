@@ -27,44 +27,24 @@ uniform float u_flipX;
 varying vec2 v_uv;
 void main(){ gl_FragColor = texture2D(u_tex, v_uv); }`,
 
-// T-2: Face-masked bilateral — applies full smoothing only inside face ROI,
-// preserves eyes/lips (high-freq detail), no-ops outside face area.
 bilateral_h: `
 precision mediump float;
 uniform sampler2D u_tex;
 uniform vec2 u_resolution;
 uniform float u_sigmaSpace;
 uniform float u_sigmaColor;
-// T-2 face mask: xy=faceCenter, zw=faceHalfSize (all in UV [0,1])
-uniform vec4 u_faceROI;   // center.x, center.y, halfW, halfH  (0→disabled when halfW<=0)
-uniform vec4 u_eyeLipsROI;// eyes+lips exclusion box: x,y,w,h in UV
 varying vec2 v_uv;
 float gauss(float x,float s){return exp(-0.5*x*x/(s*s));}
 void main(){
   vec2 px=1.0/u_resolution;
-  vec4 orig=texture2D(u_tex,v_uv);
-  // --- compute face mask weight ---
-  float faceW=1.0;
-  if(u_faceROI.z>0.0){
-    vec2 d=abs(v_uv-u_faceROI.xy)/u_faceROI.zw;
-    faceW=1.0-smoothstep(0.75,1.0,max(d.x,d.y));
-    // mask out eyes+lips region (preserve high freq)
-    if(u_eyeLipsROI.z>0.0){
-      vec2 el=(v_uv-u_eyeLipsROI.xy)/u_eyeLipsROI.zw;
-      float eyeMask=smoothstep(0.6,0.8,max(abs(el.x-0.5)*2.0,abs(el.y-0.5)*2.0));
-      faceW*=eyeMask;
-    }
-  }
-  if(faceW<0.01){ gl_FragColor=orig; return; }
-  vec4 center=orig;
+  vec4 center=texture2D(u_tex,v_uv);
   vec4 sum=vec4(0.0);float w=0.0;
   for(int i=-5;i<=5;i++){
     vec4 s=texture2D(u_tex,v_uv+vec2(float(i)*px.x,0.0));
     float ww=gauss(float(i),u_sigmaSpace)*gauss(length(s.rgb-center.rgb),u_sigmaColor);
     sum+=s*ww;w+=ww;
   }
-  vec4 blurred=sum/w;
-  gl_FragColor=mix(orig,blurred,faceW);
+  gl_FragColor=sum/w;
 }`,
 
 bilateral_v: `
@@ -73,33 +53,18 @@ uniform sampler2D u_tex;
 uniform vec2 u_resolution;
 uniform float u_sigmaSpace;
 uniform float u_sigmaColor;
-uniform vec4 u_faceROI;
-uniform vec4 u_eyeLipsROI;
 varying vec2 v_uv;
 float gauss(float x,float s){return exp(-0.5*x*x/(s*s));}
 void main(){
   vec2 px=1.0/u_resolution;
-  vec4 orig=texture2D(u_tex,v_uv);
-  float faceW=1.0;
-  if(u_faceROI.z>0.0){
-    vec2 d=abs(v_uv-u_faceROI.xy)/u_faceROI.zw;
-    faceW=1.0-smoothstep(0.75,1.0,max(d.x,d.y));
-    if(u_eyeLipsROI.z>0.0){
-      vec2 el=(v_uv-u_eyeLipsROI.xy)/u_eyeLipsROI.zw;
-      float eyeMask=smoothstep(0.6,0.8,max(abs(el.x-0.5)*2.0,abs(el.y-0.5)*2.0));
-      faceW*=eyeMask;
-    }
-  }
-  if(faceW<0.01){ gl_FragColor=orig; return; }
-  vec4 center=orig;
+  vec4 center=texture2D(u_tex,v_uv);
   vec4 sum=vec4(0.0);float w=0.0;
   for(int i=-5;i<=5;i++){
     vec4 s=texture2D(u_tex,v_uv+vec2(0.0,float(i)*px.y));
     float ww=gauss(float(i),u_sigmaSpace)*gauss(length(s.rgb-center.rgb),u_sigmaColor);
     sum+=s*ww;w+=ww;
   }
-  vec4 blurred=sum/w;
-  gl_FragColor=mix(orig,blurred,faceW);
+  gl_FragColor=sum/w;
 }`,
 
 color_adjust: `
@@ -617,13 +582,11 @@ const FILTER_PIPELINES = {
 
   // ── 새벽 두 시 (Dream) ──────────────────────────────────
   dream: { pipeline:[
-    // T-2: bilateral with face ROI (defaults cover full frame if no face data)
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09, u_faceROI:[0.5,0.42,0.0,0.0], u_eyeLipsROI:[0.5,0.42,0.0,0.0] } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09, u_faceROI:[0.5,0.42,0.0,0.0], u_eyeLipsROI:[0.5,0.42,0.0,0.0] } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
     { shader:'dream',        uniforms:{ u_intensity:1.0 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.85,0.87,1.12], u_highlightColor:[1.03,1.01,1.06], u_intensity:0.65 } },
     { shader:'chromatic_ab', uniforms:{ u_amount:0.0018 } },
-    // T-1: 2-pass halation
     { shader:'halation_h',   uniforms:{ u_threshold:0.70 } },
     { shader:'halation_v',   uniforms:{} },
     { shader:'halation_comp',uniforms:{ u_intensity:0.30 } },
