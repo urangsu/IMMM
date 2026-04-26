@@ -1,9 +1,9 @@
-// webgl-engine.jsx — TWGL.js WebGL filter pipeline
-// ping-pong FBO · GLSL shaders · MediaPipe face uniform injection
+// webgl-engine.jsx  TWGL.js WebGL filter pipeline
+// ping-pong FBO  GLSL shaders  MediaPipe face uniform injection
 
-// ═══════════════════════════════════════════════════════
+// 
 // VERTEX SHADER (shared)
-// ═══════════════════════════════════════════════════════
+// 
 const VERT_QUAD = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
@@ -15,9 +15,9 @@ void main(){
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }`;
 
-// ═══════════════════════════════════════════════════════
+// 
 // FRAGMENT SHADERS
-// ═══════════════════════════════════════════════════════
+// 
 const FRAGS = {
 
 passthrough: `
@@ -89,7 +89,7 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),col.a);
 }`,
 
-// ── Fuji Classic Negative ──────────────────────────────
+//  Fuji Classic Negative 
 classic_neg: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -117,7 +117,7 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(d,0.0,1.0),u_intensity),orig.a);
 }`,
 
-// ── Kodak Portra 400 ──────────────────────────────────
+//  Kodak Portra 400 
 kodak_portra: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -139,7 +139,7 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
 }`,
 
-// ── Ilford HP5+ B&W ───────────────────────────────────
+//  Ilford HP5+ B&W 
 ilford_hp5: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -156,7 +156,7 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,vec3(clamp(bw,0.0,1.0)),u_intensity),orig.a);
 }`,
 
-// ── Y2K — CRT + digital camera 2002 ──────────────────
+//  Y2K  CRT + digital camera 2002 
 y2k: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -185,7 +185,7 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
 }`,
 
-// ── Dream / Pastel ────────────────────────────────────
+//  Dream / Pastel 
 dream: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -206,7 +206,7 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
 }`,
 
-// ── Glitter (animated sparkles) ───────────────────────
+//  Glitter (animated sparkles) 
 glitter: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -255,7 +255,7 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
-// ── Purikura — skin smooth + eye warp (MediaPipe) ─────
+//  Purikura  skin smooth + eye warp (MediaPipe) 
 purikura: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -299,7 +299,7 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
-// ── Blush — face-landmark-aware cheek blush ───────────
+//  Blush  face-landmark-aware cheek blush 
 blush: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -329,7 +329,7 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),1.0),orig.a);
 }`,
 
-// ── Halation pass-1 H: extract bright → horizontal Gaussian (unrolled for GLES1) ─
+//  Halation pass-1 H: extract bright  horizontal Gaussian (unrolled for GLES1) 
 halation_h: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -358,7 +358,7 @@ void main(){
   gl_FragColor=vec4(sum/wt,1.0);
 }`,
 
-// ── Halation pass-2 V: vertical Gaussian (unrolled for GLES1) ────
+//  Halation pass-2 V: vertical Gaussian (unrolled for GLES1) 
 halation_v: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -380,7 +380,7 @@ void main(){
   gl_FragColor=sum/wt;
 }`,
 
-// ── Halation pass-3 composite: screen-blend blurred bright onto original ──
+//  Halation pass-3 composite: screen-blend blurred bright onto original 
 halation_comp: `
 precision mediump float;
 uniform sampler2D u_tex;      // original scene
@@ -398,7 +398,7 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
-// ── Legacy single-pass halation (kept for fallback) ───
+//  Legacy single-pass halation (kept for fallback) 
 halation: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -428,7 +428,7 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
-// ── Split Tone — shadow/highlight colour toning ───────
+//  Split Tone  shadow/highlight colour toning 
 split_tone: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -445,7 +445,7 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
 }`,
 
-// ── Film Grain v2 — temporal, midtone-masked ──────────
+//  Film Grain v2  temporal, midtone-masked 
 film_grain_v2: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -466,7 +466,7 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
-// ── Vignette — standalone radial darkening ────────────
+//  Vignette  standalone radial darkening 
 vignette: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -480,7 +480,7 @@ void main(){
   gl_FragColor=vec4(orig.rgb*v,orig.a);
 }`,
 
-// ── Chromatic Aberration — lateral RGB channel offset ─
+//  Chromatic Aberration  lateral RGB channel offset 
 chromatic_ab: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -497,7 +497,7 @@ void main(){
   gl_FragColor=vec4(r,g,b,texture2D(u_tex,v_uv).a);
 }`,
 
-// ── Smooth (strong bilateral + warm lift) ─────────────
+//  Smooth (strong bilateral + warm lift) 
 smooth_skin: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -513,7 +513,7 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
 }`,
 
-// ── Porcelain (velvety skin) ───────────────────────────
+//  Porcelain (velvety skin) 
 porcelain: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -530,13 +530,13 @@ void main(){
 
 };
 
-// ═══════════════════════════════════════════════════════
+// 
 // Filter pipeline presets
-// ═══════════════════════════════════════════════════════
+// 
 const FILTER_PIPELINES = {
   original: { pipeline:[] },
 
-  // ── 자연광 ─────────────────────────────────────────────
+  //   
   porcelain: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.5, u_sigmaColor:0.10 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.5, u_sigmaColor:0.10 } },
@@ -545,21 +545,21 @@ const FILTER_PIPELINES = {
     { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.04,u_saturation:-0.06,u_temperature:0.15,u_tint:0,u_vibrance:0,u_highlights:0.03,u_shadows:0.02 } },
   ]},
 
-  // ── 2002 (Y2K) ──────────────────────────────────────────
+  //  2002 (Y2K) 
   y2k: { pipeline:[
     { shader:'y2k',          uniforms:{ u_intensity:1.0 } },
     { shader:'chromatic_ab', uniforms:{ u_amount:0.003 } },
     { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.022 } },
   ]},
 
-  // ── 한강 새벽 (B&W) ─────────────────────────────────────
+  //    (B&W) 
   bw: { pipeline:[
     { shader:'ilford_hp5',   uniforms:{ u_intensity:1.0 } },
     { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.055 } },
     { shader:'vignette',     uniforms:{ u_strength:0.85 } },
   ]},
 
-  // ── 코닥 (Grain) ────────────────────────────────────────
+  //   (Grain) 
   grain: { pipeline:[
     { shader:'classic_neg',  uniforms:{ u_intensity:1.0 } },
     { shader:'halation_h',   uniforms:{ u_threshold:0.52 } },
@@ -569,7 +569,7 @@ const FILTER_PIPELINES = {
     { shader:'vignette',     uniforms:{ u_strength:0.65 } },
   ]},
 
-  // ── 엄마 앨범 (Vintage) ─────────────────────────────────
+  //    (Vintage) 
   vintage: { pipeline:[
     { shader:'kodak_portra', uniforms:{ u_intensity:1.0 } },
     { shader:'halation_h',   uniforms:{ u_threshold:0.48 } },
@@ -580,7 +580,7 @@ const FILTER_PIPELINES = {
     { shader:'vignette',     uniforms:{ u_strength:0.70 } },
   ]},
 
-  // ── 새벽 두 시 (Dream) ──────────────────────────────────
+  //     (Dream) 
   dream: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
@@ -593,7 +593,7 @@ const FILTER_PIPELINES = {
     { shader:'vignette',     uniforms:{ u_strength:0.55 } },
   ]},
 
-  // ── 트와일라잇 (신규 - Twilight) ───────────────────────
+  //   ( - Twilight) 
   twilight: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.10 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.10 } },
@@ -603,7 +603,7 @@ const FILTER_PIPELINES = {
     { shader:'vignette',     uniforms:{ u_strength:0.8 } },
   ]},
 
-  // ── 블러캠 (신규 - BlurCAM) ───────────────────────────
+  //   ( - BlurCAM) 
   blurcam: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.15 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.15 } },
@@ -612,14 +612,14 @@ const FILTER_PIPELINES = {
     { shader:'color_adjust', uniforms:{ u_exposure:0.15,u_contrast:-0.1,u_saturation:0.05,u_temperature:0,u_tint:0,u_vibrance:0.2,u_highlights:0.1,u_shadows:0 } },
   ]},
 
-  // ── 반짝 (Glitter) ──────────────────────────────────────
+  //   (Glitter) 
   glitter: { pipeline:[
     { shader:'color_adjust', uniforms:{ u_exposure:0.1,u_saturation:0.28,u_contrast:0.04,u_temperature:0,u_tint:0,u_vibrance:0.15,u_highlights:0.08,u_shadows:0 } },
     { shader:'glitter',      uniforms:{ u_time:0.0, u_intensity:0.9 } },
     { shader:'halation',     uniforms:{ u_intensity:0.65, u_threshold:0.60 } },
   ]},
   
-  // ── 하라주쿠 (Purikura) ──────────────────────────────────
+  //   (Purikura) 
   purikura: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.14 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.14 } },
@@ -628,7 +628,7 @@ const FILTER_PIPELINES = {
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.94,0.90,1.05], u_highlightColor:[1.06,1.03,1.04], u_intensity:0.55 } },
   ]},
 
-  // ── 크림 스킨 (Smooth) ──────────────────────────────────
+  //    (Smooth) 
   smooth: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.18 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.18 } },
@@ -637,7 +637,7 @@ const FILTER_PIPELINES = {
     { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.08,u_saturation:-0.05,u_temperature:0.12,u_tint:0,u_vibrance:0,u_highlights:0.04,u_shadows:0.04 } },
   ]},
 
-  // ── 첫사랑 (Blush) ──────────────────────────────────────
+  //   (Blush) 
   blush: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
@@ -648,7 +648,7 @@ const FILTER_PIPELINES = {
     { shader:'halation',     uniforms:{ u_intensity:0.4, u_threshold:0.75 } },
   ]},
 
-  // ── 골든아워 ──────────────────────────────────────────
+  //   
   golden: { pipeline:[
     { shader:'kodak_portra', uniforms:{ u_intensity:0.7 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.88,0.90,1.02], u_highlightColor:[1.12,1.06,0.88], u_intensity:0.9 } },
@@ -659,7 +659,7 @@ const FILTER_PIPELINES = {
     { shader:'vignette',     uniforms:{ u_strength:0.60 } },
   ]},
 
-  // ── 로모 ──────────────────────────────────────────────
+  //   
   lomo: { pipeline:[
     { shader:'classic_neg',  uniforms:{ u_intensity:0.8 } },
     { shader:'chromatic_ab', uniforms:{ u_amount:0.004 } },
@@ -669,9 +669,9 @@ const FILTER_PIPELINES = {
   ]},
 };
 
-// ═══════════════════════════════════════════════════════
-// FilterEngine — TWGL-based ping-pong FBO pipeline
-// ═══════════════════════════════════════════════════════
+// 
+// FilterEngine  TWGL-based ping-pong FBO pipeline
+// 
 class FilterEngine {
   constructor(canvas) {
     this.canvas = canvas;
@@ -710,6 +710,7 @@ class FilterEngine {
       width:2, height:2, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE, flipY:false,
     });
     this._fboInfos = [null, null, null];
+    this._halBlurTex = null;
   }
 
   _ensureFbos(w, h) {
@@ -757,57 +758,49 @@ class FilterEngine {
     const fu  = faceUniforms || {};
     let curTex = this._srcTex;
     let idx = 0;
-    let sceneTex = this._srcTex; // tracks the 'original scene' for halation_comp
+    let sceneTex = this._srcTex; 
 
     for (let i = 0; i < pipeline.length; i++) {
       const step = pipeline[i];
 
-      // ── T-1: 2-pass halation routing ───────────────────────────────
+      // --- T-1: 2-pass halation routing ---
       if (step.shader === 'halation_h') {
-        // Pass 1-H: bright extract + horizontal blur → fboInfos[2]
         this._pass('halation_h', curTex, this._fboInfos[2], {
           u_resolution: res,
           u_flipX: 0.0,
           ...step.uniforms,
         });
-        sceneTex = curTex; // remember scene before halation
-        continue; // do NOT advance curTex/idx
+        sceneTex = curTex; 
+        continue;
       }
       if (step.shader === 'halation_v') {
-        // Pass 2-V: read from FBO[2] (H result), write to ping-pong — NOT back to FBO[2]!
-        const out = this._fboInfos[1 - idx];
-        this._pass('halation_v', this._fboInfos[2].attachments[0], out, {
+        // Blur H-result (FBO 2) into one of the ping-pong buffers
+        const outIdx = 1 - idx;
+        this._pass('halation_v', this._fboInfos[2].attachments[0], this._fboInfos[outIdx], {
           u_resolution: res,
           u_flipX: 0.0,
           ...step.uniforms,
         });
-        this._halBlurTex = out.attachments[0]; // save for halation_comp
-        idx = 1 - idx; // advance ping-pong
-        continue; // curTex still points to scene (for halation_comp u_tex)
+        this._halBlurTex = this._fboInfos[outIdx].attachments[0];
+        // We do NOT advance idx here because curTex (scene) is still in the other FBO or srcTex
+        continue; 
       }
       if (step.shader === 'halation_comp') {
-        // Pass 3: composite scene (sceneTex) + blurred halation (_halBlurTex)
-        const out = this._fboInfos[1 - idx];
-        const prog = this._programs['halation_comp'];
-        if (prog) {
-          twgl.bindFramebufferInfo(gl, out);
-          gl.viewport(0, 0, out.width, out.height);
-          gl.useProgram(prog.program);
-          twgl.setBuffersAndAttributes(gl, prog, this._bufInfo);
-          twgl.setUniforms(prog, {
-            u_tex: sceneTex,
-            u_halTex: this._halBlurTex || this._fboInfos[2].attachments[0],
-            u_flipX: 0.0,
-            ...step.uniforms,
-          });
-          twgl.drawBufferInfo(gl, this._bufInfo, gl.TRIANGLE_STRIP);
-          curTex = out.attachments[0];
-          idx = 1 - idx;
-        }
+        const outIdx = 1 - idx;
+        // If sceneTex is the same as our intended output, we have a problem.
+        // But curTex is usually the latest result.
+        this._pass('halation_comp', sceneTex, this._fboInfos[outIdx], {
+          u_tex: sceneTex,
+          u_halTex: this._halBlurTex || this._fboInfos[2].attachments[0],
+          u_flipX: 0.0,
+          ...step.uniforms,
+        });
+        curTex = this._fboInfos[outIdx].attachments[0];
+        idx = outIdx;
         continue;
       }
 
-      // ── Normal pass ────────────────────────────────────────────────
+      // --- Normal pass ---
       const out = this._fboInfos[1 - idx];
       this._pass(step.shader, curTex, out, {
         u_resolution: res,
@@ -853,19 +846,17 @@ class FilterEngine {
             shouldSwitch = (px[0] + px[1] + px[2]) > 30;
 
             if (!shouldSwitch && renderedFrames > 90) {
-              // readPixels 정상 작동인데 90프레임 내내 검은 픽셀
-              // = texImage2D 텍스처 업로드 실패 (Samsung CSS filter GPU 경로 차단 등)
-              // firstFrame 강제 발동 대신 WebGL 포기 → CSS 모드로 영구 전환
               firstFrameFired = true;
               onWebglFail && onWebglFail();
               return;
             }
           } catch (_) {
-            // readPixels 자체가 throw (보안 정책 등) = 렌더링 실패가 아님
-            // 45프레임 워밍업 후 canvas를 믿고 firstFrame 발동
             if (renderedFrames > 45) shouldSwitch = true;
           }
-          if (shouldSwitch) { firstFrameFired = true; onFirstFrame && onFirstFrame(); }
+          if (shouldSwitch) { 
+            firstFrameFired = true; 
+            onFirstFrame && onFirstFrame(); 
+          }
         }
       }
       this._raf = requestAnimationFrame(tick);
@@ -888,9 +879,9 @@ class FilterEngine {
   _onRestored()   { this._init(); if (this._getSource) this.startLoop(this._getSource, this._getParams, this._getSize, null); }
 }
 
-// ═══════════════════════════════════════════════════════
-// useFilterEngine — React hook
-// ═══════════════════════════════════════════════════════
+// 
+// useFilterEngine  React hook
+// 
 function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) {
   const engineRef    = React.useRef(null);
   const filterKeyRef = React.useRef(filterKey);
@@ -907,7 +898,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
     try {
       engine = new FilterEngine(canvas);
       engineRef.current = engine;
-      // NOTE: do NOT setWebglOk(true) here — wait until real pixels confirmed in onFirstFrame
+      // NOTE: do NOT setWebglOk(true) here  wait until real pixels confirmed in onFirstFrame
     } catch(e) {
       console.warn('[IMMM] WebGL init failed:', e.message);
       return;
@@ -962,14 +953,14 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
         return { w: W, h: H, mirrorX: true };
       },
       () => {
-        // onFirstFrame: real pixels confirmed — NOW safe to show canvas
+        // onFirstFrame: real pixels confirmed  NOW safe to show canvas
         setWebglOk(true);
         setFirstFrame(true);
       },
       () => {
-        // WebGL texImage2D가 90프레임 내내 검은 픽셀 → 텍스처 업로드 실패 확정
-        // (Samsung CSS filter GPU 경로 차단, 구형 드라이버 등)
-        // → WebGL 포기, CSS 모드로 영구 전환
+        // WebGL texImage2D 90        
+        // (Samsung CSS filter GPU  ,   )
+        //  WebGL , CSS   
         engine.destroy();
         engineRef.current = null;
         setWebglOk(false);

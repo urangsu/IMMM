@@ -1,4 +1,4 @@
-// main.jsx — IMMM Photobooth real app entry (no prototype chrome)
+// main.jsx — IMMM Photobooth real app entry (no prototype chrome) - Refresh trigger
 
 function App() {
   const [tweaks, setTweaks] = React.useState({
