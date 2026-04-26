@@ -27,6 +27,13 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
   const canvasActive = webglOk && firstFrame;
 
+  // webkit-playsinline: Samsung Internet / iOS WebView inline 재생 필수
+  // JSX는 이 attribute를 지원하지 않으므로 ref로 직접 설정
+  React.useEffect(() => {
+    videoRef.current?.setAttribute('webkit-playsinline', '');
+    videoRef.current?.setAttribute('playsinline', '');
+  }, []);
+
   // Camera init — ideal constraints first, bare fallback for stricter mobile browsers
   React.useEffect(()=> {
     let active = true;
@@ -51,6 +58,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         } catch(_) { setCamOk(false); }
       }
     })();
+    // Add webkit-playsinline for older iOS/Samsung webviews
+    if (videoRef.current) {
+      videoRef.current.setAttribute('webkit-playsinline', 'true');
+    }
     return () => { active=false; streamRef.current?.getTracks().forEach(t=>t.stop()); };
   }, [facingMode]);
 
@@ -204,14 +215,21 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           ) : (
             <>
-              <video ref={videoRef} playsInline muted autoPlay style={{
-                position:'absolute', inset:0, width:'100%', height:'100%',
-                objectFit:'cover', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
-                borderRadius:24,
-                filter: canvasActive ? 'none' : (FILTERS[filter]?.css || 'none'),
-                opacity: 1,
-                pointerEvents:'none',
-              }}/>
+              {/* CSS filter wrapper — webglOk=false일 때만 CSS 필터 적용
+                  video 엘리먼트에 직접 CSS filter 금지:
+                  Samsung GPU 컴포지터가 하드웨어 디코딩을 끊어 texImage2D가 검은 픽셀 반환 */}
+              <div style={{
+                position:'absolute', inset:0,
+                filter: !webglOk ? (FILTERS[filter]?.css || 'none') : 'none',
+              }}>
+                <video ref={videoRef} playsInline muted autoPlay style={{
+                  position:'absolute', inset:0, width:'100%', height:'100%',
+                  objectFit:'cover', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+                  borderRadius:24,
+                  opacity: 1,
+                  pointerEvents:'none',
+                }}/>
+              </div>
               <canvas ref={canvasRef} style={{
                 display:'block', position:'absolute',
                 top:'50%', left:'50%',
@@ -381,12 +399,12 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
           );
         })}
       </div>
-      <div style={{ marginTop: mobile?16:24, display:'flex', gap:12, justifyContent:'flex-end', alignItems:'center' }}>
-        <button onClick={()=>setSelected([])} style={{ background:'transparent', border:'none', cursor:'pointer', color:T.inkSoft, fontSize:13, fontFamily:'Pretendard,system-ui' }}>Clear</button>
-        <BtnPrimary T={T} onClick={()=>selected.length===4 && go('deco')} size={mobile?'md':'lg'} disabled={selected.length!==4}>
-          {selected.length===4 ? <>Deco studio · 꾸미기  {I.arrowR(16, T.bg)}</> : `Pick ${4-selected.length} more`}
-        </BtnPrimary>
-      </div>
+        <div style={{ display:'flex', gap:12, justifyContent:'flex-end', alignItems:'center' }}>
+          <button onClick={()=>setSelected([])} style={{ background:'transparent', border:'none', cursor:'pointer', color:T.inkSoft, fontSize:13, fontFamily:'Pretendard,system-ui' }}>Clear</button>
+          <BtnPrimary T={T} onClick={()=>selected.length===maxSel && go('deco')} size={mobile?'md':'lg'} disabled={selected.length!==maxSel}>
+            {selected.length===maxSel ? <>Deco studio · 꾸미기  {I.arrowR(16, T.bg)}</> : `Pick ${maxSel-selected.length} more`}
+          </BtnPrimary>
+        </div>
     </div>
   );
 }

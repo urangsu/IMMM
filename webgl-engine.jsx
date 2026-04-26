@@ -699,7 +699,7 @@ class FilterEngine {
     });
   }
 
-  startLoop(getSource, getParams, getSize, onFirstFrame) {
+  startLoop(getSource, getParams, getSize, onFirstFrame, onWebglFail) {
     this._getSource = getSource;
     this._getParams = getParams;
     this._getSize   = getSize;
@@ -714,23 +714,31 @@ class FilterEngine {
         this.render(src, pipeline, w, h, mirrorX, faceUniforms);
         renderedFrames++;
 
-        if (!firstFrameFired && onFirstFrame && renderedFrames >= 5) {
-          // Confirm at least one non-black pixel before switching from video to canvas.
-          // Camera warm-up frames are often all-black even when readyState >= 2.
+        if (!firstFrameFired && renderedFrames >= 5) {
           let shouldSwitch = false;
+          let readPixelsOk = false;
           try {
             const gl = this.gl;
             const px = new Uint8Array(4);
             gl.readPixels(Math.floor(w / 2), Math.floor(h / 2), 1, 1,
                           gl.RGBA, gl.UNSIGNED_BYTE, px);
+            readPixelsOk = true;
             shouldSwitch = (px[0] + px[1] + px[2]) > 30;
+
+            if (!shouldSwitch && renderedFrames > 90) {
+              // readPixels 정상 작동인데 90프레임 내내 검은 픽셀
+              // = texImage2D 텍스처 업로드 실패 (Samsung CSS filter GPU 경로 차단 등)
+              // firstFrame 강제 발동 대신 WebGL 포기 → CSS 모드로 영구 전환
+              firstFrameFired = true;
+              onWebglFail && onWebglFail();
+              return;
+            }
           } catch (_) {
-            // readPixels unavailable (Samsung security policy etc.) — wait for camera warm-up
+            // readPixels 자체가 throw (보안 정책 등) = 렌더링 실패가 아님
+            // 45프레임 워밍업 후 canvas를 믿고 firstFrame 발동
             if (renderedFrames > 45) shouldSwitch = true;
           }
-          // Hard timeout: switch after ~4 s regardless (legitimately dark scene)
-          if (!shouldSwitch && renderedFrames > 240) shouldSwitch = true;
-          if (shouldSwitch) { firstFrameFired = true; onFirstFrame(); }
+          if (shouldSwitch) { firstFrameFired = true; onFirstFrame && onFirstFrame(); }
         }
       }
       this._raf = requestAnimationFrame(tick);
@@ -826,7 +834,16 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
         const H = r ? Math.max(16, Math.round(r.height)) : 480;
         return { w: W, h: H, mirrorX: true };
       },
-      () => setFirstFrame(true)
+      () => setFirstFrame(true),
+      () => {
+        // WebGL texImage2D가 90프레임 내내 검은 픽셀 → 텍스처 업로드 실패 확정
+        // (Samsung CSS filter GPU 경로 차단, 구형 드라이버 등)
+        // → WebGL 포기, CSS 모드로 영구 전환
+        engine.destroy();
+        engineRef.current = null;
+        setWebglOk(false);
+        setFirstFrame(false);
+      }
     );
 
     return () => { engine.destroy(); engineRef.current = null; };

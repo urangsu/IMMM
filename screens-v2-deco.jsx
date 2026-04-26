@@ -193,17 +193,17 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
           <div style={{ fontSize: 18, fontWeight: 800, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: -0.5 }}>{setlogTime}</div>
         </div>
         {/* Row 2: Inputs & Add */}
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <input type="time" value={setlogTime} onChange={(e) => setSetlogTime(e.target.value)}
-            style={{ width: 85, padding: '7px 6px', borderRadius: 10, border: 'none',
+            style={{ width: mobile ? 78 : 85, padding: '7px 4px', borderRadius: 10, border: 'none',
               background: 'rgba(26,26,31,0.07)', fontSize: 12, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui',
               color: '#1A1A1F', outline: 'none' }} />
           <input value={setlogCaption} onChange={(e) => setSetlogCaption(e.target.value)}
-            placeholder="멘트 입력..." maxLength={20}
-            style={{ flex: 1, padding: '7px 10px', borderRadius: 10, border: 'none',
+            placeholder="멘트..." maxLength={20}
+            style={{ flex: 1, minWidth: 0, padding: '7px 8px', borderRadius: 10, border: 'none',
               background: 'rgba(26,26,31,0.07)', fontSize: 13, fontFamily: 'Pretendard,system-ui',
               color: '#1A1A1F', outline: 'none' }} />
-          <button onClick={addSetlog} style={{ padding: '7px 14px', background: T.ink, color: T.bg, border: 'none',
+          <button onClick={addSetlog} style={{ padding: mobile ? '7px 10px' : '7px 14px', background: T.ink, color: T.bg, border: 'none',
             borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans",system-ui',
             flexShrink: 0 }}>Add</button>
         </div>
@@ -419,16 +419,12 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           </svg>
       }
       </div>
-    </div>;
-
-
   const containerRef = React.useRef(null);
   const frameRef = React.useRef(null);
   const captureRef = React.useRef(null);
   const [autoScale, setAutoScale] = React.useState(mobile ? 1.0 : 1.3);
   const [downloading, setDownloading] = React.useState(false);
 
-  // ── canvas cover helper ──
   const drawCover = (ctx, img, x, y, w, h) => {
     const ar = img.width / img.height;
     const dar = w / h;
@@ -438,107 +434,91 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
   };
 
-  // ── image download — pure canvas, no html2canvas ──
+  const captureFrameAsBlob = async () => {
+    const S = 3; // Scale for higher res
+    const FRAME_W = (layout === 'strip' || layout === 'trip') ? 240 * S : 320 * S;
+    const PAD = 14 * S;
+    const GAP = 10 * S;
+    
+    const photoW = FRAME_W - PAD * 2;
+    const numSlots = layout === 'trip' ? 3 : 4;
+    const cols = (layout === 'grid' || layout === 'layered') ? 2 : 1;
+    const colW = cols === 2 ? (photoW - GAP) / 2 : photoW;
+    const photoAr = cols === 2 ? 1 : 4/3;
+    const photoH = colW / photoAr;
+    const rows = Math.ceil(numSlots / cols);
+    const logoH = logo ? PAD * 2.5 : 0;
+    const dateH = dateText ? PAD * 2.5 : 0;
+    const contentH = rows * photoH + (rows - 1) * GAP;
+    const FRAME_H = PAD + logoH + contentH + dateH + PAD;
+
+    const cvs = document.createElement('canvas');
+    cvs.width = FRAME_W; cvs.height = FRAME_H;
+    const ctx = cvs.getContext('2d');
+
+    ctx.fillStyle = frameColor || '#fff';
+    ctx.fillRect(0, 0, FRAME_W, FRAME_H);
+
+    let curY = PAD;
+
+    if (logo) {
+      ctx.fillStyle = '#1A1A1F';
+      ctx.font = `700 ${8*S}px sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.fillText('IMMM', PAD, curY + 2*S);
+      ctx.fillStyle = accent || '#D98893';
+      ctx.beginPath();
+      ctx.arc(FRAME_W - PAD - 4*S, curY + 6*S, 4*S, 0, Math.PI*2);
+      ctx.fill();
+      curY += logoH;
+    }
+
+    const slotIndices = Array.from({length: numSlots}, (_,i) => selected[i]);
+    const imgs = await Promise.all(slotIndices.map(idx => {
+      const s = shots[idx];
+      if (!s?.dataUrl) return Promise.resolve(null);
+      return new Promise(res => { const img = new Image(); img.onload = ()=>res(img); img.onerror=()=>res(null); img.src = s.dataUrl; });
+    }));
+
+    for (let i = 0; i < numSlots; i++) {
+      const row = Math.floor(i / cols), col = i % cols;
+      const x = PAD + col * (colW + GAP);
+      const y = curY + row * (photoH + GAP);
+      ctx.fillStyle = '#ddd';
+      ctx.fillRect(x, y, colW, photoH);
+      if (imgs[i]) {
+        ctx.filter = FILTERS[filter]?.css || 'none';
+        drawCover(ctx, imgs[i], x, y, colW, photoH);
+        ctx.filter = 'none';
+      }
+    }
+
+    curY += contentH;
+
+    if (dateText) {
+      ctx.fillStyle = '#333';
+      ctx.font = `${13*S}px Caveat, cursive`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}), FRAME_W/2, curY + 6*S);
+    }
+
+    return new Promise(res => cvs.toBlob(res, 'image/png'));
+  };
+
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
     try {
-      const S = 4;
-      const isNarrow = layout === 'strip' || layout === 'trip';
-      const FRAME_W = (isNarrow ? 160 : 220) * S;
-      const PAD = 10 * S, GAP = 6 * S;
-      const photoW = FRAME_W - PAD * 2;
-      const numSlots = layout === 'trip' ? 3 : 4;
-      const cols = (layout === 'grid' || layout === 'layered') ? 2 : 1;
-      const colW = cols === 2 ? (photoW - GAP) / 2 : photoW;
-      const photoAr = cols === 2 ? 1 : 4/3;
-      const photoH = colW / photoAr;
-      const rows = Math.ceil(numSlots / cols);
-      const logoH = logo ? PAD * 2.5 : 0;
-      const dateH = dateText ? PAD * 2.5 : 0;
-      const contentH = rows * photoH + (rows - 1) * GAP;
-      const FRAME_H = PAD + logoH + contentH + dateH + PAD;
-
-      const cvs = document.createElement('canvas');
-      cvs.width = FRAME_W; cvs.height = FRAME_H;
-      const ctx = cvs.getContext('2d');
-
-      ctx.fillStyle = frameColor || '#fff';
-      ctx.fillRect(0, 0, FRAME_W, FRAME_H);
-
-      let curY = PAD;
-
-      if (logo) {
-        ctx.fillStyle = '#1A1A1F';
-        ctx.font = `700 ${8*S}px sans-serif`;
-        ctx.textBaseline = 'top';
-        ctx.fillText('IMMM', PAD, curY + 2*S);
-        ctx.fillStyle = accent || '#D98893';
-        ctx.beginPath();
-        ctx.arc(FRAME_W - PAD - 4*S, curY + 6*S, 4*S, 0, Math.PI*2);
-        ctx.fill();
-        curY += logoH;
-      }
-
-      // load images
-      const slotIndices = Array.from({length: numSlots}, (_,i) => selected[i]);
-      const imgs = await Promise.all(slotIndices.map(idx => {
-        const s = shots[idx];
-        if (!s?.dataUrl) return Promise.resolve(null);
-        return new Promise(res => { const img = new Image(); img.onload = ()=>res(img); img.onerror=()=>res(null); img.src = s.dataUrl; });
-      }));
-
-      // draw tiles
-      for (let i = 0; i < numSlots; i++) {
-        const row = Math.floor(i / cols), col = i % cols;
-        const x = PAD + col * (colW + GAP);
-        const y = curY + row * (photoH + GAP);
-        ctx.fillStyle = '#ddd';
-        ctx.fillRect(x, y, colW, photoH);
-        if (imgs[i]) {
-          ctx.filter = FILTERS[filter]?.css || 'none';
-          drawCover(ctx, imgs[i], x, y, colW, photoH);
-          ctx.filter = 'none';
-        }
-      }
-
-      curY += contentH;
-
-      if (dateText) {
-        ctx.fillStyle = '#333';
-        ctx.font = `${13*S}px Caveat, cursive`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}), FRAME_W/2, curY + 6*S);
-      }
-
-      const blob = await new Promise(res => cvs.toBlob(res, 'image/png'));
-      if (!blob) throw new Error('toBlob failed');
-
-      // iOS 15+ / Android Chrome: Web Share API with file — shows native share sheet
-      const fname = `IMMM_${Date.now()}_${layout}.png`;
-      if (navigator.share && navigator.canShare) {
-        const file = new File([blob], fname, { type: 'image/png' });
-        if (navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], title: 'IMMM Photo' });
-            if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
-            setDownloading(false); return;
-          } catch(e) {
-            if (e.name === 'AbortError') { setDownloading(false); return; }
-          }
-        }
-      }
-
-      // Fallback: anchor click
+      const blob = await captureFrameAsBlob();
+      const fname = `IMMM_${Date.now()}.png`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
-      // iOS Safari fallback: open blob in new tab so user can long-press → Save Image
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       if (isIOS) setTimeout(() => window.open(url, '_blank'), 150);
       setTimeout(() => URL.revokeObjectURL(url), 15000);
     } catch(e) { console.error(e); }
@@ -739,13 +719,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
               {videoRecording && <div style={{position:'absolute',top:-6,right:-6,background:T.pinkDeep,borderRadius:999,width:10,height:10,animation:'pulse 0.8s ease-in-out infinite'}}/>}
             </button>
             )}
-            <button title="카카오톡 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button title="카카오톡 공유" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 3c-5.523 0-10 3.51-10 7.84 0 2.766 1.761 5.184 4.417 6.551-.19.684-.684 2.458-.784 2.836-.128.487.165.483.35.358.146-.1.2.14 2.378-1.554 1.137.318 2.358.49 3.639.49 5.523 0 10-3.511 10-7.84C22 6.511 17.523 3 12 3z"/></svg>
             </button>
-            <button title="Instagram 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button title="Instagram 공유" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>
             </button>
-            <button title="일반 공유" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button title="일반 공유" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {I.share(20, T.ink)}
             </button>
           </div>
