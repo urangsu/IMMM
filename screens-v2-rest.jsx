@@ -332,22 +332,23 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 // ═══════════════════════════════════════════════════════════════
 // SELECT
 // ═══════════════════════════════════════════════════════════════
-function SelectV2({ T, go, mobile, shots, selected, setSelected }) {
+function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
+  const maxSel = layout === 'trip' ? 3 : 4;
   const toggle = (i) => {
     setSelected(prev => {
       if (prev.includes(i)) return prev.filter(x=>x!==i);
-      if (prev.length >= 4) return prev;
+      if (prev.length >= maxSel) return prev;
       return [...prev, i];
     });
   };
   return (
     <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column',
       padding: mobile?'50px 18px 18px':'24px 56px 24px' }}>
-      <TopBar step={2} back={()=>go('capture')} T={T} mobile={mobile} title={mobile?'Select':'Step 3 · Pick your 4'}
-        right={<div style={{fontSize:12, color:T.inkSoft, fontFamily:'Pretendard,system-ui'}}>{selected.length}/4</div>}/>
+      <TopBar step={2} back={()=>go('capture')} T={T} mobile={mobile} title={mobile?'Select':`Step 3 · Pick your ${maxSel}`}
+        right={<div style={{fontSize:12, color:T.inkSoft, fontFamily:'Pretendard,system-ui'}}>{selected.length}/{maxSel}</div>}/>
       <div style={{ marginBottom: mobile?12:20, textAlign: mobile? 'left':'center' }}>
         <h2 style={{ margin:0, fontFamily:'"Plus Jakarta Sans",system-ui', fontSize: mobile?26:40, fontWeight:500, letterSpacing:-1 }}>
-          Pick your best <span style={{ fontFamily:'Caveat,cursive', color: T.pinkDeep, fontSize: mobile?32:52 }}>four.</span>
+          Pick your best <span style={{ fontFamily:'Caveat,cursive', color: T.pinkDeep, fontSize: mobile?32:52 }}>{maxSel === 3 ? 'three' : 'four'}.</span>
         </h2>
         <div style={{ marginTop:4, color:T.inkSoft, fontSize: mobile?13:14.5, fontFamily:'Pretendard,system-ui' }}>
           Tap in order — we'll place them in the frame the same way.
@@ -375,7 +376,7 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected }) {
                   {sel+1}
                 </div>
               )}
-              {!isSel && selected.length>=4 && <div style={{ position:'absolute', inset:0, background:'rgba(250,247,245,0.55)', backdropFilter:'blur(2px)' }}/>}
+              {!isSel && selected.length>=maxSel && <div style={{ position:'absolute', inset:0, background:'rgba(250,247,245,0.55)', backdropFilter:'blur(2px)' }}/>}
             </button>
           );
         })}

@@ -169,36 +169,38 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     return `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
   });
   const [setlogCaption, setSetlogCaption] = React.useState('');
+  const [setlogTheme, setSetlogTheme] = React.useState('white'); // white | black
+
 
   const addSetlog = () => {
-    setStickers((p) => [...p, makeSticker('setlog', { time: setlogTime, caption: setlogCaption }, { rotation: 0 })]);
+    setStickers((p) => [...p, makeSticker('setlog', { time: setlogTime, caption: setlogCaption, theme: setlogTheme }, { rotation: 0 })]);
   };
 
   const stickerTab =
   <div>
       {/* 셋로그 스티커 */}
       <Kick T={T}>TIME · 시간 기록</Kick>
-      <div style={{ marginTop: 8, background: 'rgba(26,26,31,0.04)', borderRadius: 16, padding: '12px 14px' }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+      <div style={{ marginTop: 8, background: 'rgba(26,26,31,0.04)', borderRadius: 16, padding: '10px 12px' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <input type="time" value={setlogTime} onChange={(e) => setSetlogTime(e.target.value)}
-        style={{ flex: '0 0 auto', padding: '8px 10px', borderRadius: 10, border: 'none',
-          background: 'rgba(26,26,31,0.07)', fontSize: 13, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui',
-          color: '#1A1A1F', outline: 'none' }} />
+            style={{ flex: '0 0 auto', padding: '6px 8px', borderRadius: 8, border: 'none',
+              background: 'rgba(26,26,31,0.07)', fontSize: 13, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui',
+              color: '#1A1A1F', outline: 'none' }} />
           <input value={setlogCaption} onChange={(e) => setSetlogCaption(e.target.value)}
-        placeholder="멘트 입력..." maxLength={30}
-        style={{ flex: 1, padding: '8px 10px', borderRadius: 10, border: 'none',
-          background: 'rgba(26,26,31,0.07)', fontSize: 13, fontFamily: 'Pretendard,system-ui',
-          color: '#1A1A1F', outline: 'none' }} />
+            placeholder="멘트..." maxLength={20}
+            style={{ flex: 1, padding: '6px 8px', borderRadius: 8, border: 'none',
+              background: 'rgba(26,26,31,0.07)', fontSize: 13, fontFamily: 'Pretendard,system-ui',
+              color: '#1A1A1F', outline: 'none' }} />
+          <button onClick={addSetlog} style={{ padding: '6px 12px', background: T.ink, color: T.bg, border: 'none',
+            borderRadius: 8, fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans",system-ui',
+            flexShrink: 0 }}>Add</button>
         </div>
-        {/* preview */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ flex: 1, background: 'rgba(26,26,31,0.15)', borderRadius: 10, padding: '10px 14px', textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#1A1A1F', lineHeight: 1, fontFamily: '"Plus Jakarta Sans",system-ui' }}>{setlogTime || '00:00'}</div>
-            {setlogCaption && <div style={{ fontSize: 11, color: 'rgba(26,26,31,0.7)', marginTop: 2, fontFamily: 'Pretendard,system-ui' }}>{setlogCaption}</div>}
-          </div>
-          <button onClick={addSetlog} style={{ padding: '10px 16px', background: T.ink, color: T.bg, border: 'none',
-          borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans",system-ui',
-          letterSpacing: 0.5, flexShrink: 0 }}>추가</button>
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: T.inkSoft, marginRight: 4 }}>Theme:</div>
+          <button onClick={() => setSetlogTheme('white')} style={{ width: 18, height: 18, borderRadius: 4, background: '#fff', border: setlogTheme === 'white' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
+          <button onClick={() => setSetlogTheme('black')} style={{ width: 18, height: 18, borderRadius: 4, background: '#000', border: setlogTheme === 'black' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
+          <div style={{ flex: 1 }} />
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1A1F', fontFamily: '"Plus Jakarta Sans",system-ui' }}>{setlogTime}</div>
         </div>
       </div>
 

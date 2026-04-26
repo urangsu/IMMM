@@ -81,15 +81,20 @@ function renderStickerInstance(s, scaleMul=1) {
     return <span style={{ fontFamily:s.payload.font, fontSize:s.payload.size, color:s.payload.color, whiteSpace:'nowrap', fontWeight:600 }}>{s.payload.text}</span>;
   }
   if (s.kind === 'setlog') {
-    const { time, caption } = s.payload;
+    const { time, caption, theme } = s.payload;
+    const isBlack = theme === 'black';
+    const bg = isBlack ? '#000' : '#fff';
+    const fg = isBlack ? '#fff' : '#000';
     return (
-      <div style={{ textAlign:'center', userSelect:'none', pointerEvents:'none' }}>
-        <div style={{ fontSize:36, fontWeight:800, color:'#fff', lineHeight:1,
-          textShadow:'0 2px 12px rgba(0,0,0,0.35)',
+      <div style={{
+        padding: '8px 12px', borderRadius: 10, background: bg,
+        boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+        textAlign:'center', userSelect:'none', pointerEvents:'none'
+      }}>
+        <div style={{ fontSize:28, fontWeight:800, color: fg, lineHeight:1,
           fontFamily:'"Plus Jakarta Sans", system-ui' }}>{time}</div>
         {caption ? (
-          <div style={{ fontSize:14, fontWeight:500, color:'#fff', marginTop:3, lineHeight:1.3,
-            textShadow:'0 1px 6px rgba(0,0,0,0.4)',
+          <div style={{ fontSize:12, fontWeight:600, color: fg, opacity: 0.7, marginTop:4, lineHeight:1.2,
             fontFamily:'Pretendard, system-ui' }}>{caption}</div>
         ) : null}
       </div>
