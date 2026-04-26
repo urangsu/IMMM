@@ -334,8 +334,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         boxShadow: layout === o.id ? '0 1px 4px rgba(0,0,0,0.06), 0 0 0 1.5px rgba(26,26,31,0.9) inset' : '0 0 0 1px rgba(26,26,31,0.08) inset',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
       }}>
-            <div style={{ width: '100%', height: 84, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <div style={{ transform: 'scale(0.3)', transformOrigin: 'center center', display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none' }}>
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.28)' }}>
                 <FrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
                   logo={false} dateText={false} accent={accent} scale={1}
                   orientation="portrait" frameColor={frameColor} />
@@ -415,7 +415,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                   transition: '0.2s',
                   position: 'relative'
                 }}>
-                  {frameColor === c.id && <div style={{ position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)', fontSize: 9, fontWeight: 700, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui', whiteSpace: 'nowrap' }}>{c.name}</div>}
+                  {frameColor === c.id && <div style={{ position: 'absolute', top: 38, left: '50%', transform: 'translateX(-50%)', fontSize: 9, fontWeight: 700, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui', whiteSpace: 'nowrap' }}>{c.name}</div>}
                 </button>
               ))}
             </div>

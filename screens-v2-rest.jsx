@@ -13,6 +13,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const [flashing, setFlashing]   = React.useState(false);
   const [auto, setAuto]           = React.useState(false);
   const [camOk, setCamOk]         = React.useState(null);
+  const [facingMode, setFacingMode] = React.useState('user');
+  const touchStartY = React.useRef(null);
 
   // WebGL engine + MediaPipe face detection
   const faceDataRef = (typeof useFaceLandmarks === 'function')
@@ -34,7 +36,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       try {
         // No width/height ideal constraints — Samsung Internet mishandles them
         const s = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'user' } },
+          video: { facingMode: { ideal: facingMode } },
           audio: false,
         });
         if (!active) { s.getTracks().forEach(t=>t.stop()); return; }
@@ -52,7 +54,24 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       }
     })();
     return () => { active=false; streamRef.current?.getTracks().forEach(t=>t.stop()); };
-  }, []);
+  }, [facingMode]);
+
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStartY.current === null) return;
+    const touchEndY = e.changedTouches[0].clientY;
+    const diff = touchStartY.current - touchEndY;
+    // Swipe up (diff > 50px)
+    if (diff > 50) toggleCamera();
+    touchStartY.current = null;
+  };
 
   const captureFromVideo = React.useCallback((v, cssFilter) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
@@ -170,7 +189,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             NO overflow:hidden here — Samsung Internet (Chromium) does not render
             hardware-accelerated video inside overflow:hidden+borderRadius containers.
             borderRadius is applied directly on video/canvas instead. */}
-        <div style={{ flex:1, minHeight:0, position:'relative', borderRadius:24, background:'#000', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div 
+          onDoubleClick={toggleCamera}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          style={{ flex:1, minHeight:0, position:'relative', borderRadius:24, background:'#000', display:'flex', alignItems:'center', justifyContent:'center' }}>
           {camOk === false ? (
             <div style={{ position:'absolute', inset:0, borderRadius:24, overflow:'hidden' }}>
               <PlaceholderPortrait seed={idx} filter={filter}/>
@@ -178,19 +201,14 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           ) : (
             <>
-              {/* Video: always opacity:1, borderRadius directly on element.
-                  Mobile: canvasActive is always false (WebGL disabled on mobile)
-                  so this is the sole display layer — shows CSS filter live. */}
               <video ref={videoRef} playsInline muted autoPlay style={{
                 position:'absolute', inset:0, width:'100%', height:'100%',
-                objectFit:'cover', transform:'scaleX(-1)',
+                objectFit:'cover', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
                 borderRadius:24,
                 filter: canvasActive ? 'none' : (FILTERS[filter]?.css || 'none'),
                 opacity: 1,
                 pointerEvents:'none',
               }}/>
-              {/* WebGL canvas: desktop only (disabled on mobile).
-                  borderRadius matches video so edges align when it fades in. */}
               <canvas ref={canvasRef} style={{
                 display:'block', position:'absolute',
                 top:'50%', left:'50%',
