@@ -27,24 +27,44 @@ uniform float u_flipX;
 varying vec2 v_uv;
 void main(){ gl_FragColor = texture2D(u_tex, v_uv); }`,
 
+// T-2: Face-masked bilateral — applies full smoothing only inside face ROI,
+// preserves eyes/lips (high-freq detail), no-ops outside face area.
 bilateral_h: `
 precision mediump float;
 uniform sampler2D u_tex;
 uniform vec2 u_resolution;
 uniform float u_sigmaSpace;
 uniform float u_sigmaColor;
+// T-2 face mask: xy=faceCenter, zw=faceHalfSize (all in UV [0,1])
+uniform vec4 u_faceROI;   // center.x, center.y, halfW, halfH  (0→disabled when halfW<=0)
+uniform vec4 u_eyeLipsROI;// eyes+lips exclusion box: x,y,w,h in UV
 varying vec2 v_uv;
 float gauss(float x,float s){return exp(-0.5*x*x/(s*s));}
 void main(){
   vec2 px=1.0/u_resolution;
-  vec4 center=texture2D(u_tex,v_uv);
+  vec4 orig=texture2D(u_tex,v_uv);
+  // --- compute face mask weight ---
+  float faceW=1.0;
+  if(u_faceROI.z>0.0){
+    vec2 d=abs(v_uv-u_faceROI.xy)/u_faceROI.zw;
+    faceW=1.0-smoothstep(0.75,1.0,max(d.x,d.y));
+    // mask out eyes+lips region (preserve high freq)
+    if(u_eyeLipsROI.z>0.0){
+      vec2 el=(v_uv-u_eyeLipsROI.xy)/u_eyeLipsROI.zw;
+      float eyeMask=smoothstep(0.6,0.8,max(abs(el.x-0.5)*2.0,abs(el.y-0.5)*2.0));
+      faceW*=eyeMask;
+    }
+  }
+  if(faceW<0.01){ gl_FragColor=orig; return; }
+  vec4 center=orig;
   vec4 sum=vec4(0.0);float w=0.0;
   for(int i=-5;i<=5;i++){
     vec4 s=texture2D(u_tex,v_uv+vec2(float(i)*px.x,0.0));
     float ww=gauss(float(i),u_sigmaSpace)*gauss(length(s.rgb-center.rgb),u_sigmaColor);
     sum+=s*ww;w+=ww;
   }
-  gl_FragColor=sum/w;
+  vec4 blurred=sum/w;
+  gl_FragColor=mix(orig,blurred,faceW);
 }`,
 
 bilateral_v: `
@@ -53,18 +73,33 @@ uniform sampler2D u_tex;
 uniform vec2 u_resolution;
 uniform float u_sigmaSpace;
 uniform float u_sigmaColor;
+uniform vec4 u_faceROI;
+uniform vec4 u_eyeLipsROI;
 varying vec2 v_uv;
 float gauss(float x,float s){return exp(-0.5*x*x/(s*s));}
 void main(){
   vec2 px=1.0/u_resolution;
-  vec4 center=texture2D(u_tex,v_uv);
+  vec4 orig=texture2D(u_tex,v_uv);
+  float faceW=1.0;
+  if(u_faceROI.z>0.0){
+    vec2 d=abs(v_uv-u_faceROI.xy)/u_faceROI.zw;
+    faceW=1.0-smoothstep(0.75,1.0,max(d.x,d.y));
+    if(u_eyeLipsROI.z>0.0){
+      vec2 el=(v_uv-u_eyeLipsROI.xy)/u_eyeLipsROI.zw;
+      float eyeMask=smoothstep(0.6,0.8,max(abs(el.x-0.5)*2.0,abs(el.y-0.5)*2.0));
+      faceW*=eyeMask;
+    }
+  }
+  if(faceW<0.01){ gl_FragColor=orig; return; }
+  vec4 center=orig;
   vec4 sum=vec4(0.0);float w=0.0;
   for(int i=-5;i<=5;i++){
     vec4 s=texture2D(u_tex,v_uv+vec2(0.0,float(i)*px.y));
     float ww=gauss(float(i),u_sigmaSpace)*gauss(length(s.rgb-center.rgb),u_sigmaColor);
     sum+=s*ww;w+=ww;
   }
-  gl_FragColor=sum/w;
+  vec4 blurred=sum/w;
+  gl_FragColor=mix(orig,blurred,faceW);
 }`,
 
 color_adjust: `
@@ -329,7 +364,71 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),1.0),orig.a);
 }`,
 
-// ── Halation — 14-tap cross kernel bright-area glow ───
+// ── Halation pass-1 H: extract bright → horizontal Gaussian blur ─
+halation_h: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_resolution;
+uniform float u_threshold;
+varying vec2 v_uv;
+void main(){
+  vec2 px=vec2(1.0/u_resolution.x, 0.0);
+  // Gaussian weights 9-tap sigma=2.0
+  float W[5]; W[0]=0.227; W[1]=0.194; W[2]=0.121; W[3]=0.054; W[4]=0.016;
+  vec3 sum=vec3(0.0); float wt=W[0];
+  vec3 c0=texture2D(u_tex,v_uv).rgb;
+  float l0=dot(c0,vec3(0.2126,0.7152,0.0722));
+  float b0=max(l0-u_threshold,0.0)/(max(1.0-u_threshold,0.001));
+  sum=c0*b0*b0*W[0];
+  for(int i=1;i<=4;i++){
+    float fi=float(i);
+    vec3 sL=texture2D(u_tex,v_uv-px*fi*2.5).rgb;
+    vec3 sR=texture2D(u_tex,v_uv+px*fi*2.5).rgb;
+    float lL=dot(sL,vec3(0.2126,0.7152,0.0722)); float bL=max(lL-u_threshold,0.0)/(max(1.0-u_threshold,0.001)); bL=bL*bL;
+    float lR=dot(sR,vec3(0.2126,0.7152,0.0722)); float bR=max(lR-u_threshold,0.0)/(max(1.0-u_threshold,0.001)); bR=bR*bR;
+    sum+=sL*bL*W[i]+sR*bR*W[i];
+    wt+=W[i]*2.0;
+  }
+  gl_FragColor=vec4(sum/wt,1.0);
+}`,
+
+// ── Halation pass-2 V: vertical Gaussian ──────────────
+halation_v: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_resolution;
+varying vec2 v_uv;
+void main(){
+  vec2 px=vec2(0.0,1.0/u_resolution.y);
+  float W[5]; W[0]=0.227; W[1]=0.194; W[2]=0.121; W[3]=0.054; W[4]=0.016;
+  vec4 sum=texture2D(u_tex,v_uv)*W[0]; float wt=W[0];
+  for(int i=1;i<=4;i++){
+    float fi=float(i);
+    sum+=texture2D(u_tex,v_uv-px*fi*2.5)*W[i]+texture2D(u_tex,v_uv+px*fi*2.5)*W[i];
+    wt+=W[i]*2.0;
+  }
+  gl_FragColor=sum/wt;
+}`,
+
+// ── Halation pass-3 composite: screen-blend blurred bright onto original ──
+halation_comp: `
+precision mediump float;
+uniform sampler2D u_tex;      // original scene
+uniform sampler2D u_halTex;   // blurred bright map (from FBO[2])
+uniform float u_intensity;
+varying vec2 v_uv;
+void main(){
+  vec4 orig=texture2D(u_tex,v_uv);
+  vec3 glow=texture2D(u_halTex,v_uv).rgb;
+  // Warm tint on glow (red-orange halation like film)
+  glow*=vec3(1.8,0.55,0.18);
+  glow=clamp(glow*u_intensity,0.0,1.0);
+  // Screen blend
+  vec3 c=orig.rgb+glow-orig.rgb*glow;
+  gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
+}`,
+
+// ── Legacy single-pass halation (kept for fallback) ───
 halation: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -493,7 +592,9 @@ const FILTER_PIPELINES = {
   // ── 코닥 (Grain) ────────────────────────────────────────
   grain: { pipeline:[
     { shader:'classic_neg',  uniforms:{ u_intensity:1.0 } },
-    { shader:'halation',     uniforms:{ u_intensity:0.55, u_threshold:0.52 } },
+    { shader:'halation_h',   uniforms:{ u_threshold:0.52 } },
+    { shader:'halation_v',   uniforms:{} },
+    { shader:'halation_comp',uniforms:{ u_intensity:0.55 } },
     { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.042 } },
     { shader:'vignette',     uniforms:{ u_strength:0.65 } },
   ]},
@@ -501,7 +602,9 @@ const FILTER_PIPELINES = {
   // ── 엄마 앨범 (Vintage) ─────────────────────────────────
   vintage: { pipeline:[
     { shader:'kodak_portra', uniforms:{ u_intensity:1.0 } },
-    { shader:'halation',     uniforms:{ u_intensity:0.70, u_threshold:0.48 } },
+    { shader:'halation_h',   uniforms:{ u_threshold:0.48 } },
+    { shader:'halation_v',   uniforms:{} },
+    { shader:'halation_comp',uniforms:{ u_intensity:0.70 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.90,0.92,1.06], u_highlightColor:[1.08,1.04,0.92], u_intensity:0.75 } },
     { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.038 } },
     { shader:'vignette',     uniforms:{ u_strength:0.70 } },
@@ -509,12 +612,16 @@ const FILTER_PIPELINES = {
 
   // ── 새벽 두 시 (Dream) ──────────────────────────────────
   dream: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
+    // T-2: bilateral with face ROI (defaults cover full frame if no face data)
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09, u_faceROI:[0.5,0.42,0.0,0.0], u_eyeLipsROI:[0.5,0.42,0.0,0.0] } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09, u_faceROI:[0.5,0.42,0.0,0.0], u_eyeLipsROI:[0.5,0.42,0.0,0.0] } },
     { shader:'dream',        uniforms:{ u_intensity:1.0 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.85,0.87,1.12], u_highlightColor:[1.03,1.01,1.06], u_intensity:0.65 } },
     { shader:'chromatic_ab', uniforms:{ u_amount:0.0018 } },
-    { shader:'halation',     uniforms:{ u_intensity:0.3, u_threshold:0.7 } },
+    // T-1: 2-pass halation
+    { shader:'halation_h',   uniforms:{ u_threshold:0.70 } },
+    { shader:'halation_v',   uniforms:{} },
+    { shader:'halation_comp',uniforms:{ u_intensity:0.30 } },
     { shader:'vignette',     uniforms:{ u_strength:0.55 } },
   ]},
 
@@ -577,7 +684,9 @@ const FILTER_PIPELINES = {
   golden: { pipeline:[
     { shader:'kodak_portra', uniforms:{ u_intensity:0.7 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.88,0.90,1.02], u_highlightColor:[1.12,1.06,0.88], u_intensity:0.9 } },
-    { shader:'halation',     uniforms:{ u_intensity:0.85, u_threshold:0.44 } },
+    { shader:'halation_h',   uniforms:{ u_threshold:0.44 } },
+    { shader:'halation_v',   uniforms:{} },
+    { shader:'halation_comp',uniforms:{ u_intensity:0.85 } },
     { shader:'color_adjust', uniforms:{ u_exposure:0.10,u_contrast:0.06,u_saturation:0.08,u_temperature:0.35,u_tint:0,u_vibrance:0.10,u_highlights:-0.04,u_shadows:0.06 } },
     { shader:'vignette',     uniforms:{ u_strength:0.60 } },
   ]},
@@ -632,7 +741,7 @@ class FilterEngine {
     this._srcTex = twgl.createTexture(gl, {
       width:2, height:2, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE, flipY:false,
     });
-    this._fboInfos = [null, null];
+    this._fboInfos = [null, null, null];
   }
 
   _ensureFbos(w, h) {
@@ -643,9 +752,11 @@ class FilterEngine {
     if (!this._fboInfos[0]) {
       this._fboInfos[0] = twgl.createFramebufferInfo(gl, spec, w, h);
       this._fboInfos[1] = twgl.createFramebufferInfo(gl, spec, w, h);
+      this._fboInfos[2] = twgl.createFramebufferInfo(gl, spec, w, h); // T-1: halation scratch
     } else {
       twgl.resizeFramebufferInfo(gl, this._fboInfos[0], spec, w, h);
       twgl.resizeFramebufferInfo(gl, this._fboInfos[1], spec, w, h);
+      twgl.resizeFramebufferInfo(gl, this._fboInfos[2], spec, w, h);
     }
   }
 
@@ -678,10 +789,55 @@ class FilterEngine {
     const fu  = faceUniforms || {};
     let curTex = this._srcTex;
     let idx = 0;
+    let sceneTex = this._srcTex; // tracks the 'original scene' for halation_comp
 
     for (let i = 0; i < pipeline.length; i++) {
       const step = pipeline[i];
-      const out  = this._fboInfos[1 - idx];
+
+      // ── T-1: 2-pass halation routing ───────────────────────────────
+      if (step.shader === 'halation_h') {
+        // Pass 1-H: bright extract + horizontal blur → fboInfos[2]
+        this._pass('halation_h', curTex, this._fboInfos[2], {
+          u_resolution: res,
+          u_flipX: 0.0,
+          ...step.uniforms,
+        });
+        sceneTex = curTex; // remember scene before halation
+        continue; // do NOT advance curTex/idx
+      }
+      if (step.shader === 'halation_v') {
+        // Pass 2-V: vertical blur on the fboInfos[2] content → write back to fboInfos[2]
+        this._pass('halation_v', this._fboInfos[2].attachments[0], this._fboInfos[2], {
+          u_resolution: res,
+          u_flipX: 0.0,
+          ...step.uniforms,
+        });
+        continue;
+      }
+      if (step.shader === 'halation_comp') {
+        // Pass 3: composite blurred halation on scene
+        const out = this._fboInfos[1 - idx];
+        const prog = this._programs['halation_comp'];
+        if (prog) {
+          twgl.bindFramebufferInfo(gl, out);
+          gl.viewport(0, 0, out.width, out.height);
+          gl.useProgram(prog.program);
+          twgl.setBuffersAndAttributes(gl, prog, this._bufInfo);
+          twgl.setUniforms(prog, {
+            u_tex: sceneTex,
+            u_halTex: this._fboInfos[2].attachments[0],
+            u_flipX: 0.0,
+            ...step.uniforms,
+          });
+          twgl.drawBufferInfo(gl, this._bufInfo, gl.TRIANGLE_STRIP);
+          curTex = out.attachments[0];
+          idx = 1 - idx;
+        }
+        continue;
+      }
+
+      // ── Normal pass ────────────────────────────────────────────────
+      const out = this._fboInfos[1 - idx];
       this._pass(step.shader, curTex, out, {
         u_resolution: res,
         u_flipX: (i === 0 && mirrorX) ? 1.0 : 0.0,
@@ -780,7 +936,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
     try {
       engine = new FilterEngine(canvas);
       engineRef.current = engine;
-      setWebglOk(true);
+      // NOTE: do NOT setWebglOk(true) here — wait until real pixels confirmed in onFirstFrame
     } catch(e) {
       console.warn('[IMMM] WebGL init failed:', e.message);
       return;
@@ -834,7 +990,11 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
         const H = r ? Math.max(16, Math.round(r.height)) : 480;
         return { w: W, h: H, mirrorX: true };
       },
-      () => setFirstFrame(true),
+      () => {
+        // onFirstFrame: real pixels confirmed — NOW safe to show canvas
+        setWebglOk(true);
+        setFirstFrame(true);
+      },
       () => {
         // WebGL texImage2D가 90프레임 내내 검은 픽셀 → 텍스처 업로드 실패 확정
         // (Samsung CSS filter GPU 경로 차단, 구형 드라이버 등)
