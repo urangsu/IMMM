@@ -476,21 +476,21 @@ const FILTER_PIPELINES = {
     { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.04,u_saturation:-0.06,u_temperature:0.15,u_tint:0,u_vibrance:0,u_highlights:0.03,u_shadows:0.02 } },
   ]},
 
-  // ── 2002 ───────────────────────────────────────────────
+  // ── 2002 (Y2K) ──────────────────────────────────────────
   y2k: { pipeline:[
     { shader:'y2k',          uniforms:{ u_intensity:1.0 } },
     { shader:'chromatic_ab', uniforms:{ u_amount:0.003 } },
     { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.022 } },
   ]},
 
-  // ── 한강 새벽 ──────────────────────────────────────────
+  // ── 한강 새벽 (B&W) ─────────────────────────────────────
   bw: { pipeline:[
     { shader:'ilford_hp5',   uniforms:{ u_intensity:1.0 } },
     { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.055 } },
     { shader:'vignette',     uniforms:{ u_strength:0.85 } },
   ]},
 
-  // ── 코닥 ───────────────────────────────────────────────
+  // ── 코닥 (Grain) ────────────────────────────────────────
   grain: { pipeline:[
     { shader:'classic_neg',  uniforms:{ u_intensity:1.0 } },
     { shader:'halation',     uniforms:{ u_intensity:0.55, u_threshold:0.52 } },
@@ -498,7 +498,7 @@ const FILTER_PIPELINES = {
     { shader:'vignette',     uniforms:{ u_strength:0.65 } },
   ]},
 
-  // ── 엄마 앨범 ──────────────────────────────────────────
+  // ── 엄마 앨범 (Vintage) ─────────────────────────────────
   vintage: { pipeline:[
     { shader:'kodak_portra', uniforms:{ u_intensity:1.0 } },
     { shader:'halation',     uniforms:{ u_intensity:0.70, u_threshold:0.48 } },
@@ -507,24 +507,44 @@ const FILTER_PIPELINES = {
     { shader:'vignette',     uniforms:{ u_strength:0.70 } },
   ]},
 
-  // ── 새벽 두 시 ─────────────────────────────────────────
+  // ── 새벽 두 시 (Dream) ──────────────────────────────────
   dream: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
     { shader:'dream',        uniforms:{ u_intensity:1.0 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.85,0.87,1.12], u_highlightColor:[1.03,1.01,1.06], u_intensity:0.65 } },
     { shader:'chromatic_ab', uniforms:{ u_amount:0.0018 } },
+    { shader:'halation',     uniforms:{ u_intensity:0.3, u_threshold:0.7 } },
     { shader:'vignette',     uniforms:{ u_strength:0.55 } },
   ]},
 
-  // ── 반짝 ───────────────────────────────────────────────
+  // ── 트와일라잇 (신규 - Twilight) ───────────────────────
+  twilight: { pipeline:[
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.10 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.10 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.65,0.72,0.95], u_highlightColor:[0.95,0.98,1.05], u_intensity:0.9 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.05,u_contrast:0.12,u_saturation:-0.15,u_temperature:-0.25,u_tint:0.05,u_vibrance:0.1,u_highlights:-0.1,u_shadows:0.15 } },
+    { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.045 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.8 } },
+  ]},
+
+  // ── 블러캠 (신규 - BlurCAM) ───────────────────────────
+  blurcam: { pipeline:[
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.15 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.15 } },
+    { shader:'dream',        uniforms:{ u_intensity:1.2 } },
+    { shader:'halation',     uniforms:{ u_intensity:0.8, u_threshold:0.65 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.15,u_contrast:-0.1,u_saturation:0.05,u_temperature:0,u_tint:0,u_vibrance:0.2,u_highlights:0.1,u_shadows:0 } },
+  ]},
+
+  // ── 반짝 (Glitter) ──────────────────────────────────────
   glitter: { pipeline:[
     { shader:'color_adjust', uniforms:{ u_exposure:0.1,u_saturation:0.28,u_contrast:0.04,u_temperature:0,u_tint:0,u_vibrance:0.15,u_highlights:0.08,u_shadows:0 } },
     { shader:'glitter',      uniforms:{ u_time:0.0, u_intensity:0.9 } },
-    { shader:'halation',     uniforms:{ u_intensity:0.45, u_threshold:0.60 } },
+    { shader:'halation',     uniforms:{ u_intensity:0.65, u_threshold:0.60 } },
   ]},
-
-  // ── 하라주쿠 ────────────────────────────────────────────
+  
+  // ── 하라주쿠 (Purikura) ──────────────────────────────────
   purikura: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.14 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.14 } },
@@ -533,7 +553,7 @@ const FILTER_PIPELINES = {
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.94,0.90,1.05], u_highlightColor:[1.06,1.03,1.04], u_intensity:0.55 } },
   ]},
 
-  // ── 크림 스킨 ──────────────────────────────────────────
+  // ── 크림 스킨 (Smooth) ──────────────────────────────────
   smooth: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.18 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.18 } },
@@ -542,16 +562,18 @@ const FILTER_PIPELINES = {
     { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.08,u_saturation:-0.05,u_temperature:0.12,u_tint:0,u_vibrance:0,u_highlights:0.04,u_shadows:0.04 } },
   ]},
 
-  // ── 첫사랑 ─────────────────────────────────────────────
+  // ── 첫사랑 (Blush) ──────────────────────────────────────
   blush: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.04,u_saturation:0.10,u_contrast:-0.04,u_temperature:0.18,u_tint:0,u_vibrance:0,u_highlights:0,u_shadows:0 } },
+    { shader:'dream',        uniforms:{ u_intensity:0.5 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.08,u_saturation:0.15,u_contrast:-0.05,u_temperature:0.12,u_tint:0,u_vibrance:0,u_highlights:0,u_shadows:0 } },
     { shader:'blush',        uniforms:{ u_leftCheek:[0.28,0.52], u_rightCheek:[0.72,0.52],
-        u_cheekRadius:0.22, u_blushStrength:0.85, u_blushColor:[0.98,0.72,0.72] } },
+        u_cheekRadius:0.22, u_blushStrength:0.95, u_blushColor:[0.98,0.65,0.72] } },
+    { shader:'halation',     uniforms:{ u_intensity:0.4, u_threshold:0.75 } },
   ]},
 
-  // ── 골든아워 (신규) ────────────────────────────────────
+  // ── 골든아워 ──────────────────────────────────────────
   golden: { pipeline:[
     { shader:'kodak_portra', uniforms:{ u_intensity:0.7 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.88,0.90,1.02], u_highlightColor:[1.12,1.06,0.88], u_intensity:0.9 } },
@@ -560,7 +582,7 @@ const FILTER_PIPELINES = {
     { shader:'vignette',     uniforms:{ u_strength:0.60 } },
   ]},
 
-  // ── 로모 (신규) ────────────────────────────────────────
+  // ── 로모 ──────────────────────────────────────────────
   lomo: { pipeline:[
     { shader:'classic_neg',  uniforms:{ u_intensity:0.8 } },
     { shader:'chromatic_ab', uniforms:{ u_amount:0.004 } },

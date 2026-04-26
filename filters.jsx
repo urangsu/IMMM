@@ -11,6 +11,8 @@ const FILTERS = {
   golden:    { name:'Golden Hour',  ko:'골든아워',  css:'brightness(1.12) contrast(1.08) saturate(1.15) sepia(0.15)' },
   y2k:       { name:'2002',         ko:'2002',      css:'saturate(1.5) hue-rotate(-12deg) contrast(1.08) brightness(1.06)' },
   dream:     { name:'2AM',          ko:'새벽 두 시',css:'brightness(1.28) contrast(1.30) saturate(0.70) blur(0.25px)' },
+  twilight:  { name:'Twilight',     ko:'트와일라잇',css:'brightness(0.95) contrast(1.12) saturate(0.85) sepia(0.1)' },
+  blurcam:   { name:'BlurCAM',      ko:'블러캠',    css:'brightness(1.15) contrast(0.9) saturate(1.05) blur(0.8px)' },
   bw:        { name:'Han River',    ko:'한강 새벽', css:'grayscale(1) contrast(1.15) brightness(0.94)' },
   glitter:   { name:'Disco',        ko:'반짝',      css:'brightness(1.20) contrast(1.15) saturate(1.8) hue-rotate(5deg)', overlay:'glitter' },
   lomo:      { name:'Lomo',         ko:'로모',      css:'contrast(1.20) saturate(1.10) brightness(0.92) sepia(0.15)' },
