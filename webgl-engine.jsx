@@ -774,29 +774,33 @@ class FilterEngine {
         continue;
       }
       if (step.shader === 'halation_v') {
-        // Blur H-result (FBO 2) into one of the ping-pong buffers
-        const outIdx = 1 - idx;
-        this._pass('halation_v', this._fboInfos[2].attachments[0], this._fboInfos[outIdx], {
+        // halation_v: read FBO[2] (H-result), write to fboInfos[1-idx].
+        // idx is NOT advanced — sceneTex is still tracked by curTex/idx above.
+        const halVOut = 1 - idx;
+        this._pass('halation_v', this._fboInfos[2].attachments[0], this._fboInfos[halVOut], {
           u_resolution: res,
           u_flipX: 0.0,
           ...step.uniforms,
         });
-        this._halBlurTex = this._fboInfos[outIdx].attachments[0];
-        // We do NOT advance idx here because curTex (scene) is still in the other FBO or srcTex
-        continue; 
+        this._halBlurTex = this._fboInfos[halVOut].attachments[0];
+        // advance idx so halation_comp does NOT pick the same slot
+        idx = halVOut;
+        continue;
       }
       if (step.shader === 'halation_comp') {
-        const outIdx = 1 - idx;
-        // If sceneTex is the same as our intended output, we have a problem.
-        // But curTex is usually the latest result.
-        this._pass('halation_comp', sceneTex, this._fboInfos[outIdx], {
+        // SAFE: write to FBO[2] — halation_h output already consumed by halation_v.
+        // FBO[idx] = _halBlurTex, FBO[1-idx] = sceneTex → both are inputs.
+        // FBO[2] is the only slot that is neither.
+        this._pass('halation_comp', sceneTex, this._fboInfos[2], {
           u_tex: sceneTex,
-          u_halTex: this._halBlurTex || this._fboInfos[2].attachments[0],
+          u_halTex: this._halBlurTex,
           u_flipX: 0.0,
           ...step.uniforms,
         });
-        curTex = this._fboInfos[outIdx].attachments[0];
-        idx = outIdx;
+        curTex = this._fboInfos[2].attachments[0];
+        // Both FBO[0] and FBO[1] are now free for subsequent passes.
+        // Set idx=0 so the next normal pass writes to FBO[1].
+        idx = 0;
         continue;
       }
 
