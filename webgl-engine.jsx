@@ -412,7 +412,7 @@ class FilterEngine {
     const gl = canvas.getContext('webgl', {
       alpha: false, antialias: false, depth: false,
       preserveDrawingBuffer: true,   // needed for canvas.toDataURL()
-      powerPreference: 'high-performance',
+      powerPreference: 'default',    // 'high-performance' can cause issues on mobile GPUs
     });
     if (!gl) throw new Error('WebGL not available');
     this.gl = gl;

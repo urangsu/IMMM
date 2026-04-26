@@ -50,7 +50,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     return () => { active=false; streamRef.current?.getTracks().forEach(t=>t.stop()); };
   }, []);
 
-  const captureFromVideo = React.useCallback((v) => {
+  const captureFromVideo = React.useCallback((v, cssFilter) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
     try {
       const c = document.createElement('canvas');
@@ -58,6 +58,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       const ctx = c.getContext('2d');
       ctx.save();
       ctx.translate(c.width, 0); ctx.scale(-1, 1);
+      // Apply CSS filter so fallback captures match what the preview showed
+      if (cssFilter && cssFilter !== 'none') ctx.filter = cssFilter;
       const vw = v.videoWidth, vh = v.videoHeight;
       const size = Math.min(vw, vh);
       const sx = (vw - size) / 2, sy = (vh - size) / 2;
@@ -81,10 +83,13 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           if (raw && raw.length > 5000) dataUrl = raw;
         } catch(e) {}
       }
-      // Fallback: draw directly from video element (mirrored, 720px)
+      // Fallback: draw from video with CSS filter so the captured photo matches preview
       if (!dataUrl) {
         const v = videoRef.current;
-        if (v && v.readyState >= 2 && v.videoWidth > 0) dataUrl = captureFromVideo(v);
+        if (v && v.readyState >= 2 && v.videoWidth > 0) {
+          const cssFilter = canvasActive ? 'none' : (FILTERS[filter]?.css || 'none');
+          dataUrl = captureFromVideo(v, cssFilter);
+        }
       }
       setShots(prev => {
         const copy = [...prev];
@@ -166,23 +171,27 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           ) : (
             <>
-              {/* Video: always opacity>0 — iOS Safari stops painting frames at opacity:0,
-                  breaking WebGL texImage2D reads. Canvas overlays it when active. */}
+              {/* Video: ALWAYS opacity:1. iOS Safari / Android Chrome stop
+                  painting video frames the moment opacity drops below ~0.05,
+                  causing WebGL texImage2D to return stale/black pixels.
+                  The canvas overlays the video when active; no opacity change needed. */}
               <video ref={videoRef} playsInline muted autoPlay style={{
                 position:'absolute', inset:0, width:'100%', height:'100%',
                 objectFit:'cover', transform:'scaleX(-1)',
                 filter: canvasActive ? 'none' : (FILTERS[filter]?.css || 'none'),
-                opacity: canvasActive ? 0.001 : 1,
+                opacity: 1,
                 pointerEvents:'none',
               }}/>
-              {/* WebGL canvas: fades in over video once a non-black frame is confirmed */}
+              {/* WebGL canvas: sits on top of video. Fades in once a non-black
+                  frame is confirmed via readPixels. alpha:false makes the canvas
+                  fully opaque when visible — completely covers the video below. */}
               <canvas ref={canvasRef} style={{
                 display:'block', position:'absolute',
                 top:'50%', left:'50%',
                 transform:'translate(-50%,-50%)',
                 minWidth:'100%', minHeight:'100%',
                 opacity: canvasActive ? 1 : 0,
-                transition: canvasActive ? 'opacity 0.25s' : 'none',
+                transition: 'opacity 0.2s',
                 pointerEvents:'none',
               }}/>
             </>
