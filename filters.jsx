@@ -1,16 +1,16 @@
 // filters.jsx — CSS filter presets + placeholder portraits
 
 const FILTERS = {
-  original:  { name:'Original',  ko:'원본',   css:'brightness(1.04) contrast(0.96) saturate(1.02) blur(0.15px)', thumbPos: '78.5% 15.5%' },
-  porcelain: { name:'Porcelain', ko:'뽀샤시',  css:'brightness(1.08) contrast(0.92) saturate(0.9) blur(0.3px)', thumbPos: '86.5% 15.5%' },
-  y2k:       { name:'Y2K',       ko:'Y2K',    css:'saturate(1.4) hue-rotate(-8deg) contrast(1.05) brightness(1.05)', thumbPos: '94.5% 15.5%' },
-  bw:        { name:'B&W',       ko:'흑백',   css:'grayscale(1) contrast(1.1)', thumbPos: '78.5% 34.5%' },
-  grain:     { name:'Film',      ko:'필름',   css:'sepia(0.2) contrast(1.08) saturate(0.85) brightness(0.98)', thumbPos: '86.5% 34.5%' },
-  vintage:   { name:'90s',       ko:'빈티지',  css:'sepia(0.35) saturate(1.15) contrast(0.95) hue-rotate(-10deg) brightness(0.97)', thumbPos: '94.5% 34.5%' },
-  glitter:   { name:'Glitter',   ko:'글리터',  css:'brightness(1.18) contrast(1.12) saturate(1.75) hue-rotate(5deg)', overlay:'glitter', thumbPos: '78.5% 53.5%' },
-  purikura:  { name:'Purikura',  ko:'퓨리쿠라', css:'brightness(1.32) contrast(1.38) saturate(0.72) blur(0.2px)', overlay:'purikura', thumbPos: '86.5% 53.5%' },
-  smooth:    { name:'Smooth',    ko:'피부보정', css:'brightness(1.13) contrast(0.82) saturate(0.88) blur(0.55px)', thumbPos: '94.5% 53.5%' },
-  blush:     { name:'Blush',     ko:'홍조',   css:'brightness(1.06) saturate(1.25) hue-rotate(-10deg) contrast(0.93)', overlay:'blush', thumbPos: '78.5% 72.5%' },
+  original:  { name:'Original',  ko:'원본',   css:'brightness(1.04) contrast(0.96) saturate(1.02) blur(0.15px)' },
+  porcelain: { name:'Porcelain', ko:'뽀샤시',  css:'brightness(1.08) contrast(0.92) saturate(0.9) blur(0.3px)' },
+  y2k:       { name:'Y2K',       ko:'Y2K',    css:'saturate(1.4) hue-rotate(-8deg) contrast(1.05) brightness(1.05)' },
+  bw:        { name:'B&W',       ko:'흑백',   css:'grayscale(1) contrast(1.1)' },
+  grain:     { name:'Film',      ko:'필름',   css:'sepia(0.2) contrast(1.08) saturate(0.85) brightness(0.98)' },
+  vintage:   { name:'90s',       ko:'빈티지',  css:'sepia(0.35) saturate(1.15) contrast(0.95) hue-rotate(-10deg) brightness(0.97)' },
+  glitter:   { name:'Glitter',   ko:'글리터',  css:'brightness(1.18) contrast(1.12) saturate(1.75) hue-rotate(5deg)', overlay:'glitter' },
+  purikura:  { name:'Purikura',  ko:'퓨리쿠라', css:'brightness(1.32) contrast(1.38) saturate(0.72) blur(0.2px)', overlay:'purikura' },
+  smooth:    { name:'Smooth',    ko:'피부보정', css:'brightness(1.13) contrast(0.82) saturate(0.88) blur(0.55px)' },
+  blush:     { name:'Blush',     ko:'홍조',   css:'brightness(1.06) saturate(1.25) hue-rotate(-10deg) contrast(0.93)', overlay:'blush' },
 };
 
 // Filter overlay — decorative layer rendered on top of video/photo

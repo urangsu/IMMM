@@ -437,7 +437,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         transition: 'all 0.2s'
       }}>
             <div style={{ aspectRatio: '1', position: 'relative', overflow: 'hidden' }}>
-              <img src="asset/filter-sample.png" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: v.thumbPos || 'center', transform: 'scale(4.8)' }} />
+              <img src="asset/filter-sample.jpg" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: v.css }} />
               <FilterOverlay filter={k} />
             </div>
             <div style={{ padding: '6px 10px', fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
