@@ -49,11 +49,11 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   }, [drawColor, drawWidth, drawBrush]);
 
   const onDrawMove = React.useCallback((e) => {
-    if (!drawModeRef.current || !curStroke || !frameNativeRef.current) return;
+    if (!drawModeRef.current || !frameNativeRef.current) return;
     const rect = frameNativeRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width * 100;
     const y = (e.clientY - rect.top) / rect.height * 100;
-    setCurStroke((s) => ({ ...s, points: [...s.points, [x, y]] }));
+    setCurStroke((s) => s ? { ...s, points: [...s.points, [x, y]] } : null);
   }, []);
 
   const onDrawEnd = React.useCallback(() => {
