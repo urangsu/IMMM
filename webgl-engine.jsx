@@ -506,10 +506,11 @@ class FilterEngine {
     });
   }
 
-  startLoop(getSource, getParams, getSize) {
+  startLoop(getSource, getParams, getSize, onFirstFrame) {
     this._getSource = getSource;
     this._getParams = getParams;
     this._getSize   = getSize;
+    let firstFrameFired = false;
     const tick = () => {
       if (this._destroyed) return;
       const src = getSource();
@@ -517,6 +518,7 @@ class FilterEngine {
         const { w, h, mirrorX }       = getSize();
         const { pipeline, faceUniforms } = getParams();
         this.render(src, pipeline, w, h, mirrorX, faceUniforms);
+        if (!firstFrameFired && onFirstFrame) { firstFrameFired = true; onFirstFrame(); }
       }
       this._raf = requestAnimationFrame(tick);
     };
@@ -527,7 +529,7 @@ class FilterEngine {
   destroy() { this._destroyed = true; this.stop(); }
 
   _onLost(e)      { e.preventDefault(); this.stop(); }
-  _onRestored()   { this._init(); if (this._getSource) this.startLoop(this._getSource, this._getParams, this._getSize); }
+  _onRestored()   { this._init(); if (this._getSource) this.startLoop(this._getSource, this._getParams, this._getSize, null); }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -536,7 +538,8 @@ class FilterEngine {
 function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef) {
   const engineRef    = React.useRef(null);
   const filterKeyRef = React.useRef(filterKey);
-  const [webglOk, setWebglOk] = React.useState(false);
+  const [webglOk, setWebglOk]     = React.useState(false);
+  const [firstFrame, setFirstFrame] = React.useState(false);
 
   React.useEffect(() => { filterKeyRef.current = filterKey; }, [filterKey]);
 
@@ -600,13 +603,14 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef) {
         const W = r ? Math.max(16, Math.round(r.width))  : 480;
         const H = r ? Math.max(16, Math.round(r.height)) : 480;
         return { w: W, h: H, mirrorX: true };
-      }
+      },
+      () => setFirstFrame(true)
     );
 
     return () => { engine.destroy(); engineRef.current = null; };
   }, []);
 
-  return { engineRef, webglOk };
+  return { engineRef, webglOk, firstFrame };
 }
 
 Object.assign(window, { FilterEngine, useFilterEngine, FILTER_PIPELINES });

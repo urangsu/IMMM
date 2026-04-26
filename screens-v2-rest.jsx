@@ -18,9 +18,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const faceDataRef = (typeof useFaceLandmarks === 'function')
     ? useFaceLandmarks(videoRef)
     : React.useRef({ detected: false });
-  const { webglOk } = (typeof useFilterEngine === 'function')
+  const { engineRef, webglOk, firstFrame } = (typeof useFilterEngine === 'function')
     ? useFilterEngine(canvasRef, videoRef, filter, faceDataRef)
-    : { webglOk: false };
+    : { engineRef: null, webglOk: false, firstFrame: false };
+
+  const canvasActive = webglOk && firstFrame;
 
   // Camera init
   React.useEffect(()=> {
@@ -42,7 +44,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     setTimeout(()=>setFlashing(false), 140);
     let dataUrl = null;
     const canvas = canvasRef.current;
-    if (canvas && webglOk) {
+    if (canvas && canvasActive) {
       dataUrl = canvas.toDataURL('image/jpeg', 0.88);
     } else {
       const v = videoRef.current;
@@ -67,7 +69,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       return copy;
     });
     setIdx(i => Math.min(i+1, 6));
-  }, [idx, filter, setShots, webglOk]);
+  }, [idx, filter, setShots, canvasActive]);
 
   React.useEffect(()=> {
     if (countdown <= 0) return;
@@ -102,8 +104,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           <video ref={videoRef} playsInline muted autoPlay style={{
             position:'absolute', inset:0, width:'100%', height:'100%',
             objectFit:'cover', transform:'scaleX(-1)',
-            filter: webglOk ? 'none' : (FILTERS[filter]?.css || 'none'),
-            opacity: webglOk ? 0 : 1,
+            filter: canvasActive ? 'none' : (FILTERS[filter]?.css || 'none'),
+            opacity: canvasActive ? 0 : 1,
             pointerEvents:'none',
           }}/>
           {/* WebGL canvas — object-fit:cover via absolute centering */}
@@ -113,7 +115,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             top:'50%', left:'50%',
             transform:'translate(-50%,-50%)',
             minWidth:'100%', minHeight:'100%',
-            opacity: webglOk ? 1 : 0,
+            opacity: canvasActive ? 1 : 0,
             pointerEvents:'none',
           }}/>
         </>
@@ -146,7 +148,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         {String(Math.min(idx+1,6)).padStart(2,'0')} / 06
       </div>
       {/* WebGL indicator */}
-      {webglOk && (
+      {canvasActive && (
         <div style={{ position:'absolute', top:14, left:14, padding:'5px 9px',
           background:'rgba(0,0,0,0.28)', backdropFilter:'blur(10px)',
           color:'rgba(255,255,255,0.75)', borderRadius:999, fontSize:9, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600 }}>

@@ -78,7 +78,9 @@ function ScreenTransition({ id, children }) {
 function TopBar({ step, back, T, mobile, title, right }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: mobile ? '0 20px' : '0 8px', marginBottom: mobile ? 14 : 20 }}>
+      padding: mobile ? '12px 20px' : '14px 20px', marginBottom: mobile ? 14 : 20,
+      background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(20px)', borderRadius: 16,
+      border: '1px solid rgba(255,255,255,0.5)', boxShadow: '0 4px 24px rgba(0,0,0,0.02)' }}>
       <button onClick={back} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.ink, padding: '6px 8px', marginLeft: -8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
         {back && <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2L4 8l6 6" /></svg>}
         {back ? 'Back' : ''}
@@ -125,7 +127,7 @@ const I18N = {
 function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLang }) {
   const t = I18N[lang] || I18N.ko;
   const toggleLang = () => setLang(l => l === 'ko' ? 'en' : l === 'en' ? 'jp' : 'ko');
-  const sampleImg = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+  const sampleImg = 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80';
   const dummyShots = Array.from({length: 4}, () => ({ filter: 'porcelain', dataUrl: sampleImg }));
 
   const logoMark = (size = 48) =>
@@ -176,7 +178,7 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
 
   // Desktop
   return (
-    <div style={{ height: '100%', background: T.bg, display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+    <div style={{ height: '100%', background: 'transparent', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
       {/* Left */}
       <div style={{ padding: '48px 56px', display: 'flex', flexDirection: 'column', borderRight: `1px solid ${T.line}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -227,7 +229,7 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
       </div>
 
       {/* Right — photo stack */}
-      <div style={{ background: T.bgAlt, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: 'transparent', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ position: 'relative', width: 260, height: 380 }}>
           {/* grid — behind, bigger, color */}
           <div style={{ position: 'absolute', right: -10, bottom: -10, transform: 'rotate(4deg)', padding: 8, background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.12)', zIndex: 1, width: "200px", height: "230px" }}>
@@ -416,7 +418,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         transition: 'all 0.2s'
       }}>
             <div style={{ aspectRatio: '1', position: 'relative', overflow: 'hidden' }}>
-              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: v.css }} />
+              <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: v.css }} />
             </div>
             <div style={{ padding: '6px 10px', fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
               {v.name}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4 }}>{v.ko}</span>
@@ -557,11 +559,11 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
 
   }
   return (
-    <div style={{ height: '100%', background: T.bg, display: 'grid', gridTemplateColumns: '1fr 380px' }}>
+    <div style={{ height: '100%', background: 'transparent', display: 'grid', gridTemplateColumns: '1fr 380px' }}>
       <div style={{ padding: '24px 48px', display: 'flex', flexDirection: 'column' }}>
         <TopBar step={0} back={() => go('landing')} T={T} title={editMode ? '편집하기 · Upload & Edit' : 'Step 1 · Setup the booth'}
         right={<BtnPrimary T={T} size="md" onClick={() => go(editMode ? 'deco' : 'capture')} disabled={editMode && uploadedCount < 4}>{editMode ? '편집 시작' : 'Continue · 다음'} {!editMode && I.arrowR(14, T.bg)}</BtnPrimary>} />
-        <div style={{ flex: 1, background: T.bgAlt, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ flex: 1, background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.04)' }}>
           {preview}
           <div style={{ position: 'absolute', bottom: 16, left: 18, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1.5 }}>
             LIVE PREVIEW · drag companions to place them
@@ -573,7 +575,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           </div>
         </div>
       </div>
-      <div style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', borderLeft: '1px solid rgba(0,0,0,0.07)', padding: '24px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderLeft: '1px solid rgba(255,255,255,0.5)', padding: '24px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
         {tabBar}
         <div style={{ flex: 1 }}>{tabContent}</div>
       </div>

@@ -54,7 +54,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     const x = (e.clientX - rect.left) / rect.width * 100;
     const y = (e.clientY - rect.top) / rect.height * 100;
     setCurStroke((s) => ({ ...s, points: [...s.points, [x, y]] }));
-  }, [curStroke]);
+  }, []);
 
   const onDrawEnd = React.useCallback(() => {
     setCurStroke((s) => {
@@ -103,7 +103,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const preview =
   <div ref={previewContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
-      <div ref={frameNativeRef} style={{ transform: `scale(${zoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0 }}
+      <div ref={frameNativeRef} style={{ transform: `scale(${zoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0, touchAction: drawMode ? 'none' : 'auto' }}
     onPointerDown={onDrawStart}
     onPointerMove={onDrawMove}
     onPointerUp={onDrawEnd}
@@ -295,19 +295,39 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   if (mobile) {
     return (
-      <div style={{ height: '100%', background: T.bg, padding: '50px 0 0', display: 'flex', flexDirection: 'column' }}>
-        <TopBar step={3} back={() => go('select')} T={T} mobile title="Deco Studio"
-        right={<BtnPrimary T={T} size="sm" onClick={() => go('result')}>Done</BtnPrimary>} />
-        <div style={{ flex: '1 1 0', minHeight: 0, padding: '8px 0' }}>{preview}</div>
-        <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)',
-          borderTopLeftRadius: 0, borderTopRightRadius: 0, padding: '20px 20px 28px',
-          borderTop: '1px solid rgba(0,0,0,0.08)', maxHeight: '52%', overflow: 'auto' }}>
-          <div style={{ width: 40, height: 4, borderRadius: 999, background: 'rgba(0,0,0,0.1)', margin: '0 auto 14px' }} />
-          {tabBar}
-          {tabContent}
+      <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column' }}>
+        {/* Sticky top bar */}
+        <div style={{ flexShrink: 0, background: T.bg, paddingTop: 'calc(var(--sat) + 12px)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
+            <button onClick={() => go('select')} style={{ background: 'transparent', border: 'none', cursor: 'pointer',
+              color: T.ink, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase',
+              fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0' }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2L4 8l6 6"/></svg>
+              Back
+            </button>
+            <StepDots step={3} T={T} />
+            <BtnPrimary T={T} size="sm" onClick={() => go('result')}>Done</BtnPrimary>
+          </div>
+        </div>
+
+        {/* Scrollable body: frame preview (sticky) + tools */}
+        <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+          {/* Frame preview — sticky so it stays visible while scrolling tools */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 20, background: T.bgAlt,
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            padding: '12px 16px', height: 280 }}>
+            {preview}
+          </div>
+
+          {/* Tools panel */}
+          <div style={{ background: T.bg, padding: '0 16px 60px' }}>
+            <div style={{ width: 40, height: 4, borderRadius: 999, background: 'rgba(0,0,0,0.1)', margin: '10px auto 0' }} />
+            {tabBar}
+            {tabContent}
+          </div>
         </div>
       </div>);
-
   }
   return (
     <div style={{ height: '100%', background: T.bg, display: 'grid', gridTemplateColumns: '1fr 380px' }}>
@@ -363,7 +383,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const resultFrame = (scale) =>
   <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
-      <div ref={captureRef} style={{ position: 'relative', display: 'inline-block', width: layout === 'strip' || layout === 'trip' ? 180 : 220 }}>
+      <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
         <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
       logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} />
         {/* Place stickers as static overlay */}
@@ -474,21 +494,48 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         ctx.fillText(new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}), FRAME_W/2, curY + 6*S);
       }
 
-      cvs.toBlob(blob => {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `IMMM_${Date.now()}_${layout}.png`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        setDownloading(false);
-      }, 'image/png');
-    } catch(e) { console.error(e); setDownloading(false); }
+      const blob = await new Promise(res => cvs.toBlob(res, 'image/png'));
+      if (!blob) throw new Error('toBlob failed');
+
+      // iOS 15+ / Android Chrome: Web Share API with file — shows native share sheet
+      const fname = `IMMM_${Date.now()}_${layout}.png`;
+      if (navigator.share && navigator.canShare) {
+        const file = new File([blob], fname, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'IMMM Photo' });
+            setDownloading(false); return;
+          } catch(e) {
+            if (e.name === 'AbortError') { setDownloading(false); return; }
+          }
+        }
+      }
+
+      // Fallback: anchor click
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      // iOS Safari fallback: open blob in new tab so user can long-press → Save Image
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isIOS) setTimeout(() => window.open(url, '_blank'), 150);
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+    } catch(e) { console.error(e); }
+    setDownloading(false);
   };
 
   // ── video download — ALL 6 shots, flash transitions, 24fps film feel ──
   const [videoRecording, setVideoRecording] = React.useState(false);
+  const videoSupported = typeof MediaRecorder !== 'undefined' &&
+    typeof HTMLCanvasElement.prototype.captureStream !== 'undefined';
+
   const handleVideoDownload = async () => {
     if (videoRecording) return;
+    if (!videoSupported) {
+      alert('이 브라우저에서는 영상 저장이 지원되지 않아요. (Chrome 권장)');
+      return;
+    }
     // Use ALL shots in capture order (not just selected 4)
     const allShots = shots.filter(s => s?.dataUrl);
     if (!allShots.length) { alert('먼저 사진을 촬영해주세요'); return; }
@@ -499,8 +546,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     cvs.width = W; cvs.height = H;
     const ctx = cvs.getContext('2d');
 
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9' : 'video/webm';
+    const mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    const mimeType = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
     const stream = cvs.captureStream(24);
     const rec = new MediaRecorder(stream, { mimeType });
     const chunks = [];
@@ -606,22 +653,74 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     return () => ro.disconnect();
   }, [layout, mobile]);
 
+  if (mobile) {
+    return (
+      <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column' }}>
+        {/* Top bar */}
+        <div style={{ flexShrink: 0, paddingTop: 'calc(var(--sat) + 12px)', background: T.bg, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
+            <button onClick={() => go('deco')} style={{ background: 'transparent', border: 'none', cursor: 'pointer',
+              color: T.ink, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase',
+              fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0' }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2L4 8l6 6"/></svg>
+              Back
+            </button>
+            <StepDots step={4} T={T} />
+            <button onClick={() => { localStorage.clear(); go('landing'); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 11, fontFamily: 'Pretendard,system-ui', letterSpacing: 0.5 }}>New</button>
+          </div>
+        </div>
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ padding: '20px 18px 6px', textAlign: 'center' }}>
+            <h1 style={{ margin: 0, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 28, fontWeight: 500, letterSpacing: -1 }}>
+              Your <span style={{ fontFamily: 'Caveat,cursive', color: T.pinkDeep, fontSize: 36 }}>moment</span> is ready.
+            </h1>
+            <div style={{ marginTop: 4, color: T.inkSoft, fontSize: 13, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.</div>
+          </div>
+          {/* Frame centered */}
+          <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 18px' }}>
+            <div ref={frameRef} style={{ display: 'inline-block', animation: 'popIn 0.55s cubic-bezier(0.34,1.56,0.64,1)' }}>
+              {resultFrame(1)}
+            </div>
+          </div>
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', padding: '0 18px', paddingBottom: 'calc(var(--sab) + 24px)' }}>
+            <button title="이미지 저장" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: 'none', background: T.ink, color: T.bg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: downloading ? 0.6 : 1 }}>
+              {downloading ? <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke={T.bg} strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : I.download(20, T.bg)}
+            </button>
+            {videoSupported && (
+            <button title="촬영 영상 저장" onClick={handleVideoDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              {videoRecording ? <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>}
+              {videoRecording && <div style={{position:'absolute',top:-6,right:-6,background:T.pinkDeep,borderRadius:999,width:10,height:10,animation:'pulse 0.8s ease-in-out infinite'}}/>}
+            </button>
+            )}
+            <button title="Instagram" style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.7"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
+            </button>
+            <button title="공유" onClick={() => { if (navigator.share) navigator.share({ title: 'IMMM', url: location.href }); }} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {I.share(20, T.ink)}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column',
-      padding: mobile ? '50px 18px 18px' : '24px 56px 24px' }}>
-      <TopBar step={4} back={() => go('deco')} T={T} mobile={mobile} title={mobile ? 'Done' : 'Step 5 · Your strip'}
+      padding: '24px 56px 24px' }}>
+      <TopBar step={4} back={() => go('deco')} T={T} mobile={false} title="Step 5 · Your strip"
       right={<button onClick={() => {localStorage.clear();go('landing');}} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 12, fontFamily: 'Pretendard,system-ui' }}>New session</button>} />
-      <div style={{ textAlign: 'center', marginBottom: mobile ? 14 : 20 }}>
-        <h1 style={{ margin: 0, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: mobile ? 30 : 52, fontWeight: 500, letterSpacing: -1.5 }}>
-          Your <span style={{ fontFamily: 'Caveat,cursive', color: T.pinkDeep, fontSize: mobile ? 38 : 68 }}>moment</span> is ready.
+      <div style={{ textAlign: 'center', marginBottom: 20 }}>
+        <h1 style={{ margin: 0, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 52, fontWeight: 500, letterSpacing: -1.5 }}>
+          Your <span style={{ fontFamily: 'Caveat,cursive', color: T.pinkDeep, fontSize: 68 }}>moment</span> is ready.
         </h1>
-        <div style={{ marginTop: 4, color: T.inkSoft, fontSize: mobile ? 13 : 15, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.
-
-        </div>
+        <div style={{ marginTop: 4, color: T.inkSoft, fontSize: 15, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.</div>
       </div>
 
       <div ref={containerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-        padding: mobile ? '4px 0' : '12px 0' }}>
+        padding: '12px 0' }}>
         <div ref={frameRef} style={{ display: 'inline-block', animation: 'popIn 0.55s cubic-bezier(0.34,1.56,0.64,1)' }}>
           {resultFrame(autoScale)}
         </div>
@@ -634,7 +733,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke={T.bg} strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> :
           I.download(20, T.bg)}
         </button>
-        {/* Video download */}
+        {/* Video download — only show when browser supports it */}
+        {videoSupported && (
         <button title="촬영 영상 저장 (.webm)" onClick={handleVideoDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position:'relative' }}>
           {videoRecording
             ? <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg>
@@ -642,6 +742,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           }
           {videoRecording && <div style={{position:'absolute',top:-6,right:-6,background:T.pinkDeep,borderRadius:999,width:10,height:10,animation:'pulse 0.8s ease-in-out infinite'}}/>}
         </button>
+        )}
         {/* Instagram */}
         <button title="Instagram" style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.7" /><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" /></svg>
