@@ -166,21 +166,23 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           ) : (
             <>
-              {/* Video: visible until WebGL renders its first real frame */}
+              {/* Video: always opacity>0 — iOS Safari stops painting frames at opacity:0,
+                  breaking WebGL texImage2D reads. Canvas overlays it when active. */}
               <video ref={videoRef} playsInline muted autoPlay style={{
                 position:'absolute', inset:0, width:'100%', height:'100%',
                 objectFit:'cover', transform:'scaleX(-1)',
                 filter: canvasActive ? 'none' : (FILTERS[filter]?.css || 'none'),
-                opacity: canvasActive ? 0 : 1,
+                opacity: canvasActive ? 0.001 : 1,
                 pointerEvents:'none',
               }}/>
-              {/* WebGL canvas: overlays video once first frame is confirmed */}
+              {/* WebGL canvas: fades in over video once a non-black frame is confirmed */}
               <canvas ref={canvasRef} style={{
                 display:'block', position:'absolute',
                 top:'50%', left:'50%',
                 transform:'translate(-50%,-50%)',
                 minWidth:'100%', minHeight:'100%',
                 opacity: canvasActive ? 1 : 0,
+                transition: canvasActive ? 'opacity 0.25s' : 'none',
                 pointerEvents:'none',
               }}/>
             </>

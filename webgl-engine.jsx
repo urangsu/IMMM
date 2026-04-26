@@ -511,14 +511,33 @@ class FilterEngine {
     this._getParams = getParams;
     this._getSize   = getSize;
     let firstFrameFired = false;
+    let renderedFrames  = 0;
     const tick = () => {
       if (this._destroyed) return;
       const src = getSource();
       if (src && src.readyState >= 2 && src.videoWidth > 0) {
-        const { w, h, mirrorX }       = getSize();
+        const { w, h, mirrorX }          = getSize();
         const { pipeline, faceUniforms } = getParams();
         this.render(src, pipeline, w, h, mirrorX, faceUniforms);
-        if (!firstFrameFired && onFirstFrame) { firstFrameFired = true; onFirstFrame(); }
+        renderedFrames++;
+
+        if (!firstFrameFired && onFirstFrame && renderedFrames >= 5) {
+          // Confirm at least one non-black pixel before switching from video to canvas.
+          // Camera warm-up frames are often all-black even when readyState >= 2.
+          let shouldSwitch = false;
+          try {
+            const gl = this.gl;
+            const px = new Uint8Array(4);
+            gl.readPixels(Math.floor(w / 2), Math.floor(h / 2), 1, 1,
+                          gl.RGBA, gl.UNSIGNED_BYTE, px);
+            shouldSwitch = (px[0] + px[1] + px[2]) > 30;
+          } catch (_) {
+            shouldSwitch = true; // readPixels unavailable — switch anyway
+          }
+          // Hard timeout: switch after ~1.5 s regardless (dark scenes are valid)
+          if (!shouldSwitch && renderedFrames > 90) shouldSwitch = true;
+          if (shouldSwitch) { firstFrameFired = true; onFirstFrame(); }
+        }
       }
       this._raf = requestAnimationFrame(tick);
     };
