@@ -252,7 +252,7 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
 // ═══════════════════════════════════════════════════════════════
 // 2. SETUP — Frame + Filter + Pre-stickers
 // ═══════════════════════════════════════════════════════════════
-function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, accent, editMode, shots, setShots, setSelected }) {
+function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected }) {
   const [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
   const [selStId, setSelStId] = uS(null);
   const fileRef = uR(null);
@@ -311,7 +311,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         layout === 'grid' ? 220 : 160
       } height={'auto'}>
           <FrameThumb layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
-        logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} />
+        logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} />
         </StickerCanvas>
       </div>
     </div>;
@@ -338,7 +338,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
               <div style={{ transform: 'scale(0.38)', transformOrigin: 'center center', display: 'flex', alignItems: 'center' }}>
                 <FrameThumb layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
                   logo={false} dateText={false} accent={accent} scale={1}
-                  orientation="portrait" />
+                  orientation="portrait" frameColor={frameColor} />
               </div>
             </div>
             <div style={{ fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
@@ -395,6 +395,31 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
               <div style={{ width: 14, height: 14, borderRadius: 999, background: '#fff', position: 'absolute', top: 3, left: dateText ? 19 : 3, transition: '0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}/>
             </div>
           </button>
+
+          {/* Frame Color */}
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui', color: T.ink, marginBottom: 8 }}>배경 색상 · Frame Color</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                { id: '#ffffff', name: 'White' },
+                { id: '#111111', name: 'Black' },
+                { id: '#F1C0C5', name: 'Pink' },
+                { id: '#A6C8DE', name: 'Sky Blue' },
+                { id: '#E6C8BE', name: 'Beige' },
+                { id: '#A2352B', name: 'Red' },
+              ].map(c => (
+                <button key={c.id} onClick={() => setFrameColor && setFrameColor(c.id)} style={{
+                  width: 32, height: 32, borderRadius: 999, border: 'none', cursor: 'pointer',
+                  background: c.id,
+                  boxShadow: frameColor === c.id ? `0 0 0 2px ${T.bg}, 0 0 0 4px ${T.ink}` : 'inset 0 0 0 1px rgba(0,0,0,0.1)',
+                  transition: '0.2s',
+                  position: 'relative'
+                }}>
+                  {frameColor === c.id && <div style={{ position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)', fontSize: 9, fontWeight: 700, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui', whiteSpace: 'nowrap' }}>{c.name}</div>}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>;

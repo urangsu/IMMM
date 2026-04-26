@@ -3,8 +3,10 @@
 // ════════════════════════════════════════════════════════════
 // EDITOR (filter + stickers + frame layout)
 // ════════════════════════════════════════════════════════════
-function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, accent, stickers = [], scale = 1, orientation = 'portrait' }) {
+function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, accent, stickers = [], scale = 1, orientation = 'portrait', frameColor = '#ffffff' }) {
   // Renders a photo strip. layout: 'strip'|'trip'|'grid'|'layered'|'polaroid', orientation: 'portrait'|'landscape'
+  const isDark = frameColor.toLowerCase() === '#111' || frameColor.toLowerCase() === '#111111' || frameColor.toLowerCase() === '#000000';
+  const inkColor = isDark ? '#ffffff' : '#111111';
   const getShot = (slot) => shots[selected[slot]];
   const slottedMap = React.useContext(SlottedStickersCtx);
 
@@ -34,7 +36,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
     const s = getShot(0);
     const photoW = 180 * scale;
     return (
-      <div style={{ width: photoW + cardPad * 2, background: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,0.1)', borderRadius: 3, position: 'relative', color: '#111', padding: cardPad }}>
+      <div style={{ width: photoW + cardPad * 2, background: frameColor, boxShadow: '0 12px 30px rgba(0,0,0,0.1)', borderRadius: 3, position: 'relative', color: inkColor, padding: cardPad }}>
         {logo &&
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: cardPad / 2, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: Math.max(6, 8 * scale), letterSpacing: 2, fontWeight: 700 }}>
             <span style={{ letterSpacing: 3 }}>IMMM</span><span style={{ color: accent }}>●</span>
@@ -46,7 +48,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         </div>
         {/* Polaroid bottom — always sized, text visibility toggled */}
         <div style={{ height: 46 * scale, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontFamily: 'Caveat,cursive', fontSize: Math.max(9, 14 * scale), color: '#555', visibility: dateText ? 'visible' : 'hidden' }}>
+          <div style={{ fontFamily: 'Caveat,cursive', fontSize: Math.max(9, 14 * scale), color: isDark ? 'rgba(255,255,255,0.7)' : '#555', visibility: dateText ? 'visible' : 'hidden' }}>
             {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
           </div>
         </div>
@@ -134,14 +136,14 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
   (portraitW[layout] || 160) * scale;
   const h = 'auto';
   return (
-    <div style={{ width: w, padding: cardPad, background: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,0.1)', borderRadius: 3, position: 'relative', color: '#111' }}>
+    <div style={{ width: w, padding: cardPad, background: frameColor, boxShadow: '0 12px 30px rgba(0,0,0,0.1)', borderRadius: 3, position: 'relative', color: inkColor }}>
       {logo &&
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: cardPad / 2, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: Math.max(6, 8 * scale), letterSpacing: 2, fontWeight: 700, overflow: 'hidden' }}>
           <span style={{ letterSpacing: 3 }}>IMMM</span><span style={{ color: accent, flexShrink: 0 }}>●</span>
         </div>
       }
       {tiles}
-      <div style={{ marginTop: cardPad, textAlign: 'center', fontFamily: 'Caveat,cursive', fontSize: Math.max(9, 13 * scale), color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', visibility: dateText ? 'visible' : 'hidden' }}>
+      <div style={{ marginTop: cardPad, textAlign: 'center', fontFamily: 'Caveat,cursive', fontSize: Math.max(9, 13 * scale), color: inkColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', visibility: dateText ? 'visible' : 'hidden' }}>
         {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
       </div>
       {/* Stickers overlay */}

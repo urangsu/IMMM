@@ -8,7 +8,8 @@ function App() {
     filter: 'glitter',
     sound: true,
     logo: true,
-    dateText: false,
+    dateText: true,
+    frameColor: '#ffffff',
   });
 
   const [screen, setScreen] = React.useState(
@@ -57,6 +58,7 @@ function App() {
     orientation: tweaks.orientation,
     logo: tweaks.logo,
     dateText: tweaks.dateText,
+    frameColor: tweaks.frameColor,
     accent,
     lang, setLang,
   };
@@ -76,6 +78,7 @@ function App() {
           setLogo={v => updateTweak('logo', v)}
           setDateText={v => updateTweak('dateText', v)}
           setOrientation={v => updateTweak('orientation', v)}
+          setFrameColor={v => updateTweak('frameColor', v)}
           preStickers={preStickers} setPreStickers={setPreStickers}
           editMode={photoEditMode}
           shots={shots} setShots={setShots} setSelected={setSelected}

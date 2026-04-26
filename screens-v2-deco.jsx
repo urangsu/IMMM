@@ -4,7 +4,7 @@
 // DECO STUDIO — final edit (filter+frame locked)
 // ═══════════════════════════════════════════════════════════════
 function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation,
-  stickers, setStickers, drawStrokes, setDrawStrokes, logo, dateText, setDateText, accent }) {
+  stickers, setStickers, drawStrokes, setDrawStrokes, logo, dateText, setDateText, accent, frameColor }) {
   const [tab, setTab] = React.useState('stickers'); // stickers | draw | text
   const [selStId, setSelStId] = React.useState(null);
   const [drawColor, setDrawColor] = React.useState('#D98893');
@@ -111,7 +111,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
       width={layout === 'strip' || layout === 'trip' ? 180 : 220} height="auto">
           <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
-        logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation||'portrait'} />
+        logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation||'portrait'} frameColor={frameColor} />
           {/* Draw layer */}
           <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}>
@@ -358,7 +358,7 @@ function chipBtn(T) {return {
 // ═══════════════════════════════════════════════════════════════
 // RESULT
 // ═══════════════════════════════════════════════════════════════
-function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation, stickers, drawStrokes, logo, dateText, accent }) {
+function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation, stickers, drawStrokes, logo, dateText, accent, frameColor }) {
   const shotsWithFilter = shots.map((s) => s ? { ...s, filter } : null);
   const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
 
@@ -385,7 +385,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
         <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
-      logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} />
+      logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} frameColor={frameColor} />
         {/* Place stickers as static overlay */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           {stickers.map((s) =>
@@ -445,7 +445,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       cvs.width = FRAME_W; cvs.height = FRAME_H;
       const ctx = cvs.getContext('2d');
 
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = frameColor || '#fff';
       ctx.fillRect(0, 0, FRAME_W, FRAME_H);
 
       let curY = PAD;
@@ -571,7 +571,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     })));
 
     const drawFrame = (img, filterCss) => {
-      ctx.fillStyle = '#111';
+      ctx.fillStyle = frameColor || '#111';
       ctx.fillRect(0, 0, W, H);
       if (img) {
         ctx.filter = filterCss || 'none';
