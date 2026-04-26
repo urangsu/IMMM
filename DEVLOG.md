@@ -2,6 +2,10 @@
 
 ---
 
+## 2026-04-27 (v2.1.1) — Result Screen Fix & Share 기능 추가
+- [Bug] `ResultV2` JSX 구문 오류 수정 (unclosed div) - 흰 화면 버그 해결
+- [UI] 결과 페이지 공유 기능 (`handleShare`) 추가 및 핸들러 연결
+
 ## 2026-04-27 (v2.1) — Background Engine 예열 & WebGL 안정성 강화
 
 ### 기술적 변화: Before vs. After
