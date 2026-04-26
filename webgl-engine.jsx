@@ -732,7 +732,10 @@ class FilterEngine {
   _pass(shaderName, inputTex, outputFbo, uniforms) {
     const gl = this.gl;
     const prog = this._programs[shaderName];
-    if (!prog) return;
+    if (!prog) {
+      console.warn('[GL] missing program:', shaderName);
+      return false; // caller must check
+    }
     twgl.bindFramebufferInfo(gl, outputFbo);
     if (outputFbo) gl.viewport(0, 0, outputFbo.width, outputFbo.height);
     else           gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -740,6 +743,7 @@ class FilterEngine {
     twgl.setBuffersAndAttributes(gl, prog, this._bufInfo);
     twgl.setUniforms(prog, { u_tex: inputTex, ...uniforms });
     twgl.drawBufferInfo(gl, this._bufInfo, gl.TRIANGLE_STRIP);
+    return true;
   }
 
   render(source, pipeline, w, h, mirrorX, faceUniforms) {
@@ -806,14 +810,19 @@ class FilterEngine {
 
       // --- Normal pass ---
       const out = this._fboInfos[1 - idx];
-      this._pass(step.shader, curTex, out, {
+      const drew = this._pass(step.shader, curTex, out, {
         u_resolution: res,
         u_flipX: (i === 0 && mirrorX) ? 1.0 : 0.0,
         ...step.uniforms,
         ...fu,
       });
-      curTex = out.attachments[0];
-      idx = 1 - idx;
+      // Only advance curTex when the draw actually happened.
+      // If _pass returned false (program missing), keep curTex so downstream
+      // passes and the final blit still get a non-black texture.
+      if (drew) {
+        curTex = out.attachments[0];
+        idx = 1 - idx;
+      }
     }
 
     // Final blit to screen
@@ -839,27 +848,37 @@ class FilterEngine {
         renderedFrames++;
 
         if (!firstFrameFired && renderedFrames >= 5) {
-          let shouldSwitch = false;
-          let readPixelsOk = false;
           try {
             const gl = this.gl;
             const px = new Uint8Array(4);
-            gl.readPixels(Math.floor(w / 2), Math.floor(h / 2), 1, 1,
-                          gl.RGBA, gl.UNSIGNED_BYTE, px);
-            readPixelsOk = true;
-            shouldSwitch = (px[0] + px[1] + px[2]) > 30;
-
-            if (!shouldSwitch && renderedFrames > 90) {
+            // Sample center + 4 offsets to avoid dark-background false negatives
+            const pts = [
+              [Math.floor(w*0.5), Math.floor(h*0.5)],
+              [Math.floor(w*0.3), Math.floor(h*0.4)],
+              [Math.floor(w*0.7), Math.floor(h*0.4)],
+              [Math.floor(w*0.5), Math.floor(h*0.7)],
+            ];
+            let bright = false;
+            for (const [x, y] of pts) {
+              gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+              if (px[0] + px[1] + px[2] > 20) { bright = true; break; }
+            }
+            if (bright) {
+              firstFrameFired = true;
+              onFirstFrame && onFirstFrame();
+            } else if (renderedFrames > 90) {
+              // 90 frames of genuinely black output → real failure
               firstFrameFired = true;
               onWebglFail && onWebglFail();
               return;
             }
           } catch (_) {
-            if (renderedFrames > 45) shouldSwitch = true;
-          }
-          if (shouldSwitch) { 
-            firstFrameFired = true; 
-            onFirstFrame && onFirstFrame(); 
+            // readPixels blocked (security policy) → trust after 90 frames
+            // Never activate at 45 because we'd show a black canvas
+            if (renderedFrames > 90) {
+              firstFrameFired = true;
+              onFirstFrame && onFirstFrame();
+            }
           }
         }
       }
