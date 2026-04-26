@@ -725,10 +725,11 @@ class FilterEngine {
                           gl.RGBA, gl.UNSIGNED_BYTE, px);
             shouldSwitch = (px[0] + px[1] + px[2]) > 30;
           } catch (_) {
-            shouldSwitch = true; // readPixels unavailable — switch anyway
+            // readPixels unavailable (Samsung security policy etc.) — wait for camera warm-up
+            if (renderedFrames > 45) shouldSwitch = true;
           }
-          // Hard timeout: switch after ~1.5 s regardless (dark scenes are valid)
-          if (!shouldSwitch && renderedFrames > 90) shouldSwitch = true;
+          // Hard timeout: switch after ~4 s regardless (legitimately dark scene)
+          if (!shouldSwitch && renderedFrames > 240) shouldSwitch = true;
           if (shouldSwitch) { firstFrameFired = true; onFirstFrame(); }
         }
       }

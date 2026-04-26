@@ -17,6 +17,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const curStrokeRef = React.useRef(null);
   const curPathElRef = React.useRef(null);
+  const curPathDRef  = React.useRef('');
 
   const addPreset = (libId) => setStickers((p) => [...p, makeSticker('preset', { libId })]);
   const addUpload = (dataUrl) => setStickers((p) => [...p, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
@@ -42,13 +43,15 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const onDrawStart = React.useCallback((e) => {
     if (!drawModeRef.current || !frameNativeRef.current) return;
-    e.stopPropagation();
+    e.stopPropagation(); e.preventDefault();
+    const pt = e.touches ? e.touches[0] : e;
     const rect = frameNativeRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * 100;
-    const y = (e.clientY - rect.top) / rect.height * 100;
+    const x = (pt.clientX - rect.left) / rect.width * 100;
+    const y = (pt.clientY - rect.top) / rect.height * 100;
     curStrokeRef.current = { color: drawColor, width: drawWidth, brush: drawBrush, points: [[x, y]] };
+    curPathDRef.current = `M${x} ${y}`;
     if (curPathElRef.current) {
-      curPathElRef.current.setAttribute('d', `M${x} ${y}`);
+      curPathElRef.current.setAttribute('d', curPathDRef.current);
       curPathElRef.current.setAttribute('stroke', drawColor);
       curPathElRef.current.setAttribute('stroke-width', drawWidth);
     }
@@ -56,13 +59,15 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const onDrawMove = React.useCallback((e) => {
     if (!drawModeRef.current || !frameNativeRef.current || !curStrokeRef.current) return;
+    e.preventDefault();
+    const pt = e.touches ? e.touches[0] : e;
     const rect = frameNativeRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * 100;
-    const y = (e.clientY - rect.top) / rect.height * 100;
+    const x = (pt.clientX - rect.left) / rect.width * 100;
+    const y = (pt.clientY - rect.top) / rect.height * 100;
     curStrokeRef.current.points.push([x, y]);
+    curPathDRef.current += ` L${x} ${y}`;
     if (curPathElRef.current) {
-      const d = curPathElRef.current.getAttribute('d');
-      curPathElRef.current.setAttribute('d', d + ` L${x} ${y}`);
+      curPathElRef.current.setAttribute('d', curPathDRef.current);
     }
   }, []);
 
@@ -133,10 +138,8 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const preview =
   <div ref={previewContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
       <div ref={frameNativeRef} style={{ transform: `scale(${zoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0, touchAction: drawMode ? 'none' : 'auto' }}
-    onPointerDown={onDrawStart}
-    onPointerMove={onDrawMove}
-    onPointerUp={onDrawEnd}
-    onPointerLeave={onDrawEnd}>
+    onPointerDown={onDrawStart} onPointerMove={onDrawMove} onPointerUp={onDrawEnd} onPointerLeave={onDrawEnd}
+    onTouchStart={onDrawStart}  onTouchMove={onDrawMove}  onTouchEnd={onDrawEnd}>
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
       width={layout === 'strip' || layout === 'trip' ? 180 : 220} height="auto">
           <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
@@ -181,26 +184,28 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       {/* 셋로그 스티커 */}
       <Kick T={T}>TIME · 시간 기록</Kick>
       <div style={{ marginTop: 8, background: 'rgba(26,26,31,0.04)', borderRadius: 16, padding: '10px 12px' }}>
+        {/* Row 1: Theme & Preview */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: T.inkSoft, textTransform: 'uppercase', letterSpacing: 0.5 }}>Theme</div>
+          <button onClick={() => setSetlogTheme('white')} style={{ width: 22, height: 22, borderRadius: 6, background: '#fff', border: setlogTheme === 'white' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
+          <button onClick={() => setSetlogTheme('black')} style={{ width: 22, height: 22, borderRadius: 6, background: '#000', border: setlogTheme === 'black' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
+          <div style={{ flex: 1 }} />
+          <div style={{ fontSize: 18, fontWeight: 800, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: -0.5 }}>{setlogTime}</div>
+        </div>
+        {/* Row 2: Inputs & Add */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <input type="time" value={setlogTime} onChange={(e) => setSetlogTime(e.target.value)}
-            style={{ flex: '0 0 auto', padding: '6px 8px', borderRadius: 8, border: 'none',
-              background: 'rgba(26,26,31,0.07)', fontSize: 13, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui',
+            style={{ width: 85, padding: '7px 6px', borderRadius: 10, border: 'none',
+              background: 'rgba(26,26,31,0.07)', fontSize: 12, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui',
               color: '#1A1A1F', outline: 'none' }} />
           <input value={setlogCaption} onChange={(e) => setSetlogCaption(e.target.value)}
-            placeholder="멘트..." maxLength={20}
-            style={{ flex: 1, padding: '6px 8px', borderRadius: 8, border: 'none',
+            placeholder="멘트 입력..." maxLength={20}
+            style={{ flex: 1, padding: '7px 10px', borderRadius: 10, border: 'none',
               background: 'rgba(26,26,31,0.07)', fontSize: 13, fontFamily: 'Pretendard,system-ui',
               color: '#1A1A1F', outline: 'none' }} />
-          <button onClick={addSetlog} style={{ padding: '6px 12px', background: T.ink, color: T.bg, border: 'none',
-            borderRadius: 8, fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans",system-ui',
+          <button onClick={addSetlog} style={{ padding: '7px 14px', background: T.ink, color: T.bg, border: 'none',
+            borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans",system-ui',
             flexShrink: 0 }}>Add</button>
-        </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: T.inkSoft, marginRight: 4 }}>Theme:</div>
-          <button onClick={() => setSetlogTheme('white')} style={{ width: 18, height: 18, borderRadius: 4, background: '#fff', border: setlogTheme === 'white' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
-          <button onClick={() => setSetlogTheme('black')} style={{ width: 18, height: 18, borderRadius: 4, background: '#000', border: setlogTheme === 'black' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
-          <div style={{ flex: 1 }} />
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1A1F', fontFamily: '"Plus Jakarta Sans",system-ui' }}>{setlogTime}</div>
         </div>
       </div>
 
@@ -543,7 +548,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   // ── video download — ALL 6 shots, flash transitions, 24fps film feel ──
   const [videoRecording, setVideoRecording] = React.useState(false);
   const videoSupported = typeof MediaRecorder !== 'undefined' &&
-    typeof HTMLCanvasElement.prototype.captureStream !== 'undefined';
+    (typeof HTMLCanvasElement.prototype.captureStream !== 'undefined' ||
+     typeof HTMLCanvasElement.prototype.mozCaptureStream !== 'undefined');
 
   const handleVideoDownload = async () => {
     if (videoRecording) return;
@@ -567,13 +573,27 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     const rec = new MediaRecorder(stream, { mimeType });
     const chunks = [];
     rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    rec.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
+    rec.onstop = async () => {
+      if (!chunks.length) { setVideoRecording(false); return; }
+      const blob = new Blob(chunks, { type: mimeType });
+      const fname = `IMMM_${Date.now()}.webm`;
+      // Mobile: try Web Share API first
+      if (navigator.share && navigator.canShare) {
+        const file = new File([blob], fname, { type: mimeType });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'IMMM Video' });
+            setVideoRecording(false); return;
+          } catch(e2) {
+            if (e2.name === 'AbortError') { setVideoRecording(false); return; }
+          }
+        }
+      }
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `IMMM_${Date.now()}.webm`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
       setVideoRecording(false);
     };
 
@@ -612,7 +632,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       }
     };
 
-    rec.start();
+    rec.start(200); // 200ms timeslice — collect chunks progressively
 
     for (let i = 0; i < imgs.length; i++) {
       const s = allShots[i];
