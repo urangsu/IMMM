@@ -1,7 +1,7 @@
 // filters.jsx — CSS filter presets + placeholder portraits
 
 const FILTERS = {
-  original:  { name:'Original',  ko:'원본',   css:'none' },
+  original:  { name:'Original',  ko:'원본',   css:'brightness(1.04) contrast(0.96) saturate(1.02) blur(0.15px)' },
   porcelain: { name:'Porcelain', ko:'뽀샤시',  css:'brightness(1.08) contrast(0.92) saturate(0.9) blur(0.3px)' },
   y2k:       { name:'Y2K',       ko:'Y2K',    css:'saturate(1.4) hue-rotate(-8deg) contrast(1.05) brightness(1.05)' },
   bw:        { name:'B&W',       ko:'흑백',   css:'grayscale(1) contrast(1.1)' },

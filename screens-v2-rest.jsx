@@ -9,6 +9,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const streamRef = React.useRef(null);
   const [idx, setIdx]           = React.useState(0);
   const [countdown, setCountdown] = React.useState(0);
+  const [timerLen, setTimerLen]   = React.useState(3);
   const [flashing, setFlashing]   = React.useState(false);
   const [auto, setAuto]           = React.useState(false);
   const [camOk, setCamOk]         = React.useState(null);
@@ -84,8 +85,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     if (idx >= 6) setTimeout(()=>go('select'), 600);
   }, [idx, go]);
 
-  const startCountdown = () => { if (countdown===0 && idx<6) setCountdown(3); };
-  const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<6 && countdown===0) setCountdown(3); };
+  const startCountdown = () => { if (countdown===0 && idx<6) setCountdown(timerLen); };
+  const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<6 && countdown===0) setCountdown(timerLen); };
   const thumbs = Array.from({length:6}, (_,i)=> shots[i]);
 
   const cameraArea = (
@@ -246,7 +247,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         </div>
         {/* Shutter row - fixed height, centered */}
         <div style={{ flexShrink:0, height:88, display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
-          <div style={{ position:'absolute', left:0 }}>
+          <div style={{ position:'absolute', left:0, display:'flex', gap:6 }}>
             <button onClick={toggleAuto} style={{
               padding:'10px 14px', borderRadius:999, border:'none',
               background: auto? T.ink : 'rgba(26,26,31,0.06)',
@@ -255,7 +256,17 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               transition:'all 0.2s',
             }}>
               <div style={{ width:6, height:6, borderRadius:999, background: auto? T.pinkDeep : T.inkSoft, transition:'background 0.2s' }}/>
-              Auto-burst
+              Auto
+            </button>
+            <button onClick={() => setTimerLen(t => t === 3 ? 5 : 3)} style={{
+              padding:'10px 14px', borderRadius:999, border:'none',
+              background: 'rgba(26,26,31,0.06)',
+              color: T.ink, fontSize:12, fontWeight:600, cursor:'pointer',
+              display:'flex', alignItems:'center', gap:4, fontFamily:'"Plus Jakarta Sans",system-ui',
+              transition:'all 0.2s',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              {timerLen}s
             </button>
           </div>
           <button onClick={startCountdown} disabled={idx>=6} style={{

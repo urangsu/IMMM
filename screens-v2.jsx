@@ -125,6 +125,8 @@ const I18N = {
 function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLang }) {
   const t = I18N[lang] || I18N.ko;
   const toggleLang = () => setLang(l => l === 'ko' ? 'en' : l === 'en' ? 'jp' : 'ko');
+  const sampleImg = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+  const dummyShots = Array.from({length: 4}, () => ({ filter: 'porcelain', dataUrl: sampleImg }));
 
   const logoMark = (size = 48) =>
   <svg width={size * 1.4} height={size} viewBox="0 0 70 50">
@@ -228,15 +230,17 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
       <div style={{ background: T.bgAlt, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ position: 'relative', width: 260, height: 380 }}>
           {/* grid — behind, bigger, color */}
-          <div style={{ position: 'absolute', right: -10, bottom: -10, transform: 'rotate(4deg)', padding: 8, background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.12)', zIndex: 1, width: "200px", height: "210px" }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-              {[2, 4, 1, 3].map((i) => <div key={i} style={{ aspectRatio: '1', position: 'relative', overflow: 'hidden' }}><PlaceholderPortrait seed={i} filter={variant === 'B' ? 'y2k' : 'porcelain'} /></div>)}
+          <div style={{ position: 'absolute', right: -10, bottom: -10, transform: 'rotate(4deg)', padding: 8, background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.12)', zIndex: 1, width: "200px", height: "230px" }}>
+            <div style={{ transform: 'scale(0.85)', transformOrigin: 'top left', width: '117%' }}>
+              <FrameThumb layout="grid" shots={dummyShots} selected={[0,1,2,3]} T={T} logo={false} dateText={false} scale={1} />
             </div>
-            <div style={{ marginTop: 6, fontFamily: 'Caveat,cursive', fontSize: 13, textAlign: 'center', color: T.ink }}>best day ♡</div>
+            <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, fontFamily: 'Caveat,cursive', fontSize: 13, textAlign: 'center', color: T.ink }}>best day ♡</div>
           </div>
           {/* strip 1 — in front */}
           <div style={{ position: 'absolute', left: 0, top: 20, transform: 'rotate(-5deg)', width: 120, padding: 8, background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.12)', zIndex: 2 }}>
-            {[0, 1, 2, 3].map((i) => <div key={i} style={{ height: 70, marginBottom: i < 3 ? 5 : 0, position: 'relative', overflow: 'hidden' }}><PlaceholderPortrait seed={i} filter="porcelain" /></div>)}
+            <div style={{ transform: 'scale(0.65)', transformOrigin: 'top left', width: '153%' }}>
+              <FrameThumb layout="strip" shots={dummyShots} selected={[0,1,2,3]} T={T} logo={false} dateText={false} scale={1} />
+            </div>
             <div style={{ marginTop: 8, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 7, letterSpacing: 2, textAlign: 'center', color: T.inkSoft, textTransform: 'uppercase' }}>I M M M · 2026</div>
           </div>
         </div>
@@ -411,8 +415,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         boxShadow: filter === k ? '0 0 0 2px ' + T.ink : '0 0 0 1px rgba(26,26,31,0.08)',
         transition: 'all 0.2s'
       }}>
-            <div style={{ aspectRatio: '1', position: 'relative' }}>
-              <PlaceholderPortrait seed={0} filter={k} />
+            <div style={{ aspectRatio: '1', position: 'relative', overflow: 'hidden' }}>
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: v.css }} />
             </div>
             <div style={{ padding: '6px 10px', fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
               {v.name}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4 }}>{v.ko}</span>
