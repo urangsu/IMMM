@@ -399,26 +399,29 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
 
 
-  const resultFrame = (scale) =>
-  <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
+  const resultFrame = (scale) => (
+    <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
         <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
-      logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} frameColor={frameColor} />
+          logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} frameColor={frameColor} />
         {/* Place stickers as static overlay */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           {stickers.map((s) =>
-        <div key={s.id} style={{ position: 'absolute', left: `${s.x}%`, top: `${s.y}%`,
-          transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg) scale(${s.scale || 1})`, zIndex: (s.z || 0) + 1 }}>
+            <div key={s.id} style={{ position: 'absolute', left: `${s.x}%`, top: `${s.y}%`,
+              transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg) scale(${s.scale || 1})`, zIndex: (s.z || 0) + 1 }}>
               {renderStickerInstance(s)}
             </div>
-        )}
+          )}
         </div>
         {drawStrokes.length > 0 &&
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
             {drawStrokes.map((s, i) => renderStroke(s, i))}
           </svg>
-      }
+        }
       </div>
+    </div>
+  );
+
   const containerRef = React.useRef(null);
   const frameRef = React.useRef(null);
   const captureRef = React.useRef(null);
@@ -523,6 +526,27 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       setTimeout(() => URL.revokeObjectURL(url), 15000);
     } catch(e) { console.error(e); }
     setDownloading(false);
+  };
+
+  const handleShare = async () => {
+    try {
+      const blob = await captureFrameAsBlob();
+      const file = new File([blob], `IMMM_${Date.now()}.png`, { type: 'image/png' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'IMMM · Photobooth',
+          text: '나와 그리고 우리의 순간. 나만의 포토부스 IMMM.',
+        });
+      } else {
+        // Fallback for browsers that don't support file sharing
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error('Share failed:', e);
+    }
   };
 
   // ── video download — ALL 6 shots, flash transitions, 24fps film feel ──
@@ -771,15 +795,15 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         </button>
         )}
         {/* Instagram */}
-        <button title="Instagram" style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button title="Instagram" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.7" /><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" /></svg>
         </button>
         {/* KakaoTalk */}
-        <button title="KakaoTalk" style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button title="KakaoTalk" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.7 1.7 5.1 4.3 6.5L5 22l4.6-2.4c.8.1 1.6.2 2.4.2 5.5 0 10-3.6 10-8s-4.5-8-10-8Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
         </button>
         {/* More */}
-        <button title="More" style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button title="More" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {I.share(20, T.ink)}
         </button>
       </div>
