@@ -8,9 +8,10 @@ const VERT_QUAD = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
 uniform float u_flipX;
+uniform float u_flipY;
 void main(){
   v_uv = a_pos * 0.5 + 0.5;
-  v_uv.y = 1.0 - v_uv.y;
+  if(u_flipY > 0.5) v_uv.y = 1.0 - v_uv.y;
   if(u_flipX > 0.5) v_uv.x = 1.0 - v_uv.x;
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }`;
@@ -753,9 +754,9 @@ class FilterEngine {
     if (this.canvas.height !== h) this.canvas.height = h;
     this._ensureFbos(w, h);
 
-    // Upload video frame
+    // Upload video frame — flip Y so video rows are in correct OpenGL UV space (y=0=bottom)
     gl.bindTexture(gl.TEXTURE_2D, this._srcTex);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); } catch(_){}
 
     const res = [w, h];
@@ -772,9 +773,10 @@ class FilterEngine {
         this._pass('halation_h', curTex, this._fboInfos[2], {
           u_resolution: res,
           u_flipX: 0.0,
+          u_flipY: 0.0,
           ...step.uniforms,
         });
-        sceneTex = curTex; 
+        sceneTex = curTex;
         continue;
       }
       if (step.shader === 'halation_v') {
@@ -784,6 +786,7 @@ class FilterEngine {
         this._pass('halation_v', this._fboInfos[2].attachments[0], this._fboInfos[halVOut], {
           u_resolution: res,
           u_flipX: 0.0,
+          u_flipY: 0.0,
           ...step.uniforms,
         });
         this._halBlurTex = this._fboInfos[halVOut].attachments[0];
@@ -799,6 +802,7 @@ class FilterEngine {
           u_tex: sceneTex,
           u_halTex: this._halBlurTex,
           u_flipX: 0.0,
+          u_flipY: 0.0,
           ...step.uniforms,
         });
         curTex = this._fboInfos[2].attachments[0];
@@ -809,10 +813,14 @@ class FilterEngine {
       }
 
       // --- Normal pass ---
+      // u_flipY only on pass 0: video texture has y=0 at top (image convention),
+      // FBOs already have correct OpenGL convention (y=0 at bottom) so no flip needed.
+      // u_flipX (mirror) also only on pass 0 to bake the mirror into the FBO chain.
       const out = this._fboInfos[1 - idx];
       const drew = this._pass(step.shader, curTex, out, {
         u_resolution: res,
         u_flipX: (i === 0 && mirrorX) ? 1.0 : 0.0,
+        u_flipY: (i === 0) ? 1.0 : 0.0,
         ...step.uniforms,
         ...fu,
       });
@@ -825,10 +833,11 @@ class FilterEngine {
       }
     }
 
-    // Final blit to screen
+    // Final blit to screen — no flip: FBO already correct, video-only path needs flipY
     this._pass('passthrough', curTex, null, {
       u_resolution: res,
       u_flipX: (pipeline.length === 0 && mirrorX) ? 1.0 : 0.0,
+      u_flipY: pipeline.length === 0 ? 1.0 : 0.0,
     });
   }
 
@@ -939,20 +948,25 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
         const face = faceDataRef?.current;
 
         // Dynamic face uniforms
+        // MediaPipe coords: x=0 left, y=0 top (image convention).
+        // Shader UV after pass 0: x=0 right-of-screen (mirrored), y=0 bottom (OpenGL).
+        // Transform: x → 1-x (mirror), y → 1-y (flip top-origin → bottom-origin).
         let faceUniforms = {};
         if (face?.detected) {
+          const fx = (x) => 1.0 - x; // always mirrorX=true
+          const fy = (y) => 1.0 - y;
           if (key === 'purikura') {
             faceUniforms = {
-              u_leftEyeCenter:  face.leftEyeCenter,
-              u_rightEyeCenter: face.rightEyeCenter,
+              u_leftEyeCenter:  [fx(face.leftEyeCenter[0]),  fy(face.leftEyeCenter[1])],
+              u_rightEyeCenter: [fx(face.rightEyeCenter[0]), fy(face.rightEyeCenter[1])],
               u_eyeRadius:      face.eyeRadius,
               u_eyeScale:       1.38,
             };
           }
           if (key === 'blush') {
             faceUniforms = {
-              u_leftCheek:      face.leftCheek,
-              u_rightCheek:     face.rightCheek,
+              u_leftCheek:      [fx(face.leftCheek[0]),  fy(face.leftCheek[1])],
+              u_rightCheek:     [fx(face.rightCheek[0]), fy(face.rightCheek[1])],
               u_cheekRadius:    face.cheekRadius,
               u_blushStrength:  0.9,
               u_blushColor:     [0.98, 0.72, 0.72],

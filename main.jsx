@@ -161,10 +161,10 @@ function App() {
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: T.bg, overflow: 'hidden' }}>
       
       {/* PERSISTENT CAMERA/ENGINE SURFACE (Pre-warmed) */}
+      {/* NO overflow:hidden — Samsung Internet cannot render hardware-accelerated video
+          inside overflow:hidden+borderRadius. borderRadius applied on child elements instead. */}
       <div id="global-camera-box" style={{
         position: 'absolute',
-        // In capture mode, we'll position this to match the UI's camera box.
-        // For simplicity in this layout, we'll use a fixed overlay that matches CaptureV2's flex layout.
         top: mobile ? 100 : 88,
         left: mobile ? 16 : 24,
         right: mobile ? 16 : 120,
@@ -172,13 +172,12 @@ function App() {
         zIndex: screen === 'capture' ? 5 : -1,
         opacity: screen === 'capture' ? 1 : 0,
         pointerEvents: 'none',
-        borderRadius: 24,
-        overflow: 'hidden',
         background: '#000',
+        borderRadius: 24,
         transition: 'opacity 0.3s ease',
       }}>
         <video ref={videoRef} playsInline muted autoPlay style={{
-          width:'100%', height:'100%', objectFit:'cover',
+          width:'100%', height:'100%', objectFit:'cover', borderRadius: 24,
           transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
         }}/>
         <canvas ref={canvasRef} style={{
