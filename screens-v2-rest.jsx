@@ -252,6 +252,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       </div>
       {!mobile && <div style={{ padding:'24px 20px', background:T.bgAlt, borderLeft:'1px solid rgba(0,0,0,0.04)' }}>{shotsRail}</div>}
     </div>
+  </div>
   );
 }
 

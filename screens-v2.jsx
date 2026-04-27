@@ -90,8 +90,8 @@ function TopBar({ step, back, T, mobile, title, right }) {
         {title && <div style={{ marginTop: 5, fontSize: 10, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700 }}>{title}</div>}
       </div>
       <div style={{ minWidth: 60, display: 'flex', justifyContent: 'flex-end' }}>{right}</div>
-    </div>);
-
+    </div>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -611,8 +611,12 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         {tabBar}
         <div style={{ flex: 1 }}>{tabContent}</div>
       </div>
-    </div>);
-
+    </div>
+  );
 }
 
-Object.assign(window, { LandingV2, SetupScreen, BtnPrimary, BtnGhost, Kick, StepDots, ScreenTransition, TopBar });
+const Kicker = Kick;
+const PrimaryBtn = BtnPrimary;
+const GhostBtn = BtnGhost;
+
+Object.assign(window, { LandingV2, SetupScreen, BtnPrimary, BtnGhost, Kick, StepDots, ScreenTransition, TopBar, Kicker, PrimaryBtn, GhostBtn });

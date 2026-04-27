@@ -397,7 +397,25 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const shotsWithFilter = shots.map((s) => s ? { ...s, filter } : null);
 
 
-
+  const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
+  const renderStroke = (stroke, key) => {
+    if (stroke.brush === 'sparkle') {
+      const step = 12;
+      const sparkles = [];
+      for (let i = 0; i < stroke.points.length; i += step) {
+        const [x, y] = stroke.points[i];
+        const s = (stroke.width || 3) * 1.5;
+        sparkles.push(
+          <g key={i} transform={`translate(${x},${y})`}>
+            <path d={`M0,-${s} L${s * 0.25},-${s * 0.25} L${s},0 L${s * 0.25},${s * 0.25} L0,${s} L-${s * 0.25},${s * 0.25} L-${s},0 L-${s * 0.25},-${s * 0.25} Z`}
+            fill={stroke.color} opacity="0.8" />
+          </g>
+        );
+      }
+      return <g key={key}>{sparkles}</g>;
+    }
+    return <path key={key} d={pathFor(stroke)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+  };
 
   const resultFrame = (scale) => (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
