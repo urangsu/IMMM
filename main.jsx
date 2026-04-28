@@ -1,5 +1,38 @@
 // main.jsx — IMMM Photobooth real app entry (no prototype chrome) - Refresh trigger
 
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error('[IMMM] React render failed:', error, info);
+    if (window.__showBootError) {
+      window.__showBootError(error?.message || String(error), null, null, null, error);
+    }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ minHeight:'100vh', padding:24, background:'#fff', color:'#111', fontFamily:'Pretendard,system-ui' }}>
+          <h1 style={{ margin:'0 0 8px', fontSize:20 }}>앱을 불러오지 못했어요.</h1>
+          <p style={{ margin:'0 0 16px', color:'#666', lineHeight:1.5 }}>브라우저 호환성 또는 스크립트 오류가 발생했습니다.</p>
+          <pre style={{ whiteSpace:'pre-wrap', wordBreak:'break-word', background:'#f4f4f4', padding:12, borderRadius:8, fontSize:12 }}>
+            {this.state.error?.stack || this.state.error?.message || String(this.state.error)}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const [tweaks, setTweaks] = React.useState({
     variant: 'A',
@@ -224,4 +257,8 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>
+);

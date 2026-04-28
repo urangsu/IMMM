@@ -612,7 +612,6 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         <div style={{ flex: 1 }}>{tabContent}</div>
       </div>
     </div>
-  </div>
   );
 }
 

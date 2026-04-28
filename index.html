@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,6 +45,17 @@
   button:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+  #boot-error {
+    position: fixed; inset: 0; z-index: 99999; display: none;
+    padding: 24px; background: #fff; color: #111;
+    font-family: Pretendard, system-ui, sans-serif;
+  }
+  #boot-error strong { display: block; margin-bottom: 8px; font-size: 18px; }
+  #boot-error pre {
+    white-space: pre-wrap; word-break: break-word;
+    padding: 12px; border-radius: 8px; background: #f4f4f4;
+    font-size: 12px; line-height: 1.45;
+  }
 
   @keyframes pulse         { 0%,100%{transform:scale(1);opacity:0.35} 50%{transform:scale(1.08);opacity:0.15} }
   @keyframes flash         { 0%{opacity:1} 100%{opacity:0} }
@@ -56,6 +70,25 @@
     100% { transform:scale(1.0)  rotate(0deg);    opacity:1; }
   }
 </style>
+
+<script>
+  window.__showBootError = function(message, source, line, col, error) {
+    var box = document.getElementById('boot-error');
+    if (!box) return;
+    var detail = message || 'Unknown error';
+    if (source) detail += '\n' + source + ':' + (line || 0) + ':' + (col || 0);
+    if (error && error.stack) detail += '\n\n' + error.stack;
+    box.style.display = 'block';
+    box.innerHTML = '<strong>IMMM 앱을 불러오지 못했어요.</strong><div>브라우저 호환성 또는 스크립트 오류가 발생했습니다.</div><pre></pre>';
+    box.querySelector('pre').textContent = detail;
+  };
+  window.addEventListener('error', function(e) {
+    window.__showBootError(e.message, e.filename, e.lineno, e.colno, e.error);
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    window.__showBootError((e.reason && (e.reason.stack || e.reason.message)) || String(e.reason || 'Unhandled promise rejection'));
+  });
+</script>
 
 <!-- React 18 -->
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"
@@ -93,6 +126,7 @@
 </script>
 </head>
 <body>
+<div id="boot-error"></div>
 <div id="root"></div>
 
 <!-- Shared globals: design tokens, icons, sticker assets -->
@@ -115,5 +149,14 @@
 <script type="text/babel" src="screens-v2-deco.jsx"></script>
 <!-- App entry point -->
 <script type="text/babel" src="main.jsx"></script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('./sw.js').catch(function(e) {
+        console.warn('[IMMM] service worker registration failed:', e.message);
+      });
+    });
+  }
+</script>
 </body>
 </html>

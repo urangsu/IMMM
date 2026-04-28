@@ -382,7 +382,6 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         <div style={{ flex: 1 }}>{tabContent}</div>
       </div>
     </div>
-  </div>
   );
 }
 

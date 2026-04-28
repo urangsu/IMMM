@@ -9,8 +9,22 @@ attribute vec2 a_pos;
 varying vec2 v_uv;
 uniform float u_flipX;
 uniform float u_flipY;
+uniform float u_coverCrop;
+uniform vec2 u_srcResolution;
+uniform vec2 u_dstResolution;
 void main(){
   v_uv = a_pos * 0.5 + 0.5;
+  if(u_coverCrop > 0.5 && u_srcResolution.x > 0.0 && u_srcResolution.y > 0.0 && u_dstResolution.x > 0.0 && u_dstResolution.y > 0.0){
+    float srcAspect = u_srcResolution.x / u_srcResolution.y;
+    float dstAspect = u_dstResolution.x / u_dstResolution.y;
+    if(srcAspect > dstAspect){
+      float visibleW = dstAspect / srcAspect;
+      v_uv.x = 0.5 + (v_uv.x - 0.5) * visibleW;
+    } else {
+      float visibleH = srcAspect / dstAspect;
+      v_uv.y = 0.5 + (v_uv.y - 0.5) * visibleH;
+    }
+  }
   if(u_flipY > 0.5) v_uv.y = 1.0 - v_uv.y;
   if(u_flipX > 0.5) v_uv.x = 1.0 - v_uv.x;
   gl_Position = vec4(a_pos, 0.0, 1.0);
@@ -779,6 +793,7 @@ class FilterEngine {
     try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); } catch(_){}
 
     const res = [w, h];
+    const srcRes = [source.videoWidth || w, source.videoHeight || h];
     const fu  = faceUniforms || {};
     let curTex = this._srcTex;
     let idx = 0;
@@ -837,6 +852,9 @@ class FilterEngine {
         u_resolution: res,
         u_flipX: (i === 0 && mirrorX) ? 1.0 : 0.0,
         u_flipY: (i === 0) ? 1.0 : 0.0,
+        u_coverCrop: i === 0 ? 1.0 : 0.0,
+        u_srcResolution: i === 0 ? srcRes : res,
+        u_dstResolution: res,
         ...step.uniforms,
         ...fu,
       });
@@ -854,6 +872,9 @@ class FilterEngine {
       u_resolution: res,
       u_flipX: (pipeline.length === 0 && mirrorX) ? 1.0 : 0.0,
       u_flipY: (pipeline.length === 0) ? 1.0 : 0.0,
+      u_coverCrop: pipeline.length === 0 ? 1.0 : 0.0,
+      u_srcResolution: pipeline.length === 0 ? srcRes : res,
+      u_dstResolution: res,
     });
   }
 
