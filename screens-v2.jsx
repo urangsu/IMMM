@@ -508,7 +508,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
       setShots((prev) => {
         const n = [...prev];
         while (n.length <= targetIdx) n.push(null);
-        n[targetIdx] = { dataUrl, filter };
+        n[targetIdx] = { dataUrl, filter, renderMode: 'upload', capturedFilter: filter, ts: Date.now() };
         return n;
       });
     }

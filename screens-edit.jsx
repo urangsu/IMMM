@@ -43,7 +43,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
           </div>
         }
         <div data-frame-slot={0} style={{ ...tileStyle, aspectRatio: '1', width: '100%' }}>
-          {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: FILTERS[s.filter || 'original'].css }} /> : <EmptySlot />}
+          {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
           {renderSlotStickers(0)}
         </div>
         {/* Polaroid bottom — always sized, text visibility toggled */}
@@ -72,7 +72,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         const s = getShot(i);
         return (
           <div key={i} data-frame-slot={i} style={{ ...tileStyle, flex: 1, aspectRatio: '3/4' }}>
-              {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: FILTERS[s.filter || 'original'].css }} /> : <EmptySlot />}
+              {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
               {renderSlotStickers(i)}
             </div>);
 
@@ -85,7 +85,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         {[0, 1, 2, 3].map((i) => {
         const s = getShot(i);
         return <div key={i} data-frame-slot={i} style={{ ...tileStyle, aspectRatio: '4/3' }}>
-            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: FILTERS[s.filter || 'porcelain'].css }} /> : <EmptySlot />}
+            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
             {renderSlotStickers(i)}
           </div>;
       })}
@@ -97,7 +97,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         {[0, 1, 2, 3].map((i) => {
         const s = getShot(i);
         return <div key={i} data-frame-slot={i} style={{ ...tileStyle, aspectRatio: '1' }}>
-            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: FILTERS[s.filter || 'porcelain'].css }} /> : <EmptySlot />}
+            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
             {renderSlotStickers(i)}
           </div>;
       })}
@@ -109,7 +109,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         {[0, 1, 2].map((i) => {
         const s = getShot(i);
         return <div key={i} data-frame-slot={i} style={{ ...tileStyle, aspectRatio: isLandscape ? '3/4' : '4/3', flex: isLandscape ? 1 : 'none' }}>
-            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: FILTERS[s.filter || 'porcelain'].css }} /> : <EmptySlot />}
+            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
             {renderSlotStickers(i)}
           </div>;
       })}
@@ -121,7 +121,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         {[0, 1, 2, 3].map((i) => {
         const s = getShot(i);
         return <div key={i} data-frame-slot={i} style={{ ...tileStyle }}>
-            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: FILTERS[s.filter || 'porcelain'].css }} /> : <EmptySlot />}
+            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
             {renderSlotStickers(i)}
           </div>;
       })}

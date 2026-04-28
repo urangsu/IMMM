@@ -4,6 +4,7 @@
 
 const DEFAULT_FACE = {
   detected:       false,
+  faces:          [],
   leftEyeCenter:  [0.35, 0.40],
   rightEyeCenter: [0.65, 0.40],
   eyeRadius:      0.08,
@@ -46,7 +47,7 @@ function useFaceLandmarks(videoRef) {
             delegate: 'GPU',
           },
           runningMode: 'VIDEO',
-          numFaces: 1,
+          numFaces: 4,
           outputFaceBlendshapes: false,
           outputFacialTransformationMatrixes: false,
         });
@@ -75,35 +76,48 @@ function useFaceLandmarks(videoRef) {
 
       try {
         const result = landmarker.detectForVideo(video, performance.now());
-        const lmArr  = result?.faceLandmarks?.[0];
-        if (!lmArr || lmArr.length < 478) {
-          dataRef.current = { ...dataRef.current, detected: false };
+        const faceLandmarks = (result?.faceLandmarks || []).filter(lm => lm && lm.length >= 478);
+        if (!faceLandmarks.length) {
+          dataRef.current = { ...dataRef.current, detected: false, faces: [] };
           return;
         }
 
-        // ── Eye centres (iris: 468=left, 473=right) ──
-        const li = lmArr[468] || lmArr[159]; // left iris / fallback
-        const ri = lmArr[473] || lmArr[386]; // right iris / fallback
+        const faces = faceLandmarks.slice(0, 4).map((lmArr) => {
+          // ── Eye centres (iris: 468=left, 473=right) ──
+          const li = lmArr[468] || lmArr[159]; // left iris / fallback
+          const ri = lmArr[473] || lmArr[386]; // right iris / fallback
 
-        // ── Eye width for radius (outer to inner corner) ──
-        const lo = lmArr[33], li2 = lmArr[133]; // left eye corners
-        const eyeW = Math.hypot(
-          (lo?.x ?? 0.30) - (li2?.x ?? 0.38),
-          (lo?.y ?? 0.40) - (li2?.y ?? 0.40)
-        );
+          // ── Eye width for radius (outer to inner corner) ──
+          const lo = lmArr[33], li2 = lmArr[133]; // left eye corners
+          const eyeW = Math.hypot(
+            (lo?.x ?? 0.30) - (li2?.x ?? 0.38),
+            (lo?.y ?? 0.40) - (li2?.y ?? 0.40)
+          );
 
-        // ── Cheek landmarks ──
-        const lc = lmArr[205] || lmArr[50];  // left cheek
-        const rc = lmArr[425] || lmArr[280]; // right cheek
+          // ── Cheek landmarks ──
+          const lc = lmArr[205] || lmArr[50];  // left cheek
+          const rc = lmArr[425] || lmArr[280]; // right cheek
 
+          return {
+            leftEyeCenter:  [li?.x ?? 0.35, li?.y ?? 0.40],
+            rightEyeCenter: [ri?.x ?? 0.65, ri?.y ?? 0.40],
+            eyeRadius:      Math.max(0.035, eyeW * 1.3),
+            leftCheek:      [lc?.x ?? 0.28, lc?.y ?? 0.55],
+            rightCheek:     [rc?.x ?? 0.72, rc?.y ?? 0.55],
+            cheekRadius:    Math.max(0.07, eyeW * 1.65),
+          };
+        });
+
+        const primary = faces[0];
         dataRef.current = {
           detected:       true,
-          leftEyeCenter:  [li?.x ?? 0.35, li?.y ?? 0.40],
-          rightEyeCenter: [ri?.x ?? 0.65, ri?.y ?? 0.40],
-          eyeRadius:      Math.max(0.035, eyeW * 1.3),
-          leftCheek:      [lc?.x ?? 0.28, lc?.y ?? 0.55],
-          rightCheek:     [rc?.x ?? 0.72, rc?.y ?? 0.55],
-          cheekRadius:    Math.max(0.10, eyeW * 1.8),
+          faces,
+          leftEyeCenter:  primary.leftEyeCenter,
+          rightEyeCenter: primary.rightEyeCenter,
+          eyeRadius:      primary.eyeRadius,
+          leftCheek:      primary.leftCheek,
+          rightCheek:     primary.rightCheek,
+          cheekRadius:    primary.cheekRadius,
         };
       } catch(_) {}
     };

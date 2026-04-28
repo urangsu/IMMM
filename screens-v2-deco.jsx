@@ -31,7 +31,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     const rd = new FileReader();rd.onload = () => addUpload(rd.result);rd.readAsDataURL(f);
   };
 
-  const shotsWithFilter = shots.map((s) => s ? { ...s, filter } : null);
+  const shotsForFrame = shots;
 
   // Draw handlers
   const toggleDrawMode = () => {
@@ -142,7 +142,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     onTouchStart={onDrawStart}  onTouchMove={onDrawMove}  onTouchEnd={onDrawEnd}>
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
       width={layout === 'strip' || layout === 'trip' ? 180 : 220} height="auto">
-          <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
+          <FrameThumb layout={layout} shots={shotsForFrame} selected={selected} T={T}
         logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation||'portrait'} frameColor={frameColor} />
           <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}>
@@ -395,7 +395,7 @@ function chipBtn(T) {return {
 // RESULT
 // ═══════════════════════════════════════════════════════════════
 function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation, stickers, drawStrokes, logo, dateText, accent, frameColor }) {
-  const shotsWithFilter = shots.map((s) => s ? { ...s, filter } : null);
+  const shotsForFrame = shots;
 
 
   const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
@@ -421,7 +421,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const resultFrame = (scale) => (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
-        <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
+        <FrameThumb layout={layout} shots={shotsForFrame} selected={selected} T={T}
           logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} frameColor={frameColor} />
         {/* Place stickers as static overlay */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
@@ -509,9 +509,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       ctx.fillStyle = '#ddd';
       ctx.fillRect(x, y, colW, photoH);
       if (imgs[i]) {
-        ctx.filter = FILTERS[filter]?.css || 'none';
         drawCover(ctx, imgs[i], x, y, colW, photoH);
-        ctx.filter = 'none';
       }
     }
 
@@ -628,13 +626,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       img.src = s.dataUrl;
     })));
 
-    const drawFrame = (img, filterCss) => {
+    const drawFrame = (img) => {
       ctx.fillStyle = frameColor || '#111';
       ctx.fillRect(0, 0, W, H);
       if (img) {
-        ctx.filter = filterCss || 'none';
         drawCover(ctx, img, 0, 0, W, H);
-        ctx.filter = 'none';
       }
       // IMMM watermark
       ctx.fillStyle = 'rgba(255,255,255,0.55)';
@@ -658,16 +654,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     rec.start(200); // 200ms timeslice — collect chunks progressively
 
     for (let i = 0; i < imgs.length; i++) {
-      const s = allShots[i];
-      const filterCss = FILTERS[s.filter]?.css || 'none';
-
       // white flash in
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, W, H);
       await paintWait(60);
 
       // draw photo
-      drawFrame(imgs[i], filterCss);
+      drawFrame(imgs[i]);
 
       // shot number badge
       ctx.fillStyle = 'rgba(255,255,255,0.9)';

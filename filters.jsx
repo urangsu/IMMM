@@ -1,21 +1,21 @@
 // filters.jsx — CSS filter presets + placeholder portraits
 
 const FILTERS = {
-  original:  { name:'No Filter',    ko:'노 필터',   css:'brightness(1.02) contrast(0.98)' },
-  porcelain: { name:'Window Light', ko:'자연광',    css:'brightness(1.08) contrast(0.92) saturate(0.90) blur(0.25px)' },
-  smooth:    { name:'Cream Skin',   ko:'크림 스킨', css:'brightness(1.15) contrast(0.80) saturate(0.85) blur(0.6px)' },
-  blush:     { name:'First Love',   ko:'첫사랑',    css:'brightness(1.08) saturate(1.28) hue-rotate(-12deg) contrast(0.92)', overlay:'blush' },
-  purikura:  { name:'Harajuku',     ko:'하라주쿠',  css:'brightness(1.35) contrast(1.40) saturate(0.70) blur(0.2px)', overlay:'purikura' },
-  grain:     { name:'Kodak',        ko:'코닥',      css:'sepia(0.25) contrast(1.10) saturate(0.82) brightness(0.97)' },
-  vintage:   { name:"Mom's Album",  ko:'엄마 앨범', css:'sepia(0.40) saturate(1.18) contrast(0.93) hue-rotate(-12deg) brightness(0.95)' },
-  golden:    { name:'Golden Hour',  ko:'골든아워',  css:'brightness(1.12) contrast(1.08) saturate(1.15) sepia(0.15)' },
-  y2k:       { name:'2002',         ko:'2002',      css:'saturate(1.5) hue-rotate(-12deg) contrast(1.08) brightness(1.06)' },
-  dream:     { name:'2AM',          ko:'새벽 두 시',css:'brightness(1.28) contrast(1.30) saturate(0.70) blur(0.25px)' },
-  twilight:  { name:'Twilight',     ko:'트와일라잇',css:'brightness(0.95) contrast(1.12) saturate(0.85) sepia(0.1)' },
-  blurcam:   { name:'BlurCAM',      ko:'블러캠',    css:'brightness(1.15) contrast(0.9) saturate(1.05) blur(0.8px)' },
-  bw:        { name:'Han River',    ko:'한강 새벽', css:'grayscale(1) contrast(1.15) brightness(0.94)' },
-  glitter:   { name:'Disco',        ko:'반짝',      css:'brightness(1.20) contrast(1.15) saturate(1.8) hue-rotate(5deg)', overlay:'glitter' },
-  lomo:      { name:'Lomo',         ko:'로모',      css:'contrast(1.20) saturate(1.10) brightness(0.92) sepia(0.15)' },
+  original:  { name:'No Filter',    ko:'노 필터',   css:'brightness(1.015) contrast(0.99)' },
+  porcelain: { name:'Window Light', ko:'자연광',    css:'brightness(1.055) contrast(0.96) saturate(0.94)' },
+  smooth:    { name:'Cream Skin',   ko:'크림 스킨', css:'brightness(1.08) contrast(0.92) saturate(0.92) blur(0.25px)' },
+  blush:     { name:'First Love',   ko:'첫사랑',    css:'brightness(1.055) saturate(1.10) hue-rotate(-6deg) contrast(0.96)', overlay:'blush' },
+  purikura:  { name:'Harajuku',     ko:'하라주쿠',  css:'brightness(1.16) contrast(1.12) saturate(0.88)', overlay:'purikura' },
+  grain:     { name:'Kodak',        ko:'코닥',      css:'sepia(0.16) contrast(1.06) saturate(0.90) brightness(0.99)' },
+  vintage:   { name:"Mom's Album",  ko:'엄마 앨범', css:'sepia(0.24) saturate(1.05) contrast(0.97) hue-rotate(-7deg) brightness(0.98)' },
+  golden:    { name:'Golden Hour',  ko:'골든아워',  css:'brightness(1.08) contrast(1.04) saturate(1.06) sepia(0.10)' },
+  y2k:       { name:'2002',         ko:'2002',      css:'saturate(1.24) hue-rotate(-7deg) contrast(1.04) brightness(1.03)' },
+  dream:     { name:'2AM',          ko:'새벽 두 시',css:'brightness(1.14) contrast(1.08) saturate(0.86) blur(0.12px)' },
+  twilight:  { name:'Twilight',     ko:'트와일라잇',css:'brightness(0.97) contrast(1.07) saturate(0.90) sepia(0.06)' },
+  blurcam:   { name:'BlurCAM',      ko:'블러캠',    css:'brightness(1.08) contrast(0.96) saturate(1.02) blur(0.35px)' },
+  bw:        { name:'Han River',    ko:'한강 새벽', css:'grayscale(1) contrast(1.08) brightness(0.97)' },
+  glitter:   { name:'Disco',        ko:'반짝',      css:'brightness(1.10) contrast(1.07) saturate(1.28) hue-rotate(3deg)', overlay:'glitter' },
+  lomo:      { name:'Lomo',         ko:'로모',      css:'contrast(1.12) saturate(1.02) brightness(0.96) sepia(0.10)' },
 };
 
 // Filter overlay — decorative layer rendered on top of video/photo

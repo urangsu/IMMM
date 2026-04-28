@@ -4,7 +4,7 @@
 // CAPTURE — 6 shots
 // ═══════════════════════════════════════════════════════════════
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, muted, onRequestCamera,
-  videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode
+  videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange
 }) {
   const [idx, setIdx]           = React.useState(0);
   const [countdown, setCountdown] = React.useState(0);
@@ -12,8 +12,34 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const [flashing, setFlashing]   = React.useState(false);
   const [auto, setAuto]           = React.useState(false);
   const touchStartY = React.useRef(null);
+  const cameraFrameRef = React.useRef(null);
 
   const canvasActive = webglOk && firstFrame;
+
+  React.useEffect(() => {
+    if (!onCameraFrameChange || !cameraFrameRef.current) return;
+    const update = () => {
+      if (!cameraFrameRef.current) return;
+      const r = cameraFrameRef.current.getBoundingClientRect();
+      onCameraFrameChange({
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+      });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(cameraFrameRef.current);
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+      onCameraFrameChange(null);
+    };
+  }, [onCameraFrameChange, mobile]);
 
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
@@ -32,20 +58,33 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     touchStartY.current = null;
   };
 
-  const captureFromVideo = React.useCallback((v, cssFilter) => {
+  const captureFromVideo = React.useCallback((v, cssFilter, mirrorX) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
     try {
       const c = document.createElement('canvas');
-      c.width = 720; c.height = 720;
+      const rect = cameraFrameRef.current?.getBoundingClientRect();
+      const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
+      c.width = 720;
+      c.height = Math.max(1, Math.round(720 / aspect));
       const ctx = c.getContext('2d');
       ctx.save();
-      ctx.translate(c.width, 0); ctx.scale(-1, 1);
+      if (mirrorX) {
+        ctx.translate(c.width, 0);
+        ctx.scale(-1, 1);
+      }
       // Apply CSS filter so fallback captures match what the preview showed
       if (cssFilter && cssFilter !== 'none') ctx.filter = cssFilter;
       const vw = v.videoWidth, vh = v.videoHeight;
-      const size = Math.min(vw, vh);
-      const sx = (vw - size) / 2, sy = (vh - size) / 2;
-      ctx.drawImage(v, sx, sy, size, size, 0, 0, c.width, c.height);
+      const srcAspect = vw / vh;
+      let sx = 0, sy = 0, sw = vw, sh = vh;
+      if (srcAspect > aspect) {
+        sw = vh * aspect;
+        sx = (vw - sw) / 2;
+      } else {
+        sh = vw / aspect;
+        sy = (vh - sh) / 2;
+      }
+      ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
       ctx.restore();
       return c.toDataURL('image/jpeg', 0.88);
     } catch(e) { return null; }
@@ -75,13 +114,24 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         if (v && v.readyState >= 2 && v.videoWidth > 0) {
           // If WebGL is supported but capture failed, we MUST still apply the CSS filter for the shot
           const cssFilter = FILTERS[filter]?.css || 'none';
-          dataUrl = captureFromVideo(v, cssFilter);
+          dataUrl = captureFromVideo(v, cssFilter, facingMode === 'user');
         }
       }
+      const rect = cameraFrameRef.current?.getBoundingClientRect();
       setShots(prev => {
         const copy = [...prev];
         while (copy.length < 6) copy.push(null);
-        copy[idx] = { dataUrl, filter, ts: Date.now() };
+        copy[idx] = {
+          dataUrl,
+          filter,
+          capturedFilter: filter,
+          renderMode: dataUrl && canvasActive ? 'webgl' : 'canvas2d-css',
+          facingMode,
+          mirrored: facingMode === 'user',
+          width: rect?.width ? Math.round(rect.width) : 720,
+          height: rect?.height ? Math.round(rect.height) : 720,
+          ts: Date.now(),
+        };
         return copy;
       });
       setIdx(i => Math.min(i+1, 6));
@@ -96,7 +146,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     } else {
       doCapture();
     }
-  }, [idx, filter, setShots, canvasActive, captureFromVideo]);
+  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode]);
 
   React.useEffect(()=> {
     if (countdown <= 0) return;
@@ -154,6 +204,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             hardware-accelerated video inside overflow:hidden+borderRadius containers.
             borderRadius is applied directly on video/canvas instead. */}
         <div 
+          ref={cameraFrameRef}
           onDoubleClick={toggleCamera}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}

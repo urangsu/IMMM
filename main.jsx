@@ -33,6 +33,9 @@ function App() {
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
   }, []);
+  const faceTrackedFilters = ['blush', 'purikura'];
+  const shouldUseWebgl = !mobile || faceTrackedFilters.includes(tweaks.filter);
+  const [cameraBox, setCameraBox] = React.useState(null);
 
   // ═══════════════════════════════════════════════════════════════
   // Persistent Background Engine (Pre-warming)
@@ -42,24 +45,31 @@ function App() {
   const faceDataRef = (typeof useFaceLandmarks === 'function')
     ? useFaceLandmarks(videoRef)
     : React.useRef({ detected: false });
-
-  // useFilterEngine stays active from the start, warming up shaders
-  const { engineRef, webglOk, firstFrame } = (typeof useFilterEngine === 'function')
-    ? useFilterEngine(canvasRef, videoRef, tweaks.filter, faceDataRef, false)
-    : { engineRef: null, webglOk: false, firstFrame: false };
-
-  // Shared Camera Stream
   const [facingMode, setFacingMode] = React.useState('user');
   const [camOk, setCamOk] = React.useState(null);
+  const streamRef = React.useRef(null);
+
+  // useFilterEngine stays active from the start, warming up shaders
+  const { engineRef, webglOk, firstFrame, webglFailed } = (typeof useFilterEngine === 'function')
+    ? useFilterEngine(canvasRef, videoRef, tweaks.filter, faceDataRef, !shouldUseWebgl, facingMode === 'user')
+    : { engineRef: null, webglOk: false, firstFrame: false, webglFailed: false };
+
+  // Shared Camera Stream
   React.useEffect(() => {
     let active = true;
+    const stopStream = (stream) => {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    };
     (async () => {
       try {
+        stopStream(streamRef.current);
+        streamRef.current = null;
         const s = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: facingMode } },
           audio: false,
         });
         if (!active) { s.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = s;
         setCamOk(true);
         if (videoRef.current) {
           // webkit-playsinline must be set BEFORE srcObject+play on Samsung Internet
@@ -72,7 +82,12 @@ function App() {
         setCamOk(false);
       }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      stopStream(streamRef.current);
+      streamRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
   }, [facingMode]);
 
   React.useEffect(() => { localStorage.setItem('immm.v2.screen', screen); }, [screen]);
@@ -99,7 +114,9 @@ function App() {
   const effShots = needsDummy
     ? Array.from({ length: 6 }, () => ({ dataUrl: null, filter: tweaks.filter }))
     : shots;
-  const effSelected = selected.length === 4 ? selected : [0, 1, 2, 3];
+  const selectionCount = tweaks.layout === 'trip' ? 3 : 4;
+  const defaultSelected = Array.from({ length: selectionCount }, (_, i) => i);
+  const effSelected = selected.length === selectionCount ? selected : defaultSelected;
 
   const variant = tweaks.variant;
   const T = TOKENS[variant];
@@ -144,10 +161,11 @@ function App() {
           videoRef={videoRef} canvasRef={canvasRef}
           engineRef={engineRef} webglOk={webglOk} firstFrame={firstFrame}
           camOk={camOk} facingMode={facingMode} setFacingMode={setFacingMode}
+          onCameraFrameChange={setCameraBox}
         />;
       case 'select':
         return <SelectV2 {...p}
-          shots={effShots} selected={selected.slice(0, 4)} setSelected={setSelected}
+          shots={effShots} selected={selected.slice(0, selectionCount)} setSelected={setSelected}
         />;
       case 'deco':
         return <DecoV2 {...p}
@@ -172,17 +190,18 @@ function App() {
       {/* PERSISTENT CAMERA/ENGINE SURFACE (Pre-warmed) */}
       <div id="global-camera-box" style={{
         position: 'absolute',
-        // In capture mode, we'll position this to match the UI's camera box.
-        // For simplicity in this layout, we'll use a fixed overlay that matches CaptureV2's flex layout.
-        top: mobile ? 100 : 88,
-        left: mobile ? 16 : 24,
-        right: mobile ? 16 : 120,
-        bottom: mobile ? 180 : 112,
+        top: cameraBox ? cameraBox.top : (mobile ? 100 : 88),
+        left: cameraBox ? cameraBox.left : (mobile ? 16 : 24),
+        width: cameraBox ? cameraBox.width : 'auto',
+        height: cameraBox ? cameraBox.height : 'auto',
+        right: cameraBox ? 'auto' : (mobile ? 16 : 120),
+        bottom: cameraBox ? 'auto' : (mobile ? 180 : 112),
         zIndex: screen === 'capture' ? 5 : -1,
         opacity: screen === 'capture' ? 1 : 0,
         pointerEvents: 'none',
         borderRadius: 24,
         background: '#000',
+        filter: (!shouldUseWebgl || webglFailed) ? (FILTERS[tweaks.filter]?.css || 'none') : 'none',
         transition: 'opacity 0.3s ease',
       }}>
         <video ref={videoRef} playsInline muted autoPlay style={{
@@ -193,7 +212,7 @@ function App() {
         <canvas ref={canvasRef} style={{
           display:'block', position:'absolute', inset:0,
           width:'100%', height:'100%', borderRadius:24,
-          opacity: (webglOk && firstFrame) ? 1 : 0,
+          opacity: (shouldUseWebgl && webglOk && firstFrame) ? 1 : 0,
           transition: 'opacity 0.2s',
         }}/>
       </div>

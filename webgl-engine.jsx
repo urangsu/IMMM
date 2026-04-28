@@ -304,29 +304,44 @@ void main(){
 blush: `
 precision mediump float;
 uniform sampler2D u_tex;
-uniform vec2 u_leftCheek;
-uniform vec2 u_rightCheek;
-uniform float u_cheekRadius;
+uniform float u_faceCount;
+uniform vec2 u_leftCheek0;
+uniform vec2 u_rightCheek0;
+uniform float u_cheekRadius0;
+uniform vec2 u_leftCheek1;
+uniform vec2 u_rightCheek1;
+uniform float u_cheekRadius1;
+uniform vec2 u_leftCheek2;
+uniform vec2 u_rightCheek2;
+uniform float u_cheekRadius2;
+uniform vec2 u_leftCheek3;
+uniform vec2 u_rightCheek3;
+uniform float u_cheekRadius3;
 uniform float u_blushStrength;
 uniform vec3 u_blushColor;
 uniform vec2 u_resolution;
 varying vec2 v_uv;
+float cheek(vec2 uv, vec2 p, float r, float ar){
+  float d=length(uv-vec2(p.x*ar,p.y));
+  return pow(1.0-smoothstep(0.0,r,d),2.2);
+}
 void main(){
   vec4 orig=texture2D(u_tex,v_uv);
   vec3 c=orig.rgb;
   float ar=u_resolution.x/u_resolution.y;
   vec2 uv=vec2(v_uv.x*ar,v_uv.y);
-  float dL=length(uv-vec2(u_leftCheek.x*ar,u_leftCheek.y));
-  float dR=length(uv-vec2(u_rightCheek.x*ar,u_rightCheek.y));
-  float fL=pow(1.0-smoothstep(0.0,u_cheekRadius,dL),2.0);
-  float fR=pow(1.0-smoothstep(0.0,u_cheekRadius,dR),2.0);
-  float blush=(fL+fR)*u_blushStrength;
+  float mask=0.0;
+  if(u_faceCount>0.5) mask+=cheek(uv,u_leftCheek0,u_cheekRadius0,ar)+cheek(uv,u_rightCheek0,u_cheekRadius0,ar);
+  if(u_faceCount>1.5) mask+=cheek(uv,u_leftCheek1,u_cheekRadius1,ar)+cheek(uv,u_rightCheek1,u_cheekRadius1,ar);
+  if(u_faceCount>2.5) mask+=cheek(uv,u_leftCheek2,u_cheekRadius2,ar)+cheek(uv,u_rightCheek2,u_cheekRadius2,ar);
+  if(u_faceCount>3.5) mask+=cheek(uv,u_leftCheek3,u_cheekRadius3,ar)+cheek(uv,u_rightCheek3,u_cheekRadius3,ar);
+  float blush=min(mask,1.0)*u_blushStrength;
   vec3 screened=c+u_blushColor-c*u_blushColor;
-  c=mix(c,screened,clamp(blush*0.65,0.0,1.0));
+  c=mix(c,screened,clamp(blush*0.42,0.0,1.0));
   // Warm lift + slight desat
   float lum=dot(c,vec3(0.299,0.587,0.114));
-  c=mix(vec3(lum),c,0.88);
-  c*=1.05; c.r=min(c.r+0.02,1.0);
+  c=mix(vec3(lum),c,0.94);
+  c*=1.025; c.r=min(c.r+0.012,1.0);
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),1.0),orig.a);
 }`,
 
@@ -616,37 +631,41 @@ const FILTER_PIPELINES = {
   //   (Glitter) 
   glitter: { pipeline:[
     { shader:'color_adjust', uniforms:{ u_exposure:0.1,u_saturation:0.28,u_contrast:0.04,u_temperature:0,u_tint:0,u_vibrance:0.15,u_highlights:0.08,u_shadows:0 } },
-    { shader:'glitter',      uniforms:{ u_time:0.0, u_intensity:0.9 } },
-    { shader:'halation',     uniforms:{ u_intensity:0.65, u_threshold:0.60 } },
+    { shader:'glitter',      uniforms:{ u_time:0.0, u_intensity:0.58 } },
+    { shader:'halation',     uniforms:{ u_intensity:0.35, u_threshold:0.68 } },
   ]},
   
   //   (Purikura) 
   purikura: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.14 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.14 } },
-    { shader:'purikura',     uniforms:{ u_intensity:1.0, u_eyeRadius:0.0, u_eyeScale:1.0,
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.4, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.4, u_sigmaColor:0.12 } },
+    { shader:'purikura',     uniforms:{ u_intensity:0.72, u_eyeRadius:0.0, u_eyeScale:1.0,
         u_leftEyeCenter:[0.35,0.40], u_rightEyeCenter:[0.65,0.40] } },
-    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.94,0.90,1.05], u_highlightColor:[1.06,1.03,1.04], u_intensity:0.55 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.96,0.94,1.03], u_highlightColor:[1.04,1.02,1.02], u_intensity:0.38 } },
   ]},
 
   //    (Smooth) 
   smooth: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.18 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.18 } },
-    { shader:'smooth_skin',  uniforms:{ u_intensity:1.0 } },
-    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.93,0.94,1.03], u_highlightColor:[1.05,1.02,0.98], u_intensity:0.6 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.08,u_saturation:-0.05,u_temperature:0.12,u_tint:0,u_vibrance:0,u_highlights:0.04,u_shadows:0.04 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.8, u_sigmaColor:0.13 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.8, u_sigmaColor:0.13 } },
+    { shader:'smooth_skin',  uniforms:{ u_intensity:0.75 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.95,0.96,1.02], u_highlightColor:[1.03,1.015,0.99], u_intensity:0.42 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.04,u_contrast:-0.04,u_saturation:-0.03,u_temperature:0.08,u_tint:0,u_vibrance:0,u_highlights:0.02,u_shadows:0.03 } },
   ]},
 
   //   (Blush) 
   blush: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
-    { shader:'dream',        uniforms:{ u_intensity:0.5 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.08,u_saturation:0.15,u_contrast:-0.05,u_temperature:0.12,u_tint:0,u_vibrance:0,u_highlights:0,u_shadows:0 } },
-    { shader:'blush',        uniforms:{ u_leftCheek:[0.28,0.52], u_rightCheek:[0.72,0.52],
-        u_cheekRadius:0.22, u_blushStrength:0.95, u_blushColor:[0.98,0.65,0.72] } },
-    { shader:'halation',     uniforms:{ u_intensity:0.4, u_threshold:0.75 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:1.8, u_sigmaColor:0.08 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:1.8, u_sigmaColor:0.08 } },
+    { shader:'dream',        uniforms:{ u_intensity:0.32 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.05,u_saturation:0.07,u_contrast:-0.03,u_temperature:0.08,u_tint:0,u_vibrance:0,u_highlights:0,u_shadows:0 } },
+    { shader:'blush',        uniforms:{ u_faceCount:0.0,
+        u_leftCheek0:[0,0], u_rightCheek0:[0,0], u_cheekRadius0:0.0,
+        u_leftCheek1:[0,0], u_rightCheek1:[0,0], u_cheekRadius1:0.0,
+        u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
+        u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
+        u_blushStrength:0.72, u_blushColor:[0.98,0.70,0.74] } },
+    { shader:'halation',     uniforms:{ u_intensity:0.22, u_threshold:0.80 } },
   ]},
 
   //   
@@ -911,25 +930,35 @@ class FilterEngine {
 // 
 // useFilterEngine  React hook
 // 
-function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) {
+function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, mirrorX = true) {
   const engineRef    = React.useRef(null);
   const filterKeyRef = React.useRef(filterKey);
+  const mirrorXRef = React.useRef(mirrorX);
   const [webglOk, setWebglOk]     = React.useState(false);
   const [firstFrame, setFirstFrame] = React.useState(false);
+  const [webglFailed, setWebglFailed] = React.useState(false);
 
   React.useEffect(() => { filterKeyRef.current = filterKey; }, [filterKey]);
+  React.useEffect(() => { mirrorXRef.current = mirrorX; }, [mirrorX]);
 
   React.useEffect(() => {
-    if (disabled) return; // mobile: skip WebGL, use CSS filter + canvas2D capture instead
+    if (disabled) {
+      setWebglOk(false);
+      setFirstFrame(false);
+      setWebglFailed(false);
+      return; // mobile: skip WebGL, use CSS filter + canvas2D capture instead
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     let engine;
     try {
       engine = new FilterEngine(canvas);
       engineRef.current = engine;
+      setWebglFailed(false);
       // NOTE: do NOT setWebglOk(true) here  wait until real pixels confirmed in onFirstFrame
     } catch(e) {
       console.warn('[IMMM] WebGL init failed:', e.message);
+      setWebglFailed(true);
       return;
     }
 
@@ -948,7 +977,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
         let faceUniforms = {};
         if (face?.detected) {
           // coordinate transformation: MP(0,0)=top-left -> GL(0,0)=bottom-left + mirror correction
-          const tx = (p) => [1.0 - p[0], 1.0 - p[1]];
+          const tx = (p) => [mirrorXRef.current ? 1.0 - p[0] : p[0], 1.0 - p[1]];
 
           if (key === 'purikura') {
             faceUniforms = {
@@ -959,13 +988,16 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
             };
           }
           if (key === 'blush') {
-            faceUniforms = {
-              u_leftCheek:      tx(face.leftCheek),
-              u_rightCheek:     tx(face.rightCheek),
-              u_cheekRadius:    face.cheekRadius,
-              u_blushStrength:  0.9,
-              u_blushColor:     [0.98, 0.72, 0.72],
-            };
+            const faces = (face.faces?.length ? face.faces : [face]).slice(0, 4);
+            faceUniforms = { u_faceCount: faces.length };
+            for (let i = 0; i < 4; i++) {
+              const f = faces[i];
+              faceUniforms[`u_leftCheek${i}`] = f ? tx(f.leftCheek) : [0, 0];
+              faceUniforms[`u_rightCheek${i}`] = f ? tx(f.rightCheek) : [0, 0];
+              faceUniforms[`u_cheekRadius${i}`] = f ? f.cheekRadius : 0.0;
+            }
+            faceUniforms.u_blushStrength = 0.72;
+            faceUniforms.u_blushColor = [0.98, 0.70, 0.74];
           }
         }
 
@@ -982,12 +1014,13 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
         const r = c?.getBoundingClientRect();
         const W = r ? Math.max(16, Math.round(r.width))  : 480;
         const H = r ? Math.max(16, Math.round(r.height)) : 480;
-        return { w: W, h: H, mirrorX: true };
+        return { w: W, h: H, mirrorX: mirrorXRef.current };
       },
       () => {
         // onFirstFrame: real pixels confirmed  NOW safe to show canvas
         setWebglOk(true);
         setFirstFrame(true);
+        setWebglFailed(false);
       },
       () => {
         // WebGL texImage2D 90        
@@ -997,14 +1030,14 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
         engineRef.current = null;
         setWebglOk(false);
         setFirstFrame(false);
+        setWebglFailed(true);
       }
     );
 
     return () => { engine.destroy(); engineRef.current = null; };
-  }, []);
+  }, [disabled]);
 
-  return { engineRef, webglOk, firstFrame };
+  return { engineRef, webglOk, firstFrame, webglFailed };
 }
 
 Object.assign(window, { FilterEngine, useFilterEngine, FILTER_PIPELINES });
-
