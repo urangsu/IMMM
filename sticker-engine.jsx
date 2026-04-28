@@ -82,20 +82,18 @@ function renderStickerInstance(s, scaleMul=1) {
   }
   if (s.kind === 'setlog') {
     const { time, caption, theme } = s.payload;
-    const isBlack = theme === 'black';
-    const bg = isBlack ? '#000' : '#fff';
-    const fg = isBlack ? '#fff' : '#000';
+    const fg = theme === 'white' ? '#fff' : '#000';
+    const shadow = theme === 'white' ? '0 1px 5px rgba(0,0,0,0.38)' : '0 1px 3px rgba(255,255,255,0.55)';
     return (
       <div style={{
-        padding: '8px 12px', borderRadius: 10, background: bg,
-        boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+        padding: '2px 4px', background: 'transparent',
         textAlign:'center', userSelect:'none', pointerEvents:'none'
       }}>
         <div style={{ fontSize:28, fontWeight:800, color: fg, lineHeight:1,
-          fontFamily:'"Plus Jakarta Sans", system-ui' }}>{time}</div>
+          textShadow: shadow, fontFamily:'"Plus Jakarta Sans", system-ui' }}>{time}</div>
         {caption ? (
           <div style={{ fontSize:12, fontWeight:600, color: fg, opacity: 0.7, marginTop:4, lineHeight:1.2,
-            fontFamily:'Pretendard, system-ui' }}>{caption}</div>
+            textShadow: shadow, fontFamily:'Pretendard, system-ui' }}>{caption}</div>
         ) : null}
       </div>
     );

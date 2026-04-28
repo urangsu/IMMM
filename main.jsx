@@ -67,7 +67,7 @@ function App() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const faceTrackedFilters = ['blush', 'purikura'];
-  const shouldUseWebgl = faceTrackedFilters.includes(tweaks.filter);
+  const shouldUseWebgl = !mobile && faceTrackedFilters.includes(tweaks.filter);
   const [cameraBox, setCameraBox] = React.useState(null);
 
   // ═══════════════════════════════════════════════════════════════

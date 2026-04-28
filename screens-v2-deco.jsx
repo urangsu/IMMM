@@ -417,7 +417,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       }
       return <g key={key}>{sparkles}</g>;
     }
-    return <path key={key} d={pathFor(stroke)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+    return <path key={key} d={pathFor(stroke)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
   };
 
   const resultFrame = (scale) => (
@@ -524,6 +524,47 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       ctx.textBaseline = 'top';
       ctx.fillText(new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}), FRAME_W/2, curY + 6*S);
     }
+
+    drawStrokes.filter(Boolean).forEach((stroke) => {
+      if (!Array.isArray(stroke.points) || stroke.points.length < 2) return;
+      ctx.save();
+      ctx.strokeStyle = stroke.color || '#111';
+      ctx.fillStyle = stroke.color || '#111';
+      ctx.lineWidth = Math.max(1, (stroke.width || 3) * S * 0.55);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if (stroke.brush === 'sparkle') {
+        const step = 12;
+        for (let i = 0; i < stroke.points.length; i += step) {
+          const [px, py] = stroke.points[i];
+          const x = px / 100 * FRAME_W;
+          const y = py / 100 * FRAME_H;
+          const r = Math.max(3, (stroke.width || 3) * S * 0.7);
+          ctx.beginPath();
+          ctx.moveTo(x, y - r);
+          ctx.lineTo(x + r * 0.25, y - r * 0.25);
+          ctx.lineTo(x + r, y);
+          ctx.lineTo(x + r * 0.25, y + r * 0.25);
+          ctx.lineTo(x, y + r);
+          ctx.lineTo(x - r * 0.25, y + r * 0.25);
+          ctx.lineTo(x - r, y);
+          ctx.lineTo(x - r * 0.25, y - r * 0.25);
+          ctx.closePath();
+          ctx.globalAlpha = 0.8;
+          ctx.fill();
+        }
+      } else {
+        ctx.beginPath();
+        stroke.points.forEach(([px, py], i) => {
+          const x = px / 100 * FRAME_W;
+          const y = py / 100 * FRAME_H;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
 
     return new Promise(res => cvs.toBlob(res, 'image/png'));
   };

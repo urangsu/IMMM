@@ -61,7 +61,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     touchStartY.current = null;
   };
 
-  const captureFromVideo = React.useCallback((v, cssFilter, mirrorX) => {
+  const captureFromVideo = React.useCallback((v, filterKey, cssFilter, mirrorX) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
     try {
       const c = document.createElement('canvas');
@@ -89,9 +89,67 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       }
       ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
       ctx.restore();
+      applyCapturedFilterLook(ctx, c.width, c.height, filterKey);
       return c.toDataURL('image/jpeg', 0.88);
     } catch(e) { return null; }
   }, []);
+
+  const applyCapturedFilterLook = (ctx, w, h, filterKey) => {
+    ctx.save();
+    if (filterKey === 'porcelain') {
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(255,244,236,0.12)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx.fillRect(0, 0, w, h);
+    } else if (filterKey === 'smooth') {
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(255,238,230,0.16)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(0, 0, w, h);
+    } else if (filterKey === 'blush') {
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(255,238,232,0.14)';
+      ctx.fillRect(0, 0, w, h);
+      const blush = ctx.createRadialGradient(w * 0.30, h * 0.52, 0, w * 0.30, h * 0.52, w * 0.16);
+      blush.addColorStop(0, 'rgba(255,108,124,0.30)');
+      blush.addColorStop(1, 'rgba(255,108,124,0)');
+      ctx.fillStyle = blush;
+      ctx.fillRect(0, 0, w, h);
+      const blush2 = ctx.createRadialGradient(w * 0.70, h * 0.52, 0, w * 0.70, h * 0.52, w * 0.16);
+      blush2.addColorStop(0, 'rgba(255,108,124,0.30)');
+      blush2.addColorStop(1, 'rgba(255,108,124,0)');
+      ctx.fillStyle = blush2;
+      ctx.fillRect(0, 0, w, h);
+    } else if (filterKey === 'purikura') {
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(255,244,250,0.20)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+      const vignette = ctx.createRadialGradient(w * 0.5, h * 0.42, w * 0.12, w * 0.5, h * 0.42, w * 0.62);
+      vignette.addColorStop(0, 'rgba(255,255,255,0)');
+      vignette.addColorStop(1, 'rgba(255,255,255,0.20)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, w, h);
+    } else if (filterKey === 'grain') {
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = 'rgba(244,226,205,0.10)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      for (let i = 0; i < 260; i++) {
+        const x = (i * 97) % w;
+        const y = (i * 53) % h;
+        ctx.globalAlpha = 0.08 + (i % 5) * 0.015;
+        ctx.fillRect(x, y, 1, 1);
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  };
 
   const takeShot = React.useCallback(() => {
     setFlashing(true);
@@ -117,7 +175,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         if (v && v.readyState >= 2 && v.videoWidth > 0) {
           // If WebGL is supported but capture failed, we MUST still apply the CSS filter for the shot
           const cssFilter = FILTERS[filter]?.css || 'none';
-          dataUrl = captureFromVideo(v, cssFilter, facingMode === 'user');
+          dataUrl = captureFromVideo(v, filter, cssFilter, facingMode === 'user');
         }
       }
       const rect = cameraFrameRef.current?.getBoundingClientRect();
