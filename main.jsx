@@ -62,10 +62,11 @@ function App() {
         if (!active) { s.getTracks().forEach(t => t.stop()); return; }
         setCamOk(true);
         if (videoRef.current) {
+          // webkit-playsinline must be set BEFORE srcObject+play on Samsung Internet
+          videoRef.current.setAttribute('webkit-playsinline', '');
+          videoRef.current.setAttribute('playsinline', '');
           videoRef.current.srcObject = s;
           videoRef.current.play().catch(() => {});
-          videoRef.current.setAttribute('webkit-playsinline', 'true');
-          videoRef.current.setAttribute('playsinline', 'true');
         }
       } catch (e) {
         setCamOk(false);
@@ -76,6 +77,14 @@ function App() {
 
   React.useEffect(() => { localStorage.setItem('immm.v2.screen', screen); }, [screen]);
   React.useEffect(() => { localStorage.setItem('immm.v2.sel', JSON.stringify(selected)); }, [selected]);
+
+  // Samsung Internet suspends background video (opacity:0, zIndex:-1 screens).
+  // Force-resume when user enters capture so the camera feed is guaranteed live.
+  React.useEffect(() => {
+    if (screen === 'capture' && videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  }, [screen]);
 
   const go = (s) => {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
@@ -173,13 +182,13 @@ function App() {
         opacity: screen === 'capture' ? 1 : 0,
         pointerEvents: 'none',
         borderRadius: 24,
-        overflow: 'hidden',
         background: '#000',
         transition: 'opacity 0.3s ease',
       }}>
         <video ref={videoRef} playsInline muted autoPlay style={{
           width:'100%', height:'100%', objectFit:'cover',
           transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+          borderRadius: 24,
         }}/>
         <canvas ref={canvasRef} style={{
           display:'block', position:'absolute', inset:0,

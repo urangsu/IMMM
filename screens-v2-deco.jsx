@@ -381,8 +381,9 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         {tabBar}
         <div style={{ flex: 1 }}>{tabContent}</div>
       </div>
-    </div>);
-
+    </div>
+  </div>
+  );
 }
 
 function chipBtn(T) {return {

@@ -8,9 +8,10 @@ const VERT_QUAD = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
 uniform float u_flipX;
+uniform float u_flipY;
 void main(){
   v_uv = a_pos * 0.5 + 0.5;
-  v_uv.y = 1.0 - v_uv.y;
+  if(u_flipY > 0.5) v_uv.y = 1.0 - v_uv.y;
   if(u_flipX > 0.5) v_uv.x = 1.0 - v_uv.x;
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }`;
@@ -772,6 +773,7 @@ class FilterEngine {
         this._pass('halation_h', curTex, this._fboInfos[2], {
           u_resolution: res,
           u_flipX: 0.0,
+          u_flipY: 0.0,
           ...step.uniforms,
         });
         sceneTex = curTex; 
@@ -784,6 +786,7 @@ class FilterEngine {
         this._pass('halation_v', this._fboInfos[2].attachments[0], this._fboInfos[halVOut], {
           u_resolution: res,
           u_flipX: 0.0,
+          u_flipY: 0.0,
           ...step.uniforms,
         });
         this._halBlurTex = this._fboInfos[halVOut].attachments[0];
@@ -799,6 +802,7 @@ class FilterEngine {
           u_tex: sceneTex,
           u_halTex: this._halBlurTex,
           u_flipX: 0.0,
+          u_flipY: 0.0,
           ...step.uniforms,
         });
         curTex = this._fboInfos[2].attachments[0];
@@ -813,6 +817,7 @@ class FilterEngine {
       const drew = this._pass(step.shader, curTex, out, {
         u_resolution: res,
         u_flipX: (i === 0 && mirrorX) ? 1.0 : 0.0,
+        u_flipY: (i === 0) ? 1.0 : 0.0,
         ...step.uniforms,
         ...fu,
       });
@@ -829,6 +834,7 @@ class FilterEngine {
     this._pass('passthrough', curTex, null, {
       u_resolution: res,
       u_flipX: (pipeline.length === 0 && mirrorX) ? 1.0 : 0.0,
+      u_flipY: (pipeline.length === 0) ? 1.0 : 0.0,
     });
   }
 
@@ -941,18 +947,21 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled) 
         // Dynamic face uniforms
         let faceUniforms = {};
         if (face?.detected) {
+          // coordinate transformation: MP(0,0)=top-left -> GL(0,0)=bottom-left + mirror correction
+          const tx = (p) => [1.0 - p[0], 1.0 - p[1]];
+
           if (key === 'purikura') {
             faceUniforms = {
-              u_leftEyeCenter:  face.leftEyeCenter,
-              u_rightEyeCenter: face.rightEyeCenter,
+              u_leftEyeCenter:  tx(face.leftEyeCenter),
+              u_rightEyeCenter: tx(face.rightEyeCenter),
               u_eyeRadius:      face.eyeRadius,
               u_eyeScale:       1.38,
             };
           }
           if (key === 'blush') {
             faceUniforms = {
-              u_leftCheek:      face.leftCheek,
-              u_rightCheek:     face.rightCheek,
+              u_leftCheek:      tx(face.leftCheek),
+              u_rightCheek:     tx(face.rightCheek),
               u_cheekRadius:    face.cheekRadius,
               u_blushStrength:  0.9,
               u_blushColor:     [0.98, 0.72, 0.72],
