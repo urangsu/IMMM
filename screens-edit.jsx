@@ -28,6 +28,16 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
   const gap = Math.max(2, 6 * scale);
   const tileStyle = { position: 'relative', overflow: 'hidden', background: '#e8e8e8' };
   const EmptySlot = () => <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #efefef 0%, #e0e0e0 100%)' }} />;
+  const renderShotStickers = (s) => (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      {(s?.preStickers || []).map((st) =>
+        <div key={st.id} style={{ position:'absolute', left:`${st.x}%`, top:`${st.y}%`,
+          transform:`translate(-50%,-50%) rotate(${st.rotation||0}deg) scale(${st.scale||1})`, opacity:0.88 }}>
+          {renderStickerInstance(st)}
+        </div>
+      )}
+    </div>
+  );
   const isLandscape = orientation === 'landscape';
 
   let tiles;
@@ -43,7 +53,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
           </div>
         }
         <div data-frame-slot={0} style={{ ...tileStyle, aspectRatio: '1', width: '100%' }}>
-          {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
+          {s?.dataUrl ? <><img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{renderShotStickers(s)}</> : <EmptySlot />}
           {renderSlotStickers(0)}
         </div>
         {/* Polaroid bottom — always sized, text visibility toggled */}
@@ -72,7 +82,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         const s = getShot(i);
         return (
           <div key={i} data-frame-slot={i} style={{ ...tileStyle, flex: 1, aspectRatio: '3/4' }}>
-              {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
+              {s?.dataUrl ? <><img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{renderShotStickers(s)}</> : <EmptySlot />}
               {renderSlotStickers(i)}
             </div>);
 
@@ -85,7 +95,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         {[0, 1, 2, 3].map((i) => {
         const s = getShot(i);
         return <div key={i} data-frame-slot={i} style={{ ...tileStyle, aspectRatio: '4/3' }}>
-            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
+            {s?.dataUrl ? <><img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{renderShotStickers(s)}</> : <EmptySlot />}
             {renderSlotStickers(i)}
           </div>;
       })}
@@ -97,7 +107,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         {[0, 1, 2, 3].map((i) => {
         const s = getShot(i);
         return <div key={i} data-frame-slot={i} style={{ ...tileStyle, aspectRatio: '1' }}>
-            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
+            {s?.dataUrl ? <><img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{renderShotStickers(s)}</> : <EmptySlot />}
             {renderSlotStickers(i)}
           </div>;
       })}
@@ -109,7 +119,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         {[0, 1, 2].map((i) => {
         const s = getShot(i);
         return <div key={i} data-frame-slot={i} style={{ ...tileStyle, aspectRatio: isLandscape ? '3/4' : '4/3', flex: isLandscape ? 1 : 'none' }}>
-            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
+            {s?.dataUrl ? <><img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{renderShotStickers(s)}</> : <EmptySlot />}
             {renderSlotStickers(i)}
           </div>;
       })}
@@ -121,7 +131,7 @@ function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, 
         {[0, 1, 2, 3].map((i) => {
         const s = getShot(i);
         return <div key={i} data-frame-slot={i} style={{ ...tileStyle }}>
-            {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EmptySlot />}
+            {s?.dataUrl ? <><img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{renderShotStickers(s)}</> : <EmptySlot />}
             {renderSlotStickers(i)}
           </div>;
       })}

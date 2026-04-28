@@ -397,6 +397,12 @@ function chipBtn(T) {return {
 // ═══════════════════════════════════════════════════════════════
 function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation, stickers, drawStrokes, logo, dateText, accent, frameColor }) {
   const shotsForFrame = shots;
+  const freeStickers = stickers.filter((s) => s.frameSlot == null);
+  const slottedMap = {};
+  stickers.filter((s) => s.frameSlot != null).forEach((s) => {
+    if (!slottedMap[s.frameSlot]) slottedMap[s.frameSlot] = [];
+    slottedMap[s.frameSlot].push(s);
+  });
 
 
   const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
@@ -423,11 +429,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const resultFrame = (scale) => (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
-        <FrameThumb layout={layout} shots={shotsForFrame} selected={selected} T={T}
-          logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} frameColor={frameColor} />
+        <SlottedStickersCtx.Provider value={slottedMap}>
+          <FrameThumb layout={layout} shots={shotsForFrame} selected={selected} T={T}
+            logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} frameColor={frameColor} />
+        </SlottedStickersCtx.Provider>
         {/* Place stickers as static overlay */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          {stickers.map((s) =>
+          {freeStickers.map((s) =>
             <div key={s.id} style={{ position: 'absolute', left: `${s.x}%`, top: `${s.y}%`,
               transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg) scale(${s.scale || 1})`, zIndex: (s.z || 0) + 1 }}>
               {renderStickerInstance(s)}
@@ -459,6 +467,15 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   };
 
   const captureFrameAsBlob = async () => {
+    if (captureRef.current && typeof html2canvas !== 'undefined') {
+      const rendered = await html2canvas(captureRef.current, {
+        backgroundColor: null,
+        scale: 3,
+        useCORS: true,
+      });
+      return new Promise(res => rendered.toBlob(res, 'image/png'));
+    }
+
     const S = 3; // Scale for higher res
     const FRAME_W = (layout === 'strip' || layout === 'trip') ? 240 * S : 320 * S;
     const PAD = 14 * S;

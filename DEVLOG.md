@@ -66,6 +66,56 @@ Samsung Internet / iOS WebView에서 인라인 재생을 보장하기 위해 `vi
 | 상황 | 결과 |
 |------|------|
 | WebGL 성공, 카메라 워밍업 중 (0~1.5s) | video 표시 (filter 없음, 허용) |
+## 2026-04-28 — 모바일 촬영/스티커/결과 저장 안정화
+
+### 오늘 수정한 항목
+
+#### 1. 흰 화면 부트 오류 수정
+- `screens-v2.jsx`, `screens-v2-deco.jsx`의 JSX 닫힘 태그 오류를 제거했다.
+- 전체 JSX 파일을 Babel standalone으로 변환 검사해 파싱 오류가 없음을 확인했다.
+
+#### 2. 모바일 WebGL 검정 화면 대응
+- 모바일에서는 `purikura`, `blush`도 WebGL을 켜지 않도록 변경했다.
+- 데스크톱에서만 얼굴 추적 WebGL을 시도하고, 모바일은 CSS/Canvas2D 저장 경로로 고정했다.
+- 일반 필터에서 검정 화면이 나오는 리스크를 줄이기 위해 필터 목록을 `original`, `porcelain`, `smooth`, `blush`, `purikura`, `grain` 중심으로 축소했다.
+
+#### 3. 촬영 저장본 필터 반영 보강
+- 모바일 브라우저에서 `ctx.filter`가 비디오 캡처에 적용되지 않는 경우를 대비해 저장 캔버스에 직접 톤/홍조/프리쿠라/필름 오버레이를 추가했다.
+- `smooth`, `blush`, `purikura`는 촬영 후 저장본에서도 최소한의 시각 효과가 남도록 보정했다.
+
+#### 4. 카운트다운/촬영 전 스티커 표시 수정
+- 글로벌 카메라 레이어가 Capture 화면 위에 떠 있어 `3, 2, 1`과 사전 스티커가 가려지던 문제를 수정했다.
+- 카운트다운, 플래시, 촬영 전 스티커를 카메라 영역 기준 `ReactDOM.createPortal` 오버레이로 렌더한다.
+- 촬영 당시의 사전 스티커를 각 shot 데이터에 `preStickers`로 복사해 썸네일, 선택 화면, 프레임 컷에 계속 표시되도록 연결했다.
+
+#### 5. 틀 안 스티커 결과 화면 이탈 수정
+- Result 화면에서 `frameSlot`이 있는 스티커를 전역 오버레이로 다시 그리던 문제를 수정했다.
+- `SlottedStickersCtx.Provider`를 Result에도 적용해 `FrameThumb` 내부 슬롯 clipping을 그대로 사용한다.
+- 자유 스티커와 틀 안 스티커를 분리해, 틀 안 스티커가 결과 화면에서 밖으로 빠져나오지 않도록 했다.
+
+#### 6. 결과 저장 방식 개선
+- 결과 PNG 저장 시 가능하면 `html2canvas(captureRef)`로 실제 결과 DOM을 캡처하도록 변경했다.
+- 이로써 사전 스티커, 틀 안 스티커, 자유 스티커, 드로잉이 화면에 보이는 구조와 저장물이 더 일치한다.
+- `html2canvas`가 없을 때만 기존 수동 캔버스 합성 fallback을 사용한다.
+
+#### 7. 드로잉 안정화
+- `drawStrokes`에 null stroke가 들어와 앱이 튕기던 문제를 방어했다.
+- Result SVG에도 `vectorEffect="non-scaling-stroke"`를 적용해 미리보기와 결과의 선 굵기 차이를 줄였다.
+- 수동 PNG fallback에서도 드로잉 굵기가 과하게 커지지 않도록 배율 보정을 추가했다.
+
+#### 8. 시간기록 스티커 컨셉 복구
+- 시간기록 스티커의 배경 박스를 제거했다.
+- 흰색/검정색 글씨만 전환하고, 가독성을 위한 약한 text-shadow만 남겼다.
+
+### 검증
+- 전체 JSX 파일 Babel 변환 검사 통과.
+- 로컬 서버 `http://127.0.0.1:4173/index.html` 응답 확인.
+
+### 남은 리스크
+- Samsung Internet 실기에서 CSS/Canvas2D 필터 저장 결과를 추가 확인해야 한다.
+- `html2canvas` 결과 저장은 DOM 기반이라 모바일 메모리 사용량과 큰 이미지 저장 성능을 실기에서 봐야 한다.
+- 모바일 WebGL을 끈 상태라 얼굴별 정밀 홍조/피부보정은 현재 데스크톱 중심 기능이다.
+
 | WebGL 성공, firstFrame 발동 | WebGL canvas 표시, 필터 적용 ✅ |
 | Samsung Root Cause A 제거 후에도 texImage2D 실패 시 | 90프레임 → onWebglFail → CSS 모드 ✅ (블랙 없음) |
 | WebGL 완전 실패 확정 | video + CSS filter div 표시 ✅ |

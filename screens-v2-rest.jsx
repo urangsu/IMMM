@@ -187,6 +187,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           filter,
           capturedFilter: filter,
           renderMode: dataUrl && canvasActive ? 'webgl' : 'canvas2d-css',
+          preStickers: preStickers.map(s => ({ ...s })),
           facingMode,
           mirrored: facingMode === 'user',
           width: rect?.width ? Math.round(rect.width) : 720,
@@ -228,13 +229,30 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const startCountdown = () => { if (countdown===0 && idx<6) setCountdown(timerLen); };
   const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<6 && countdown===0) setCountdown(timerLen); };
   const thumbs = Array.from({length:6}, (_,i)=> shots[i]);
-  const cameraOverlay = overlayBox && (countdown > 0 || flashing)
+  const renderShotStickers = (s) => (
+    <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
+      {(s?.preStickers || []).map(st => (
+        <div key={st.id} style={{ position:'absolute', left:`${st.x}%`, top:`${st.y}%`,
+          transform:`translate(-50%,-50%) rotate(${st.rotation||0}deg) scale(${st.scale||1})`, opacity:0.88 }}>
+          {renderStickerInstance(st)}
+        </div>
+      ))}
+    </div>
+  );
+
+  const cameraOverlay = overlayBox && (countdown > 0 || flashing || preStickers.length > 0)
     ? ReactDOM.createPortal(
         <div style={{
           position:'fixed', top:overlayBox.top, left:overlayBox.left,
           width:overlayBox.width, height:overlayBox.height,
           borderRadius:24, overflow:'hidden', pointerEvents:'none', zIndex:99999,
         }}>
+          {preStickers.map(s => (
+            <div key={s.id} style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
+              transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`, opacity:0.88 }}>
+              {renderStickerInstance(s)}
+            </div>
+          ))}
           {countdown > 0 && (
             <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
               background:'radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.55))' }}>
@@ -266,7 +284,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           transition:'box-shadow 0.3s',
         }}>
           {s && s.dataUrl ? (
-            <img src={s.dataUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+            <>
+              <img src={s.dataUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+              {renderShotStickers(s)}
+            </>
           ) : s ? (
             <PlaceholderPortrait seed={i} filter={s.filter}/>
           ) : (
@@ -377,7 +398,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 background: s? '#000' : T.card, display:'flex', alignItems:'center', justifyContent:'center',
                 transition:'box-shadow 0.3s',
               }}>
-                {s && s.dataUrl ? <img src={s.dataUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                {s && s.dataUrl ? <>
+                  <img src={s.dataUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                  {renderShotStickers(s)}
+                </>
                 : s ? <PlaceholderPortrait seed={i} filter={s.filter}/>
                 : <div style={{ fontSize:14, color:T.inkSoft, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:500 }}>{i+1}</div>}
               </div>
@@ -397,6 +421,16 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 // ═══════════════════════════════════════════════════════════════
 function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
   const maxSel = layout === 'trip' ? 3 : 4;
+  const renderShotStickers = (s) => (
+    <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
+      {(s?.preStickers || []).map(st => (
+        <div key={st.id} style={{ position:'absolute', left:`${st.x}%`, top:`${st.y}%`,
+          transform:`translate(-50%,-50%) rotate(${st.rotation||0}deg) scale(${st.scale||1})`, opacity:0.88 }}>
+          {renderStickerInstance(st)}
+        </div>
+      ))}
+    </div>
+  );
   const toggle = (i) => {
     setSelected(prev => {
       if (prev.includes(i)) return prev.filter(x=>x!==i);
@@ -431,7 +465,10 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
               transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
             }}>
               {s && s.dataUrl ? (
-                <img src={s.dataUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                <>
+                  <img src={s.dataUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                  {renderShotStickers(s)}
+                </>
               ) : s ? <PlaceholderPortrait seed={i} filter={s.filter||'porcelain'}/> : null}
               {isSel && (
                 <div style={{ position:'absolute', top:10, left:10, width:32, height:32, borderRadius:999, background:T.ink, color:T.bg, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:14, fontFamily:'"Plus Jakarta Sans",system-ui',
