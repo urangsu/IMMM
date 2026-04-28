@@ -38,7 +38,7 @@ function App() {
     variant: 'A',
     layout: 'trip',
     orientation: 'portrait',
-    filter: 'glitter',
+    filter: 'smooth',
     sound: true,
     logo: true,
     dateText: true,
@@ -67,7 +67,7 @@ function App() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const faceTrackedFilters = ['blush', 'purikura'];
-  const shouldUseWebgl = !mobile || faceTrackedFilters.includes(tweaks.filter);
+  const shouldUseWebgl = faceTrackedFilters.includes(tweaks.filter);
   const [cameraBox, setCameraBox] = React.useState(null);
 
   // ═══════════════════════════════════════════════════════════════

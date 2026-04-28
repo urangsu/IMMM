@@ -73,7 +73,8 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const onDrawEnd = React.useCallback(() => {
     if (curStrokeRef.current && curStrokeRef.current.points.length > 1) {
-      setDrawStrokes((p) => [...p, curStrokeRef.current]);
+      const stroke = curStrokeRef.current;
+      setDrawStrokes((p) => [...p.filter(Boolean), stroke]);
     }
     curStrokeRef.current = null;
     if (curPathElRef.current) {
@@ -85,6 +86,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
   const renderStroke = (stroke, key) => {
+    if (!stroke || !Array.isArray(stroke.points) || stroke.points.length < 2) return null;
     if (stroke.brush === 'sparkle') {
       const step = 12;
       const sparkles = [];
@@ -146,7 +148,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation||'portrait'} frameColor={frameColor} />
           <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}>
-            {drawStrokes.map((s, i) => renderStroke(s, i))}
+            {drawStrokes.filter(Boolean).map((s, i) => renderStroke(s, i))}
             <path ref={curPathElRef} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </StickerCanvas>
@@ -373,7 +375,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
           {preview}
           <div style={{ position: 'absolute', top: 16, left: 18, display: 'flex', gap: 6 }}>
             <div style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(10px)', borderRadius: 999, fontSize: 11, fontWeight: 600 }}>Frame: {layout} · locked</div>
-            <div style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(10px)', borderRadius: 999, fontSize: 11, fontWeight: 600 }}>Filter: {FILTERS[filter].name} · locked</div>
+            <div style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(10px)', borderRadius: 999, fontSize: 11, fontWeight: 600 }}>Filter: {(FILTERS[filter] || FILTERS.smooth).name} · locked</div>
           </div>
         </div>
       </div>
@@ -399,6 +401,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
   const renderStroke = (stroke, key) => {
+    if (!stroke || !Array.isArray(stroke.points) || stroke.points.length < 2) return null;
     if (stroke.brush === 'sparkle') {
       const step = 12;
       const sparkles = [];
@@ -433,7 +436,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         </div>
         {drawStrokes.length > 0 &&
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            {drawStrokes.map((s, i) => renderStroke(s, i))}
+            {drawStrokes.filter(Boolean).map((s, i) => renderStroke(s, i))}
           </svg>
         }
       </div>

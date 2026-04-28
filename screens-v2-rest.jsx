@@ -11,6 +11,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const [timerLen, setTimerLen]   = React.useState(3);
   const [flashing, setFlashing]   = React.useState(false);
   const [auto, setAuto]           = React.useState(false);
+  const [overlayBox, setOverlayBox] = React.useState(null);
   const touchStartY = React.useRef(null);
   const cameraFrameRef = React.useRef(null);
 
@@ -27,6 +28,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         width: r.width,
         height: r.height,
       });
+      setOverlayBox({ top: r.top, left: r.left, width: r.width, height: r.height });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -37,6 +39,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       ro.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('orientationchange', update);
+      setOverlayBox(null);
       onCameraFrameChange(null);
     };
   }, [onCameraFrameChange, mobile]);
@@ -167,6 +170,28 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const startCountdown = () => { if (countdown===0 && idx<6) setCountdown(timerLen); };
   const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<6 && countdown===0) setCountdown(timerLen); };
   const thumbs = Array.from({length:6}, (_,i)=> shots[i]);
+  const cameraOverlay = overlayBox && (countdown > 0 || flashing)
+    ? ReactDOM.createPortal(
+        <div style={{
+          position:'fixed', top:overlayBox.top, left:overlayBox.left,
+          width:overlayBox.width, height:overlayBox.height,
+          borderRadius:24, overflow:'hidden', pointerEvents:'none', zIndex:99999,
+        }}>
+          {countdown > 0 && (
+            <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+              background:'radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.55))' }}>
+              <div key={countdown} style={{
+                fontFamily:'"Plus Jakarta Sans",system-ui', fontSize:220, fontWeight:300, color:'#fff',
+                letterSpacing:-8, textShadow:'0 20px 60px rgba(0,0,0,0.4)',
+                animation:'countPop 0.9s cubic-bezier(0.16,1,0.3,1)',
+              }}>{countdown}</div>
+            </div>
+          )}
+          {flashing && <div style={{ position:'absolute', inset:0, background:'#fff', animation:'flash 0.14s ease-out' }}/>}
+        </div>,
+        document.body
+      )
+    : null;
 
   const shotsRail = (
     <div style={{ display:'flex', flexDirection: mobile?'row':'column',
@@ -195,10 +220,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   );
 
   return (
+    <>
     <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection: mobile?'column':'row' }}>
       <div style={{ flex:1, minHeight:0, padding: mobile?'50px 16px 0':'24px', display:'flex', flexDirection:'column' }}>
         <TopBar step={1} back={()=>go('setup')} T={T} mobile={mobile} title={mobile?'Capture':'Step 2 · Shoot your 6'}
-          right={<div style={{fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui'}}>{FILTERS[filter].name}</div>}/>
+          right={<div style={{fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui'}}>{(FILTERS[filter] || FILTERS.smooth).name}</div>}/>
         {/* Camera fills all remaining flex space.
             NO overflow:hidden here — Samsung Internet (Chromium) does not render
             hardware-accelerated video inside overflow:hidden+borderRadius containers.
@@ -303,6 +329,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       </div>
       {!mobile && <div style={{ padding:'24px 20px', background:T.bgAlt, borderLeft:'1px solid rgba(0,0,0,0.04)' }}>{shotsRail}</div>}
     </div>
+    {cameraOverlay}
+    </>
   );
 }
 

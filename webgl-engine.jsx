@@ -351,11 +351,13 @@ void main(){
   if(u_faceCount>3.5) mask+=cheek(uv,u_leftCheek3,u_cheekRadius3,ar)+cheek(uv,u_rightCheek3,u_cheekRadius3,ar);
   float blush=min(mask,1.0)*u_blushStrength;
   vec3 screened=c+u_blushColor-c*u_blushColor;
-  c=mix(c,screened,clamp(blush*0.42,0.0,1.0));
+  float lum0=dot(orig.rgb,vec3(0.299,0.587,0.114));
+  float protect=1.0-smoothstep(0.72,0.95,lum0);
+  c=mix(c,screened,clamp(blush*0.50*protect,0.0,1.0));
   // Warm lift + slight desat
   float lum=dot(c,vec3(0.299,0.587,0.114));
-  c=mix(vec3(lum),c,0.94);
-  c*=1.025; c.r=min(c.r+0.012,1.0);
+  c=mix(vec3(lum),c,0.92);
+  c*=1.035; c.r=min(c.r+0.014,1.0);
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),1.0),orig.a);
 }`,
 
@@ -669,17 +671,17 @@ const FILTER_PIPELINES = {
 
   //   (Blush) 
   blush: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:1.8, u_sigmaColor:0.08 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:1.8, u_sigmaColor:0.08 } },
-    { shader:'dream',        uniforms:{ u_intensity:0.32 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.05,u_saturation:0.07,u_contrast:-0.03,u_temperature:0.08,u_tint:0,u_vibrance:0,u_highlights:0,u_shadows:0 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.4, u_sigmaColor:0.10 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.4, u_sigmaColor:0.10 } },
+    { shader:'dream',        uniforms:{ u_intensity:0.24 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_saturation:0.03,u_contrast:-0.05,u_temperature:0.06,u_tint:0,u_vibrance:0,u_highlights:-0.03,u_shadows:0.02 } },
     { shader:'blush',        uniforms:{ u_faceCount:0.0,
         u_leftCheek0:[0,0], u_rightCheek0:[0,0], u_cheekRadius0:0.0,
         u_leftCheek1:[0,0], u_rightCheek1:[0,0], u_cheekRadius1:0.0,
         u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
         u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
-        u_blushStrength:0.72, u_blushColor:[0.98,0.70,0.74] } },
-    { shader:'halation',     uniforms:{ u_intensity:0.22, u_threshold:0.80 } },
+        u_blushStrength:0.88, u_blushColor:[1.0,0.62,0.66] } },
+    { shader:'halation',     uniforms:{ u_intensity:0.12, u_threshold:0.86 } },
   ]},
 
   //   
@@ -1005,7 +1007,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
               u_leftEyeCenter:  tx(face.leftEyeCenter),
               u_rightEyeCenter: tx(face.rightEyeCenter),
               u_eyeRadius:      face.eyeRadius,
-              u_eyeScale:       1.38,
+              u_eyeScale:       1.18,
             };
           }
           if (key === 'blush') {
@@ -1017,8 +1019,8 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
               faceUniforms[`u_rightCheek${i}`] = f ? tx(f.rightCheek) : [0, 0];
               faceUniforms[`u_cheekRadius${i}`] = f ? f.cheekRadius : 0.0;
             }
-            faceUniforms.u_blushStrength = 0.72;
-            faceUniforms.u_blushColor = [0.98, 0.70, 0.74];
+            faceUniforms.u_blushStrength = 0.88;
+            faceUniforms.u_blushColor = [1.0, 0.62, 0.66];
           }
         }
 
