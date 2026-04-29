@@ -994,7 +994,7 @@ class FilterEngine {
     const src = this._getSource();
     if (!src || src.readyState < 2) return null;
     this.render(src, pipeline, w, h, mirrorX, faceUniforms);
-    return this.canvas.toDataURL('image/jpeg', 0.9);
+    return this.canvas.toDataURL('image/jpeg', 0.98);
   }
 
   _onLost(e)      { e.preventDefault(); this.stop(); }

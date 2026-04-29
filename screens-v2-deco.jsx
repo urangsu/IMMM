@@ -467,16 +467,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   };
 
   const captureFrameAsBlob = async () => {
-    if (captureRef.current && typeof html2canvas !== 'undefined') {
-      const rendered = await html2canvas(captureRef.current, {
-        backgroundColor: null,
-        scale: 3,
-        useCORS: true,
-      });
-      return new Promise(res => rendered.toBlob(res, 'image/png'));
-    }
-
-    const S = 3; // Scale for higher res
+    const S = 10; // Ultra high-res scale (10x base) for crystal clear quality
     const FRAME_W = (layout === 'strip' || layout === 'trip') ? 240 * S : 320 * S;
     const PAD = 14 * S;
     const GAP = 10 * S;

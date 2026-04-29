@@ -67,8 +67,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       const c = document.createElement('canvas');
       const rect = cameraFrameRef.current?.getBoundingClientRect();
       const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
-      c.width = 720;
-      c.height = Math.max(1, Math.round(720 / aspect));
+      c.width = 1920;
+      c.height = Math.max(1, Math.round(1920 / aspect));
       const ctx = c.getContext('2d');
       ctx.save();
       if (mirrorX) {
@@ -90,7 +90,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
       ctx.restore();
       applyCapturedFilterLook(ctx, c.width, c.height, filterKey);
-      return c.toDataURL('image/jpeg', 0.88);
+      return c.toDataURL('image/jpeg', 0.95);
     } catch(e) { return null; }
   }, []);
 
@@ -191,9 +191,13 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       // WebGL canvas capture - use the engine directly if available for reliable filtered result
       if (canvasActive && engineRef.current) {
         try {
-          const { w, h, mirrorX } = engineRef.current._getSize();
+          const { mirrorX } = engineRef.current._getSize();
           const { pipeline, faceUniforms } = engineRef.current._getParams();
-          const raw = engineRef.current.takeSnapshot(w, h, mirrorX, pipeline, faceUniforms);
+          const rect = cameraFrameRef.current?.getBoundingClientRect();
+          const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
+          const capW = 1920;
+          const capH = Math.max(1, Math.round(1920 / aspect));
+          const raw = engineRef.current.takeSnapshot(capW, capH, mirrorX, pipeline, faceUniforms);
           if (raw && raw.length > 5000) dataUrl = raw;
         } catch(e) { console.error('WebGL Capture Error:', e); }
       }
