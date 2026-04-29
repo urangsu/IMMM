@@ -155,7 +155,7 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
           </div>
           {/* Mobile Preview Image */}
           <div style={{ marginTop: 20, width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <img src="asset/main.png" style={{ width: '130%', maxWidth: 'none', height: 'auto', transform: 'translateX(5%)' }} />
+            <img src="asset/main.jpg" style={{ width: '130%', maxWidth: 'none', height: 'auto', transform: 'translateX(5%)' }} />
           </div>
         </div>
 
@@ -234,7 +234,7 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
 
       {/* Right — Gallery Image */}
       <div style={{ background: 'transparent', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px' }}>
-        <img src="asset/main.png" style={{ 
+        <img src="asset/main.jpg" style={{ 
           width: '120%', height: 'auto', maxWidth: 'none', 
           transform: 'translateX(10%)', // Shift right to show the collage better
           filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.05))',
