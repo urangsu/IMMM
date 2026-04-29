@@ -7,6 +7,7 @@ const FILTERS = {
   blush:     { name:'First Love',   ko:'첫사랑',    css:'brightness(1.08) contrast(0.93) saturate(1.03)', overlay:'blush' },
   purikura:  { name:'Purikura',     ko:'프리쿠라',  css:'brightness(1.12) contrast(0.92) saturate(0.98) blur(0.35px)', overlay:'purikura' },
   grain:     { name:'Soft Film',    ko:'소프트 필름', css:'sepia(0.10) contrast(1.02) saturate(0.92) brightness(1.02)' },
+  bw:        { name:'BW',           ko:'흑백',      css:'grayscale(1) contrast(1.15) brightness(1.05)' },
 };
 
 // Filter overlay — decorative layer rendered on top of video/photo
@@ -60,23 +61,23 @@ function FilterOverlay({ filter, style={} }) {
     <div style={{ position:'absolute', inset:0, pointerEvents:'none', overflow:'hidden', ...style }}>
       {/* left cheek blush */}
       <div style={{
-        position:'absolute', left:'12%', top:'42%',
-        width:'28%', height:'18%',
+        position:'absolute', left:'10%', top:'41%',
+        width:'36%', height:'24%',
         borderRadius:'50%',
-        background:'radial-gradient(ellipse, rgba(255,120,120,0.38) 0%, transparent 70%)',
-        filter:'blur(2px)',
+        background:'radial-gradient(ellipse, rgba(255,100,100,0.55) 0%, transparent 75%)',
+        filter:'blur(2.5px)',
       }}/>
       {/* right cheek blush */}
       <div style={{
-        position:'absolute', right:'12%', top:'42%',
-        width:'28%', height:'18%',
+        position:'absolute', right:'10%', top:'41%',
+        width:'36%', height:'24%',
         borderRadius:'50%',
-        background:'radial-gradient(ellipse, rgba(255,120,120,0.38) 0%, transparent 70%)',
-        filter:'blur(2px)',
+        background:'radial-gradient(ellipse, rgba(255,100,100,0.55) 0%, transparent 75%)',
+        filter:'blur(2.5px)',
       }}/>
       {/* tiny heart accent */}
-      <div style={{ position:'absolute', top:'8%', right:'8%', fontSize:10, opacity:0.75 }}>♡</div>
-      <div style={{ position:'absolute', top:'12%', left:'10%', fontSize:8, opacity:0.55 }}>♡</div>
+      <div style={{ position:'absolute', top:'8%', right:'8%', fontSize:12, opacity:0.8 }}>♡</div>
+      <div style={{ position:'absolute', top:'12%', left:'10%', fontSize:10, opacity:0.65 }}>♡</div>
     </div>
   );
 

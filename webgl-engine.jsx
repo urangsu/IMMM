@@ -629,8 +629,9 @@ const FILTER_PIPELINES = {
   //    (B&W) 
   bw: { pipeline:[
     { shader:'ilford_hp5',   uniforms:{ u_intensity:1.0 } },
-    { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.055 } },
-    { shader:'vignette',     uniforms:{ u_strength:0.85 } },
+    { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.065 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.05, u_contrast:0.18, u_saturation:-1.0 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.95 } },
   ]},
 
   //   (Grain) 
@@ -656,15 +657,15 @@ const FILTER_PIPELINES = {
 
   //     (Dream) 
   dream: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.0, u_sigmaColor:0.09 } },
-    { shader:'dream',        uniforms:{ u_intensity:1.0 } },
-    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.85,0.87,1.12], u_highlightColor:[1.03,1.01,1.06], u_intensity:0.65 } },
-    { shader:'chromatic_ab', uniforms:{ u_amount:0.0018 } },
-    { shader:'halation_h',   uniforms:{ u_threshold:0.70 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.0, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.0, u_sigmaColor:0.12 } },
+    { shader:'dream',        uniforms:{ u_intensity:1.25 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.85,0.87,1.15], u_highlightColor:[1.03,1.01,1.10], u_intensity:0.85 } },
+    { shader:'chromatic_ab', uniforms:{ u_amount:0.0025 } },
+    { shader:'halation_h',   uniforms:{ u_threshold:0.62 } },
     { shader:'halation_v',   uniforms:{} },
-    { shader:'halation_comp',uniforms:{ u_intensity:0.30 } },
-    { shader:'vignette',     uniforms:{ u_strength:0.55 } },
+    { shader:'halation_comp',uniforms:{ u_intensity:0.45 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.65 } },
   ]},
 
   //   ( - Twilight) 
@@ -719,20 +720,20 @@ const FILTER_PIPELINES = {
 
   //   (Blush) 
   blush: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.12 } },
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } }, // 2nd pass
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } },
-    { shader:'skin_lift',    uniforms:{ u_strength:0.80 } }, // blemish suppression
-    { shader:'dream',        uniforms:{ u_intensity:0.24 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_saturation:0.03,u_contrast:-0.05,u_temperature:0.06,u_tint:0,u_vibrance:0,u_highlights:-0.03,u_shadows:0.02 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.88 } }, // blemish suppression
+    { shader:'dream',        uniforms:{ u_intensity:0.35 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.10,u_saturation:0.08,u_contrast:-0.08,u_temperature:0.10,u_tint:0.02,u_vibrance:0.1,u_highlights:-0.05,u_shadows:0.04 } },
     { shader:'blush',        uniforms:{ u_faceCount:0.0,
         u_leftCheek0:[0,0], u_rightCheek0:[0,0], u_cheekRadius0:0.0,
         u_leftCheek1:[0,0], u_rightCheek1:[0,0], u_cheekRadius1:0.0,
         u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
         u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
-        u_blushStrength:0.88, u_blushColor:[1.0,0.62,0.66] } },
-    { shader:'halation',     uniforms:{ u_intensity:0.12, u_threshold:0.86 } },
+        u_blushStrength:1.05, u_blushColor:[1.0,0.58,0.62] } },
+    { shader:'halation',     uniforms:{ u_intensity:0.18, u_threshold:0.82 } },
   ]},
 
   //   
@@ -1068,10 +1069,10 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
               const f = faces[i];
               faceUniforms[`u_leftCheek${i}`] = f ? tx(f.leftCheek) : [0, 0];
               faceUniforms[`u_rightCheek${i}`] = f ? tx(f.rightCheek) : [0, 0];
-              faceUniforms[`u_cheekRadius${i}`] = f ? f.cheekRadius : 0.0;
+              faceUniforms[`u_cheekRadius${i}`] = f ? f.cheekRadius * 1.65 : 0.0;
             }
-            faceUniforms.u_blushStrength = 0.88;
-            faceUniforms.u_blushColor = [1.0, 0.62, 0.66];
+            faceUniforms.u_blushStrength = 1.15;
+            faceUniforms.u_blushColor = [1.0, 0.58, 0.64];
           }
         }
 
