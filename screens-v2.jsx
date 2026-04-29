@@ -143,7 +143,7 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
           {lang}
         </button>
         {/* Logo block */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           {logoMark(42)}
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 22, fontWeight: 700, letterSpacing: 8, color: T.ink, lineHeight: 1.3 }}>
@@ -152,6 +152,10 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
             <div style={{ fontFamily: 'Pretendard,system-ui', fontSize: 11, letterSpacing: 1.5, color: T.inkSoft, marginTop: 4 }}>
               {t.mobileSub}
             </div>
+          </div>
+          {/* Mobile Preview Image */}
+          <div style={{ marginTop: 20, width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <img src="asset/main.png" style={{ width: '130%', maxWidth: 'none', height: 'auto', transform: 'translateX(5%)' }} />
           </div>
         </div>
 
@@ -228,22 +232,14 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
         </div>
       </div>
 
-      {/* Right — photo stack */}
-      <div style={{ background: 'transparent', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ position: 'relative', width: 260, height: 380 }}>
-          {/* grid — behind, bigger */}
-          <div style={{ position: 'absolute', right: 0, bottom: -10, transform: 'rotate(4deg)', zIndex: 1 }}>
-            <FrameThumb layout="grid" shots={dummyShots} selected={[0,1,2,3]} T={T} logo={true} dateText={false} scale={0.7} accent={T.pinkDeep || '#111'} />
-          </div>
-          {/* strip 1 — in front */}
-          <div style={{ position: 'absolute', left: 40, top: 10, transform: 'rotate(-5deg)', zIndex: 2 }}>
-            <FrameThumb layout="strip" shots={dummyShots} selected={[0,1,2,3]} T={T} logo={true} dateText={false} scale={0.7} accent={T.pinkDeep || '#111'} />
-          </div>
-        </div>
-        {/* Logo overlay */}
-        <div style={{ position: 'absolute', top: 24, right: 24, opacity: 0.08 }}>
-          {logoMark(60)}
-        </div>
+      {/* Right — Gallery Image */}
+      <div style={{ background: 'transparent', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px' }}>
+        <img src="asset/main.png" style={{ 
+          width: '120%', height: 'auto', maxWidth: 'none', 
+          transform: 'translateX(10%)', // Shift right to show the collage better
+          filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.05))',
+          userSelect: 'none', pointerEvents: 'none'
+        }} />
       </div>
     </div>);
 

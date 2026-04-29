@@ -545,6 +545,45 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
 }`,
 
+//  Skin Lift  SNOW-style blemish/acne suppression + even skin tone 
+//  Works AFTER bilateral blur: detects pixels still darker than
+//  their neighborhood and lifts them toward the local mean.
+skin_lift: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_resolution;
+uniform float u_strength;
+varying vec2 v_uv;
+void main(){
+  vec2 px=1.0/u_resolution;
+  vec4 center=texture2D(u_tex,v_uv);
+  // Gather neighbourhood (9 samples, radius 4-8px — sparse for performance)
+  vec3 s=center.rgb;
+  s+=texture2D(u_tex,v_uv+vec2(px.x*4.0, 0.0)).rgb;
+  s+=texture2D(u_tex,v_uv-vec2(px.x*4.0, 0.0)).rgb;
+  s+=texture2D(u_tex,v_uv+vec2(0.0, px.y*4.0)).rgb;
+  s+=texture2D(u_tex,v_uv-vec2(0.0, px.y*4.0)).rgb;
+  s+=texture2D(u_tex,v_uv+vec2(px.x*8.0, 0.0)).rgb;
+  s+=texture2D(u_tex,v_uv-vec2(px.x*8.0, 0.0)).rgb;
+  s+=texture2D(u_tex,v_uv+vec2(0.0, px.y*8.0)).rgb;
+  s+=texture2D(u_tex,v_uv-vec2(0.0, px.y*8.0)).rgb;
+  vec3 localMean=s/9.0;
+  float clum=dot(center.rgb,vec3(0.299,0.587,0.114));
+  float mlum=dot(localMean,vec3(0.299,0.587,0.114));
+  // Dark-spot detection: pixel is darker than surroundings => spot/acne
+  float deficit=max(mlum-clum-0.015,0.0); // ignore tiny normal variation
+  float liftFactor=clamp(deficit*5.0,0.0,0.92)*u_strength;
+  vec3 c=mix(center.rgb,localMean,liftFactor);
+  // Warm skin-tone lift: gently raise shadows toward peachy tone
+  float br=dot(c,vec3(0.299,0.587,0.114));
+  float shadowMask=1.0-smoothstep(0.0,0.50,br);
+  c+=shadowMask*vec3(0.030,0.018,0.008)*u_strength;
+  // Mild overall brightness & warmth
+  c.r=min(c.r+0.012*u_strength,1.0);
+  c.g=min(c.g+0.006*u_strength,1.0);
+  gl_FragColor=vec4(clamp(c,0.0,1.0),center.a);
+}`,
+
 //  Porcelain (velvety skin) 
 porcelain: `
 precision mediump float;
@@ -570,11 +609,14 @@ const FILTER_PIPELINES = {
 
   //   
   porcelain: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.5, u_sigmaColor:0.10 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.5, u_sigmaColor:0.10 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.2, u_sigmaColor:0.10 } }, // 2nd pass
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.2, u_sigmaColor:0.10 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.80 } },
     { shader:'porcelain',    uniforms:{ u_intensity:1.0 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.92,0.94,1.04], u_highlightColor:[1.04,1.01,0.97], u_intensity:0.7 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.04,u_saturation:-0.06,u_temperature:0.15,u_tint:0,u_vibrance:0,u_highlights:0.03,u_shadows:0.02 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.08,u_contrast:-0.06,u_saturation:-0.08,u_temperature:0.15,u_tint:0,u_vibrance:0,u_highlights:0.04,u_shadows:0.03 } },
   ]},
 
   //  2002 (Y2K) 
@@ -653,26 +695,35 @@ const FILTER_PIPELINES = {
   
   //   (Purikura) 
   purikura: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.4, u_sigmaColor:0.12 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.4, u_sigmaColor:0.12 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } }, // 2nd pass
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.85 } },
     { shader:'purikura',     uniforms:{ u_intensity:0.72, u_eyeRadius:0.0, u_eyeScale:1.0,
         u_leftEyeCenter:[0.35,0.40], u_rightEyeCenter:[0.65,0.40] } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.96,0.94,1.03], u_highlightColor:[1.04,1.02,1.02], u_intensity:0.38 } },
   ]},
 
-  //    (Smooth) 
+  //    (Smooth) — SNOW-level skin retouching 
   smooth: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.8, u_sigmaColor:0.13 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.8, u_sigmaColor:0.13 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.12 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:4.0, u_sigmaColor:0.10 } }, // 2nd pass
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:4.0, u_sigmaColor:0.10 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.90 } }, // blemish/acne suppression
     { shader:'smooth_skin',  uniforms:{ u_intensity:0.75 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.95,0.96,1.02], u_highlightColor:[1.03,1.015,0.99], u_intensity:0.42 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.04,u_contrast:-0.04,u_saturation:-0.03,u_temperature:0.08,u_tint:0,u_vibrance:0,u_highlights:0.02,u_shadows:0.03 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.06,u_saturation:-0.05,u_temperature:0.10,u_tint:0,u_vibrance:0,u_highlights:0.02,u_shadows:0.04 } },
   ]},
 
   //   (Blush) 
   blush: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:2.4, u_sigmaColor:0.10 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:2.4, u_sigmaColor:0.10 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } }, // 2nd pass
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.80 } }, // blemish suppression
     { shader:'dream',        uniforms:{ u_intensity:0.24 } },
     { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_saturation:0.03,u_contrast:-0.05,u_temperature:0.06,u_tint:0,u_vibrance:0,u_highlights:-0.03,u_shadows:0.02 } },
     { shader:'blush',        uniforms:{ u_faceCount:0.0,

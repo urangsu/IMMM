@@ -96,42 +96,71 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
   const applyCapturedFilterLook = (ctx, w, h, filterKey) => {
     ctx.save();
+    // ── Skin-retouching base (for all skin-enhancing filters) ─────────────────
+    const isSkinFilter = ['smooth','porcelain','blush','purikura'].includes(filterKey);
+    if (isSkinFilter) {
+      // Step 1: Soft warm lift — raises skin into warmer/brighter range
+      // Using 'screen' to brighten without blowing out highlights
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(255,240,228,0.14)';
+      ctx.fillRect(0, 0, w, h);
+
+      // Step 2: Shadow lift — target dark areas (spots/acne tend to be darker)
+      // Use a gradient from image center outward to avoid over-brightening already bright areas
+      ctx.globalCompositeOperation = 'screen';
+      const lift = ctx.createRadialGradient(w*0.5, h*0.38, 0, w*0.5, h*0.38, w*0.55);
+      lift.addColorStop(0, 'rgba(255,235,215,0.18)');
+      lift.addColorStop(0.6, 'rgba(255,230,210,0.09)');
+      lift.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = lift;
+      ctx.fillRect(0, 0, w, h);
+
+      // Step 3: Color smoothness — slight desaturation to make blemishes less visible
+      // (acne is often more saturated red — reducing saturation hides it)
+      ctx.globalCompositeOperation = 'luminosity';
+      ctx.fillStyle = 'rgba(200,185,175,0.06)';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // ── Per-filter additional look ─────────────────────────────────────────────
     if (filterKey === 'porcelain') {
       ctx.globalCompositeOperation = 'screen';
-      ctx.fillStyle = 'rgba(255,244,236,0.12)';
-      ctx.fillRect(0, 0, w, h);
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(255,255,255,0.05)';
-      ctx.fillRect(0, 0, w, h);
-    } else if (filterKey === 'smooth') {
-      ctx.globalCompositeOperation = 'screen';
-      ctx.fillStyle = 'rgba(255,238,230,0.16)';
+      ctx.fillStyle = 'rgba(255,248,240,0.13)';
       ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(0, 0, w, h);
+    } else if (filterKey === 'smooth') {
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(255,242,232,0.18)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
       ctx.fillRect(0, 0, w, h);
     } else if (filterKey === 'blush') {
       ctx.globalCompositeOperation = 'screen';
       ctx.fillStyle = 'rgba(255,238,232,0.14)';
       ctx.fillRect(0, 0, w, h);
-      const blush = ctx.createRadialGradient(w * 0.30, h * 0.52, 0, w * 0.30, h * 0.52, w * 0.16);
-      blush.addColorStop(0, 'rgba(255,108,124,0.30)');
+      const blush = ctx.createRadialGradient(w * 0.30, h * 0.52, 0, w * 0.30, h * 0.52, w * 0.17);
+      blush.addColorStop(0, 'rgba(255,100,120,0.34)');
       blush.addColorStop(1, 'rgba(255,108,124,0)');
       ctx.fillStyle = blush;
       ctx.fillRect(0, 0, w, h);
-      const blush2 = ctx.createRadialGradient(w * 0.70, h * 0.52, 0, w * 0.70, h * 0.52, w * 0.16);
-      blush2.addColorStop(0, 'rgba(255,108,124,0.30)');
+      const blush2 = ctx.createRadialGradient(w * 0.70, h * 0.52, 0, w * 0.70, h * 0.52, w * 0.17);
+      blush2.addColorStop(0, 'rgba(255,100,120,0.34)');
       blush2.addColorStop(1, 'rgba(255,108,124,0)');
       ctx.fillStyle = blush2;
       ctx.fillRect(0, 0, w, h);
     } else if (filterKey === 'purikura') {
       ctx.globalCompositeOperation = 'screen';
-      ctx.fillStyle = 'rgba(255,244,250,0.20)';
+      ctx.fillStyle = 'rgba(255,244,250,0.22)';
       ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = 'source-over';
       const vignette = ctx.createRadialGradient(w * 0.5, h * 0.42, w * 0.12, w * 0.5, h * 0.42, w * 0.62);
       vignette.addColorStop(0, 'rgba(255,255,255,0)');
-      vignette.addColorStop(1, 'rgba(255,255,255,0.20)');
+      vignette.addColorStop(1, 'rgba(255,255,255,0.22)');
       ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, w, h);
     } else if (filterKey === 'grain') {
@@ -139,11 +168,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       ctx.fillStyle = 'rgba(244,226,205,0.10)';
       ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(255,255,255,0.03)';
       for (let i = 0; i < 260; i++) {
         const x = (i * 97) % w;
         const y = (i * 53) % h;
         ctx.globalAlpha = 0.08 + (i % 5) * 0.015;
+        ctx.fillStyle = '#fff';
         ctx.fillRect(x, y, 1, 1);
       }
       ctx.globalAlpha = 1;
