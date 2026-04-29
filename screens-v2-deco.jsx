@@ -613,7 +613,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         await navigator.share({
           files: [file],
           title: 'IMMM · Photobooth',
-          text: '나와 그리고 우리의 순간. 나만의 포토부스 IMMM.\nhttps://immm.vercel.app',
+          text: '나의 그리고 우리의 순간.\n나만의 포토부스 IMMM.\nhttps://immm.vercel.app',
           url: 'https://immm.vercel.app',
         });
       } else {
