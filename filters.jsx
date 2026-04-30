@@ -8,6 +8,9 @@ const FILTERS = {
   purikura:  { name:'Purikura',     ko:'프리쿠라',  css:'brightness(1.12) contrast(0.92) saturate(0.98) blur(0.35px)', overlay:'purikura' },
   grain:     { name:'Soft Film',    ko:'소프트 필름', css:'sepia(0.10) contrast(1.02) saturate(0.92) brightness(1.02)' },
   bw:        { name:'BW',           ko:'흑백',      css:'grayscale(1) contrast(1.15) brightness(1.05)' },
+  glam:      { name:'Glam',         ko:'글램',      css:'brightness(1.12) contrast(0.92) saturate(1.08)', overlay:'blush' },
+  aurora:    { name:'Aurora',       ko:'오로라',    css:'brightness(1.10) contrast(0.90) saturate(0.85) hue-rotate(12deg)' },
+  seoul:     { name:'Seoul',        ko:'서울',      css:'brightness(1.12) contrast(0.88) saturate(0.90) blur(0.3px)' },
 };
 
 // Filter overlay — decorative layer rendered on top of video/photo

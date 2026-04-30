@@ -599,6 +599,140 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
 }`,
 
+// ─── Lip Color — landmark-aware lip tint + gloss ───────────────────────────
+lip_color: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_lipCenter;
+uniform float u_lipRadius;
+uniform vec3 u_lipColor;
+uniform float u_lipStrength;
+uniform vec2 u_resolution;
+varying vec2 v_uv;
+void main(){
+  vec4 orig=texture2D(u_tex,v_uv);
+  vec3 c=orig.rgb;
+  float ar=u_resolution.x/u_resolution.y;
+  vec2 d=vec2((v_uv.x-u_lipCenter.x)*ar,(v_uv.y-u_lipCenter.y));
+  float dist=length(d);
+  // Ellipse mask: wider than tall (lips are wide)
+  vec2 de=vec2((v_uv.x-u_lipCenter.x)*ar*0.7,(v_uv.y-u_lipCenter.y)*1.3);
+  float ellDist=length(de);
+  float mask=pow(1.0-smoothstep(0.0,u_lipRadius,ellDist),1.6);
+  // Only apply to reasonably saturated / skin-tone pixels (avoid teeth)
+  float lum=dot(c,vec3(0.299,0.587,0.114));
+  float isTooth=smoothstep(0.72,0.88,lum)*(1.0-smoothstep(0.0,0.04,abs(c.r-c.g)+abs(c.g-c.b)));
+  mask*=(1.0-isTooth*0.85);
+  // Colour: overlay blend lip tint
+  vec3 overlay=mix(2.0*c*u_lipColor, 1.0-2.0*(1.0-c)*(1.0-u_lipColor), step(0.5,lum));
+  // Gloss: bright centre highlight
+  float glossDist=length(vec2((v_uv.x-u_lipCenter.x)*ar*0.5,(v_uv.y-(u_lipCenter.y-u_lipRadius*0.3))*2.2));
+  float gloss=exp(-glossDist*glossDist/(u_lipRadius*u_lipRadius*0.18))*0.28;
+  vec3 result=mix(overlay,overlay+gloss,smoothstep(0.3,0.7,lum));
+  c=mix(c,clamp(result,0.0,1.0),mask*u_lipStrength);
+  gl_FragColor=vec4(c,orig.a);
+}`,
+
+// ─── Face Slim — UV warp that pulls jaw/cheek edges inward ─────────────────
+face_slim: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_leftJaw;
+uniform vec2 u_rightJaw;
+uniform vec2 u_chin;
+uniform float u_slimStrength;
+uniform vec2 u_resolution;
+varying vec2 v_uv;
+vec2 warpToward(vec2 uv, vec2 anchor, float radius, float strength, float ar){
+  vec2 d=vec2((uv.x-anchor.x)*ar, uv.y-anchor.y);
+  float dist=length(d);
+  if(dist>=radius) return uv;
+  float t=1.0-dist/radius;
+  float push=t*t*strength;
+  return uv+normalize(vec2((anchor.x-uv.x)*ar,anchor.y-uv.y))*push/vec2(ar,1.0);
+}
+void main(){
+  float ar=u_resolution.x/u_resolution.y;
+  vec2 uv=v_uv;
+  // Slim left jaw: pull leftward edge inward toward face centre
+  vec2 lAnchor=vec2(u_leftJaw.x+0.06, u_leftJaw.y);
+  vec2 rAnchor=vec2(u_rightJaw.x-0.06, u_rightJaw.y);
+  vec2 cAnchor=vec2(u_chin.x, u_chin.y-0.025);
+  uv=warpToward(uv, lAnchor, 0.22, u_slimStrength*0.018, ar);
+  uv=warpToward(uv, rAnchor, 0.22, u_slimStrength*0.018, ar);
+  uv=warpToward(uv, cAnchor, 0.16, u_slimStrength*0.012, ar);
+  uv=clamp(uv,0.001,0.999);
+  gl_FragColor=texture2D(u_tex,uv);
+}`,
+
+// ─── Eye Bright — per-eye luminosity + iris sparkle halo ──────────────────
+eye_bright: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_leftEyeCenter;
+uniform vec2 u_rightEyeCenter;
+uniform float u_eyeRadius;
+uniform float u_brightness;
+uniform float u_time;
+uniform vec2 u_resolution;
+varying vec2 v_uv;
+float eyeMask(vec2 uv, vec2 ec, float r, float ar){
+  vec2 d=vec2((uv.x-ec.x)*ar,(uv.y-ec.y));
+  return 1.0-smoothstep(r*0.3,r,length(d));
+}
+void main(){
+  float ar=u_resolution.x/u_resolution.y;
+  vec4 orig=texture2D(u_tex,v_uv);
+  vec3 c=orig.rgb;
+  float lEye=eyeMask(v_uv,u_leftEyeCenter,u_eyeRadius,ar);
+  float rEye=eyeMask(v_uv,u_rightEyeCenter,u_eyeRadius,ar);
+  float mask=max(lEye,rEye);
+  // Brighten + blue-white tint for sparkling eyes
+  float lum=dot(c,vec3(0.299,0.587,0.114));
+  vec3 brightened=c*(1.0+u_brightness*0.55)+vec3(0.02,0.02,0.06)*u_brightness;
+  // Sparkle ring (subtle animated limbal ring highlight)
+  float r=u_eyeRadius;
+  vec2 dL=vec2((v_uv.x-u_leftEyeCenter.x)*ar,v_uv.y-u_leftEyeCenter.y);
+  vec2 dR=vec2((v_uv.x-u_rightEyeCenter.x)*ar,v_uv.y-u_rightEyeCenter.y);
+  float ringL=exp(-pow(length(dL)-r*0.52,2.0)/(r*r*0.012));
+  float ringR=exp(-pow(length(dR)-r*0.52,2.0)/(r*r*0.012));
+  float ring=max(ringL,ringR)*0.18*u_brightness;
+  brightened+=ring*vec3(0.9,0.95,1.0);
+  c=mix(c,clamp(brightened,0.0,1.0),mask*u_brightness*0.8);
+  gl_FragColor=vec4(c,orig.a);
+}`,
+
+// ─── Contour — nose slim + highlight for 3D depth ──────────────────────────
+contour: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_noseTip;
+uniform vec2 u_noseTop;
+uniform float u_contourStrength;
+uniform vec2 u_resolution;
+varying vec2 v_uv;
+void main(){
+  float ar=u_resolution.x/u_resolution.y;
+  vec4 orig=texture2D(u_tex,v_uv);
+  vec3 c=orig.rgb;
+  // Nose bridge highlight: subtle brightening along centre line
+  float bridgeX=u_noseTop.x;
+  float dx=(v_uv.x-bridgeX)*ar;
+  float dy=v_uv.y-u_noseTop.y;
+  float dist2bridge=sqrt(dx*dx*4.0+dy*dy);
+  float bridge=exp(-dist2bridge*dist2bridge/(0.018*0.018))*0.18*u_contourStrength;
+  // Nose tip shadow: darken the very tip edges slightly for slimming
+  vec2 dTip=vec2((v_uv.x-u_noseTip.x)*ar*2.5, v_uv.y-u_noseTip.y);
+  float tipDist=length(dTip);
+  // Side shadow: darken outside of nose width
+  float noseW=0.035;
+  float sideL=exp(-pow(v_uv.x-(u_noseTip.x-noseW),2.0)/(0.008*0.008))*0.22*u_contourStrength*(1.0-smoothstep(0.0,0.08,abs(v_uv.y-u_noseTip.y)));
+  float sideR=exp(-pow(v_uv.x-(u_noseTip.x+noseW),2.0)/(0.008*0.008))*0.22*u_contourStrength*(1.0-smoothstep(0.0,0.08,abs(v_uv.y-u_noseTip.y)));
+  c+=bridge*vec3(1.0,0.98,0.96);
+  c=max(c-sideL*vec3(0.06,0.04,0.03)-sideR*vec3(0.06,0.04,0.03),vec3(0.0));
+  gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
+}`,
+
 };
 
 // 
@@ -754,6 +888,79 @@ const FILTER_PIPELINES = {
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.82,0.88,1.10], u_highlightColor:[1.10,1.02,0.88], u_intensity:0.8 } },
     { shader:'film_grain_v2',uniforms:{ u_time:0.0, u_amount:0.060 } },
     { shader:'vignette',     uniforms:{ u_strength:1.10 } },
+  ]},
+
+  // ─── Glam  Instagram AR-style full makeup filter ─────────────────────────
+  // face_slim → skin smooth → skin lift → blush → eye_bright → lip_color → contour → halation
+  glam: { pipeline:[
+    // 1. Face slimming UV warp (face tracking fills uniforms at runtime)
+    { shader:'face_slim',    uniforms:{ u_leftJaw:[0.22,0.72], u_rightJaw:[0.78,0.72], u_chin:[0.5,0.88], u_slimStrength:1.0 } },
+    // 2. Skin smoothing — bilateral x2
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:4.0, u_sigmaColor:0.10 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:4.0, u_sigmaColor:0.10 } },
+    // 3. Blemish suppression
+    { shader:'skin_lift',    uniforms:{ u_strength:0.92 } },
+    // 4. Cheek blush (face-landmark-aware, runtime-injected)
+    { shader:'blush',        uniforms:{ u_faceCount:0.0,
+        u_leftCheek0:[0,0], u_rightCheek0:[0,0], u_cheekRadius0:0.0,
+        u_leftCheek1:[0,0], u_rightCheek1:[0,0], u_cheekRadius1:0.0,
+        u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
+        u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
+        u_blushStrength:1.10, u_blushColor:[1.0,0.56,0.60] } },
+    // 5. Eye brightening + iris sparkle
+    { shader:'eye_bright',   uniforms:{ u_leftEyeCenter:[0.35,0.40], u_rightEyeCenter:[0.65,0.40], u_eyeRadius:0.08, u_brightness:1.0, u_time:0.0 } },
+    // 6. Lip color — coral rose tint with gloss
+    { shader:'lip_color',    uniforms:{ u_lipCenter:[0.50,0.68], u_lipRadius:0.085, u_lipColor:[0.88,0.30,0.38], u_lipStrength:0.68 } },
+    // 7. Nose contour + bridge highlight
+    { shader:'contour',      uniforms:{ u_noseTip:[0.50,0.60], u_noseTop:[0.50,0.48], u_contourStrength:0.9 } },
+    // 8. Gentle colour grade — warm+bright
+    { shader:'color_adjust', uniforms:{ u_exposure:0.10,u_contrast:-0.05,u_saturation:0.05,u_temperature:0.12,u_tint:0.02,u_vibrance:0.1,u_highlights:0.04,u_shadows:0.06 } },
+    // 9. Subtle soft glow halation
+    { shader:'halation_h',   uniforms:{ u_threshold:0.70 } },
+    { shader:'halation_v',   uniforms:{} },
+    { shader:'halation_comp',uniforms:{ u_intensity:0.28 } },
+    // 10. Soft centre vignette
+    { shader:'vignette',     uniforms:{ u_strength:0.42 } },
+  ]},
+
+  // ─── Aurora  dreamy pastel / ombre skin ──────────────────────────────────
+  aurora: { pipeline:[
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.85 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.72,0.78,1.12], u_highlightColor:[1.08,1.00,1.10], u_intensity:0.88 } },
+    { shader:'dream',        uniforms:{ u_intensity:1.10 } },
+    { shader:'blush',        uniforms:{ u_faceCount:0.0,
+        u_leftCheek0:[0,0], u_rightCheek0:[0,0], u_cheekRadius0:0.0,
+        u_leftCheek1:[0,0], u_rightCheek1:[0,0], u_cheekRadius1:0.0,
+        u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
+        u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
+        u_blushStrength:0.95, u_blushColor:[0.88,0.60,0.90] } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.08,u_contrast:-0.08,u_saturation:-0.08,u_temperature:-0.08,u_tint:0.04,u_vibrance:0.12,u_highlights:0.06,u_shadows:0.08 } },
+    { shader:'halation_h',   uniforms:{ u_threshold:0.60 } },
+    { shader:'halation_v',   uniforms:{} },
+    { shader:'halation_comp',uniforms:{ u_intensity:0.45 } },
+    { shader:'chromatic_ab', uniforms:{ u_amount:0.0015 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.50 } },
+  ]},
+
+  // ─── Seoul  K-beauty: porcelain skin + natural warmth (no face tracking needed) ─
+  seoul: { pipeline:[
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:7.0, u_sigmaColor:0.13 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:7.0, u_sigmaColor:0.13 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:4.5, u_sigmaColor:0.11 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:4.5, u_sigmaColor:0.11 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.95 } },
+    { shader:'smooth_skin',  uniforms:{ u_intensity:0.85 } },
+    { shader:'porcelain',    uniforms:{ u_intensity:1.0 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.94,0.96,1.03], u_highlightColor:[1.06,1.03,0.98], u_intensity:0.55 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.12,u_contrast:-0.08,u_saturation:-0.06,u_temperature:0.18,u_tint:0.01,u_vibrance:0.05,u_highlights:0.05,u_shadows:0.08 } },
+    { shader:'halation_h',   uniforms:{ u_threshold:0.72 } },
+    { shader:'halation_v',   uniforms:{} },
+    { shader:'halation_comp',uniforms:{ u_intensity:0.22 } },
+    { shader:'vignette',     uniforms:{ u_strength:0.38 } },
   ]},
 };
 
@@ -988,7 +1195,33 @@ class FilterEngine {
   }
 
   stop()    { if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; } }
-  destroy() { this._destroyed = true; this.stop(); }
+  destroy() {
+    this._destroyed = true;
+    this.stop();
+    try {
+      const gl = this.gl;
+      if (!gl) return;
+      // Delete all compiled shader programs
+      if (this._programs) {
+        for (const pi of Object.values(this._programs)) {
+          if (pi?.program) gl.deleteProgram(pi.program);
+        }
+        this._programs = {};
+      }
+      // Delete source texture
+      if (this._srcTex) { gl.deleteTexture(this._srcTex); this._srcTex = null; }
+      // Delete FBO textures and framebuffers
+      for (const fbo of (this._fboInfos || [])) {
+        if (!fbo) continue;
+        if (fbo.framebuffer) gl.deleteFramebuffer(fbo.framebuffer);
+        if (fbo.attachments) fbo.attachments.forEach(t => { if (t) gl.deleteTexture(t); });
+      }
+      this._fboInfos = [null, null, null];
+      // Lose context explicitly to free GPU memory immediately
+      const ext = gl.getExtension('WEBGL_lose_context');
+      if (ext) ext.loseContext();
+    } catch (_) {}
+  }
 
   takeSnapshot(w, h, mirrorX, pipeline, faceUniforms) {
     if (this._destroyed) return null;
@@ -1051,7 +1284,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
         // Dynamic face uniforms
         let faceUniforms = {};
         if (face?.detected) {
-          // coordinate transformation: MP(0,0)=top-left -> GL(0,0)=bottom-left + mirror correction
+          // coordinate transformation: MP(0,0)=top-left → GL(0,0)=bottom-left + mirror correction
           const tx = (p) => [mirrorXRef.current ? 1.0 - p[0] : p[0], 1.0 - p[1]];
 
           if (key === 'purikura') {
@@ -1062,22 +1295,54 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
               u_eyeScale:       1.18,
             };
           }
-          if (key === 'blush') {
+
+          if (key === 'blush' || key === 'glam' || key === 'aurora') {
             const faces = (face.faces?.length ? face.faces : [face]).slice(0, 4);
-            faceUniforms = { u_faceCount: faces.length };
+            // Cheek blush uniforms
+            const blushPart = { u_faceCount: faces.length };
             for (let i = 0; i < 4; i++) {
               const f = faces[i];
-              faceUniforms[`u_leftCheek${i}`] = f ? tx(f.leftCheek) : [0, 0];
-              faceUniforms[`u_rightCheek${i}`] = f ? tx(f.rightCheek) : [0, 0];
-              faceUniforms[`u_cheekRadius${i}`] = f ? f.cheekRadius * 1.65 : 0.0;
+              blushPart[`u_leftCheek${i}`]  = f ? tx(f.leftCheek)  : [0, 0];
+              blushPart[`u_rightCheek${i}`] = f ? tx(f.rightCheek) : [0, 0];
+              blushPart[`u_cheekRadius${i}`] = f ? f.cheekRadius * 1.65 : 0.0;
             }
-            faceUniforms.u_blushStrength = 1.15;
-            faceUniforms.u_blushColor = [1.0, 0.58, 0.64];
+            if (key === 'blush') {
+              blushPart.u_blushStrength = 1.15;
+              blushPart.u_blushColor    = [1.0, 0.58, 0.64];
+            }
+            faceUniforms = { ...faceUniforms, ...blushPart };
+          }
+
+          if (key === 'glam' || key === 'aurora') {
+            const primary = face;
+            // Face slim — jaw/chin warp
+            faceUniforms.u_leftJaw      = tx(primary.leftJaw  ?? [0.20, 0.70]);
+            faceUniforms.u_rightJaw     = tx(primary.rightJaw ?? [0.80, 0.70]);
+            faceUniforms.u_chin         = tx(primary.chin     ?? [0.50, 0.88]);
+            faceUniforms.u_slimStrength = 1.0;
+            // Eye bright
+            faceUniforms.u_leftEyeCenter  = tx(primary.leftEyeCenter);
+            faceUniforms.u_rightEyeCenter = tx(primary.rightEyeCenter);
+            faceUniforms.u_eyeRadius      = primary.eyeRadius * 0.85;
+            faceUniforms.u_brightness     = 1.0;
+          }
+
+          if (key === 'glam') {
+            const primary = face;
+            // Lip color
+            faceUniforms.u_lipCenter  = tx(primary.lipCenter ?? [0.50, 0.68]);
+            faceUniforms.u_lipRadius  = primary.lipRadius ?? 0.085;
+            faceUniforms.u_lipColor   = [0.88, 0.30, 0.38];
+            faceUniforms.u_lipStrength = 0.68;
+            // Contour
+            faceUniforms.u_noseTip          = tx(primary.noseTip  ?? [0.50, 0.60]);
+            faceUniforms.u_noseTop          = tx(primary.noseTop  ?? [0.50, 0.48]);
+            faceUniforms.u_contourStrength  = 0.9;
           }
         }
 
         const pipeline = preset.pipeline.map(step =>
-          (step.shader === 'glitter' || step.shader === 'film_grain_v2')
+          (step.shader === 'glitter' || step.shader === 'film_grain_v2' || step.shader === 'eye_bright')
             ? { ...step, uniforms: { ...step.uniforms, u_time: time } }
             : step
         );

@@ -11,6 +11,14 @@ const DEFAULT_FACE = {
   leftCheek:      [0.28, 0.52],
   rightCheek:     [0.72, 0.52],
   cheekRadius:    0.14,
+  lipCenter:      [0.50, 0.68],
+  lipRadius:      0.09,
+  noseTop:        [0.50, 0.50],
+  noseTip:        [0.50, 0.60],
+  foreheadTop:    [0.50, 0.18],
+  leftJaw:        [0.20, 0.70],
+  rightJaw:       [0.80, 0.70],
+  chin:           [0.50, 0.88],
 };
 
 // Wait for MediaPipe classes exposed by the <script type="module"> tag
@@ -98,6 +106,26 @@ function useFaceLandmarks(videoRef) {
           const lc = lmArr[205] || lmArr[50];  // left cheek
           const rc = lmArr[425] || lmArr[280]; // right cheek
 
+          // ── Lip landmarks (upper/lower center) ──
+          const lipTop    = lmArr[13]  || lmArr[0];   // upper lip center
+          const lipBot    = lmArr[14]  || lmArr[17];  // lower lip center
+          const lipLeft   = lmArr[61]  || lmArr[78];  // lip left corner
+          const lipRight  = lmArr[291] || lmArr[308]; // lip right corner
+          const lipCenterX = ((lipTop?.x ?? 0.50) + (lipBot?.x ?? 0.50)) / 2;
+          const lipCenterY = ((lipTop?.y ?? 0.68) + (lipBot?.y ?? 0.70)) / 2;
+          const lipW = Math.hypot(
+            (lipLeft?.x ?? 0.42) - (lipRight?.x ?? 0.58),
+            (lipLeft?.y ?? 0.68) - (lipRight?.y ?? 0.68)
+          );
+
+          // ── Nose & face contour ──
+          const noseTip    = lmArr[4]   || lmArr[1];  // nose tip
+          const noseTop    = lmArr[168] || lmArr[6];  // nose bridge
+          const lJaw       = lmArr[234] || lmArr[93]; // left jaw
+          const rJaw       = lmArr[454] || lmArr[323];// right jaw
+          const chin       = lmArr[152] || lmArr[175];// chin
+          const forehead   = lmArr[10]  || lmArr[151];// forehead
+
           return {
             leftEyeCenter:  [li?.x ?? 0.35, li?.y ?? 0.40],
             rightEyeCenter: [ri?.x ?? 0.65, ri?.y ?? 0.40],
@@ -105,6 +133,14 @@ function useFaceLandmarks(videoRef) {
             leftCheek:      [lc?.x ?? 0.28, lc?.y ?? 0.55],
             rightCheek:     [rc?.x ?? 0.72, rc?.y ?? 0.55],
             cheekRadius:    Math.max(0.07, eyeW * 1.65),
+            lipCenter:      [lipCenterX, lipCenterY],
+            lipRadius:      Math.max(0.045, lipW * 0.65),
+            noseTip:        [noseTip?.x ?? 0.50, noseTip?.y ?? 0.60],
+            noseTop:        [noseTop?.x ?? 0.50, noseTop?.y ?? 0.48],
+            foreheadTop:    [forehead?.x ?? 0.50, forehead?.y ?? 0.18],
+            leftJaw:        [lJaw?.x ?? 0.20, lJaw?.y ?? 0.70],
+            rightJaw:       [rJaw?.x ?? 0.80, rJaw?.y ?? 0.70],
+            chin:           [chin?.x ?? 0.50, chin?.y ?? 0.88],
           };
         });
 
@@ -118,6 +154,14 @@ function useFaceLandmarks(videoRef) {
           leftCheek:      primary.leftCheek,
           rightCheek:     primary.rightCheek,
           cheekRadius:    primary.cheekRadius,
+          lipCenter:      primary.lipCenter,
+          lipRadius:      primary.lipRadius,
+          noseTip:        primary.noseTip,
+          noseTop:        primary.noseTop,
+          foreheadTop:    primary.foreheadTop,
+          leftJaw:        primary.leftJaw,
+          rightJaw:       primary.rightJaw,
+          chin:           primary.chin,
         };
       } catch(_) {}
     };
