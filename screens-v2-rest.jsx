@@ -6,9 +6,10 @@
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, muted, onRequestCamera,
   videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange
 }) {
-  const shotCount = typeof getShotCountForLayout === 'function'
-    ? getShotCountForLayout(layout)
-    : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
+  const shotCount = layout === 'polaroid' ? 1 : 6;
+  const frameTemplate = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
+  const firstSlot = frameTemplate?.photoSlots?.[0];
+  const cameraAspect = firstSlot ? firstSlot.width / firstSlot.height : 4 / 3;
   const [idx, setIdx]           = React.useState(0);
   const [countdown, setCountdown] = React.useState(0);
   const [timerLen, setTimerLen]   = React.useState(3);
@@ -375,7 +376,19 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           onDoubleClick={toggleCamera}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          style={{ flex:1, minHeight:0, position:'relative', borderRadius:24, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          style={{
+            flex: mobile ? '0 0 auto' : 1,
+            width: '100%',
+            aspectRatio: `${cameraAspect}`,
+            maxHeight: mobile ? 'calc(100vh - 360px)' : 'none',
+            minHeight: mobile ? 0 : 0,
+            position:'relative',
+            borderRadius:24,
+            background:'transparent',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center'
+          }}>
           {camOk === false && (
             <div style={{ position:'absolute', inset:0, borderRadius:24, overflow:'hidden' }}>
               <PlaceholderPortrait seed={idx} filter={filter}/>
@@ -434,10 +447,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               {timerLen}s
             </button>
           </div>
-          <button onClick={startCountdown} disabled={idx>=6} style={{
+          <button onClick={startCountdown} disabled={idx>=shotCount} style={{
             width:76, height:76, borderRadius:999,
             border:'none', background: countdown>0? T.pinkDeep : T.ink,
-            cursor: idx>=6? 'default':'pointer', padding:6,
+            cursor: idx>=shotCount? 'default':'pointer', padding:6,
             boxShadow:'0 10px 30px rgba(217,136,147,0.35)',
             transition:'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
             transform: countdown>0? 'scale(0.92)':'scale(1)',
@@ -452,10 +465,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         </div>
         {/* Thumbnail strip - mobile only */}
         {mobile && (
-          <div style={{ flexShrink:0, display:'flex', gap:5, paddingBottom:14 }}>
+          <div style={{ flexShrink:0, display:'flex', gap:5, paddingBottom:10, maxHeight:54 }}>
             {thumbs.map((s,i)=>(
               <div key={i} style={{
-                flex:1, aspectRatio:'1', borderRadius:8, position:'relative', overflow:'hidden',
+                flex:1, aspectRatio:'1', maxHeight:48, borderRadius:7, position:'relative', overflow:'hidden',
                 boxShadow: idx===i? `0 0 0 2px ${T.pinkDeep}`: '0 0 0 1px rgba(0,0,0,0.08)',
                 background: s? '#000' : T.card, display:'flex', alignItems:'center', justifyContent:'center',
                 transition:'box-shadow 0.3s',
@@ -465,7 +478,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   {renderShotStickers(s)}
                 </>
                 : s ? <PlaceholderPortrait seed={i} filter={s.filter}/>
-                : <div style={{ fontSize:14, color:T.inkSoft, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:500 }}>{i+1}</div>}
+                : <div style={{ fontSize:11, color:T.inkSoft, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:500 }}>{i+1}</div>}
               </div>
             ))}
           </div>
@@ -485,6 +498,9 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
   const maxSel = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(layout)
     : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
+  const availableShots = shots
+    .map((shot, index) => ({ shot, index }))
+    .filter(({ shot }) => shot?.dataUrl);
   const [previewIdx, setPreviewIdx] = React.useState(null);
   const pressTimerRef = React.useRef(null);
   const longPressRef = React.useRef(false);
@@ -527,14 +543,14 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
         right={<div style={{fontSize:12, color:T.inkSoft, fontFamily:'Pretendard,system-ui'}}>{selected.length}/{maxSel}</div>}/>
       <div style={{ marginBottom: mobile?12:20, textAlign: mobile? 'left':'center' }}>
         <h2 style={{ margin:0, fontFamily:'"Plus Jakarta Sans",system-ui', fontSize: mobile?26:40, fontWeight:500, letterSpacing:-1 }}>
-          Pick your best <span style={{ fontFamily:'Caveat,cursive', color: T.pinkDeep, fontSize: mobile?32:52 }}>{maxSel === 3 ? 'three' : 'four'}.</span>
+          Pick your best <span style={{ fontFamily:'Caveat,cursive', color: T.pinkDeep, fontSize: mobile?32:52 }}>{maxSel === 1 ? 'one' : maxSel === 3 ? 'three' : 'four'}.</span>
         </h2>
         <div style={{ marginTop:4, color:T.inkSoft, fontSize: mobile?13:14.5, fontFamily:'Pretendard,system-ui' }}>
           Tap in order — we'll place them in the frame the same way.
         </div>
       </div>
       <div style={{ flex:1, display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gridTemplateRows:'repeat(2, minmax(0, 1fr))', gap: mobile?8:14, minHeight: 0 }}>
-        {shots.map((s,i)=>{
+        {availableShots.map(({ shot: s, index: i })=>{
           const sel = selected.indexOf(i);
           const isSel = sel>=0;
           return (

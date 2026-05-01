@@ -5,18 +5,19 @@ const FILTERS = {
   porcelain: { name:'Window Light', ko:'자연광',    css:'brightness(1.07) contrast(0.94) saturate(0.96)' },
   smooth:    { name:'Cream Skin',   ko:'크림 스킨', css:'brightness(1.10) contrast(0.90) saturate(0.96) blur(0.45px)' },
   blush:     { name:'First Love',   ko:'첫사랑',    css:'brightness(1.08) contrast(0.93) saturate(1.03)', overlay:'blush' },
-  purikura:  { name:'Purikura',     ko:'프리쿠라',  css:'brightness(1.12) contrast(0.92) saturate(0.98) blur(0.35px)', overlay:'purikura' },
   grain:     { name:'Soft Film',    ko:'소프트 필름', css:'sepia(0.10) contrast(1.02) saturate(0.92) brightness(1.02)' },
   bw:        { name:'BW',           ko:'흑백',      css:'grayscale(1) contrast(1.15) brightness(1.05)' },
-  glam:      { name:'Glam',         ko:'글램',      css:'brightness(1.12) contrast(0.92) saturate(1.08)', overlay:'blush' },
-  aurora:    { name:'Aurora',       ko:'오로라',    css:'brightness(1.10) contrast(0.90) saturate(0.85) hue-rotate(12deg)' },
-  seoul:     { name:'Seoul',        ko:'서울',      css:'brightness(1.12) contrast(0.88) saturate(0.90) blur(0.3px)' },
+  // Hidden legacy experiments. Keep definitions so older localStorage/share data
+  // does not break, but do not expose them until we have a real reference-matched AR look.
+  purikura:  { name:'Purikura',     ko:'프리쿠라',  css:'brightness(1.12) contrast(0.92) saturate(0.98) blur(0.35px)', overlay:'purikura', hidden:true },
+  glam:      { name:'Glam',         ko:'글램',      css:'brightness(1.07) contrast(0.96) saturate(1.02)', hidden:true },
+  aurora:    { name:'Aurora',       ko:'오로라',    css:'brightness(1.06) contrast(0.95) saturate(0.96)', hidden:true },
+  seoul:     { name:'Seoul',        ko:'서울',      css:'brightness(1.07) contrast(0.95) saturate(0.94)', hidden:true },
 };
 
-['glam', 'aurora', 'seoul'].forEach((k) => {
-  FILTERS[k].premium = true;
-  FILTERS[k].recommended = k !== 'seoul';
-});
+const VISIBLE_FILTER_KEYS = ['original', 'porcelain', 'smooth', 'blush', 'grain', 'bw'];
+const getVisibleFilters = () => VISIBLE_FILTER_KEYS.map((key) => [key, FILTERS[key]]).filter(([, value]) => value && !value.hidden);
+const getSafeFilterKey = (key) => FILTERS[key] && !FILTERS[key].hidden ? key : 'porcelain';
 
 // Filter overlay — decorative layer rendered on top of video/photo
 function FilterOverlay({ filter, style={} }) {
@@ -140,4 +141,4 @@ function StickerLayer({ stickers=[] }) {
   );
 }
 
-Object.assign(window, { FILTERS, PlaceholderPortrait, StickerLayer });
+Object.assign(window, { FILTERS, VISIBLE_FILTER_KEYS, getVisibleFilters, getSafeFilterKey, PlaceholderPortrait, StickerLayer });

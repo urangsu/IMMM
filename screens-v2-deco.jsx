@@ -187,26 +187,26 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       <Kick T={T}>TIME · 시간 기록</Kick>
       <div style={{ marginTop: 8, background: 'rgba(26,26,31,0.04)', borderRadius: 16, padding: '10px 12px' }}>
         {/* Row 1: Theme & Preview */}
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: 8 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: T.inkSoft, textTransform: 'uppercase', letterSpacing: 0.5 }}>Theme</div>
-          <button onClick={() => setSetlogTheme('white')} style={{ width: 22, height: 22, borderRadius: 6, background: '#fff', border: setlogTheme === 'white' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
-          <button onClick={() => setSetlogTheme('black')} style={{ width: 22, height: 22, borderRadius: 6, background: '#000', border: setlogTheme === 'black' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 8, borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: 7 }}>
+          <div style={{ fontSize: 9, fontWeight: 600, color: T.inkSoft, textTransform: 'uppercase', letterSpacing: 0.3 }}>Theme</div>
+          <button onClick={() => setSetlogTheme('white')} style={{ width: 18, height: 18, borderRadius: 5, background: '#fff', border: setlogTheme === 'white' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
+          <button onClick={() => setSetlogTheme('black')} style={{ width: 18, height: 18, borderRadius: 5, background: '#000', border: setlogTheme === 'black' ? `2px solid ${T.ink}` : '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
           <div style={{ flex: 1 }} />
-          <div style={{ fontSize: 18, fontWeight: 800, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: -0.5 }}>{setlogTime}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui' }}>{setlogTime}</div>
         </div>
         {/* Row 2: Inputs & Add */}
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <input type="time" value={setlogTime} onChange={(e) => setSetlogTime(e.target.value)}
-            style={{ width: mobile ? 78 : 85, padding: '7px 4px', borderRadius: 10, border: 'none',
-              background: 'rgba(26,26,31,0.07)', fontSize: 12, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui',
+            style={{ width: mobile ? 70 : 82, padding: '6px 3px', borderRadius: 9, border: 'none',
+              background: 'rgba(26,26,31,0.07)', fontSize: 11, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui',
               color: '#1A1A1F', outline: 'none' }} />
           <input value={setlogCaption} onChange={(e) => setSetlogCaption(e.target.value)}
-            placeholder="멘트..." maxLength={20}
-            style={{ flex: 1, minWidth: 0, padding: '7px 8px', borderRadius: 10, border: 'none',
-              background: 'rgba(26,26,31,0.07)', fontSize: 13, fontFamily: 'Pretendard,system-ui',
+            placeholder="멘트..." maxLength={14}
+            style={{ flex: 1, minWidth: 0, padding: '6px 7px', borderRadius: 9, border: 'none',
+              background: 'rgba(26,26,31,0.07)', fontSize: 11.5, fontFamily: 'Pretendard,system-ui',
               color: '#1A1A1F', outline: 'none' }} />
-          <button onClick={addSetlog} style={{ padding: mobile ? '7px 10px' : '7px 14px', background: T.ink, color: T.bg, border: 'none',
-            borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans",system-ui',
+          <button onClick={addSetlog} style={{ padding: mobile ? '6px 9px' : '7px 14px', background: T.ink, color: T.bg, border: 'none',
+            borderRadius: 9, fontWeight: 700, fontSize: 11.5, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans",system-ui',
             flexShrink: 0 }}>Add</button>
         </div>
       </div>
@@ -462,6 +462,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
   const [qrShare, setQrShare] = React.useState(null);
   const [qrBusy, setQrBusy] = React.useState(false);
+  const [showMoreActions, setShowMoreActions] = React.useState(false);
   const autoSavedRef = React.useRef(false);
 
   const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -614,6 +615,15 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   };
 
   const captureFrameAsBlob = async () => {
+    if (captureRef.current && typeof html2canvas !== 'undefined') {
+      const canvas = await html2canvas(captureRef.current, {
+        backgroundColor: null,
+        scale: 4,
+        useCORS: true,
+        logging: false,
+      });
+      return new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.98));
+    }
     if (typeof FrameRenderEngine !== 'undefined') {
       return FrameRenderEngine.renderToBlob({
         layout,
@@ -837,24 +847,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   };
 
   const handleQrShare = async () => {
-    if (qrBusy) return;
-    setQrBusy(true);
-    try {
-      const blob = await captureFrameAsBlob();
-      const share = await ShareStore.createShare(blob, {
-        layout,
-        filter,
-        frameType: typeof getFrameTemplate === 'function' ? getFrameTemplate(layout).type : layout,
-      });
-      const qrDataUrl = await generateQrDataUrl(share.qrUrl || share.url);
-      const payload = { ...share, qrDataUrl };
-      setQrShare(payload);
-      await saveResultToGallery(blob, 'local', payload);
-    } catch (e) {
-      console.error('QR share failed:', e);
-      alert('QR 공유를 만들지 못했어요. Supabase 설정 또는 네트워크를 확인해주세요.');
-    }
-    setQrBusy(false);
+    alert('QR 공유는 현재 미구현입니다. Supabase 연결 후 공개 링크/만료 정책까지 붙여서 열겠습니다.');
   };
 
   // ── video download — current frame shots, flash transitions, 24fps film feel ──
@@ -869,12 +862,15 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       alert('이 브라우저에서는 영상 저장이 지원되지 않아요. (Chrome 권장)');
       return;
     }
-    // Use the current frame shot count in capture order
-    const allShots = shots.slice(0, shotCount).filter(s => s?.dataUrl);
-    if (!allShots.length) { alert('먼저 사진을 촬영해주세요'); return; }
+    const selectedShots = selected.map((shotIndex) => shots[shotIndex]).filter(s => s?.dataUrl);
+    if (!selectedShots.length) { alert('먼저 사진을 촬영해주세요'); return; }
     setVideoRecording(true);
 
-    const W = 720, H = 960;
+    const template = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
+    const baseW = template?.canvasSize?.width || 720;
+    const baseH = template?.canvasSize?.height || 960;
+    const W = 720;
+    const H = Math.round(W * (baseH / baseW));
     const cvs = document.createElement('canvas');
     cvs.width = W; cvs.height = H;
     const ctx = cvs.getContext('2d');
@@ -910,26 +906,41 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       setVideoRecording(false);
     };
 
-    // pre-load images
-    const imgs = await Promise.all(allShots.map(s => new Promise(res => {
-      const img = new Image();
-      img.onload = () => res(img);
-      img.onerror = () => res(null);
-      img.src = s.dataUrl;
-    })));
-
-    const drawFrame = (img) => {
-      ctx.fillStyle = frameColor || '#111';
+    const drawCanvasCover = (source) => {
+      ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, W, H);
-      if (img) {
-        drawCover(ctx, img, 0, 0, W, H);
+      const scale = Math.min(W / source.width, H / source.height);
+      const dw = source.width * scale;
+      const dh = source.height * scale;
+      ctx.drawImage(source, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    };
+
+    const renderProgressFrame = async (count) => {
+      if (typeof FrameRenderEngine !== 'undefined') {
+        const progressiveShots = shots.map((shot, index) => {
+          const order = selected.indexOf(index);
+          return order >= 0 && order < count ? shot : null;
+        });
+        return FrameRenderEngine.renderToCanvas({
+          layout,
+          shots: progressiveShots,
+          selected,
+          stickers: count >= selected.length ? stickers : [],
+          drawStrokes: count >= selected.length ? drawStrokes : [],
+          logo,
+          dateText,
+          accent,
+          frameColor,
+          scale: 1.5,
+        });
       }
-      // IMMM watermark
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.font = '700 22px sans-serif';
-      ctx.textBaseline = 'bottom';
-      ctx.textAlign = 'right';
-      ctx.fillText('IMMM', W - 20, H - 16);
+      const fallback = document.createElement('canvas');
+      fallback.width = W;
+      fallback.height = H;
+      const fctx = fallback.getContext('2d');
+      fctx.fillStyle = frameColor || '#fff';
+      fctx.fillRect(0, 0, W, H);
+      return fallback;
     };
 
     const paintWait = async ms => {
@@ -945,43 +956,34 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
     rec.start(200); // 200ms timeslice — collect chunks progressively
 
-    for (let i = 0; i < imgs.length; i++) {
+    for (let i = 0; i < selected.length; i++) {
       // white flash in
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, W, H);
       await paintWait(60);
 
-      // draw photo
-      drawFrame(imgs[i]);
+      const frameCanvas = await renderProgressFrame(i + 1);
+      drawCanvasCover(frameCanvas);
 
       // shot number badge
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillStyle = 'rgba(0,0,0,0.72)';
       ctx.font = '700 18px sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(`${String(i+1).padStart(2,'0')} / ${String(imgs.length).padStart(2,'0')}`, 18, 18);
+      ctx.fillText(`${String(i+1).padStart(2,'0')} / ${String(selected.length).padStart(2,'0')}`, 18, 18);
 
       await paintWait(1200);
 
       // brief white flash out before next
-      if (i < imgs.length - 1) {
+      if (i < selected.length - 1) {
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.fillRect(0, 0, W, H);
         await paintWait(50);
       }
     }
 
-    // end card — dark bg with IMMM branding
-    ctx.fillStyle = '#1A1A1F';
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#fff';
-    ctx.font = '700 48px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('IMMM', W/2, H/2 - 20);
-    ctx.font = '300 18px sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.fillText('My moments, uniquely mine.', W/2, H/2 + 24);
+    const finalFrame = await renderProgressFrame(selected.length);
+    drawCanvasCover(finalFrame);
     await paintWait(800);
 
     rec.stop();
@@ -1072,28 +1074,34 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
             </div>
           </div>
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', padding: '0 18px', paddingBottom: 'calc(var(--sab) + 24px)' }}>
-            <button title="이미지 저장" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: 'none', background: T.ink, color: T.bg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: downloading ? 0.6 : 1 }}>
-              {downloading ? <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke={T.bg} strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : I.download(20, T.bg)}
-            </button>
-            {videoSupported && (
-            <button title="촬영 영상 저장" onClick={handleVideoDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              {videoRecording ? <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>}
-              {videoRecording && <div style={{position:'absolute',top:-6,right:-6,background:T.pinkDeep,borderRadius:999,width:10,height:10,animation:'pulse 0.8s ease-in-out infinite'}}/>}
-            </button>
+          <div style={{ padding: '0 18px', paddingBottom: 'calc(var(--sab) + 24px)' }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button title="이미지 저장" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: 'none', background: T.ink, color: T.bg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: downloading ? 0.6 : 1 }}>
+                {downloading ? <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke={T.bg} strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : I.download(20, T.bg)}
+              </button>
+              {videoSupported && (
+              <button title="촬영 영상 저장" onClick={handleVideoDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                {videoRecording ? <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>}
+                {videoRecording && <div style={{position:'absolute',top:-6,right:-6,background:T.pinkDeep,borderRadius:999,width:10,height:10,animation:'pulse 0.8s ease-in-out infinite'}}/>}
+              </button>
+              )}
+              <button title="공유" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {I.share(20, T.ink)}
+              </button>
+              <button title="펼쳐보기" onClick={() => setShowMoreActions(v => !v)} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: showMoreActions ? 'rgba(26,26,31,0.06)' : 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M5 12h14M5 6h14M5 18h14"/></svg>
+              </button>
+            </div>
+            {showMoreActions && (
+              <div style={{ marginTop: 10, display: 'flex', gap: 8, justifyContent: 'center' }}>
+                <button title="Instagram 공유" onClick={handleShare} style={{ width: 42, height: 42, borderRadius: 12, border: `1px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+                </button>
+                <button title="QR 공유" onClick={handleQrShare} style={{ width: 42, height: 42, borderRadius: 12, border: `1px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2v6h-4v-2h2zM14 18h2v2h-2z"/></svg>
+                </button>
+              </div>
             )}
-            <button title="카카오톡 공유" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 3c-5.523 0-10 3.51-10 7.84 0 2.766 1.761 5.184 4.417 6.551-.19.684-.684 2.458-.784 2.836-.128.487.165.483.35.358.146-.1.2.14 2.378-1.554 1.137.318 2.358.49 3.639.49 5.523 0 10-3.511 10-7.84C22 6.511 17.523 3 12 3z"/></svg>
-            </button>
-            <button title="Instagram 공유" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>
-            </button>
-            <button title="일반 공유" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {I.share(20, T.ink)}
-            </button>
-            <button title="QR 공유" onClick={handleQrShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: qrBusy ? 'rgba(26,26,31,0.06)' : 'transparent', color: T.ink, cursor: qrBusy ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {qrBusy ? <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2v6h-4v-2h2zM14 18h2v2h-2z"/></svg>}
-            </button>
           </div>
         </div>
       </div>

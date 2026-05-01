@@ -211,7 +211,7 @@ function EditScreen({ T, go, shots, selected, mobile, variant,
   <div>
       <Kicker T={T}>Filters · 필터</Kicker>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
-        {Object.entries(FILTERS).map(([k, v]) =>
+        {(typeof getVisibleFilters === 'function' ? getVisibleFilters() : Object.entries(FILTERS).filter(([, v]) => !v.hidden)).map(([k, v]) =>
       <button key={k} onClick={() => applyFilter(k)} style={{
         padding: 0, border: filter === k ? `2px solid ${T.ink}` : `1px solid ${T.line}`,
         borderRadius: 12, overflow: 'hidden', cursor: 'pointer', background: T.card, textAlign: 'left'

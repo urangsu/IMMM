@@ -480,7 +480,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         </button>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-        {Object.entries(FILTERS).map(([k, v]) =>
+        {(typeof getVisibleFilters === 'function' ? getVisibleFilters() : Object.entries(FILTERS).filter(([, v]) => !v.hidden)).map(([k, v]) =>
       <button key={k} onClick={() => setFilter(k)} style={{
         padding: 0, border: 'none', cursor: 'pointer', background: T.card,
         borderRadius: 14, overflow: 'hidden', textAlign: 'left',

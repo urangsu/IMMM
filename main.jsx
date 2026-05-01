@@ -67,8 +67,9 @@ function App() {
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
   }, []);
-  const faceTrackedFilters = ['blush', 'purikura', 'glam', 'aurora'];
-  const shouldUseWebgl = tweaks.useWebgl && faceTrackedFilters.includes(tweaks.filter);
+  const safeFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
+  const faceTrackedFilters = ['blush'];
+  const shouldUseWebgl = tweaks.useWebgl && faceTrackedFilters.includes(safeFilter);
   const [cameraBox, setCameraBox] = React.useState(null);
 
   // ═══════════════════════════════════════════════════════════════
@@ -85,7 +86,7 @@ function App() {
 
   // useFilterEngine stays active from the start, warming up shaders
   const { engineRef, webglOk, firstFrame, webglFailed } = (typeof useFilterEngine === 'function')
-    ? useFilterEngine(canvasRef, videoRef, tweaks.filter, faceDataRef, !shouldUseWebgl, facingMode === 'user', mobile)
+    ? useFilterEngine(canvasRef, videoRef, safeFilter, faceDataRef, !shouldUseWebgl, facingMode === 'user', mobile)
     : { engineRef: null, webglOk: false, firstFrame: false, webglFailed: false };
 
   // Shared Camera Stream
@@ -152,16 +153,17 @@ function App() {
   };
   const updateTweak = (k, v) => setTweaks(prev => ({ ...prev, [k]: v }));
 
-  const shotCount = typeof getShotCountForLayout === 'function'
+  const frameShotCount = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(tweaks.layout)
     : (tweaks.layout === 'polaroid' ? 1 : tweaks.layout === 'trip' ? 3 : 4);
+  const captureShotCount = tweaks.layout === 'polaroid' ? 1 : 6;
 
   // Dummy-fill shots when jumping deep without capturing
   const needsDummy = ['select', 'deco', 'result'].includes(screen) && shots.every(s => !s);
   const effShots = needsDummy
-    ? Array.from({ length: shotCount }, () => ({ dataUrl: null, filter: tweaks.filter }))
+    ? Array.from({ length: captureShotCount }, () => ({ dataUrl: null, filter: safeFilter }))
     : shots;
-  const selectionCount = shotCount;
+  const selectionCount = frameShotCount;
   const defaultSelected = Array.from({ length: selectionCount }, (_, i) => i);
   const effSelected = selected.length === selectionCount ? selected : defaultSelected;
 
@@ -171,7 +173,7 @@ function App() {
 
   const commonProps = {
     T, go, mobile, variant,
-    filter: tweaks.filter,
+    filter: safeFilter,
     layout: tweaks.layout,
     orientation: tweaks.orientation,
     logo: tweaks.logo,
@@ -255,7 +257,7 @@ function App() {
         pointerEvents: 'none',
         borderRadius: 24,
         background: '#000',
-        filter: (!shouldUseWebgl || webglFailed) ? (FILTERS[tweaks.filter]?.css || 'none') : 'none',
+        filter: (!shouldUseWebgl || webglFailed) ? (FILTERS[safeFilter]?.css || 'none') : 'none',
         transition: 'opacity 0.3s ease',
       }}>
         <video ref={videoRef} playsInline muted autoPlay style={{
