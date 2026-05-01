@@ -36,7 +36,7 @@ class AppErrorBoundary extends React.Component {
 function App() {
   const [tweaks, setTweaks] = React.useState({
     variant: 'A',
-    layout: 'trip',
+    layout: 'strip',
     orientation: 'portrait',
     filter: 'smooth',
     sound: true,
