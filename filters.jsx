@@ -2,9 +2,9 @@
 
 const FILTERS = {
   original:  { name:'No Filter',    ko:'노 필터',   css:'brightness(1.01) contrast(0.99)' },
-  porcelain: { name:'Window Light', ko:'자연광',    css:'brightness(1.07) contrast(0.94) saturate(0.96)' },
-  smooth:    { name:'Cream Skin',   ko:'크림 스킨', css:'brightness(1.10) contrast(0.90) saturate(0.96) blur(0.45px)' },
-  blush:     { name:'First Love',   ko:'첫사랑',    css:'brightness(1.08) contrast(0.93) saturate(1.03)', overlay:'blush' },
+  porcelain: { name:'Window Light', ko:'자연광',    css:'brightness(1.06) contrast(0.96) saturate(0.97)' },
+  smooth:    { name:'Cream Skin',   ko:'크림 스킨', css:'brightness(1.08) contrast(0.94) saturate(0.98) blur(0.18px)' },
+  blush:     { name:'First Love',   ko:'첫사랑',    css:'brightness(1.07) contrast(0.95) saturate(1.02)', overlay:'blush' },
   grain:     { name:'Soft Film',    ko:'소프트 필름', css:'sepia(0.10) contrast(1.02) saturate(0.92) brightness(1.02)' },
   bw:        { name:'BW',           ko:'흑백',      css:'grayscale(1) contrast(1.15) brightness(1.05)' },
   // Hidden legacy experiments. Keep definitions so older localStorage/share data
@@ -15,6 +15,7 @@ const FILTERS = {
   seoul:     { name:'Seoul',        ko:'서울',      css:'brightness(1.07) contrast(0.95) saturate(0.94)', hidden:true },
 };
 
+// BW stays as a permanent basic filter. Do not hide it when pruning experiments.
 const VISIBLE_FILTER_KEYS = ['original', 'porcelain', 'smooth', 'blush', 'grain', 'bw'];
 const getVisibleFilters = () => VISIBLE_FILTER_KEYS.map((key) => [key, FILTERS[key]]).filter(([, value]) => value && !value.hidden);
 const getSafeFilterKey = (key) => FILTERS[key] && !FILTERS[key].hidden ? key : 'porcelain';

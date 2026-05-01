@@ -4,12 +4,13 @@
 // CAPTURE — 6 shots
 // ═══════════════════════════════════════════════════════════════
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, muted, onRequestCamera,
-  videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange
+  videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef
 }) {
   const shotCount = layout === 'polaroid' ? 1 : 6;
   const frameTemplate = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
   const firstSlot = frameTemplate?.photoSlots?.[0];
   const cameraAspect = firstSlot ? firstSlot.width / firstSlot.height : 4 / 3;
+  const viewfinderAspect = mobile ? 3 / 4 : cameraAspect;
   const [idx, setIdx]           = React.useState(0);
   const [countdown, setCountdown] = React.useState(0);
   const [timerLen, setTimerLen]   = React.useState(3);
@@ -93,6 +94,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       }
       ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
       ctx.restore();
+      applyBeautyGeometry(ctx, c.width, c.height, filterKey, faceDataRef?.current, mirrorX);
       applyCapturedFilterLook(ctx, c.width, c.height, filterKey);
       if (typeof FrameRenderEngine !== 'undefined' && preStickers.length > 0) {
         for (const sticker of preStickers) {
@@ -101,13 +103,16 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       }
       return c.toDataURL('image/jpeg', 0.95);
     } catch(e) { return null; }
-  }, [preStickers]);
+  }, [preStickers, faceDataRef]);
 
   const applyCapturedFilterLook = (ctx, w, h, filterKey) => {
     ctx.save();
     // ── Skin-retouching base (for all skin-enhancing filters) ─────────────────
     const isSkinFilter = ['smooth','porcelain','blush','purikura'].includes(filterKey);
     if (isSkinFilter) {
+      const strength = filterKey === 'smooth' ? 0.32 : filterKey === 'blush' ? 0.24 : 0.18;
+      applyFaceZoneSoftening(ctx, w, h, strength);
+
       // Step 1: Soft warm lift — raises skin into warmer/brighter range
       // Using 'screen' to brighten without blowing out highlights
       ctx.globalCompositeOperation = 'screen';
@@ -189,6 +194,95 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     ctx.restore();
   };
 
+  const mapFacePoint = (p, mirrorX) => {
+    if (!Array.isArray(p)) return [0.5, 0.5];
+    return [mirrorX ? 1 - p[0] : p[0], p[1]];
+  };
+
+  const applyBeautyGeometry = (ctx, w, h, filterKey, face, mirrorX) => {
+    if (!['smooth', 'porcelain', 'blush'].includes(filterKey)) return;
+    const detected = !!face?.detected;
+    const leftJaw = mapFacePoint(face?.leftJaw || [0.22, 0.70], mirrorX);
+    const rightJaw = mapFacePoint(face?.rightJaw || [0.78, 0.70], mirrorX);
+    const chin = mapFacePoint(face?.chin || [0.50, 0.88], mirrorX);
+    const forehead = mapFacePoint(face?.foreheadTop || [0.50, 0.20], mirrorX);
+    const faceCx = ((leftJaw[0] + rightJaw[0] + chin[0]) / 3) * w;
+    const jawW = Math.max(w * 0.22, Math.abs(rightJaw[0] - leftJaw[0]) * w);
+    const topY = Math.max(0, Math.min(h * 0.72, (forehead[1] * h) + h * 0.10));
+    const jawY = Math.max(topY + h * 0.08, ((leftJaw[1] + rightJaw[1]) / 2) * h);
+    const bottomY = Math.min(h, (chin[1] * h) + h * 0.08);
+    const maxPull = (detected ? (filterKey === 'smooth' ? 0.044 : 0.034) : 0.018) * w;
+
+    try {
+      const source = document.createElement('canvas');
+      source.width = w;
+      source.height = h;
+      source.getContext('2d').drawImage(ctx.canvas, 0, 0);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(faceCx, (topY + bottomY) / 2, jawW * 0.72, Math.max(h * 0.18, (bottomY - topY) * 0.58), 0, 0, Math.PI * 2);
+      ctx.clip();
+
+      const sliceH = Math.max(2, Math.round(h / 220));
+      for (let y = Math.floor(topY); y < bottomY; y += sliceH) {
+        const t = Math.max(0, Math.min(1, (y - topY) / Math.max(1, bottomY - topY)));
+        const lower = Math.sin(t * Math.PI);
+        const jawBias = Math.max(0, Math.min(1, (y - jawY + h * 0.08) / Math.max(1, bottomY - jawY + h * 0.08)));
+        const pull = maxPull * lower * (0.35 + jawBias * 0.65);
+        const bandW = jawW * (0.92 + t * 0.35);
+        const sx = Math.max(0, faceCx - bandW / 2);
+        const sw = Math.min(w - sx, bandW);
+        const dx = sx + pull;
+        const dw = Math.max(1, sw - pull * 2);
+        ctx.drawImage(source, sx, y, sw, sliceH, dx, y, dw, sliceH);
+      }
+      ctx.restore();
+    } catch (_) {
+      // Geometry is an enhancement, not a capture dependency.
+    }
+  };
+
+  const applyFaceZoneSoftening = (ctx, w, h, strength = 0.22) => {
+    try {
+      const source = document.createElement('canvas');
+      source.width = w;
+      source.height = h;
+      source.getContext('2d').drawImage(ctx.canvas, 0, 0);
+
+      const soft = document.createElement('canvas');
+      soft.width = w;
+      soft.height = h;
+      const sctx = soft.getContext('2d');
+      sctx.filter = `blur(${Math.max(4, Math.round(w * 0.006))}px)`;
+      sctx.drawImage(source, 0, 0);
+      sctx.filter = 'none';
+
+      const mask = document.createElement('canvas');
+      mask.width = w;
+      mask.height = h;
+      const mctx = mask.getContext('2d');
+      const cx = w * 0.5;
+      const cy = h * 0.43;
+      const rx = w * 0.36;
+      const ry = h * 0.34;
+      const g = mctx.createRadialGradient(cx, cy, Math.min(rx, ry) * 0.18, cx, cy, Math.max(rx, ry));
+      g.addColorStop(0, `rgba(255,255,255,${strength})`);
+      g.addColorStop(0.58, `rgba(255,255,255,${strength * 0.78})`);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      mctx.fillStyle = g;
+      mctx.fillRect(0, 0, w, h);
+
+      sctx.globalCompositeOperation = 'destination-in';
+      sctx.drawImage(mask, 0, 0);
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(soft, 0, 0);
+    } catch (_) {
+      // Best-effort enhancement only. Capture should never fail because of retouch.
+    }
+  };
+
   const bakePreStickers = React.useCallback(async (dataUrl) => {
     if (!dataUrl || !preStickers.length || typeof FrameRenderEngine === 'undefined') return dataUrl;
     const img = await new Promise((resolve) => {
@@ -209,6 +303,25 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     return c.toDataURL('image/jpeg', 0.95);
   }, [preStickers]);
 
+  const enhanceCapturedDataUrl = React.useCallback(async (dataUrl, filterKey, mirrorX) => {
+    if (!dataUrl || !['smooth', 'porcelain', 'blush'].includes(filterKey)) return dataUrl;
+    const img = await new Promise((resolve) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(null);
+      el.src = dataUrl;
+    });
+    if (!img) return dataUrl;
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    applyBeautyGeometry(ctx, c.width, c.height, filterKey, faceDataRef?.current, mirrorX);
+    applyCapturedFilterLook(ctx, c.width, c.height, filterKey);
+    return c.toDataURL('image/jpeg', 0.95);
+  }, [faceDataRef]);
+
   const takeShot = React.useCallback(() => {
     setFlashing(true);
     setTimeout(()=>setFlashing(false), 140);
@@ -227,7 +340,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           const capW = 1920;
           const capH = Math.max(1, Math.round(1920 / aspect));
           const raw = engineRef.current.takeSnapshot(capW, capH, mirrorX, pipeline, faceUniforms);
-          if (raw && raw.length > 5000) dataUrl = await bakePreStickers(raw);
+          if (raw && raw.length > 5000) dataUrl = await bakePreStickers(await enhanceCapturedDataUrl(raw, filter, mirrorX));
         } catch(e) { console.error('WebGL Capture Error:', e); }
       }
       
@@ -271,7 +384,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     } else {
       doCapture();
     }
-  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers]);
+  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers, enhanceCapturedDataUrl]);
 
   React.useEffect(()=> {
     if (countdown <= 0) return;
@@ -377,14 +490,15 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           style={{
-            flex: mobile ? '0 0 auto' : 1,
+            flex: mobile ? '1 1 auto' : 1,
             width: '100%',
-            aspectRatio: `${cameraAspect}`,
-            maxHeight: mobile ? 'calc(100vh - 360px)' : 'none',
-            minHeight: mobile ? 0 : 0,
+            aspectRatio: `${viewfinderAspect}`,
+            maxHeight: mobile ? 'min(62vh, 560px)' : 'none',
+            minHeight: mobile ? 320 : 0,
             position:'relative',
             borderRadius:24,
-            background:'transparent',
+            background:'#10233A',
+            boxShadow:'inset 0 0 0 1px rgba(255,255,255,0.12), 0 14px 34px rgba(0,0,0,0.10)',
             display:'flex',
             alignItems:'center',
             justifyContent:'center'
@@ -424,12 +538,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           </div>
         </div>
         {/* Shutter row - fixed height, centered */}
-        <div style={{ flexShrink:0, height:88, display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
+        <div style={{ flexShrink:0, height:78, display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
           <div style={{ position:'absolute', left:0, display:'flex', gap:6 }}>
             <button onClick={toggleAuto} style={{
-              padding:'10px 14px', borderRadius:999, border:'none',
+              padding:'8px 11px', borderRadius:999, border:'none',
               background: auto? T.ink : 'rgba(26,26,31,0.06)',
-              color: auto? T.bg : T.ink, fontSize:12, fontWeight:600, cursor:'pointer',
+              color: auto? T.bg : T.ink, fontSize:11, fontWeight:600, cursor:'pointer',
               display:'flex', alignItems:'center', gap:6, fontFamily:'"Plus Jakarta Sans",system-ui',
               transition:'all 0.2s',
             }}>
@@ -437,9 +551,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               Auto
             </button>
             <button onClick={() => setTimerLen(t => t === 3 ? 5 : 3)} style={{
-              padding:'10px 14px', borderRadius:999, border:'none',
+              padding:'8px 11px', borderRadius:999, border:'none',
               background: 'rgba(26,26,31,0.06)',
-              color: T.ink, fontSize:12, fontWeight:600, cursor:'pointer',
+              color: T.ink, fontSize:11, fontWeight:600, cursor:'pointer',
               display:'flex', alignItems:'center', gap:4, fontFamily:'"Plus Jakarta Sans",system-ui',
               transition:'all 0.2s',
             }}>
@@ -448,7 +562,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </button>
           </div>
           <button onClick={startCountdown} disabled={idx>=shotCount} style={{
-            width:76, height:76, borderRadius:999,
+            width:68, height:68, borderRadius:999,
             border:'none', background: countdown>0? T.pinkDeep : T.ink,
             cursor: idx>=shotCount? 'default':'pointer', padding:6,
             boxShadow:'0 10px 30px rgba(217,136,147,0.35)',
@@ -456,19 +570,19 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             transform: countdown>0? 'scale(0.92)':'scale(1)',
           }}>
             <div style={{ width:'100%', height:'100%', borderRadius:999, background:T.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ width:54, height:54, borderRadius:999, background: countdown>0? T.pinkDeep : T.ink, transition:'background 0.2s' }}/>
+              <div style={{ width:48, height:48, borderRadius:999, background: countdown>0? T.pinkDeep : T.ink, transition:'background 0.2s' }}/>
             </div>
           </button>
-          <div style={{ position:'absolute', right:0, padding:'10px 14px', borderRadius:999, background:'rgba(26,26,31,0.06)', fontSize:12, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
+          <div style={{ position:'absolute', right:0, padding:'8px 11px', borderRadius:999, background:'rgba(26,26,31,0.06)', fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
             {Math.max(0, shotCount-idx)} left
           </div>
         </div>
         {/* Thumbnail strip - mobile only */}
         {mobile && (
-          <div style={{ flexShrink:0, display:'flex', gap:5, paddingBottom:10, maxHeight:54 }}>
+          <div style={{ flexShrink:0, display:'flex', gap:5, paddingBottom:8, maxHeight:48 }}>
             {thumbs.map((s,i)=>(
               <div key={i} style={{
-                flex:1, aspectRatio:'1', maxHeight:48, borderRadius:7, position:'relative', overflow:'hidden',
+                flex:1, aspectRatio:'1', maxHeight:42, borderRadius:7, position:'relative', overflow:'hidden',
                 boxShadow: idx===i? `0 0 0 2px ${T.pinkDeep}`: '0 0 0 1px rgba(0,0,0,0.08)',
                 background: s? '#000' : T.card, display:'flex', alignItems:'center', justifyContent:'center',
                 transition:'box-shadow 0.3s',

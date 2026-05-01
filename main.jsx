@@ -218,6 +218,7 @@ function App() {
           engineRef={engineRef} webglOk={webglOk} firstFrame={firstFrame}
           camOk={camOk} facingMode={facingMode} setFacingMode={setFacingMode}
           onCameraFrameChange={setCameraBox}
+          faceDataRef={faceDataRef}
         />;
       case 'select':
         return <SelectV2 {...p}
@@ -256,18 +257,20 @@ function App() {
         opacity: screen === 'capture' ? 1 : 0,
         pointerEvents: 'none',
         borderRadius: 24,
-        background: '#000',
+        background: '#10233A',
+        clipPath: 'inset(0 round 24px)',
+        transform: 'translateZ(0)',
         filter: (!shouldUseWebgl || webglFailed) ? (FILTERS[safeFilter]?.css || 'none') : 'none',
         transition: 'opacity 0.3s ease',
       }}>
         <video ref={videoRef} playsInline muted autoPlay style={{
-          width:'100%', height:'100%', objectFit:'cover',
+          position:'absolute', inset:-1, width:'calc(100% + 2px)', height:'calc(100% + 2px)', objectFit:'cover',
           transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
-          borderRadius: 24,
+          borderRadius: 25,
         }}/>
         <canvas ref={canvasRef} style={{
-          display:'block', position:'absolute', inset:0,
-          width:'100%', height:'100%', borderRadius:24,
+          display:'block', position:'absolute', inset:-1,
+          width:'calc(100% + 2px)', height:'calc(100% + 2px)', borderRadius:25,
           opacity: (shouldUseWebgl && webglOk && firstFrame) ? 1 : 0,
           transition: 'opacity 0.2s',
         }}/>

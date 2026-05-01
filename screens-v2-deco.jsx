@@ -464,6 +464,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [qrBusy, setQrBusy] = React.useState(false);
   const [showMoreActions, setShowMoreActions] = React.useState(false);
   const autoSavedRef = React.useRef(false);
+  const exportBlobRef = React.useRef({ key: null, blob: null });
 
   const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -493,6 +494,16 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       console.warn('[IMMM] Local gallery save failed:', e);
     }
   };
+
+  const getExportKey = () => [
+    layout,
+    frameColor,
+    logo ? 'logo' : 'nologo',
+    dateText ? 'date' : 'nodate',
+    selected.map((i) => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 32) || i).join('-'),
+    stickers.map((s) => `${s.id}:${s.x}:${s.y}:${s.scale}:${s.rotation}:${s.frameSlot ?? 'free'}`).join('|'),
+    drawStrokes.length,
+  ].join('::');
 
   const drawCover = (ctx, img, x, y, w, h) => {
     const ar = img.width / img.height;
@@ -616,13 +627,20 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const captureFrameAsBlob = async () => {
     if (captureRef.current && typeof html2canvas !== 'undefined') {
-      const canvas = await html2canvas(captureRef.current, {
-        backgroundColor: null,
-        scale: 4,
-        useCORS: true,
-        logging: false,
-      });
-      return new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.98));
+      try {
+        const canvas = await html2canvas(captureRef.current, {
+          backgroundColor: null,
+          scale: 4,
+          useCORS: true,
+          logging: false,
+          imageTimeout: 0,
+          removeContainer: true,
+        });
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.98));
+        if (blob) return blob;
+      } catch (e) {
+        console.warn('[IMMM] DOM export failed, falling back to render engine:', e);
+      }
     }
     if (typeof FrameRenderEngine !== 'undefined') {
       return FrameRenderEngine.renderToBlob({
@@ -768,6 +786,17 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     return new Promise(res => cvs.toBlob(res, 'image/png'));
   };
 
+  const getExportBlob = async () => {
+    const key = getExportKey();
+    if (exportBlobRef.current.key === key && exportBlobRef.current.blob) {
+      return exportBlobRef.current.blob;
+    }
+    const blob = await captureFrameAsBlob();
+    if (!blob) throw new Error('Export failed');
+    exportBlobRef.current = { key, blob };
+    return blob;
+  };
+
   React.useEffect(() => {
     if (autoSavedRef.current) return;
     autoSavedRef.current = true;
@@ -777,7 +806,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const blob = await captureFrameAsBlob();
+        const blob = await getExportBlob();
         if (!cancelled && blob) {
           await saveResultToGallery(blob, 'local');
           localStorage.setItem(key, '1');
@@ -796,7 +825,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     if (downloading) return;
     setDownloading(true);
     try {
-      const blob = await captureFrameAsBlob();
+      const blob = await getExportBlob();
       const fname = `IMMM_${Date.now()}.png`;
       const file = new File([blob], fname, { type: 'image/png' });
       await saveResultToGallery(blob, 'local');
@@ -811,6 +840,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       }
       const url = URL.createObjectURL(blob);
       if (isIOS()) {
+        if (saveSheetUrl) URL.revokeObjectURL(saveSheetUrl);
         setSaveSheetUrl(url);
         setDownloading(false);
         return;
@@ -826,7 +856,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const handleShare = async () => {
     try {
-      const blob = await captureFrameAsBlob();
+      const blob = await getExportBlob();
       const file = new File([blob], `IMMM_${Date.now()}.png`, { type: 'image/png' });
       await saveResultToGallery(blob, 'local');
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -836,10 +866,14 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           text: '한 장에 담는 순간들.\n나만의 포토부스 IMMM.\nhttps://immm.vercel.app',
         });
       } else {
-        // Fallback for browsers that don't support file sharing
         const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        if (isIOS()) {
+          if (saveSheetUrl) URL.revokeObjectURL(saveSheetUrl);
+          setSaveSheetUrl(url);
+        } else {
+          window.open(url, '_blank');
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+        }
       }
     } catch (e) {
       if (e.name !== 'AbortError') console.error('Share failed:', e);
