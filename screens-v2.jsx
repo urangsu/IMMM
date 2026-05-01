@@ -157,11 +157,6 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, onGallery, lang = 
           <button onClick={toggleLang} style={{ background: 'rgba(26,26,31,0.05)', borderRadius: 999, border: 'none', color: T.ink, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui', padding: '6px 12px', letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.2s' }}>
             {lang}
           </button>
-          <button onClick={onGallery} style={{
-            background: 'transparent', border: 'none', color: T.inkSoft, cursor: 'pointer',
-            fontSize: 10.5, fontWeight: 700, letterSpacing: 1.7, textTransform: 'uppercase',
-            fontFamily: '"Plus Jakarta Sans",system-ui', padding: '2px 6px'
-          }}>Gallery</button>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           {logoMark(42)}
