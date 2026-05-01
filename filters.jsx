@@ -13,6 +13,11 @@ const FILTERS = {
   seoul:     { name:'Seoul',        ko:'서울',      css:'brightness(1.12) contrast(0.88) saturate(0.90) blur(0.3px)' },
 };
 
+['glam', 'aurora', 'seoul'].forEach((k) => {
+  FILTERS[k].premium = true;
+  FILTERS[k].recommended = k !== 'seoul';
+});
+
 // Filter overlay — decorative layer rendered on top of video/photo
 function FilterOverlay({ filter, style={} }) {
   const type = FILTERS[filter]?.overlay;

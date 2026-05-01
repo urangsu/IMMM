@@ -15,7 +15,7 @@ const SlottedStickersCtx = React.createContext({});
 
 const STICKER_CATALOG = {
   minimal: {
-    id: 'minimal', name: 'Minimal', ko: '미니멀',
+    id: 'minimal', name: 'Minimal', ko: '미니멀', premium: false, recommended: true, price: 0, owned: true, locked: false,
     items: [
       { id:'m-heart-1', type:'mini', kind:'heart', fill:'#D98893' },
       { id:'m-heart-2', type:'mini', kind:'heart', fill:'#F4C8CC' },
@@ -25,7 +25,7 @@ const STICKER_CATALOG = {
     ],
   },
   handwrit: {
-    id: 'handwrit', name: 'Handwritten', ko: '손글씨',
+    id: 'handwrit', name: 'Handwritten', ko: '손글씨', premium: false, recommended: false, price: 0, owned: true, locked: false,
     items: [
       { id:'h-fav', type:'text', text:'my fav', font:'Caveat', size:34, color:'#D98893' },
       { id:'h-year', type:'text', text:'2026', font:'Caveat', size:32, color:'#1A1A1F' },
@@ -35,7 +35,7 @@ const STICKER_CATALOG = {
     ],
   },
   kretro: {
-    id: 'kretro', name: 'K-Variety Retro', ko: '예능 자막',
+    id: 'kretro', name: 'K-Variety Retro', ko: '예능 자막', premium: true, recommended: true, price: 900, owned: true, locked: false, purchaseId: 'sticker_kretro_premium',
     items: [
       { id:'r-1', type:'burst', text:'다 같이!', fill:'#FFEB3B', tc:'#E53935' },
       { id:'r-2', type:'burst', text:'흥!', fill:'#FF6B88', tc:'#fff', fs:16 },

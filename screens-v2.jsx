@@ -45,6 +45,22 @@ function Kick({ children, T }) {
   return <div style={{ fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 10, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: T.inkSoft }}>{children}</div>;
 }
 
+function StoreBadge({ children, T, tone = 'dark' }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3,
+      padding: '3px 6px', borderRadius: 999,
+      background: tone === 'dark' ? T.ink : 'rgba(26,26,31,0.08)',
+      color: tone === 'dark' ? T.bg : T.ink,
+      fontSize: 8, fontWeight: 800, letterSpacing: 0.7,
+      fontFamily: '"Plus Jakarta Sans",system-ui', textTransform: 'uppercase',
+    }}>
+      <svg width="10" height="8" viewBox="0 0 20 14" fill="currentColor"><path d="M1 4l5 3 4-6 4 6 5-3-2 9H3L1 4z"/></svg>
+      {children}
+    </span>
+  );
+}
+
 // StepDots — animated progress indicator
 function StepDots({ step, total = 5, T }) {
   return (
@@ -99,9 +115,9 @@ function TopBar({ step, back, T, mobile, title, right }) {
 // ═══════════════════════════════════════════════════════════════
 const I18N = {
   ko: {
-    mobileSub: '나의 그리고 우리의 순간',
-    desc1: '나의 그리고 우리의 순간.',
-    desc2: '내 손안의 포토부스.',
+    mobileSub: '나만의 포토부스 IMMM',
+    desc1: '한 장에 담는 순간들.',
+    desc2: '나만의 포토부스 IMMM.',
     start: '촬영하기',
     edit: '편집하기',
     noSignup: 'No signup required · 가입 불필요'
@@ -124,11 +140,9 @@ const I18N = {
   }
 };
 
-function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLang }) {
+function LandingV2({ T, variant, go, mobile, onStart, onEdit, onGallery, lang = 'ko', setLang }) {
   const t = I18N[lang] || I18N.ko;
   const toggleLang = () => setLang(l => l === 'ko' ? 'en' : l === 'en' ? 'jp' : 'ko');
-  const sampleImg = 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80';
-  const dummyShots = Array.from({length: 4}, () => ({ filter: 'porcelain', dataUrl: sampleImg }));
 
   const logoMark = (size = 48) =>
   <svg width={size * 1.4} height={size} viewBox="0 0 70 50">
@@ -139,10 +153,16 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
   if (mobile) {
     return (
       <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '60px 32px 40px', position: 'relative' }}>
-        <button onClick={toggleLang} style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(26,26,31,0.05)', borderRadius: 999, border: 'none', color: T.ink, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui', padding: '6px 12px', letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.2s' }}>
-          {lang}
-        </button>
-        {/* Logo block */}
+        <div style={{ position: 'absolute', top: 20, right: 20, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <button onClick={toggleLang} style={{ background: 'rgba(26,26,31,0.05)', borderRadius: 999, border: 'none', color: T.ink, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui', padding: '6px 12px', letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.2s' }}>
+            {lang}
+          </button>
+          <button onClick={onGallery} style={{
+            background: 'transparent', border: 'none', color: T.inkSoft, cursor: 'pointer',
+            fontSize: 10.5, fontWeight: 700, letterSpacing: 1.7, textTransform: 'uppercase',
+            fontFamily: '"Plus Jakarta Sans",system-ui', padding: '2px 6px'
+          }}>Gallery</button>
+        </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           {logoMark(42)}
           <div style={{ textAlign: 'center' }}>
@@ -153,13 +173,8 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
               {t.mobileSub}
             </div>
           </div>
-          {/* Mobile Preview Image */}
-          <div style={{ marginTop: 20, width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <img src="asset/main.jpg" style={{ width: '130%', maxWidth: 'none', height: 'auto', transform: 'translateX(5%)' }} />
-          </div>
         </div>
 
-        {/* CTAs */}
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <button onClick={onStart} style={{
             width: '100%', padding: '18px', background: T.ink, color: T.bg, border: 'none',
@@ -172,9 +187,12 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
             fontSize: 13, fontWeight: 500, letterSpacing: 1.5, textTransform: 'uppercase',
             fontFamily: '"Plus Jakarta Sans",system-ui'
           }}>{t.edit}</button>
-          <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: T.inkSoft, fontFamily: 'Pretendard,system-ui', letterSpacing: 0.5 }}>
-            {t.noSignup}
-          </div>
+          <button onClick={onGallery} style={{
+            width: '100%', padding: '12px 16px', background: 'transparent', color: T.inkSoft,
+            border: 'none', borderRadius: 0, cursor: 'pointer',
+            fontSize: 11, fontWeight: 700, letterSpacing: 1.7, textTransform: 'uppercase',
+            fontFamily: '"Plus Jakarta Sans",system-ui'
+          }}>Gallery</button>
         </div>
       </div>);
 
@@ -188,7 +206,7 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 11, fontWeight: 700, letterSpacing: 6, color: T.ink }}>I M M M</div>
           <div style={{ display: 'flex', gap: 28, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1.5, textTransform: 'uppercase', alignItems: 'center' }}>
-            <span>Gallery</span><span>Frames</span>
+            <button onClick={onGallery} style={{ background:'transparent', border:'none', color:T.inkSoft, cursor:'pointer', font: 'inherit', letterSpacing:'inherit', textTransform:'inherit', padding:0 }}>Gallery</button><span>Frames</span>
             <button onClick={toggleLang} style={{ background: 'rgba(26,26,31,0.05)', borderRadius: 999, border: 'none', color: T.ink, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui', padding: '4px 10px', letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.2s' }}>
               {lang}
             </button>
@@ -248,7 +266,7 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, lang = 'ko', setLa
 // ═══════════════════════════════════════════════════════════════
 // 2. SETUP — Frame + Filter + Pre-stickers
 // ═══════════════════════════════════════════════════════════════
-function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected }) {
+function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks }) {
   const [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
   const [selStId, setSelStId] = uS(null);
   const fileRef = uR(null);
@@ -321,8 +339,10 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           { id: 'strip',    en: '1×4 Strip', ko: '스트립' },
           { id: 'trip',     en: '1×3',       ko: '트리플' },
           { id: 'grid',     en: '2×2 Grid',  ko: '그리드' },
-          { id: 'polaroid', en: 'Polaroid',  ko: '폴라로이드' },
-        ].map((o) =>
+          { id: 'polaroid', en: '1×1',       ko: '폴라로이드' },
+        ].map((o) => {
+        const tpl = typeof getFrameTemplate === 'function' ? getFrameTemplate(o.id) : null;
+        return (
       <button key={o.id} onClick={() => setLayout(o.id)}
       style={{
         padding: '14px 8px 10px', background: layout === o.id ? T.card : 'transparent',
@@ -331,6 +351,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
       }}>
             <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none' }}>
+              {tpl?.recommended && <div style={{ position: 'absolute', top: 4, left: 5, zIndex: 5 }}><StoreBadge T={T}>Pick</StoreBadge></div>}
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.28)' }}>
                 <FrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
                   logo={false} dateText={false} accent={accent} scale={1}
@@ -341,7 +362,32 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
               {o.en}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4, fontFamily: 'Pretendard,system-ui' }}>{o.ko}</span>
             </div>
           </button>
-      )}
+        );
+      })}
+      </div>
+
+      <div style={{ marginTop: 16, padding: 14, borderRadius: 18, background: 'rgba(26,26,31,0.04)', boxShadow: '0 0 0 1px rgba(26,26,31,0.05) inset' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+          <Kick T={T}>Frame Store · 추천 프레임</Kick>
+          <StoreBadge T={T} tone="light">Soon</StoreBadge>
+        </div>
+        <div style={{ marginTop:10, display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8 }}>
+          {Object.values(typeof FRAME_TEMPLATES !== 'undefined' ? FRAME_TEMPLATES : {}).filter(t => t.recommended).slice(0, 2).map((tpl) => (
+            <button key={tpl.id} onClick={() => setLayout(({ '1x4':'strip', '2x2':'grid', '1x3':'trip', '1x1':'polaroid' })[tpl.type] || 'strip')} style={{
+              border:'none', borderRadius:14, padding:10, background:T.card, cursor:'pointer',
+              boxShadow:'0 0 0 1px rgba(26,26,31,0.06), 0 12px 28px rgba(0,0,0,0.04)',
+              textAlign:'left'
+            }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
+                <div style={{ fontSize:12, fontWeight:900, color:T.ink, fontFamily:'Pretendard,system-ui' }}>{tpl.ko}</div>
+                {tpl.recommended && <StoreBadge T={T} tone="light">Pick</StoreBadge>}
+              </div>
+              <div style={{ marginTop:4, fontSize:10.5, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
+                {tpl.canvasSize.width}×{tpl.canvasSize.height} · {tpl.photoSlots.length}컷
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Frame options */}
@@ -424,7 +470,21 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const filterTab =
   <div>
       <Kick T={T}>Choose a filter · 필터 선택</Kick>
-      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      <div style={{ marginTop: 10, marginBottom: 12, padding: '12px 14px', borderRadius: 16, background: 'rgba(26,26,31,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: tweaks.useWebgl ? `1.5px solid ${T.ink}` : '1.5px solid transparent', transition: '0.2s' }}>
+        <div style={{ flex: 1, marginRight: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui', display: 'flex', alignItems: 'center', gap: 6 }}>
+            AR Filters {tweaks.useWebgl && <span style={{ fontSize: 9, background: T.ink, color: T.bg, padding: '1px 5px', borderRadius: 4, letterSpacing: 0.5 }}>ACTIVE</span>}
+          </div>
+          <div style={{ fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui', marginTop: 2, lineHeight: 1.3 }}>얼굴 보정 및 AR 특수효과 (일부 기기에서 느릴 수 있음)</div>
+        </div>
+        <button onClick={() => setUseWebgl(!tweaks.useWebgl)} style={{
+          width: 42, height: 22, borderRadius: 999, background: tweaks.useWebgl ? T.ink : 'rgba(26,26,31,0.12)',
+          position: 'relative', border: 'none', cursor: 'pointer', transition: '0.3s cubic-bezier(0.34,1.56,0.64,1)', flexShrink: 0
+        }}>
+          <div style={{ width: 16, height: 16, borderRadius: 999, background: '#fff', position: 'absolute', top: 3, left: tweaks.useWebgl ? 23 : 3, transition: '0.3s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
         {Object.entries(FILTERS).map(([k, v]) =>
       <button key={k} onClick={() => setFilter(k)} style={{
         padding: 0, border: 'none', cursor: 'pointer', background: T.card,
@@ -437,7 +497,10 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
               <FilterOverlay filter={k} />
             </div>
             <div style={{ padding: '6px 10px', fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
-              {v.name}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4 }}>{v.ko}</span>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:4 }}>
+                <span>{v.name}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4 }}>{v.ko}</span></span>
+                {v.premium && <StoreBadge T={T} tone="light">Pro</StoreBadge>}
+              </div>
             </div>
           </button>
       )}
@@ -463,8 +526,13 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
       </div>
       {Object.entries(STICKER_CATALOG).map(([k, pack]) =>
     <div key={k} style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: 600, textTransform: 'uppercase', color: T.inkSoft, marginBottom: 6, fontFamily: '"Plus Jakarta Sans",system-ui' }}>
-            {pack.name} · {pack.ko}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom: 6 }}>
+            <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: 600, textTransform: 'uppercase', color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui' }}>
+              {pack.name} · {pack.ko}
+            </div>
+            <div style={{ display:'flex', gap:5 }}>
+              {pack.recommended && <StoreBadge T={T} tone="light">Pick</StoreBadge>}
+            </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             {pack.items.map((it) =>
@@ -488,13 +556,16 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
 
 
   const photoFileRefs = [uR(null), uR(null), uR(null), uR(null)];
+  const maxUploadCount = typeof getShotCountForLayout === 'function'
+    ? getShotCountForLayout(layout)
+    : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
   const onPhotoUpload = async (idx, e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     
     for (let i = 0; i < files.length; i++) {
       const targetIdx = idx + i;
-      if (targetIdx >= 6) break;
+      if (targetIdx >= maxUploadCount) break;
       const f = files[i];
       const dataUrl = await new Promise(res => {
         const rd = new FileReader();

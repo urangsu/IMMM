@@ -6,6 +6,9 @@
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, muted, onRequestCamera,
   videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange
 }) {
+  const shotCount = typeof getShotCountForLayout === 'function'
+    ? getShotCountForLayout(layout)
+    : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
   const [idx, setIdx]           = React.useState(0);
   const [countdown, setCountdown] = React.useState(0);
   const [timerLen, setTimerLen]   = React.useState(3);
@@ -61,7 +64,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     touchStartY.current = null;
   };
 
-  const captureFromVideo = React.useCallback((v, filterKey, cssFilter, mirrorX) => {
+  const captureFromVideo = React.useCallback(async (v, filterKey, cssFilter, mirrorX) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
     try {
       const c = document.createElement('canvas');
@@ -90,9 +93,14 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
       ctx.restore();
       applyCapturedFilterLook(ctx, c.width, c.height, filterKey);
+      if (typeof FrameRenderEngine !== 'undefined' && preStickers.length > 0) {
+        for (const sticker of preStickers) {
+          await FrameRenderEngine.drawStickerToCanvas(ctx, sticker, c.width, c.height, Math.max(1, c.width / 720));
+        }
+      }
       return c.toDataURL('image/jpeg', 0.95);
     } catch(e) { return null; }
-  }, []);
+  }, [preStickers]);
 
   const applyCapturedFilterLook = (ctx, w, h, filterKey) => {
     ctx.save();
@@ -180,11 +188,31 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     ctx.restore();
   };
 
+  const bakePreStickers = React.useCallback(async (dataUrl) => {
+    if (!dataUrl || !preStickers.length || typeof FrameRenderEngine === 'undefined') return dataUrl;
+    const img = await new Promise((resolve) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(null);
+      el.src = dataUrl;
+    });
+    if (!img) return dataUrl;
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    for (const sticker of preStickers) {
+      await FrameRenderEngine.drawStickerToCanvas(ctx, sticker, c.width, c.height, Math.max(1, c.width / 720));
+    }
+    return c.toDataURL('image/jpeg', 0.95);
+  }, [preStickers]);
+
   const takeShot = React.useCallback(() => {
     setFlashing(true);
     setTimeout(()=>setFlashing(false), 140);
 
-    const doCapture = () => {
+    const doCapture = async () => {
       let dataUrl = null;
       // WebGL canvas — only if actively rendering (blank check: real JPEG > 5KB)
       const canvas = canvasRef.current;
@@ -198,7 +226,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           const capW = 1920;
           const capH = Math.max(1, Math.round(1920 / aspect));
           const raw = engineRef.current.takeSnapshot(capW, capH, mirrorX, pipeline, faceUniforms);
-          if (raw && raw.length > 5000) dataUrl = raw;
+          if (raw && raw.length > 5000) dataUrl = await bakePreStickers(raw);
         } catch(e) { console.error('WebGL Capture Error:', e); }
       }
       
@@ -208,19 +236,20 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         if (v && v.readyState >= 2 && v.videoWidth > 0) {
           // If WebGL is supported but capture failed, we MUST still apply the CSS filter for the shot
           const cssFilter = FILTERS[filter]?.css || 'none';
-          dataUrl = captureFromVideo(v, filter, cssFilter, facingMode === 'user');
+          dataUrl = await captureFromVideo(v, filter, cssFilter, facingMode === 'user');
         }
       }
       const rect = cameraFrameRef.current?.getBoundingClientRect();
       setShots(prev => {
         const copy = [...prev];
-        while (copy.length < 6) copy.push(null);
+        while (copy.length < shotCount) copy.push(null);
         copy[idx] = {
           dataUrl,
           filter,
           capturedFilter: filter,
           renderMode: dataUrl && canvasActive ? 'webgl' : 'canvas2d-css',
-          preStickers: preStickers.map(s => ({ ...s })),
+          preStickers: [],
+          bakedPreStickers: preStickers.map(s => ({ ...s })),
           facingMode,
           mirrored: facingMode === 'user',
           width: rect?.width ? Math.round(rect.width) : 720,
@@ -229,8 +258,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         };
         return copy;
       });
-      setIdx(i => Math.min(i+1, 6));
-    };
+        setIdx(i => Math.min(i+1, shotCount));
+      };
 
     // Wait for video ready if needed
     const v = videoRef.current;
@@ -241,27 +270,27 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     } else {
       doCapture();
     }
-  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode]);
+  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers]);
 
   React.useEffect(()=> {
     if (countdown <= 0) return;
     const t = setTimeout(()=> {
-      if (countdown === 1) {
-        takeShot();
-        setCountdown(0);
-        if (auto && idx < 5) setTimeout(()=>setCountdown(3), 700);
-      } else setCountdown(c=>c-1);
+        if (countdown === 1) {
+          takeShot();
+          setCountdown(0);
+          if (auto && idx < shotCount - 1) setTimeout(()=>setCountdown(3), 700);
+        } else setCountdown(c=>c-1);
     }, 900);
     return ()=>clearTimeout(t);
-  }, [countdown, auto, idx, takeShot]);
+  }, [countdown, auto, idx, takeShot, shotCount]);
 
   React.useEffect(()=> {
-    if (idx >= 6) setTimeout(()=>go('select'), 600);
-  }, [idx, go]);
+    if (idx >= shotCount) setTimeout(()=>go('select'), 600);
+  }, [idx, go, shotCount]);
 
-  const startCountdown = () => { if (countdown===0 && idx<6) setCountdown(timerLen); };
-  const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<6 && countdown===0) setCountdown(timerLen); };
-  const thumbs = Array.from({length:6}, (_,i)=> shots[i]);
+  const startCountdown = () => { if (countdown===0 && idx<shotCount) setCountdown(timerLen); };
+  const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<shotCount && countdown===0) setCountdown(timerLen); };
+  const thumbs = Array.from({length:shotCount}, (_,i)=> shots[i]);
   const renderShotStickers = (s) => (
     <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
       {(s?.preStickers || []).map(st => (
@@ -378,7 +407,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           <div style={{ position:'absolute', top:14, right:14, padding:'8px 14px',
             background:'rgba(0,0,0,0.3)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
             color:'#fff', borderRadius:999, fontSize:11, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600, zIndex:15 }}>
-            {String(Math.min(idx+1,6)).padStart(2,'0')} / 06
+            {String(Math.min(idx+1,shotCount)).padStart(2,'0')} / {String(shotCount).padStart(2,'0')}
           </div>
         </div>
         {/* Shutter row - fixed height, centered */}
@@ -418,7 +447,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           </button>
           <div style={{ position:'absolute', right:0, padding:'10px 14px', borderRadius:999, background:'rgba(26,26,31,0.06)', fontSize:12, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
-            {Math.max(0, 6-idx)} left
+            {Math.max(0, shotCount-idx)} left
           </div>
         </div>
         {/* Thumbnail strip - mobile only */}
@@ -453,7 +482,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 // SELECT
 // ═══════════════════════════════════════════════════════════════
 function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
-  const maxSel = layout === 'trip' ? 3 : 4;
+  const maxSel = typeof getShotCountForLayout === 'function'
+    ? getShotCountForLayout(layout)
+    : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
+  const [previewIdx, setPreviewIdx] = React.useState(null);
+  const pressTimerRef = React.useRef(null);
+  const longPressRef = React.useRef(false);
   const renderShotStickers = (s) => (
     <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
       {(s?.preStickers || []).map(st => (
@@ -471,6 +505,21 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
       return [...prev, i];
     });
   };
+  const clearPressTimer = () => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  };
+  const beginPress = (i) => {
+    clearPressTimer();
+    longPressRef.current = false;
+    pressTimerRef.current = setTimeout(() => {
+      longPressRef.current = true;
+      setPreviewIdx(i);
+    }, 420);
+  };
+  const endPress = () => clearPressTimer();
   return (
     <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column',
       padding: mobile?'50px 18px 18px':'24px 56px 24px' }}>
@@ -489,7 +538,19 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
           const sel = selected.indexOf(i);
           const isSel = sel>=0;
           return (
-            <button key={i} onClick={()=>toggle(i)} style={{
+            <button key={i}
+              onPointerDown={() => beginPress(i)}
+              onPointerUp={endPress}
+              onPointerLeave={endPress}
+              onPointerCancel={endPress}
+              onClick={() => {
+                if (longPressRef.current) {
+                  longPressRef.current = false;
+                  return;
+                }
+                toggle(i);
+              }}
+              style={{
               position:'relative', aspectRatio:'1', borderRadius: mobile?14:18, overflow:'hidden',
               padding:0, background:'#000', cursor:'pointer', border:'none',
               maxWidth: '100%', maxHeight: '100%', placeSelf: 'center', width: '100%',
@@ -520,8 +581,195 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
             {selected.length===maxSel ? <>Deco studio · 꾸미기  {I.arrowR(16, T.bg)}</> : `Pick ${maxSel-selected.length} more`}
           </BtnPrimary>
         </div>
+      {previewIdx != null && shots[previewIdx]?.dataUrl && (
+        <div
+          onClick={() => setPreviewIdx(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            background: 'rgba(10,10,10,0.82)',
+            backdropFilter: 'blur(18px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 18,
+          }}
+        >
+          <div style={{ position: 'relative', width: 'min(92vw, 520px)' }}>
+            <img
+              src={shots[previewIdx].dataUrl}
+              style={{
+                width: '100%',
+                height: 'auto',
+                display: 'block',
+                borderRadius: 20,
+                boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+              }}
+            />
+            {shots[previewIdx].preStickers?.length > 0 && (
+              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                {renderShotStickers(shots[previewIdx])}
+              </div>
+            )}
+            <button
+              onClick={() => setPreviewIdx(null)}
+              style={{
+                position: 'absolute',
+                top: -12,
+                right: -12,
+                width: 36,
+                height: 36,
+                borderRadius: 999,
+                border: 'none',
+                background: '#fff',
+                color: T.ink,
+                cursor: 'pointer',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+              }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-Object.assign(window, { CaptureV2, SelectV2 });
+function GalleryV2({ T, go, mobile }) {
+  const [items, setItems] = React.useState([]);
+  const [busy, setBusy] = React.useState(true);
+  const [preview, setPreview] = React.useState(null);
+  const [qrPreview, setQrPreview] = React.useState(null);
+
+  const load = React.useCallback(async () => {
+    setBusy(true);
+    try {
+      const rows = typeof LocalGalleryStore !== 'undefined' ? await LocalGalleryStore.listPhotos() : [];
+      const filteredRows = rows.filter((row) => row.source !== 'qr');
+      const mapped = filteredRows.map((row) => ({ ...row, url: URL.createObjectURL(row.blob) }));
+      setItems((prev) => {
+        prev.forEach((item) => item.url && URL.revokeObjectURL(item.url));
+        return mapped;
+      });
+    } catch (e) {
+      console.warn('[IMMM] Gallery load failed:', e);
+      setItems([]);
+    }
+    setBusy(false);
+  }, []);
+
+  React.useEffect(() => {
+    load();
+    return () => setItems((prev) => {
+      prev.forEach((item) => item.url && URL.revokeObjectURL(item.url));
+      return [];
+    });
+  }, [load]);
+
+  const remove = async (item) => {
+    if (typeof LocalGalleryStore === 'undefined') return;
+    await LocalGalleryStore.deletePhoto(item.id);
+    await load();
+  };
+
+  return (
+    <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column', padding: mobile ? 'calc(var(--sat) + 20px) 20px calc(var(--sab) + 22px)' : '36px 56px 32px' }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, flexShrink:0, paddingBottom: 18, borderBottom:`1px solid ${T.line}` }}>
+        <button onClick={() => go('landing')} style={{ border:'none', background:'transparent', color:T.inkSoft, cursor:'pointer', fontWeight:700, fontSize:11, fontFamily:'"Plus Jakarta Sans",system-ui', letterSpacing:1.8, textTransform:'uppercase', padding:'4px 0' }}>Back</button>
+        <div style={{ textAlign:'right' }}>
+          <div style={{ fontSize:10, color:T.inkSoft, fontFamily:'"Plus Jakarta Sans",system-ui', letterSpacing:2.4, textTransform:'uppercase' }}>Private Archive</div>
+          <div style={{ marginTop:6, fontSize: mobile ? 28 : 44, lineHeight: 0.95, fontWeight:700, letterSpacing:-1.4, color:T.ink, fontFamily:'"Plus Jakarta Sans",system-ui' }}>Gallery</div>
+          <div style={{ marginTop:8, fontSize:12, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>프레임에 넣어 확정한 사진만 이 기기에 남습니다.</div>
+        </div>
+      </div>
+
+      <div style={{ flex:1, overflow:'auto', marginTop:24, paddingRight: mobile ? 0 : 6 }}>
+        {busy ? (
+          <div style={{ height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:T.inkSoft, fontWeight:800 }}>불러오는 중...</div>
+        ) : items.length === 0 ? (
+          <div style={{ height:'100%', minHeight:360, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', color:T.inkSoft }}>
+            <div style={{ fontSize:10, letterSpacing:2.2, textTransform:'uppercase', fontFamily:'"Plus Jakarta Sans",system-ui' }}>No Saved Frames</div>
+            <div style={{ marginTop:12, fontSize:24, lineHeight:1.05, fontWeight:700, letterSpacing:-0.8, color:T.ink, fontFamily:'"Plus Jakarta Sans",system-ui' }}>아직 확정된 사진이 없어요.</div>
+            <div style={{ marginTop:10, fontSize:13, lineHeight:1.6, fontFamily:'Pretendard,system-ui' }}>촬영을 마치고 결과 화면에 도착한 사진만 여기에 정리됩니다.</div>
+          </div>
+        ) : (
+          <div style={{ display:'grid', gridTemplateColumns: mobile ? 'repeat(2, 1fr)' : 'repeat(4, minmax(0, 1fr))', gap:16 }}>
+            {items.map((item) => (
+              <div key={item.id} style={{ borderRadius:24, background:T.card, boxShadow:'0 0 0 1px rgba(26,26,31,0.06), 0 16px 42px rgba(0,0,0,0.045)', overflow:'hidden' }}>
+                <button onClick={() => setPreview(item)} style={{ width:'100%', aspectRatio:'3 / 4', border:'none', padding:0, background:'#f5f5f5', cursor:'zoom-in', overflow:'hidden' }}>
+                  <img src={item.url} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+                </button>
+                <div style={{ padding:'13px 13px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:800, color:T.inkSoft, letterSpacing:1.5, textTransform:'uppercase', fontFamily:'"Plus Jakarta Sans",system-ui' }}>{item.frameType || item.layout}</div>
+                    <div style={{ marginTop:4, fontSize:11, color:T.ink, fontWeight:600, fontFamily:'Pretendard,system-ui' }}>{new Date(item.createdAt).toLocaleDateString('ko-KR')}</div>
+                  </div>
+                  <button onClick={() => remove(item)} style={{ border:'none', background:'transparent', color:T.inkSoft, borderRadius:999, padding:'7px 0', cursor:'pointer', fontSize:10, fontWeight:700, letterSpacing:1.4, textTransform:'uppercase', fontFamily:'"Plus Jakarta Sans",system-ui' }}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {preview && (
+        <div onClick={() => setPreview(null)} style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(10,10,10,0.82)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width:'min(92vw,460px)', maxHeight:'88vh', background:'#fff', borderRadius:24, padding:16, textAlign:'center', boxShadow:'0 24px 80px rgba(0,0,0,0.35)' }}>
+            <img src={preview.url} style={{ width:'100%', maxHeight:'68vh', objectFit:'contain', borderRadius:16, background:'#f4f4f4' }} />
+            <div style={{ marginTop:14, display:'grid', gridTemplateColumns: preview.shareInfo?.qrDataUrl ? '1fr 1fr' : '1fr', gap:10 }}>
+              {preview.shareInfo?.qrDataUrl && <button onClick={() => setQrPreview(preview.shareInfo)} style={{ padding:'13px 16px', borderRadius:14, border:'1px solid rgba(17,17,17,0.1)', background:'#fff', color:'#111', fontWeight:900, cursor:'pointer' }}>QR 보기</button>}
+              <button onClick={() => setPreview(null)} style={{ padding:'13px 16px', borderRadius:14, border:'none', background:'#111', color:'#fff', fontWeight:900, cursor:'pointer' }}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {qrPreview && (
+        <div onClick={() => setQrPreview(null)} style={{ position:'fixed', inset:0, zIndex:100000, background:'rgba(10,10,10,0.82)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width:'min(90vw,360px)', background:'#fff', borderRadius:22, padding:20, textAlign:'center', boxShadow:'0 24px 80px rgba(0,0,0,0.35)' }}>
+            <img src={qrPreview.qrDataUrl} style={{ width:220, height:220, imageRendering:'pixelated' }} />
+            <div style={{ marginTop:10, fontSize:13, color:T.inkSoft, lineHeight:1.5, fontFamily:'Pretendard,system-ui' }}>이 결과물에 연결된 QR 공유입니다.</div>
+            <button onClick={() => setQrPreview(null)} style={{ marginTop:12, width:'100%', padding:'13px 16px', borderRadius:14, border:'none', background:'#111', color:'#fff', fontWeight:900, cursor:'pointer' }}>닫기</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SharedPhotoV2({ T, go, mobile }) {
+  const [state, setState] = React.useState(() => {
+    const raw = location.hash || '';
+    const query = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : '';
+    const params = new URLSearchParams(query);
+    const url = params.get('u');
+    const expiresAt = Number(params.get('e') || 0);
+    return { url, expiresAt };
+  });
+  const expired = state.expiresAt && Date.now() > state.expiresAt;
+
+  return (
+    <div style={{ minHeight:'100%', background:T.bg, display:'flex', alignItems:'center', justifyContent:'center', padding: mobile ? 'calc(var(--sat) + 18px) 18px calc(var(--sab) + 18px)' : 40 }}>
+      <div style={{ width:'min(92vw,460px)', textAlign:'center' }}>
+        <div style={{ fontFamily:'"Plus Jakarta Sans",system-ui', fontSize:12, fontWeight:900, letterSpacing:4, color:T.inkSoft, textTransform:'uppercase' }}>IMMM Shared Moment</div>
+        {state.url && !expired ? (
+          <>
+            <img src={state.url} style={{ width:'100%', marginTop:20, borderRadius:26, background:'#f4f4f4', boxShadow:'0 28px 80px rgba(0,0,0,0.12)' }} />
+            <div style={{ marginTop:18, fontSize:13, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>공유 이미지는 7일 동안 보관됩니다.</div>
+          </>
+        ) : (
+          <div style={{ marginTop:24, padding:'42px 22px', borderRadius:26, background:'rgba(26,26,31,0.05)' }}>
+            <div style={{ fontSize:42, marginBottom:14 }}>🔒</div>
+            <div style={{ fontSize:22, fontWeight:900, color:T.ink, fontFamily:'Pretendard,system-ui' }}>공유 링크가 만료됐어요</div>
+            <div style={{ marginTop:8, fontSize:14, color:T.inkSoft, lineHeight:1.5, fontFamily:'Pretendard,system-ui' }}>QR 공유 이미지는 7일 보관 정책을 따릅니다.</div>
+          </div>
+        )}
+        <button onClick={() => { location.hash = ''; go('landing'); }} style={{ marginTop:18, padding:'14px 22px', borderRadius:999, border:'none', background:T.ink, color:T.bg, fontWeight:900, cursor:'pointer' }}>IMMM 열기</button>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { CaptureV2, SelectV2, GalleryV2, SharedPhotoV2 });

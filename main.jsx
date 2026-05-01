@@ -43,10 +43,11 @@ function App() {
     logo: true,
     dateText: true,
     frameColor: '#ffffff',
+    useWebgl: window.innerWidth >= 640, // Default off on mobile for stability
   });
 
   const [screen, setScreen] = React.useState(
-    () => localStorage.getItem('immm.v2.screen') || 'landing'
+    () => location.hash.startsWith('#/s/') ? 'share' : (localStorage.getItem('immm.v2.screen') || 'landing')
   );
   const [shots, setShots] = React.useState(() => Array(6).fill(null));
   const [selected, setSelected] = React.useState(() => {
@@ -67,7 +68,7 @@ function App() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const faceTrackedFilters = ['blush', 'purikura', 'glam', 'aurora'];
-  const shouldUseWebgl = !mobile && faceTrackedFilters.includes(tweaks.filter);
+  const shouldUseWebgl = tweaks.useWebgl && faceTrackedFilters.includes(tweaks.filter);
   const [cameraBox, setCameraBox] = React.useState(null);
 
   // ═══════════════════════════════════════════════════════════════
@@ -84,7 +85,7 @@ function App() {
 
   // useFilterEngine stays active from the start, warming up shaders
   const { engineRef, webglOk, firstFrame, webglFailed } = (typeof useFilterEngine === 'function')
-    ? useFilterEngine(canvasRef, videoRef, tweaks.filter, faceDataRef, !shouldUseWebgl, facingMode === 'user')
+    ? useFilterEngine(canvasRef, videoRef, tweaks.filter, faceDataRef, !shouldUseWebgl, facingMode === 'user', mobile)
     : { engineRef: null, webglOk: false, firstFrame: false, webglFailed: false };
 
   // Shared Camera Stream
@@ -123,7 +124,16 @@ function App() {
     };
   }, [facingMode]);
 
-  React.useEffect(() => { localStorage.setItem('immm.v2.screen', screen); }, [screen]);
+  React.useEffect(() => {
+    const onHash = () => {
+      if (location.hash.startsWith('#/s/')) setScreen('share');
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  React.useEffect(() => {
+    if (screen !== 'share') localStorage.setItem('immm.v2.screen', screen);
+  }, [screen]);
   React.useEffect(() => { localStorage.setItem('immm.v2.sel', JSON.stringify(selected)); }, [selected]);
 
   // Samsung Internet suspends background video (opacity:0, zIndex:-1 screens).
@@ -142,12 +152,16 @@ function App() {
   };
   const updateTweak = (k, v) => setTweaks(prev => ({ ...prev, [k]: v }));
 
+  const shotCount = typeof getShotCountForLayout === 'function'
+    ? getShotCountForLayout(tweaks.layout)
+    : (tweaks.layout === 'polaroid' ? 1 : tweaks.layout === 'trip' ? 3 : 4);
+
   // Dummy-fill shots when jumping deep without capturing
   const needsDummy = ['select', 'deco', 'result'].includes(screen) && shots.every(s => !s);
   const effShots = needsDummy
-    ? Array.from({ length: 6 }, () => ({ dataUrl: null, filter: tweaks.filter }))
+    ? Array.from({ length: shotCount }, () => ({ dataUrl: null, filter: tweaks.filter }))
     : shots;
-  const selectionCount = tweaks.layout === 'trip' ? 3 : 4;
+  const selectionCount = shotCount;
   const defaultSelected = Array.from({ length: selectionCount }, (_, i) => i);
   const effSelected = selected.length === selectionCount ? selected : defaultSelected;
 
@@ -164,6 +178,7 @@ function App() {
     dateText: tweaks.dateText,
     frameColor: tweaks.frameColor,
     accent,
+    tweaks,
     lang, setLang,
   };
 
@@ -174,7 +189,12 @@ function App() {
         return <LandingV2 {...p}
           onStart={() => { setPhotoEditMode(false); go('setup'); }}
           onEdit={() => { setPhotoEditMode(true); go('setup'); }}
+          onGallery={() => go('gallery')}
         />;
+      case 'gallery':
+        return <GalleryV2 {...p} />;
+      case 'share':
+        return <SharedPhotoV2 {...p} />;
       case 'setup':
         return <SetupScreen {...p}
           setLayout={v => updateTweak('layout', v)}
@@ -183,6 +203,7 @@ function App() {
           setDateText={v => updateTweak('dateText', v)}
           setOrientation={v => updateTweak('orientation', v)}
           setFrameColor={v => updateTweak('frameColor', v)}
+          setUseWebgl={v => updateTweak('useWebgl', v)}
           preStickers={preStickers} setPreStickers={setPreStickers}
           editMode={photoEditMode}
           shots={shots} setShots={setShots} setSelected={setSelected}

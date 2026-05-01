@@ -396,6 +396,9 @@ function chipBtn(T) {return {
 // RESULT
 // ═══════════════════════════════════════════════════════════════
 function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation, stickers, drawStrokes, logo, dateText, accent, frameColor }) {
+  const shotCount = typeof getShotCountForLayout === 'function'
+    ? getShotCountForLayout(layout)
+    : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
   const shotsForFrame = shots;
   const freeStickers = stickers.filter((s) => s.frameSlot == null);
   const slottedMap = {};
@@ -456,6 +459,39 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const captureRef = React.useRef(null);
   const [autoScale, setAutoScale] = React.useState(mobile ? 1.0 : 1.3);
   const [downloading, setDownloading] = React.useState(false);
+  const [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
+  const [qrShare, setQrShare] = React.useState(null);
+  const [qrBusy, setQrBusy] = React.useState(false);
+  const autoSavedRef = React.useRef(false);
+
+  const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  const saveResultToGallery = async (blob, source = 'local', shareInfo = null) => {
+    if (!blob || typeof LocalGalleryStore === 'undefined') return;
+    try {
+      const stableId = [
+        'immm',
+        layout,
+        selected.map((i) => shots[i]?.ts || i).join('-'),
+        stickers.length,
+        drawStrokes.length,
+      ].join('_');
+      await LocalGalleryStore.putPhoto({
+        id: stableId,
+        createdAt: Date.now(),
+        source,
+        blob,
+        layout,
+        frameType: (typeof getFrameTemplate === 'function' ? getFrameTemplate(layout).type : layout),
+        filter,
+        shareInfo,
+        metadata: { selected, stickerCount: stickers.length, drawCount: drawStrokes.length },
+      });
+    } catch (e) {
+      console.warn('[IMMM] Local gallery save failed:', e);
+    }
+  };
 
   const drawCover = (ctx, img, x, y, w, h) => {
     const ar = img.width / img.height;
@@ -466,14 +502,139 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
   };
 
+  const drawStickerToCanvas = async (ctx, s, baseW, baseH, S) => {
+    ctx.save();
+    const cx = (s.x / 100) * baseW;
+    const cy = (s.y / 100) * baseH;
+    ctx.translate(cx, cy);
+    ctx.rotate((s.rotation || 0) * Math.PI / 180);
+    ctx.scale(s.scale || 1, s.scale || 1);
+
+    if (s.kind === 'preset') {
+      const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(s.payload.libId) : null;
+      if (item) {
+        if (item.type === 'burst') {
+          const w = (item.w || 90) * S, h = (item.h || 70) * S;
+          const fs = (item.fs || 11) * S;
+          const rO = Math.min(w, h) / 2 - 2 * S, rI = rO * 0.74;
+          const N = 14;
+          ctx.beginPath();
+          for (let i = 0; i < N * 2; i++) {
+            const r = i % 2 === 0 ? rO : rI;
+            const a = (i / (N * 2)) * Math.PI * 2 - Math.PI / 2;
+            ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+          }
+          ctx.closePath();
+          ctx.fillStyle = item.fill;
+          ctx.strokeStyle = '#111';
+          ctx.lineWidth = 2 * S;
+          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = item.tc;
+          ctx.font = `900 ${fs}px Pretendard, sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(item.text, 0, fs * 0.1);
+        } else if (item.type === 'cloud') {
+          const w = (item.w || 100) * S, h = (item.h || 60) * S;
+          const fs = (item.fs || 11) * S;
+          ctx.beginPath();
+          // Simplified cloud path for canvas
+          ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+          ctx.fillStyle = item.fill;
+          ctx.strokeStyle = '#111';
+          ctx.lineWidth = 2 * S;
+          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = item.tc;
+          ctx.font = `800 ${fs}px Pretendard, sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(item.text, 0, 0);
+        } else if (item.type === 'mini') {
+          const sz = 44 * S;
+          ctx.fillStyle = item.fill;
+          ctx.strokeStyle = '#111';
+          ctx.lineWidth = 2 * S;
+          if (item.kind === 'heart') {
+            ctx.beginPath();
+            ctx.moveTo(0, sz * 0.3);
+            ctx.bezierCurveTo(-sz * 0.4, -sz * 0.2, -sz * 0.4, -sz * 0.7, 0, -sz * 0.4);
+            ctx.bezierCurveTo(sz * 0.4, -sz * 0.7, sz * 0.4, -sz * 0.2, 0, sz * 0.3);
+            ctx.fill(); ctx.stroke();
+          } else if (item.kind === 'star') {
+            ctx.beginPath();
+            for (let i = 0; i < 10; i++) {
+              const r = i % 2 === 0 ? sz * 0.5 : sz * 0.25;
+              const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+              ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+            }
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+          } else if (item.kind === 'dot') {
+            ctx.beginPath(); ctx.arc(0, 0, sz * 0.3, 0, Math.PI * 2); ctx.fill();
+          } else if (item.kind === 'sparkle') {
+            ctx.beginPath();
+            ctx.moveTo(0, -sz / 2); ctx.lineTo(0, sz / 2);
+            ctx.moveTo(-sz / 2, 0); ctx.lineTo(sz / 2, 0);
+            ctx.stroke();
+          }
+        } else if (item.type === 'text') {
+          const fs = item.size * S;
+          ctx.fillStyle = item.color;
+          ctx.font = `${fs}px Caveat, cursive`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(item.text, 0, 0);
+        }
+      }
+    } else if (s.kind === 'upload') {
+      const img = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = s.payload.dataUrl; });
+      if (img) {
+        const w = 120 * S;
+        ctx.drawImage(img, -w / 2, -(w / (img.width / img.height)) / 2, w, w / (img.width / img.height));
+      }
+    } else if (s.kind === 'text') {
+      const fs = s.payload.size * S;
+      ctx.fillStyle = s.payload.color;
+      ctx.font = `600 ${fs}px Pretendard, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(s.payload.text, 0, 0);
+    } else if (s.kind === 'setlog') {
+      const { time, caption, theme } = s.payload;
+      const fg = theme === 'white' ? '#fff' : '#000';
+      const shadow = theme === 'white' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)';
+      ctx.shadowColor = shadow; ctx.shadowBlur = 4 * S;
+      ctx.fillStyle = fg;
+      ctx.font = `800 ${28 * S}px "Plus Jakarta Sans", sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(time, 0, 0);
+      if (caption) {
+        ctx.font = `600 ${12 * S}px Pretendard, sans-serif`;
+        ctx.globalAlpha = 0.8;
+        ctx.fillText(caption, 0, 32 * S);
+      }
+    }
+    ctx.restore();
+  };
+
   const captureFrameAsBlob = async () => {
+    if (typeof FrameRenderEngine !== 'undefined') {
+      return FrameRenderEngine.renderToBlob({
+        layout,
+        shots,
+        selected,
+        stickers,
+        drawStrokes,
+        logo,
+        dateText,
+        accent,
+        frameColor,
+        scale: 2,
+      });
+    }
     const S = 10; // Ultra high-res scale (10x base) for crystal clear quality
     const FRAME_W = (layout === 'strip' || layout === 'trip') ? 240 * S : 320 * S;
     const PAD = 14 * S;
     const GAP = 10 * S;
     
     const photoW = FRAME_W - PAD * 2;
-    const numSlots = layout === 'trip' ? 3 : 4;
+    const numSlots = shotCount;
     const cols = (layout === 'grid' || layout === 'layered') ? 2 : 1;
     const colW = cols === 2 ? (photoW - GAP) / 2 : photoW;
     const photoAr = cols === 2 ? 1 : 4/3;
@@ -520,6 +681,20 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       ctx.fillRect(x, y, colW, photoH);
       if (imgs[i]) {
         drawCover(ctx, imgs[i], x, y, colW, photoH);
+      }
+      // Slotted stickers for this slot
+      const slotted = stickers.filter(s => s.frameSlot === i);
+      if (slotted.length > 0) {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(x, y, colW, photoH); ctx.clip();
+        for (const s of slotted) {
+          // coordinate in slot is relative to slot center (50,50)
+          // we need to translate it back to global frame coordinate
+          // s.x and s.y for slotted stickers are actually already in % of the WHOLE FRAME canvas
+          // because of how StickerCanvas calculates nx/ny during drag.
+          await drawStickerToCanvas(ctx, s, FRAME_W, FRAME_H, S);
+        }
+        ctx.restore();
       }
     }
 
@@ -574,8 +749,38 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       ctx.restore();
     });
 
+    // Draw free stickers
+    const free = stickers.filter(s => s.frameSlot == null);
+    for (const s of free) {
+      await drawStickerToCanvas(ctx, s, FRAME_W, FRAME_H, S);
+    }
+
     return new Promise(res => cvs.toBlob(res, 'image/png'));
   };
+
+  React.useEffect(() => {
+    if (autoSavedRef.current) return;
+    autoSavedRef.current = true;
+    const selectedShots = selected.map((i) => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 28) || i).join('|');
+    const key = `immm.gallery.autosaved.${layout}.${selectedShots}.${stickers.length}.${drawStrokes.length}`;
+    if (localStorage.getItem(key)) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const blob = await captureFrameAsBlob();
+        if (!cancelled && blob) {
+          await saveResultToGallery(blob, 'local');
+          localStorage.setItem(key, '1');
+        }
+      } catch (e) {
+        console.warn('[IMMM] Auto gallery save failed:', e);
+      }
+    }, 450);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, []);
 
   const handleDownload = async () => {
     if (downloading) return;
@@ -583,14 +788,27 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     try {
       const blob = await captureFrameAsBlob();
       const fname = `IMMM_${Date.now()}.png`;
+      const file = new File([blob], fname, { type: 'image/png' });
+      await saveResultToGallery(blob, 'local');
+      if (isIOS() && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'IMMM · Photobooth',
+          text: '한 장에 담는 순간들.\n나만의 포토부스 IMMM.\nhttps://immm.vercel.app',
+        });
+        setDownloading(false);
+        return;
+      }
       const url = URL.createObjectURL(blob);
+      if (isIOS()) {
+        setSaveSheetUrl(url);
+        setDownloading(false);
+        return;
+      }
       const a = document.createElement('a');
       a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
-      
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      if (isIOS) setTimeout(() => window.open(url, '_blank'), 150);
       setTimeout(() => URL.revokeObjectURL(url), 15000);
     } catch(e) { console.error(e); }
     setDownloading(false);
@@ -600,12 +818,12 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     try {
       const blob = await captureFrameAsBlob();
       const file = new File([blob], `IMMM_${Date.now()}.png`, { type: 'image/png' });
+      await saveResultToGallery(blob, 'local');
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: 'IMMM · Photobooth',
-          text: '나의 그리고 우리의 순간.\n나만의 포토부스 IMMM.\nhttps://immm.vercel.app',
-          url: 'https://immm.vercel.app',
+          text: '한 장에 담는 순간들.\n나만의 포토부스 IMMM.\nhttps://immm.vercel.app',
         });
       } else {
         // Fallback for browsers that don't support file sharing
@@ -618,7 +836,28 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     }
   };
 
-  // ── video download — ALL 6 shots, flash transitions, 24fps film feel ──
+  const handleQrShare = async () => {
+    if (qrBusy) return;
+    setQrBusy(true);
+    try {
+      const blob = await captureFrameAsBlob();
+      const share = await ShareStore.createShare(blob, {
+        layout,
+        filter,
+        frameType: typeof getFrameTemplate === 'function' ? getFrameTemplate(layout).type : layout,
+      });
+      const qrDataUrl = await generateQrDataUrl(share.qrUrl || share.url);
+      const payload = { ...share, qrDataUrl };
+      setQrShare(payload);
+      await saveResultToGallery(blob, 'local', payload);
+    } catch (e) {
+      console.error('QR share failed:', e);
+      alert('QR 공유를 만들지 못했어요. Supabase 설정 또는 네트워크를 확인해주세요.');
+    }
+    setQrBusy(false);
+  };
+
+  // ── video download — current frame shots, flash transitions, 24fps film feel ──
   const [videoRecording, setVideoRecording] = React.useState(false);
   const videoSupported = typeof MediaRecorder !== 'undefined' &&
     (typeof HTMLCanvasElement.prototype.captureStream !== 'undefined' ||
@@ -630,8 +869,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       alert('이 브라우저에서는 영상 저장이 지원되지 않아요. (Chrome 권장)');
       return;
     }
-    // Use ALL shots in capture order (not just selected 4)
-    const allShots = shots.filter(s => s?.dataUrl);
+    // Use the current frame shot count in capture order
+    const allShots = shots.slice(0, shotCount).filter(s => s?.dataUrl);
     if (!allShots.length) { alert('먼저 사진을 촬영해주세요'); return; }
     setVideoRecording(true);
 
@@ -640,7 +879,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     cvs.width = W; cvs.height = H;
     const ctx = cvs.getContext('2d');
 
-    const mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    const mimeTypes = ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
     const mimeType = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
     const stream = cvs.captureStream(24);
     const rec = new MediaRecorder(stream, { mimeType });
@@ -649,7 +888,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     rec.onstop = async () => {
       if (!chunks.length) { setVideoRecording(false); return; }
       const blob = new Blob(chunks, { type: mimeType });
-      const fname = `IMMM_${Date.now()}.webm`;
+      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const fname = `IMMM_${Date.now()}.${ext}`;
       // Mobile: try Web Share API first
       if (navigator.share && navigator.canShare) {
         const file = new File([blob], fname, { type: mimeType });
@@ -765,9 +1005,44 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     return () => ro.disconnect();
   }, [layout, mobile]);
 
+  const resultOverlays = (
+    <>
+      {saveSheetUrl && (
+        <div onClick={() => { URL.revokeObjectURL(saveSheetUrl); setSaveSheetUrl(null); }}
+          style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(10,10,10,0.82)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width:'min(92vw,420px)', background:'#fff', borderRadius:20, padding:18, textAlign:'center', boxShadow:'0 24px 80px rgba(0,0,0,0.35)' }}>
+            <img src={saveSheetUrl} style={{ width:'100%', maxHeight:'60vh', objectFit:'contain', borderRadius:12, background:'#f4f4f4' }} />
+            <div style={{ marginTop:14, fontSize:15, fontWeight:800, color:'#111', fontFamily:'Pretendard,system-ui' }}>이미지를 길게 눌러 저장하세요</div>
+            <div style={{ marginTop:5, fontSize:12, color:'#777', lineHeight:1.4, fontFamily:'Pretendard,system-ui' }}>iPhone Safari/PWA에서는 다운로드 버튼보다 공유 또는 길게 눌러 저장이 안정적입니다.</div>
+            <button onClick={() => { URL.revokeObjectURL(saveSheetUrl); setSaveSheetUrl(null); }} style={{ marginTop:14, width:'100%', padding:'13px 16px', borderRadius:12, border:'none', background:'#111', color:'#fff', fontWeight:800, cursor:'pointer' }}>Close</button>
+          </div>
+        </div>
+      )}
+      {qrShare && (
+        <div onClick={() => setQrShare(null)}
+          style={{ position:'fixed', inset:0, zIndex:99998, background:'rgba(10,10,10,0.78)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width:'min(90vw,360px)', background:'#fff', borderRadius:20, padding:20, textAlign:'center', boxShadow:'0 24px 80px rgba(0,0,0,0.35)' }}>
+            {qrShare.qrDataUrl ? <img src={qrShare.qrDataUrl} style={{ width:220, height:220, imageRendering:'pixelated' }} /> :
+              <div style={{ width:220, height:220, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'center', background:'#f3f3f3', borderRadius:12, fontSize:12, color:'#777', wordBreak:'break-all', padding:14 }}>{qrShare.qrUrl || qrShare.url}</div>}
+            <div style={{ marginTop:10, fontSize:15, fontWeight:900, color:'#111', fontFamily:'Pretendard,system-ui' }}>QR 공유 준비 완료</div>
+            <div style={{ marginTop:5, fontSize:12, color:'#777', lineHeight:1.45, fontFamily:'Pretendard,system-ui' }}>
+              {qrShare.mode === 'local-preview' ? 'Supabase 설정 전이라 이 기기에서만 열리는 미리보기 링크입니다.' : '7일 동안 열 수 있는 공유 링크입니다.'}
+            </div>
+            <button onClick={async () => {
+              const text = qrShare.qrUrl || qrShare.url;
+              try { await navigator.clipboard.writeText(text); } catch (_) {}
+            }} style={{ marginTop:14, width:'100%', padding:'13px 16px', borderRadius:12, border:'none', background:'#111', color:'#fff', fontWeight:800, cursor:'pointer' }}>Copy Link</button>
+            <button onClick={() => setQrShare(null)} style={{ marginTop:8, width:'100%', padding:'12px 16px', borderRadius:12, border:'none', background:'#f1f1f1', color:'#111', fontWeight:800, cursor:'pointer' }}>Close</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   if (mobile) {
     return (
       <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column' }}>
+        {resultOverlays}
         {/* Top bar */}
         <div style={{ flexShrink: 0, paddingTop: 'calc(var(--sat) + 12px)', background: T.bg, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
@@ -816,6 +1091,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
             <button title="일반 공유" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {I.share(20, T.ink)}
             </button>
+            <button title="QR 공유" onClick={handleQrShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: qrBusy ? 'rgba(26,26,31,0.06)' : 'transparent', color: T.ink, cursor: qrBusy ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {qrBusy ? <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2v6h-4v-2h2zM14 18h2v2h-2z"/></svg>}
+            </button>
           </div>
         </div>
       </div>
@@ -825,6 +1103,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   return (
     <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column',
       padding: '24px 56px 24px' }}>
+      {resultOverlays}
       <TopBar step={4} back={() => go('deco')} T={T} mobile={false} title="Step 5 · Your strip"
       right={<button onClick={() => {localStorage.clear();go('landing');}} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 12, fontFamily: 'Pretendard,system-ui' }}>New session</button>} />
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
@@ -869,6 +1148,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         {/* More */}
         <button title="More" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {I.share(20, T.ink)}
+        </button>
+        <button title="QR Share" onClick={handleQrShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: qrBusy ? 'rgba(26,26,31,0.06)' : 'transparent', color: T.ink, cursor: qrBusy ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {qrBusy ? <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2v6h-4v-2h2zM14 18h2v2h-2z"/></svg>}
         </button>
       </div>
     </div>);

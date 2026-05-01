@@ -112,6 +112,9 @@
 <!-- canvas-confetti — result screen download celebration -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
+<!-- QRCode — client-side QR generation for share links -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+
 <!-- MediaPipe Tasks Vision — expose as globals for JSX scripts -->
 <script type="module">
   try {
@@ -139,6 +142,8 @@
 <script type="text/babel" src="mediapipe-face.jsx"></script>
 <!-- Sticker drag/scale/rotate canvas -->
 <script type="text/babel" src="sticker-engine.jsx"></script>
+<!-- Frame templates + unified renderer + local/QR stores -->
+<script type="text/babel" src="frame-system.jsx"></script>
 <!-- Landing + Setup screens + shared UI primitives -->
 <script type="text/babel" src="screens-v2.jsx"></script>
 <!-- FrameThumb component (depends on sticker-engine and screens-v2 for Kick/Btn aliases) -->

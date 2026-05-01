@@ -733,7 +733,7 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
-};
+  };
 
 // 
 // Filter pipeline presets
@@ -827,7 +827,7 @@ const FILTER_PIPELINES = {
     { shader:'glitter',      uniforms:{ u_time:0.0, u_intensity:0.58 } },
     { shader:'halation',     uniforms:{ u_intensity:0.35, u_threshold:0.68 } },
   ]},
-  
+
   //   (Purikura) 
   purikura: { pipeline:[
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
@@ -1238,13 +1238,16 @@ class FilterEngine {
 // 
 // useFilterEngine  React hook
 // 
-function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, mirrorX = true) {
+function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, mirrorX = true, mobile = false) {
   const engineRef    = React.useRef(null);
   const filterKeyRef = React.useRef(filterKey);
   const mirrorXRef = React.useRef(mirrorX);
+  const mobileRef = React.useRef(mobile);
   const [webglOk, setWebglOk]     = React.useState(false);
   const [firstFrame, setFirstFrame] = React.useState(false);
   const [webglFailed, setWebglFailed] = React.useState(false);
+
+  React.useEffect(() => { mobileRef.current = mobile; }, [mobile]);
 
   React.useEffect(() => { filterKeyRef.current = filterKey; }, [filterKey]);
   React.useEffect(() => { mirrorXRef.current = mirrorX; }, [mirrorX]);
@@ -1341,7 +1344,18 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
           }
         }
 
-        const pipeline = preset.pipeline.map(step =>
+        let steps = preset.pipeline;
+        if (mobileRef.current) {
+          // Mobile optimization: restrict bilateral to 1-pass only
+          let hCount = 0, vCount = 0;
+          steps = steps.filter(step => {
+            if (step.shader === 'bilateral_h') { hCount++; return hCount <= 1; }
+            if (step.shader === 'bilateral_v') { vCount++; return vCount <= 1; }
+            return true;
+          });
+        }
+
+        const pipeline = steps.map(step =>
           (step.shader === 'glitter' || step.shader === 'film_grain_v2' || step.shader === 'eye_bright')
             ? { ...step, uniforms: { ...step.uniforms, u_time: time } }
             : step

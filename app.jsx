@@ -54,6 +54,13 @@ const I = {
   filter: (s=18,c='currentColor') => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="10" r="5"/><circle cx="16" cy="14" r="5"/></svg>,
 };
 
+function getShotCountForLayout(layout) {
+  if (typeof getShotCountForFrame === 'function') return getShotCountForFrame(layout);
+  if (layout === 'polaroid') return 1;
+  if (layout === 'trip') return 3;
+  return 4;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Sticker assets — SVG primitives (starbursts + speech bubbles)
 // ═══════════════════════════════════════════════════════════════
@@ -133,4 +140,4 @@ function renderSticker(s, size=1) {
   return null;
 }
 
-Object.assign(window, { TOKENS, I, Starburst, CloudBubble, MiniSticker, RETRO_STICKERS, MINIMAL_STICKERS, renderSticker });
+Object.assign(window, { TOKENS, I, Starburst, CloudBubble, MiniSticker, RETRO_STICKERS, MINIMAL_STICKERS, renderSticker, getShotCountForLayout });
