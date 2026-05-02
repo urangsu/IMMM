@@ -1159,8 +1159,11 @@ class FilterEngine {
     this._getSource = getSource;
     this._getParams = getParams;
     this._getSize   = getSize;
-    let firstFrameFired = false;
-    let renderedFrames  = 0;
+    this._onFirstFrame = onFirstFrame;
+    this._onWebglFail  = onWebglFail;
+    this._firstFrameFired = false;
+    this._renderedFrames  = 0;
+
     const tick = () => {
       if (this._destroyed) return;
       const src = getSource();
@@ -1168,9 +1171,9 @@ class FilterEngine {
         const { w, h, mirrorX }          = getSize();
         const { pipeline, faceUniforms } = getParams();
         this.render(src, pipeline, w, h, mirrorX, faceUniforms);
-        renderedFrames++;
+        this._renderedFrames++;
 
-        if (!firstFrameFired && renderedFrames >= 5) {
+        if (!this._firstFrameFired && this._renderedFrames >= 5) {
           try {
             const gl = this.gl;
             const px = new Uint8Array(4);
@@ -1187,19 +1190,19 @@ class FilterEngine {
               if (px[0] + px[1] + px[2] > 20) { bright = true; break; }
             }
             if (bright) {
-              firstFrameFired = true;
+              this._firstFrameFired = true;
               onFirstFrame && onFirstFrame();
-            } else if (renderedFrames > 90) {
+            } else if (this._renderedFrames > 90) {
               // 90 frames of genuinely black output → real failure
-              firstFrameFired = true;
+              this._firstFrameFired = true;
               onWebglFail && onWebglFail();
               return;
             }
           } catch (_) {
             // readPixels blocked (security policy) → trust after 90 frames
             // Never activate at 45 because we'd show a black canvas
-            if (renderedFrames > 90) {
-              firstFrameFired = true;
+            if (this._renderedFrames > 90) {
+              this._firstFrameFired = true;
               onFirstFrame && onFirstFrame();
             }
           }
@@ -1209,6 +1212,12 @@ class FilterEngine {
     };
     this._raf = requestAnimationFrame(tick);
   }
+
+  resetFirstFrame() {
+    this._firstFrameFired = false;
+    this._renderedFrames = 0;
+  }
+
 
   stop()    { if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; } }
   destroy() {
@@ -1267,6 +1276,16 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
 
   React.useEffect(() => { filterKeyRef.current = filterKey; }, [filterKey]);
   React.useEffect(() => { mirrorXRef.current = mirrorX; }, [mirrorX]);
+
+  // Reset firstFrame state when filter changes so the CSS fallback video 
+  // shows up immediately while the engine prepares the first frame of the new filter.
+  React.useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.resetFirstFrame();
+      setFirstFrame(false);
+    }
+  }, [filterKey]);
+
 
   React.useEffect(() => {
     if (disabled) {
@@ -1385,11 +1404,12 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
         return { pipeline, faceUniforms };
       },
       () => {
-        // Render at canvas CSS size (avoids distortion mismatch)
+        // Render at High-DPI canvas size (capped at 2.0 for performance)
         const c = canvasRef.current;
         const r = c?.getBoundingClientRect();
-        const W = r ? Math.max(16, Math.round(r.width))  : 480;
-        const H = r ? Math.max(16, Math.round(r.height)) : 480;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
+        const W = r ? Math.max(16, Math.round(r.width * dpr))  : 480;
+        const H = r ? Math.max(16, Math.round(r.height * dpr)) : 480;
         return { w: W, h: H, mirrorX: mirrorXRef.current };
       },
       () => {

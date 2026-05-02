@@ -105,7 +105,11 @@ function App() {
         stopStream(streamRef.current);
         streamRef.current = null;
         const s = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: facingMode } },
+          video: { 
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
           audio: false,
         });
         if (!active) { s.getTracks().forEach(t => t.stop()); return; }
@@ -281,20 +285,20 @@ function App() {
           position:'absolute', inset:-1, width:'calc(100% + 2px)', height:'calc(100% + 2px)', objectFit:'cover',
           transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
           borderRadius: 25,
-          // CSS filter is always on the video so there's no unfiltered flash
-          filter: FILTERS[safeFilter]?.css || 'none',
-          // Fade out once WebGL canvas has its first frame rendered
-          opacity: (shouldUseWebgl && webglOk && firstFrame) ? 0 : 1,
-          transition: 'opacity 0.25s',
-        }}/>
-        {/* WebGL canvas: fades in over the CSS-filtered video once ready */}
-        <canvas ref={canvasRef} style={{
-          display:'block', position:'absolute', inset:-1,
-          width:'calc(100% + 2px)', height:'calc(100% + 2px)', borderRadius:25,
-          opacity: (shouldUseWebgl && webglOk && firstFrame) ? 1 : 0,
-          transition: 'opacity 0.25s',
-        }}/>
-      </div>
+        // CSS filter is always on the video so there's no unfiltered flash
+        filter: FILTERS[safeFilter]?.css || 'none',
+        // Fade out once WebGL canvas has its first frame rendered
+        opacity: (shouldUseWebgl && webglOk && firstFrame) ? 0 : 1,
+        transition: 'opacity 0.08s',
+      }}/>
+      {/* WebGL canvas: fades in over the CSS-filtered video once ready */}
+      <canvas ref={canvasRef} style={{
+        display:'block', position:'absolute', inset:-1,
+        width:'calc(100% + 2px)', height:'calc(100% + 2px)', borderRadius:25,
+        opacity: (shouldUseWebgl && webglOk && firstFrame) ? 1 : 0,
+        transition: 'opacity 0.08s',
+      }}/>
+    </div>
 
       <ScreenTransition id={screen}>
         {renderScreen()}
