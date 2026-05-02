@@ -94,7 +94,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       }
       ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
       ctx.restore();
-      applyBeautyGeometry(ctx, c.width, c.height, filterKey, faceDataRef?.current, mirrorX);
+      // applyBeautyGeometry DISABLED — jaw/cheek warp caused visible distortion at face/bg boundary.
+      // WebGL bilateral+skin_lift already handles skin quality for WebGL path.
+      // CSS fallback path: no geometry warp, color-only compositing below.
       applyCapturedFilterLook(ctx, c.width, c.height, filterKey);
       if (typeof FrameRenderEngine !== 'undefined' && preStickers.length > 0) {
         for (const sticker of preStickers) {
@@ -194,94 +196,26 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     ctx.restore();
   };
 
+  // mapFacePoint: was used only by applyBeautyGeometry (now disabled). Keep stub.
   const mapFacePoint = (p, mirrorX) => {
     if (!Array.isArray(p)) return [0.5, 0.5];
     return [mirrorX ? 1 - p[0] : p[0], p[1]];
   };
 
-  const applyBeautyGeometry = (ctx, w, h, filterKey, face, mirrorX) => {
-    if (!['smooth', 'porcelain', 'blush'].includes(filterKey)) return;
-    const detected = !!face?.detected;
-    const leftJaw = mapFacePoint(face?.leftJaw || [0.22, 0.70], mirrorX);
-    const rightJaw = mapFacePoint(face?.rightJaw || [0.78, 0.70], mirrorX);
-    const chin = mapFacePoint(face?.chin || [0.50, 0.88], mirrorX);
-    const forehead = mapFacePoint(face?.foreheadTop || [0.50, 0.20], mirrorX);
-    const faceCx = ((leftJaw[0] + rightJaw[0] + chin[0]) / 3) * w;
-    const jawW = Math.max(w * 0.22, Math.abs(rightJaw[0] - leftJaw[0]) * w);
-    const topY = Math.max(0, Math.min(h * 0.72, (forehead[1] * h) + h * 0.10));
-    const jawY = Math.max(topY + h * 0.08, ((leftJaw[1] + rightJaw[1]) / 2) * h);
-    const bottomY = Math.min(h, (chin[1] * h) + h * 0.08);
-    const maxPull = (detected ? (filterKey === 'smooth' ? 0.044 : 0.034) : 0.018) * w;
+  // LEGACY — applyBeautyGeometry: scanline jaw/cheek warp using face landmarks.
+  // DISABLED: caused visible distortion at face/background boundary.
+  // Kept as no-op stub so any stale reference does not throw a runtime error.
+  const applyBeautyGeometry = () => { return; };
 
-    try {
-      const source = document.createElement('canvas');
-      source.width = w;
-      source.height = h;
-      source.getContext('2d').drawImage(ctx.canvas, 0, 0);
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(faceCx, (topY + bottomY) / 2, jawW * 0.72, Math.max(h * 0.18, (bottomY - topY) * 0.58), 0, 0, Math.PI * 2);
-      ctx.clip();
+  // applyFaceZoneSoftening — DISABLED.
+  // The radial-gradient-masked blur caused face/background boundary distortion
+  // ("cheek denting") visible in porcelain/smooth/blush capture results.
+  // Kept as a no-op so references in applyCapturedFilterLook do not throw.
+  // If a future PR re-introduces softening, use a very small strength (<0.08)
+  // and validate on both light and dark backgrounds before re-enabling.
+  const applyFaceZoneSoftening = () => { return; };
 
-      const sliceH = Math.max(2, Math.round(h / 220));
-      for (let y = Math.floor(topY); y < bottomY; y += sliceH) {
-        const t = Math.max(0, Math.min(1, (y - topY) / Math.max(1, bottomY - topY)));
-        const lower = Math.sin(t * Math.PI);
-        const jawBias = Math.max(0, Math.min(1, (y - jawY + h * 0.08) / Math.max(1, bottomY - jawY + h * 0.08)));
-        const pull = maxPull * lower * (0.35 + jawBias * 0.65);
-        const bandW = jawW * (0.92 + t * 0.35);
-        const sx = Math.max(0, faceCx - bandW / 2);
-        const sw = Math.min(w - sx, bandW);
-        const dx = sx + pull;
-        const dw = Math.max(1, sw - pull * 2);
-        ctx.drawImage(source, sx, y, sw, sliceH, dx, y, dw, sliceH);
-      }
-      ctx.restore();
-    } catch (_) {
-      // Geometry is an enhancement, not a capture dependency.
-    }
-  };
-
-  const applyFaceZoneSoftening = (ctx, w, h, strength = 0.22) => {
-    try {
-      const source = document.createElement('canvas');
-      source.width = w;
-      source.height = h;
-      source.getContext('2d').drawImage(ctx.canvas, 0, 0);
-
-      const soft = document.createElement('canvas');
-      soft.width = w;
-      soft.height = h;
-      const sctx = soft.getContext('2d');
-      sctx.filter = `blur(${Math.max(4, Math.round(w * 0.006))}px)`;
-      sctx.drawImage(source, 0, 0);
-      sctx.filter = 'none';
-
-      const mask = document.createElement('canvas');
-      mask.width = w;
-      mask.height = h;
-      const mctx = mask.getContext('2d');
-      const cx = w * 0.5;
-      const cy = h * 0.43;
-      const rx = w * 0.36;
-      const ry = h * 0.34;
-      const g = mctx.createRadialGradient(cx, cy, Math.min(rx, ry) * 0.18, cx, cy, Math.max(rx, ry));
-      g.addColorStop(0, `rgba(255,255,255,${strength})`);
-      g.addColorStop(0.58, `rgba(255,255,255,${strength * 0.78})`);
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      mctx.fillStyle = g;
-      mctx.fillRect(0, 0, w, h);
-
-      sctx.globalCompositeOperation = 'destination-in';
-      sctx.drawImage(mask, 0, 0);
-
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(soft, 0, 0);
-    } catch (_) {
-      // Best-effort enhancement only. Capture should never fail because of retouch.
-    }
-  };
 
   const bakePreStickers = React.useCallback(async (dataUrl) => {
     if (!dataUrl || !preStickers.length || typeof FrameRenderEngine === 'undefined') return dataUrl;
@@ -317,7 +251,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     c.height = img.height;
     const ctx = c.getContext('2d');
     ctx.drawImage(img, 0, 0);
-    applyBeautyGeometry(ctx, c.width, c.height, filterKey, faceDataRef?.current, mirrorX);
+    // applyBeautyGeometry DISABLED — see note above applyBeautyGeometry declaration.
     applyCapturedFilterLook(ctx, c.width, c.height, filterKey);
     return c.toDataURL('image/jpeg', 0.95);
   }, [faceDataRef]);
