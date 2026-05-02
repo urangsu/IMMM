@@ -96,8 +96,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       ctx.restore();
       // applyBeautyGeometry DISABLED — jaw/cheek warp caused visible distortion at face/bg boundary.
       // WebGL bilateral+skin_lift already handles skin quality for WebGL path.
-      // CSS fallback path: no geometry warp, color-only compositing below.
-      applyCapturedFilterLook(ctx, c.width, c.height, filterKey);
+      // CSS fallback path: color-only compositing is handled via CSS.
+      // applyCapturedFilterLook(ctx, c.width, c.height, filterKey); // DISABLED: prevents double-filtering
+
       if (typeof FrameRenderEngine !== 'undefined' && preStickers.length > 0) {
         for (const sticker of preStickers) {
           await FrameRenderEngine.drawStickerToCanvas(ctx, sticker, c.width, c.height, Math.max(1, c.width / 720));
@@ -238,22 +239,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   }, [preStickers]);
 
   const enhanceCapturedDataUrl = React.useCallback(async (dataUrl, filterKey, mirrorX) => {
-    if (!dataUrl || !['smooth', 'porcelain', 'blush'].includes(filterKey)) return dataUrl;
-    const img = await new Promise((resolve) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => resolve(null);
-      el.src = dataUrl;
-    });
-    if (!img) return dataUrl;
-    const c = document.createElement('canvas');
-    c.width = img.width;
-    c.height = img.height;
-    const ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    // applyBeautyGeometry DISABLED — see note above applyBeautyGeometry declaration.
-    applyCapturedFilterLook(ctx, c.width, c.height, filterKey);
-    return c.toDataURL('image/jpeg', 0.95);
+    // DISABLED: WebGL filter is already fully applied in takeSnapshot.
+    // Re-applying applyCapturedFilterLook causes double-filtering and JPEG quality loss.
+    return dataUrl;
   }, [faceDataRef]);
 
   const takeShot = React.useCallback(() => {
@@ -274,7 +262,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           const capW = 1920;
           const capH = Math.max(1, Math.round(1920 / aspect));
           const raw = engineRef.current.takeSnapshot(capW, capH, mirrorX, pipeline, faceUniforms);
-          if (raw && raw.length > 5000) dataUrl = await bakePreStickers(await enhanceCapturedDataUrl(raw, filter, mirrorX));
+          if (raw && raw.length > 5000) dataUrl = await bakePreStickers(raw);
         } catch(e) { console.error('WebGL Capture Error:', e); }
       }
       
@@ -441,6 +429,28 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             <div style={{ position:'absolute', inset:0, borderRadius:24, overflow:'hidden' }}>
               <PlaceholderPortrait seed={idx} filter={filter}/>
               <div style={{ position:'absolute', top:12, left:12, padding:'6px 10px', background:'rgba(0,0,0,0.55)', color:'#fff', borderRadius:999, fontSize:10, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui' }}>DEMO MODE</div>
+            </div>
+          )}
+          
+          {layout === 'polaroid' && (
+            <div style={{
+              position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden', borderRadius: 24
+            }}>
+              <div style={{
+                width: '100%', aspectRatio: '1/1',
+                boxShadow: '0 0 0 1.5px rgba(255,255,255,0.9), 0 0 0 9999px rgba(0,0,0,0.18)',
+                position: 'relative'
+              }}>
+                <div style={{
+                  position: 'absolute', top: 8, left: 8,
+                  background: 'rgba(0,0,0,0.4)', color: '#fff',
+                  fontSize: 10, fontWeight: 600, letterSpacing: 1.2,
+                  padding: '4px 8px', borderRadius: 4, fontFamily: '"Plus Jakarta Sans",system-ui',
+                  backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
+                }}>POLAROID CROP</div>
+              </div>
             </div>
           )}
           
