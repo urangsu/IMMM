@@ -106,7 +106,7 @@ function useFaceLandmarks(videoRef) {
           const lc = lmArr[205] || lmArr[50];  // left cheek
           const rc = lmArr[425] || lmArr[280]; // right cheek
 
-          // ── Lip landmarks (upper/lower center) ──
+          // ── Lip landmarks — LEGACY: only used by hidden 'glam' filter (lip_color shader) ──
           const lipTop    = lmArr[13]  || lmArr[0];   // upper lip center
           const lipBot    = lmArr[14]  || lmArr[17];  // lower lip center
           const lipLeft   = lmArr[61]  || lmArr[78];  // lip left corner
@@ -118,7 +118,9 @@ function useFaceLandmarks(videoRef) {
             (lipLeft?.y ?? 0.68) - (lipRight?.y ?? 0.68)
           );
 
-          // ── Nose & face contour ──
+          // ── Nose & face contour — LEGACY: only used by hidden 'glam'/'aurora' filters ──
+          // (face_slim uses leftJaw/rightJaw/chin; contour uses noseTip/noseTop)
+          // Not used by any currently-visible filter.
           const noseTip    = lmArr[4]   || lmArr[1];  // nose tip
           const noseTop    = lmArr[168] || lmArr[6];  // nose bridge
           const lJaw       = lmArr[234] || lmArr[93]; // left jaw
