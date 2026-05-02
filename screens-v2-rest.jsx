@@ -76,48 +76,50 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
   const captureFromVideo = React.useCallback(async (v, filterKey, cssFilter, mirrorX) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
-    try {
-      const c = document.createElement('canvas');
-      const rect = cameraFrameRef.current?.getBoundingClientRect();
-      const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
-      
-      const capW = CAPTURE_LONG_EDGE;
-      const capH = Math.max(1, Math.round(CAPTURE_LONG_EDGE / aspect));
-      c.width = capW;
-      c.height = capH;
-      const ctx = c.getContext('2d');
-      ctx.save();
-      if (mirrorX) {
-        ctx.translate(c.width, 0);
-        ctx.scale(-1, 1);
-      }
-      // Apply CSS filter so fallback captures match what the preview showed
-      if (cssFilter && cssFilter !== 'none') ctx.filter = cssFilter;
-      const vw = v.videoWidth, vh = v.videoHeight;
-      const srcAspect = vw / vh;
-      let sx = 0, sy = 0, sw = vw, sh = vh;
-      if (srcAspect > aspect) {
-        sw = vh * aspect;
-        sx = (vw - sw) / 2;
-      } else {
-        sh = vw / aspect;
-        sy = (vh - sh) / 2;
-      }
-      ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
-      ctx.restore();
-      // applyBeautyGeometry DISABLED — jaw/cheek warp caused visible distortion at face/bg boundary.
-      // WebGL bilateral+skin_lift already handles skin quality for WebGL path.
-      // CSS fallback path: color-only compositing is handled via CSS.
-      // applyCapturedFilterLook(ctx, c.width, c.height, filterKey); // DISABLED: prevents double-filtering
+    const candidates = mobile ? [1920, 1280] : [2560, 1920, 1280];
+    const rect = cameraFrameRef.current?.getBoundingClientRect();
+    const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
 
-      if (typeof FrameRenderEngine !== 'undefined' && preStickers.length > 0) {
-        for (const sticker of preStickers) {
-          await FrameRenderEngine.drawStickerToCanvas(ctx, sticker, c.width, c.height, Math.max(1, c.width / 720));
+    for (const edge of candidates) {
+      try {
+        const c = document.createElement('canvas');
+        const capW = edge;
+        const capH = Math.max(1, Math.round(edge / aspect));
+        c.width = capW;
+        c.height = capH;
+        const ctx = c.getContext('2d');
+        ctx.save();
+        if (mirrorX) {
+          ctx.translate(c.width, 0);
+          ctx.scale(-1, 1);
         }
+        if (cssFilter && cssFilter !== 'none') ctx.filter = cssFilter;
+        const vw = v.videoWidth, vh = v.videoHeight;
+        const srcAspect = vw / vh;
+        let sx = 0, sy = 0, sw = vw, sh = vh;
+        if (srcAspect > aspect) {
+          sw = vh * aspect; sx = (vw - sw) / 2;
+        } else {
+          sh = vw / aspect; sy = (vh - sh) / 2;
+        }
+        ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+        ctx.restore();
+
+        if (typeof FrameRenderEngine !== 'undefined' && preStickers.length > 0) {
+          for (const sticker of preStickers) {
+            await FrameRenderEngine.drawStickerToCanvas(ctx, sticker, c.width, c.height, Math.max(1, c.width / 720));
+          }
+        }
+        const dataUrl = c.toDataURL('image/jpeg', 0.95);
+        if (dataUrl && dataUrl.length > 5000) {
+          return { dataUrl, edge, sourceW: vw, sourceH: vh };
+        }
+      } catch(e) {
+        console.warn(`[IMMM] Fallback capture failed at ${edge}px:`, e);
       }
-      return c.toDataURL('image/jpeg', 0.95);
-    } catch(e) { return null; }
-  }, [preStickers, faceDataRef]);
+    }
+    return null;
+  }, [preStickers, mobile]);
 
   const applyCapturedFilterLook = (ctx, w, h, filterKey) => {
     ctx.save();
@@ -261,32 +263,42 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
     const doCapture = async () => {
       let dataUrl = null;
-      // WebGL canvas — only if actively rendering (blank check: real JPEG > 5KB)
-      const canvas = canvasRef.current;
-      // WebGL canvas capture - use the engine directly if available for reliable filtered result
+      let captureMeta = { edge: 0, sourceW: 0, sourceH: 0 };
+      const rect = cameraFrameRef.current?.getBoundingClientRect();
+      const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
+      const candidates = mobile ? [1920, 1280] : [2560, 1920, 1280];
+
+      // 1. WebGL Path
       if (canvasActive && engineRef.current) {
-        try {
-          const { mirrorX } = engineRef.current._getSize();
-          const { pipeline, faceUniforms } = engineRef.current._getParams();
-          const rect = cameraFrameRef.current?.getBoundingClientRect();
-          const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
-          const capW = CAPTURE_LONG_EDGE;
-          const capH = Math.max(1, Math.round(CAPTURE_LONG_EDGE / aspect));
-          const raw = engineRef.current.takeSnapshot(capW, capH, mirrorX, pipeline, faceUniforms);
-          if (raw && raw.length > 5000) dataUrl = await bakePreStickers(raw);
-        } catch(e) { console.error('WebGL Capture Error:', e); }
+        const { mirrorX } = engineRef.current._getSize();
+        const { pipeline, faceUniforms } = engineRef.current._getParams();
+        for (const edge of candidates) {
+          try {
+            const capW = edge;
+            const capH = Math.max(1, Math.round(edge / aspect));
+            const raw = engineRef.current.takeSnapshot(capW, capH, mirrorX, pipeline, faceUniforms);
+            if (raw && raw.length > 5000) {
+              dataUrl = await bakePreStickers(raw);
+              captureMeta = { edge, sourceW: videoRef.current?.videoWidth||0, sourceH: videoRef.current?.videoHeight||0 };
+              break;
+            }
+          } catch(e) { console.warn(`[IMMM] WebGL capture failed at ${edge}px:`, e); }
+        }
       }
       
-      // Fallback: draw from video with CSS filter (important for mobile/Safari)
+      // 2. Fallback Path
       if (!dataUrl) {
         const v = videoRef.current;
         if (v && v.readyState >= 2 && v.videoWidth > 0) {
-          // If WebGL is supported but capture failed, we MUST still apply the CSS filter for the shot
           const cssFilter = FILTERS[filter]?.css || 'none';
-          dataUrl = await captureFromVideo(v, filter, cssFilter, facingMode === 'user');
+          const result = await captureFromVideo(v, filter, cssFilter, facingMode === 'user');
+          if (result) {
+            dataUrl = result.dataUrl;
+            captureMeta = { edge: result.edge, sourceW: result.sourceW, sourceH: result.sourceH };
+          }
         }
       }
-      const rect = cameraFrameRef.current?.getBoundingClientRect();
+
       setShots(prev => {
         const copy = [...prev];
         while (copy.length < shotCount) copy.push(null);
@@ -295,6 +307,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           filter,
           capturedFilter: filter,
           renderMode: dataUrl && canvasActive ? 'webgl' : 'canvas2d-css',
+          captureLongEdge: captureMeta.edge,
+          sourceVideoWidth: captureMeta.sourceW,
+          sourceVideoHeight: captureMeta.sourceH,
           preStickers: [],
           bakedPreStickers: preStickers.map(s => ({ ...s })),
           facingMode,
@@ -479,7 +494,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           
           {/* Transparent hole for global camera box */}
           
-          <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
+          <div style={{ position:'absolute', inset:0, pointerEvents:'none', zIndex:12 }}>
             {preStickers.map(s => (
               <div key={s.id} style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
                 transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`, opacity:0.88 }}>

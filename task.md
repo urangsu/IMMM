@@ -4,20 +4,30 @@
 
 ## ⚡ 현재 개발 상태 (Current Status)
 
-- **노출 필터 (6종)**: `No Filter`, `Porcelain` (자연광), `Smooth` (크림 스킨), `Blush` (첫사랑), `Purikura` (하라주쿠), `Grain` (필름)
-- **주요 수정 완료**: 폴라로이드 크롭 가이드라인 정확화, 필터 전환 잔상 제거, 얼굴 주변 왜곡(jaw warp) 완전 제거.
+- **노출 필터 (6종)**: 
+  - `original` / No Filter / 노 필터
+  - `porcelain` / Window Light / 자연광
+  - `smooth` / Cream Skin / 크림 스킨
+  - `blush` / First Love / 첫사랑
+  - `grain` / Soft Film / 소프트 필름
+  - `bw` / BW / 흑백
+- **주요 수정 완료**: 
+  - [x] 폴라로이드 크롭 가이드라인 정확화
+  - [x] 필터 전환 잔상 제거
+  - [x] 얼굴 주변 왜곡(jaw warp) 완전 제거
+  - [x] HD capture fallback 하드닝 (tiered resolution)
 
 ---
 
 ## 💎 HD 품질 정책 (HD Quality Policy)
 
-- **Camera input**: 가능한 경우 1920x1080 ideal로 요청, 실패 시 1280x720/facingMode only fallback (main.jsx 적용 완료)
-- **Preview**: CSS 크기 * devicePixelRatio (cap 2.0) backing store 적용 (webgl-engine.jsx 적용 완료)
-- **Capture still**: 기본 long edge 2560 (Desktop) / 1920 (Mobile) 적용 (screens-v2-rest.jsx 적용 완료)
-- **Frame export**: Desktop scale 4, Mobile scale 3, 실패 시 scale 2 fallback (screens-v2-deco.jsx 적용 완료)
+- **Camera input**: 가능한 경우 1920x1080 ideal로 요청, 실패 시 1280x720/facingMode only fallback (구현 반영, 실기 검증 필요)
+- **Preview**: CSS 크기 * devicePixelRatio (cap 2.0) backing store 적용 (구현 반영, 실기 검증 필요)
+- **Capture still**: Desktop [2560, 1920, 1280], Mobile [1920, 1280] 후보 순회 (구현 반영, 실기 검증 필요)
+- **Frame export**: Desktop scale 4, Mobile scale 3, 실패 시 scale 2 fallback (구현 반영, 실기 검증 필요)
 - **Filter**: WebGL 단계에서 한 번만 적용, 중복 후처리(applyCapturedFilterLook) 금지 (최적화 완료)
-- **Beauty geometry**: 턱/볼/눈 등 모든 기하학적 변형 로직 재도입 절대 금지
-- **Softening**: `applyFaceZoneSoftening` 재활성화 금지 (피부 뭉개짐 방지)
+- **Beauty geometry**: 턱/볼/눈 등 모든 기하학적 변형 로직 재도입 절대 금지 (완료)
+- **Softening**: `applyFaceZoneSoftening` 재활성화 금지 (완료)
 
 ---
 
@@ -30,20 +40,22 @@
 
 ---
 
-## 🔴 우선순위: HIGH (실기 QA 및 안정성)
+## 🔍 QA 체크리스트 (Verification Required)
 
-- [ ] **Samsung Internet 1080p 검증**: 삼성 인터넷 브라우저에서 1080p 카메라 스트림 요청 시 프레임 드랍이나 블랙 스크린이 발생하는지 확인.
-- [ ] **모바일 메모리 안정성 테스트**: 2560px 캡처 및 Scale 3.0 저장 시 저사양 기기(iPhone 12 이하, 보급형 Android)에서 브라우저 크래시 여부 확인.
-- [ ] **Export Fallback 작동 확인**: 고해상도 저장 실패 시 자동으로 Scale 2.0으로 전환되어 저장이 성공하는지 검증.
-- [ ] **폴라로이드 가이드 일치성**: 뷰파인더 가이드 영역과 실제 저장된 1:1 사진 영역의 픽셀 단위 일치 최종 확인.
+- [ ] Polaroid guide와 실제 저장 crop 일치 여부
+- [ ] preStickers가 guide dim(zIndex 10)에 가려지지 않는지 (zIndex 12 작동 확인)
+- [ ] Desktop 2560 capture 성공 또는 1920 fallback 성공 여부 (console.warn 확인)
+- [ ] Mobile 1920 capture 성공 또는 1280 fallback 성공 여부 (console.warn 확인)
+- [ ] Export scale 4/3 실패 시 scale 2 fallback 성공 여부
+- [ ] Window Light/Cream Skin/First Love/Soft Film/BW 모두 저장 화질 저하 없는지
+- [ ] Select/Deco/Result에서 스티커/드로잉/날짜/로고 위치 어긋남 없는지
 
 ---
 
-## 🟠 우선순위: MEDIUM (UI/UX 폴리싱)
+## 🔴 우선순위: HIGH (실기 QA 및 안정성)
 
-- [ ] **필터 전환 애니메이션**: 0.08s 트랜지션의 기기별 매끄러움 확인.
-- [ ] **스티커 레이어 안정화**: Deco 화면 스티커 조작 감도 및 Z-index 점검.
-- [ ] **카메라 권한 거부 대응**: 사용자 가이드 UI 추가.
+- [ ] **Samsung Internet 1080p 검증**: 삼성 인터넷 브라우저에서 1080p 카메라 스트림 요청 시 프레임 드랍이나 블랙 스크린이 발생하는지 확인.
+- [ ] **모바일 메모리 안정성 테스트**: 고해상도 캡처 및 Scale 3.0 저장 시 저사양 기기에서 브라우저 크래시 여부 확인.
 
 ---
 
@@ -58,6 +70,7 @@
 
 ## 📜 Legacy / Historical Notes
 
+- `purikura`: Hidden legacy filter (전면 수정 전까지 미노출)
 - PWA 설치 자산 추가 (manifest, icon)
 - 미리보기 High-DPI 대응 (devicePixelRatio)
 - 필터 전환 잔상 제거 (`firstFrame` 리셋)
