@@ -626,164 +626,30 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   };
 
   const captureFrameAsBlob = async () => {
-    if (captureRef.current && typeof html2canvas !== 'undefined') {
-      try {
-        const canvas = await html2canvas(captureRef.current, {
-          backgroundColor: null,
-          scale: 4,
-          useCORS: true,
-          logging: false,
-          imageTimeout: 0,
-          removeContainer: true,
-        });
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.98));
-        if (blob) return blob;
-      } catch (e) {
-        console.warn('[IMMM] DOM export failed, falling back to render engine:', e);
-      }
-    }
-    if (typeof FrameRenderEngine !== 'undefined') {
-      return FrameRenderEngine.renderToBlob({
-        layout,
-        shots,
-        selected,
-        stickers,
-        drawStrokes,
-        logo,
-        dateText,
-        accent,
-        frameColor,
-        scale: 2,
-      });
-    }
-    const S = 10; // Ultra high-res scale (10x base) for crystal clear quality
-    const FRAME_W = (layout === 'strip' || layout === 'trip') ? 240 * S : 320 * S;
-    const PAD = 14 * S;
-    const GAP = 10 * S;
+    // ── Frame Export Quality Policy ──────────────────────────────────────────
+    // Desktop: scale 4.0 (Very High Quality)
+    // Mobile: scale 3.0 (High Quality)
+    // Memory Fallback: scale 2.0 (Standard Quality)
+    // ──────────────────────────────────────────────────────────────────────────
+    const targetScale = mobile ? 3 : 4;
     
-    const photoW = FRAME_W - PAD * 2;
-    const numSlots = shotCount;
-    const cols = (layout === 'grid' || layout === 'layered') ? 2 : 1;
-    const colW = cols === 2 ? (photoW - GAP) / 2 : photoW;
-    const photoAr = cols === 2 ? 1 : 4/3;
-    const photoH = colW / photoAr;
-    const rows = Math.ceil(numSlots / cols);
-    const logoH = logo ? PAD * 2.5 : 0;
-    const dateH = dateText ? PAD * 2.5 : 0;
-    const contentH = rows * photoH + (rows - 1) * GAP;
-    const FRAME_H = PAD + logoH + contentH + dateH + PAD;
+    const runExport = async (s) => {
+      if (typeof FrameRenderEngine === 'undefined') return null;
+      return FrameRenderEngine.renderToBlob({
+        layout, shots, selected, stickers, drawStrokes,
+        logo, dateText, accent, frameColor,
+        scale: s
+      });
+    };
 
-    const cvs = document.createElement('canvas');
-    cvs.width = FRAME_W; cvs.height = FRAME_H;
-    const ctx = cvs.getContext('2d');
-
-    ctx.fillStyle = frameColor || '#fff';
-    ctx.fillRect(0, 0, FRAME_W, FRAME_H);
-
-    let curY = PAD;
-
-    if (logo) {
-      ctx.fillStyle = '#1A1A1F';
-      ctx.font = `700 ${8*S}px sans-serif`;
-      ctx.textBaseline = 'top';
-      ctx.fillText('IMMM', PAD, curY + 2*S);
-      ctx.fillStyle = accent || '#D98893';
-      ctx.beginPath();
-      ctx.arc(FRAME_W - PAD - 4*S, curY + 6*S, 4*S, 0, Math.PI*2);
-      ctx.fill();
-      curY += logoH;
+    try {
+      const blob = await runExport(targetScale);
+      if (blob) return blob;
+      throw new Error('Null blob');
+    } catch (e) {
+      console.warn(`[IMMM] Export at scale ${targetScale} failed, falling back to 2.0`, e);
+      return runExport(2);
     }
-
-    const slotIndices = Array.from({length: numSlots}, (_,i) => selected[i]);
-    const imgs = await Promise.all(slotIndices.map(idx => {
-      const s = shots[idx];
-      if (!s?.dataUrl) return Promise.resolve(null);
-      return new Promise(res => { const img = new Image(); img.onload = ()=>res(img); img.onerror=()=>res(null); img.src = s.dataUrl; });
-    }));
-
-    for (let i = 0; i < numSlots; i++) {
-      const row = Math.floor(i / cols), col = i % cols;
-      const x = PAD + col * (colW + GAP);
-      const y = curY + row * (photoH + GAP);
-      ctx.fillStyle = '#ddd';
-      ctx.fillRect(x, y, colW, photoH);
-      if (imgs[i]) {
-        drawCover(ctx, imgs[i], x, y, colW, photoH);
-      }
-      // Slotted stickers for this slot
-      const slotted = stickers.filter(s => s.frameSlot === i);
-      if (slotted.length > 0) {
-        ctx.save();
-        ctx.beginPath(); ctx.rect(x, y, colW, photoH); ctx.clip();
-        for (const s of slotted) {
-          // coordinate in slot is relative to slot center (50,50)
-          // we need to translate it back to global frame coordinate
-          // s.x and s.y for slotted stickers are actually already in % of the WHOLE FRAME canvas
-          // because of how StickerCanvas calculates nx/ny during drag.
-          await drawStickerToCanvas(ctx, s, FRAME_W, FRAME_H, S);
-        }
-        ctx.restore();
-      }
-    }
-
-    curY += contentH;
-
-    if (dateText) {
-      ctx.fillStyle = '#333';
-      ctx.font = `${13*S}px Caveat, cursive`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}), FRAME_W/2, curY + 6*S);
-    }
-
-    drawStrokes.filter(Boolean).forEach((stroke) => {
-      if (!Array.isArray(stroke.points) || stroke.points.length < 2) return;
-      ctx.save();
-      ctx.strokeStyle = stroke.color || '#111';
-      ctx.fillStyle = stroke.color || '#111';
-      ctx.lineWidth = Math.max(1, (stroke.width || 3) * S * 0.55);
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      if (stroke.brush === 'sparkle') {
-        const step = 12;
-        for (let i = 0; i < stroke.points.length; i += step) {
-          const [px, py] = stroke.points[i];
-          const x = px / 100 * FRAME_W;
-          const y = py / 100 * FRAME_H;
-          const r = Math.max(3, (stroke.width || 3) * S * 0.7);
-          ctx.beginPath();
-          ctx.moveTo(x, y - r);
-          ctx.lineTo(x + r * 0.25, y - r * 0.25);
-          ctx.lineTo(x + r, y);
-          ctx.lineTo(x + r * 0.25, y + r * 0.25);
-          ctx.lineTo(x, y + r);
-          ctx.lineTo(x - r * 0.25, y + r * 0.25);
-          ctx.lineTo(x - r, y);
-          ctx.lineTo(x - r * 0.25, y - r * 0.25);
-          ctx.closePath();
-          ctx.globalAlpha = 0.8;
-          ctx.fill();
-        }
-      } else {
-        ctx.beginPath();
-        stroke.points.forEach(([px, py], i) => {
-          const x = px / 100 * FRAME_W;
-          const y = py / 100 * FRAME_H;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-      }
-      ctx.restore();
-    });
-
-    // Draw free stickers
-    const free = stickers.filter(s => s.frameSlot == null);
-    for (const s of free) {
-      await drawStickerToCanvas(ctx, s, FRAME_W, FRAME_H, S);
-    }
-
-    return new Promise(res => cvs.toBlob(res, 'image/png'));
   };
 
   const getExportBlob = async () => {

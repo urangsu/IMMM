@@ -104,17 +104,36 @@ function App() {
       try {
         stopStream(streamRef.current);
         streamRef.current = null;
-        const s = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            facingMode: { ideal: facingMode },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          },
-          audio: false,
-        });
+        let s = null;
+        try {
+          s = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 60 } },
+            audio: false,
+          });
+        } catch (e1) {
+          try {
+            s = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 60 } },
+              audio: false,
+            });
+          } catch (e2) {
+            s = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: { ideal: facingMode } },
+              audio: false,
+            });
+          }
+        }
+        
         if (!active) { s.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = s;
         setCamOk(true);
+        
+        const track = s.getVideoTracks()[0];
+        if (track) {
+          const settings = track.getSettings();
+          console.info('[IMMM camera] actual settings:', { width: settings.width, height: settings.height, frameRate: settings.frameRate, facingMode: settings.facingMode });
+        }
+
         if (videoRef.current) {
           // webkit-playsinline must be set BEFORE srcObject+play on Samsung Internet
           videoRef.current.setAttribute('webkit-playsinline', '');
@@ -123,6 +142,7 @@ function App() {
           videoRef.current.play().catch(() => {});
         }
       } catch (e) {
+        console.error('[IMMM camera] getUserMedia total failure:', e);
         setCamOk(false);
       }
     })();

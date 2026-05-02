@@ -6,6 +6,14 @@
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, muted, onRequestCamera,
   videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef
 }) {
+  // ── Quality Policy Documentation ──────────────────────────────────────────
+  // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
+  // 2. Preview render quality: WebGL canvas uses devicePixelRatio (capped at 2.0).
+  // 3. Capture still quality: High-res 2560px (desktop) or 1920px (mobile) long-edge.
+  // 4. Frame export quality: scale 3.0 (mobile) or 4.0 (desktop) based on memory safety.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const CAPTURE_LONG_EDGE = mobile ? 1920 : 2560;
   const shotCount = layout === 'polaroid' ? 1 : 6;
   const frameTemplate = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
   const firstSlot = frameTemplate?.photoSlots?.[0];
@@ -72,8 +80,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       const c = document.createElement('canvas');
       const rect = cameraFrameRef.current?.getBoundingClientRect();
       const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
-      c.width = 1920;
-      c.height = Math.max(1, Math.round(1920 / aspect));
+      
+      const capW = CAPTURE_LONG_EDGE;
+      const capH = Math.max(1, Math.round(CAPTURE_LONG_EDGE / aspect));
+      c.width = capW;
+      c.height = capH;
       const ctx = c.getContext('2d');
       ctx.save();
       if (mirrorX) {
@@ -259,8 +270,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           const { pipeline, faceUniforms } = engineRef.current._getParams();
           const rect = cameraFrameRef.current?.getBoundingClientRect();
           const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
-          const capW = 1920;
-          const capH = Math.max(1, Math.round(1920 / aspect));
+          const capW = CAPTURE_LONG_EDGE;
+          const capH = Math.max(1, Math.round(CAPTURE_LONG_EDGE / aspect));
           const raw = engineRef.current.takeSnapshot(capW, capH, mirrorX, pipeline, faceUniforms);
           if (raw && raw.length > 5000) dataUrl = await bakePreStickers(raw);
         } catch(e) { console.error('WebGL Capture Error:', e); }

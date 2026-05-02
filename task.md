@@ -1,115 +1,66 @@
-# IMMM 포토부스 개발 태스크 리스트
+# IMMM Photobooth Development Task List (task.md)
 
 ---
 
-## 🔴 P0 — 2026-04-28 기준 새로 확인된 필수 수정/검증
+## ⚡ 현재 개발 상태 (Current Status)
 
-- [ ] **Samsung Internet 실기 재검증**: 모바일에서 `smooth`, `blush`, `purikura`, `grain` 각각 촬영 전 미리보기와 촬영 후 저장 컷이 일치하는지 확인한다.
-- [ ] **필터 저장 품질 검증**: 현재 모바일 저장본은 CSS filter + Canvas2D 오버레이 보강 방식이다. 프리쿠라/홍조가 너무 약하거나 얼굴 위치와 어긋나는지 실제 인물로 확인한다.
-- [ ] **사전 스티커 전체 경로 검증**: Setup에서 붙인 스티커가 Capture 실시간 화면, 촬영 썸네일, Select, Deco, Result, PNG 저장본까지 같은 위치/크기로 유지되는지 확인한다.
-- [ ] **틀 안 스티커 clipping 검증**: `틀 안에 넣기`로 넣은 스티커가 Deco, Result, PNG 저장본에서 사진 슬롯 밖으로 빠져나오지 않는지 확인한다.
-- [ ] **html2canvas 저장 성능 확인**: Result 저장을 DOM 캡처 방식으로 우선 사용하므로 Android/Samsung Internet에서 메모리 부족, 저장 지연, 누락 레이어가 없는지 확인한다.
-- [ ] **드로잉 저장 굵기 재확인**: 미리보기, Result 화면, PNG 저장본의 선 굵기가 같은 체감인지 확인한다. 필요하면 `S * 0.55` 보정값을 조정한다.
-- [x] **PWA 설치 자산 추가**: `manifest.webmanifest`, `icon.svg`, `sw.js` 구현 완료. 모바일 홈 화면 추가 지원.
-- [x] **모바일 WebGL 정책 확정**: 모바일에서 WebGL(얼굴 추적 필터)을 사용할지 사용자가 직접 선택할 수 있도록 옵션화 완료. (안정성을 위해 기본 OFF, 수동 ON 가능)
-- [x] **필터 UX 재설계**: `첫사랑(Blush)` 범위/강도 강화, 흑백(BW) 추가, 전체 필터 특색 강화 완료.
-- [x] **순수 캔버스 Export 파이프라인**: `html2canvas`를 제거하고 스티커, 드로잉, 텍스트를 포함한 모든 레이어를 고해상도(S=10)로 직접 그려 저장하도록 개선 완료 (화질 문제 해결).
-- [x] **메모리 누수 및 리소스 관리 점검**: WebGL `destroy()`에 솔더, 텍스처, FBO, 컨텍스트 직접 해제 로직 추가 완료.
-
-## ✅ 완료된 항목 (2026-04-28)
-
-- [x] 흰 화면 부트 오류 수정: `screens-v2.jsx`, `screens-v2-deco.jsx` JSX 닫힘 오류 제거
-- [x] 모바일 WebGL 검정 화면 완화: 모바일에서는 WebGL 필터를 끄고 CSS/Canvas2D 경로로 고정
-- [x] 촬영 저장본 필터 보강: Canvas2D 저장 단계에서 톤/홍조/프리쿠라/필름 오버레이 추가
-- [x] 카운트다운 표시 복구: 카메라 영역 기준 portal 오버레이로 `3,2,1`과 플래시 표시
-- [x] 촬영 전 스티커 표시/전달: 사전 스티커를 실시간 Capture 오버레이와 shot 데이터에 반영
-- [x] 촬영 전 스티커 후속 표시: 촬영 썸네일, Select, FrameThumb 컷 내부에 `preStickers` 표시
-- [x] 틀 안 스티커 Result 이탈 수정: Result에서도 `SlottedStickersCtx`를 사용하고 free/slotted 스티커 분리
-- [x] 결과 PNG 저장 개선: `html2canvas(captureRef)` 우선 사용으로 DOM과 저장본 일치도 개선
-- [x] 드로잉 크래시 방어: null/빈 stroke 렌더 방어 및 저장 시 null 제거
-- [x] 드로잉 굵기 보정: Result SVG `vectorEffect` 적용 및 수동 PNG fallback 굵기 보정
-- [x] 시간기록 스티커 복구: 배경 박스 제거, 흰색/검정색 글씨 전환 컨셉으로 수정
-- [x] 전체 JSX Babel 변환 검사 통과
+- **노출 필터 (6종)**: `No Filter`, `Porcelain` (자연광), `Smooth` (크림 스킨), `Blush` (첫사랑), `Purikura` (하라주쿠), `Grain` (필름)
+- **주요 수정 완료**: 폴라로이드 크롭 가이드라인 정확화, 필터 전환 잔상 제거, 얼굴 주변 왜곡(jaw warp) 완전 제거.
 
 ---
 
-## ✅ 완료된 항목 (2026-04-26 기준)
+## 💎 HD 품질 정책 (HD Quality Policy)
 
-### 필터 시스템 완전 재구현
-- [x] **새 GLSL 셰이더 6개** (`webgl-engine.jsx`): halation, split_tone, film_grain_v2, vignette, chromatic_ab, y2k 재작성
-- [x] **FILTER_PIPELINES 전면 재구성** (`webgl-engine.jsx`): grain/vintage/bw/dream/y2k/golden/lomo/glitter/purikura/smooth/blush 파이프라인 멀티패스 체인으로 교체
-- [x] **u_time 주입 범위 확장**: glitter 외 film_grain_v2도 매 프레임 자동 주입
-- [x] **필터명 전면 개편** (`filters.jsx`): 자연광, 크림 스킨, 첫사랑, 하라주쿠, 코닥, 엄마 앨범, 골든아워, 2002, 새벽 두 시, 한강 새벽, 반짝, 로모
-- [x] **신규 필터 2개 추가**: `golden` (골든아워), `lomo` (로모)
-- [x] **`dream` 필터 UI 노출 버그 수정**: FILTERS 객체 누락으로 필터 캐러셀에 안 뜨던 문제 해결
-- [x] **CSS `oklch()` → `hsl()` 교체**: Samsung Internet 15 이하 호환
-
-### 인스타그래머블 업그레이드
-- [x] **canvas-confetti CDN 추가** (`index.html`)
-- [x] **`polaroidReveal` 키프레임 추가** (`index.html`): 흔들리며 나타나는 폴라로이드 효과
-- [x] **ResultV2 Polaroid 애니메이션** (`screens-v2-deco.jsx`): popIn → polaroidReveal
-- [x] **다운로드 confetti** (`screens-v2-deco.jsx`): Web Share API + anchor 폴백 경로 양쪽에 핑크 confetti
-
-### 버그 수정
-- [x] **Samsung Mobile Web 블랙 스크린** (`webgl-engine.jsx`): readPixels 예외 시 즉시 switch 문제 수정 → 45프레임 워밍업 + 하드타임아웃 240프레임
-- [x] **드로잉 튕김(Jank)** (`screens-v2-deco.jsx`): getAttribute DOM 읽기 제거, curPathDRef ref로 경로 누적, touch 이벤트 폴백, e.preventDefault()
-- [x] **영상 저장** (`screens-v2-deco.jsx`): timeslice 200ms, Web Share API, revokeObjectURL 30초 지연, mozCaptureStream 지원
-- [x] WebGL 기반 실시간 고사양 필터 구현
-- [x] 삼성 인터넷 비디오 렌더링 버그 수정 (이전)
-- [x] 스티커 상태 유지 및 촬영 화면 오버레이 매핑
-- [x] 드로잉 성능 최적화 (Sparkle 브러시)
-- [x] 드로잉 모드 크래시 수정
-- [x] 셀렉 화면 필터 미적용 수정
+- **Camera input**: 가능한 경우 1920x1080 ideal로 요청, 실패 시 1280x720/facingMode only fallback (main.jsx 적용 완료)
+- **Preview**: CSS 크기 * devicePixelRatio (cap 2.0) backing store 적용 (webgl-engine.jsx 적용 완료)
+- **Capture still**: 기본 long edge 2560 (Desktop) / 1920 (Mobile) 적용 (screens-v2-rest.jsx 적용 완료)
+- **Frame export**: Desktop scale 4, Mobile scale 3, 실패 시 scale 2 fallback (screens-v2-deco.jsx 적용 완료)
+- **Filter**: WebGL 단계에서 한 번만 적용, 중복 후처리(applyCapturedFilterLook) 금지 (최적화 완료)
+- **Beauty geometry**: 턱/볼/눈 등 모든 기하학적 변형 로직 재도입 절대 금지
+- **Softening**: `applyFaceZoneSoftening` 재활성화 금지 (피부 뭉개짐 방지)
 
 ---
 
-## 🔴 P0 — 바로 해야 함
+## 🚫 절대 금지 사항 (Prohibitions)
 
-- [ ] **빌드/검증 시스템 도입**: 현재 `index.html`의 브라우저 `text/babel` + CDN 전역 객체 구조라 JSX 문법 오류, 스크립트 순서, 누락 전역을 배포 전 잡기 어렵다. Vite + React 모듈 구조, `npm run build`, 최소 smoke test 필요
-- [ ] **카메라 레이어 구조 재검증**: `global-camera-box`가 Capture 화면 내부 카메라 영역과 분리되어 있어 safe-area, 주소창, orientation 변화에서 위치 오차가 날 수 있다. Capture 영역 rect 기반 동기화 후 실기 확인 필요
-- [ ] **삼성 블랙 스크린 실기 검증**: Samsung Internet에서 직접 열어서 카메라 화면 뜨는지 확인. readPixels 예외 경로 확인용 콘솔 로그 추가 고려
-- [ ] **영상 저장 실기 검증**: Android Chrome + Samsung Internet 각각에서 저장 버튼 눌러서 실제 파일 받아지는지 확인
-- [ ] **드로잉 모드 실기 검증**: 모바일에서 그리기 모드 켜고 긴 획 그려봐서 튕김 없는지 확인
-
----
-
-## 🟠 P1 — 임팩트 크고 구현 가능
-
-- [ ] **카메라 모듈 분리**: `useCameraStream()`으로 권한, stream stop, facingMode 전환, page visibility 복귀, error state를 분리. Android WebView 안정성 확보
-- [ ] **렌더링 정책 문서화/고정**: 모바일은 CSS/Canvas2D, 데스크톱은 WebGL 우선처럼 정책을 코드와 문서에서 하나로 맞추고 fallback 조건을 명시
-- [ ] **shot 데이터 모델 정리**: `{ dataUrl, capturedFilter, renderMode, width, height, ts }` 형태로 촬영 당시 정보를 저장하고 결과/다운로드는 그 기준만 사용
-- [ ] **할레이션 멀티패스 정밀화**: 현재 14-tap 단일 패스 근사 → 3번째 FBO 추가하여 진짜 2-pass Gaussian blur. `FilterEngine._ensureFbos()`에 3번째 슬롯 추가
-- [ ] **Frequency Separation 피부 보정**: MediaPipe Face Mesh ROI(눈/입술 윤곽)를 `u_mask` uniform으로 넘겨 얼굴 내부만 bilateral 적용, 눈/입술 마스크 아웃. 현재는 전체 프레임에 bilateral 적용 중
-- [ ] **필터 실시간 썸네일**: 필터 캐러셀에서 "내 얼굴에 필터 씌워진 미리보기". WebGL 필터 엔진을 작은 오프스크린 캔버스에 돌려 썸네일 생성. `OffscreenCanvas`로 메인 스레드 보호
-- [ ] **아트 QR 코드**: `qr-code-styling` CDN 사용, QR 중앙에 IMMM 로고 or 촬영 썸네일 삽입
-- [ ] **BTS 릴스 BGM**: Howler.js 또는 `<audio>` 태그로 배경음악. `handleVideoDownload`의 MediaRecorder 녹화 시 오디오 트랙 추가
-- [ ] **안면 인식 홍조 보간**: Blush 위치가 얼굴 움직임에 부드럽게 따라오도록 보간 로직 추가
-- [ ] **랜딩 페이지 CTA 및 예시 갤러리**: 첫 화면 하단에 실제 촬영 예시 갤러리를 추가하여 유저 기대감 고취 및 "시작하기" 전환율 개선.
-- [ ] **인스타그램/카톡 공유 기능**: Web Share API를 연동하여 결과물을 인스타 스토리나 카카오톡으로 즉시 공유하는 버튼 추가.
-- [ ] **기본 SEO 보강**: 메타 태그(Title, Description), OpenGraph 이미지, 검색 키워드(웹 포토부스, 인생네컷 웹앱 등) 최적화.
+- **얼굴 변형 금지**: 모든 기하학적 변형(Geometry Warp) 재도입 금지.
+- **신규 필터 추가 금지**: 현재 6종 필터 체계 유지 (y2k, aurora, seoul 등 추가 계획 폐기).
+- **빌드 시스템 변경 금지**: 현재의 단일 HTML + CDN 기반 구조 유지 (Vite/Next.js 마이그레이션 금지).
+- **저장 화질 훼손 금지**: `applyCapturedFilterLook` 중복 적용으로 인한 화질 저하 방지.
 
 ---
 
-## 🟡 P2 — 장기 아이디어
+## 🔴 우선순위: HIGH (실기 QA 및 안정성)
 
-- [ ] **WebCodecs MP4 출력**: 현재 Chrome=WebM, Safari=MP4 파편화. Instagram 공유 시 WebM 호환 문제. WebCodecs API + VideoEncoder 필요. `WebAV` 라이브러리(MIT) 또는 직접 구현
-- [ ] **동적 OG 이미지**: Cloudflare Worker + `satori` (MIT) — 공유 URL 접근 시 서버사이드 사진+프레임 합성 → PNG OG 이미지 자동 생성. 카카오톡 공유 미리보기
-- [ ] **보케 배경 블러**: MediaPipe Selfie Segmentation으로 인물/배경 분리 → 배경 blur/교체
-- [ ] **협업 원격 셔터**: QR 스캔 → 친구 폰이 셔터 리모컨. WebRTC DataChannel 또는 Cloudflare Durable Objects
-- [ ] **스트릭 / 챌린지**: 매일 촬영 스트릭, IndexedDB에 날짜별 기록 저장. 7일 달성 시 스페셜 프레임 언락
-- [ ] **프레임 마켓플레이스**: 크리에이터가 JSON 프레임 파일 업로드 → URL 공유. Cloudflare R2 저장
-- [ ] **Android 앱 래퍼**: Capacitor.js 또는 단순 WebView 앱으로 Google Play 배포
-- [ ] **AI 자동 컷 선택**: MediaPipe 눈 깜빡임 감지로 눈 감은 컷 자동 비추천. Face Mesh `leftEyeBlinkProbability` 값 활용. SelectV2 화면에 "AI 추천" 배지 표시
-- [ ] **dream 셰이더 튜닝**: 현재 화이트블룸 + 보라 틴트 수준. split_tone + vignette 파이프라인에 이미 포함됨 — 파라미터 정밀 튜닝
-- [ ] **모바일 터치 제스처 고도화**: 스티커 조작 시 Pinch-to-zoom(두 손가락 확대/축소/회전) 멀티터치 제스처 지원.
-- [ ] **이미지 최적화 (WebP/Lazy Load)**: 정적 자산(스티커, 프레임 샘플)을 WebP로 전환하고 Lazy Loading을 적용하여 초기 로딩 속도 단축.
+- [ ] **Samsung Internet 1080p 검증**: 삼성 인터넷 브라우저에서 1080p 카메라 스트림 요청 시 프레임 드랍이나 블랙 스크린이 발생하는지 확인.
+- [ ] **모바일 메모리 안정성 테스트**: 2560px 캡처 및 Scale 3.0 저장 시 저사양 기기(iPhone 12 이하, 보급형 Android)에서 브라우저 크래시 여부 확인.
+- [ ] **Export Fallback 작동 확인**: 고해상도 저장 실패 시 자동으로 Scale 2.0으로 전환되어 저장이 성공하는지 검증.
+- [ ] **폴라로이드 가이드 일치성**: 뷰파인더 가이드 영역과 실제 저장된 1:1 사진 영역의 픽셀 단위 일치 최종 확인.
 
 ---
 
-## 🚫 검토 완료 — 하지 않기로 결정
+## 🟠 우선순위: MEDIUM (UI/UX 폴리싱)
 
-| 항목 | 결정 | 이유 |
-|------|------|------|
-| Pixi.js / Fabric.js 도입 | ❌ | TWGL + 직접 GLSL이 이미 완성됨. 300KB+ 라이브러리 불필요 |
-| WebCodecs 전환 (지금) | ❌ | MediaRecorder + canvas.captureStream() 이미 작동. Safari MP4/Chrome WebM 파편화는 P2에서 재검토 |
-| WebAV 라이브러리 | ❌ | 동일 이유 |
+- [ ] **필터 전환 애니메이션**: 0.08s 트랜지션의 기기별 매끄러움 확인.
+- [ ] **스티커 레이어 안정화**: Deco 화면 스티커 조작 감도 및 Z-index 점검.
+- [ ] **카메라 권한 거부 대응**: 사용자 가이드 UI 추가.
+
+---
+
+## ✅ 완료 기록 (Completed History)
+
+- [x] **카메라 3단계 Fallback**: 1080p -> 720p -> 기본 권한 순으로 안정적 연결.
+- [x] **티어드 고해상도 저장**: Desktop(4.0), Mobile(3.0), Fallback(2.0) 파이프라인 구축.
+- [x] **폴라로이드 가이드 고도화**: 실제 슬롯 비율 기반 Dim 레이어 가이드 구현.
+- [x] **얼굴형 보정 로직 제거**: `applyBeautyGeometry` 완전 제거 및 no-op 처리.
+
+---
+
+## 📜 Legacy / Historical Notes
+
+- PWA 설치 자산 추가 (manifest, icon)
+- 미리보기 High-DPI 대응 (devicePixelRatio)
+- 필터 전환 잔상 제거 (`firstFrame` 리셋)
+- 재촬영 시 이전 사진 섞임 문제 해결 (SelectV2 초기화)
+- (과거) 셰이더 6개 및 필터 파이프라인 전면 재구성
+- (과거) 드로잉 성능 최적화 및 Sparkle 브러시 추가
