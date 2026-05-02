@@ -563,12 +563,33 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
     </div>
   );
   const toggle = (i) => {
+    if (maxSel === 1) {
+      // Polaroid / single-select: never deselect, just switch to the new index.
+      if (!selected.includes(i)) setSelected([i]);
+      return;
+    }
     setSelected(prev => {
-      if (prev.includes(i)) return prev.filter(x=>x!==i);
+      if (prev.includes(i)) return prev.filter(x => x !== i);
       if (prev.length >= maxSel) return prev;
       return [...prev, i];
     });
   };
+
+  // Auto-correct: if none of the selected indices exist in the current availableShots
+  // (e.g. after a re-capture that reset shots), pin to the first available shot.
+  React.useEffect(() => {
+    if (availableShots.length === 0) return;
+    const validIndices = availableShots.map(s => s.index);
+    const hasValid = selected.some(idx => validIndices.includes(idx));
+    if (!hasValid) {
+      if (maxSel === 1) {
+        setSelected([availableShots[0].index]);
+      } else {
+        setSelected(availableShots.slice(0, maxSel).map(s => s.index));
+      }
+    }
+  }, [availableShots.map(s => s.index).join(','), maxSel]);
+
   const clearPressTimer = () => {
     if (pressTimerRef.current) {
       clearTimeout(pressTimerRef.current);

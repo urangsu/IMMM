@@ -68,8 +68,13 @@ function App() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const safeFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
+  // faceTrackedFilters: only blush injects face-landmark uniforms (cheek positions).
+  // No visible filter uses UV-warp shaders (face_slim / eye-warp are glam-only, which is hidden).
   const faceTrackedFilters = ['blush'];
-  const shouldUseWebgl = tweaks.useWebgl && faceTrackedFilters.includes(safeFilter);
+  // shouldUseWebgl: enabled for ALL visible filters when tweaks.useWebgl is true.
+  // Mobile default (window.innerWidth < 640) keeps useWebgl=false → CSS filter path.
+  // Not gated on faceTrackedFilters — face tracking is a bonus for blush, not a WebGL requirement.
+  const shouldUseWebgl = tweaks.useWebgl;
   const [cameraBox, setCameraBox] = React.useState(null);
 
   // ═══════════════════════════════════════════════════════════════
@@ -148,6 +153,13 @@ function App() {
   const go = (s) => {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
+    }
+    // Reset shots + selected when starting a fresh capture session.
+    // This prevents previous roll's shots leaking into SelectV2 on re-capture.
+    if (s === 'capture') {
+      const newShotCount = tweaks.layout === 'polaroid' ? 1 : 6;
+      setShots(Array(newShotCount).fill(null));
+      setSelected([]);
     }
     setScreen(s);
   };
@@ -260,19 +272,27 @@ function App() {
         background: '#10233A',
         clipPath: 'inset(0 round 24px)',
         transform: 'translateZ(0)',
-        filter: (!shouldUseWebgl || webglFailed) ? (FILTERS[safeFilter]?.css || 'none') : 'none',
+        // No filter here — applied per-layer below so CSS always shows
         transition: 'opacity 0.3s ease',
       }}>
+        {/* Video layer: always carries CSS fallback filter.
+            Hidden behind WebGL canvas once firstFrame is ready. */}
         <video ref={videoRef} playsInline muted autoPlay style={{
           position:'absolute', inset:-1, width:'calc(100% + 2px)', height:'calc(100% + 2px)', objectFit:'cover',
           transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
           borderRadius: 25,
+          // CSS filter is always on the video so there's no unfiltered flash
+          filter: FILTERS[safeFilter]?.css || 'none',
+          // Fade out once WebGL canvas has its first frame rendered
+          opacity: (shouldUseWebgl && webglOk && firstFrame) ? 0 : 1,
+          transition: 'opacity 0.25s',
         }}/>
+        {/* WebGL canvas: fades in over the CSS-filtered video once ready */}
         <canvas ref={canvasRef} style={{
           display:'block', position:'absolute', inset:-1,
           width:'calc(100% + 2px)', height:'calc(100% + 2px)', borderRadius:25,
           opacity: (shouldUseWebgl && webglOk && firstFrame) ? 1 : 0,
-          transition: 'opacity 0.2s',
+          transition: 'opacity 0.25s',
         }}/>
       </div>
 
