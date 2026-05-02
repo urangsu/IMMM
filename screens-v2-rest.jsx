@@ -432,27 +432,39 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           )}
           
-          {layout === 'polaroid' && (
-            <div style={{
-              position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              overflow: 'hidden', borderRadius: 24
-            }}>
-              <div style={{
-                width: '100%', aspectRatio: '1/1',
-                boxShadow: '0 0 0 1.5px rgba(255,255,255,0.9), 0 0 0 9999px rgba(0,0,0,0.18)',
-                position: 'relative'
-              }}>
+          {/* Polaroid Crop Guide — shows actual saving area for 1:1 slots */}
+          {layout === 'polaroid' && (() => {
+            const slot = frameTemplate?.photoSlots?.[0];
+            const targetAspect = slot ? slot.width / slot.height : 1;
+            const containerAspect = viewfinderAspect;
+            let gW = 100, gH = 100;
+            if (containerAspect > targetAspect) {
+              gH = 100; gW = (targetAspect / containerAspect) * 100;
+            } else {
+              gW = 100; gH = (containerAspect / targetAspect) * 100;
+            }
+            const l = (100 - gW) / 2;
+            const t = (100 - gH) / 2;
+            return (
+              <div style={{ position:'absolute', inset:0, zIndex:10, pointerEvents:'none', borderRadius:24, overflow:'hidden' }}>
+                <div style={{ position:'absolute', top:0, left:0, right:0, height:`${t}%`, background:'rgba(0,0,0,0.18)' }} />
+                <div style={{ position:'absolute', bottom:0, left:0, right:0, height:`${t}%`, background:'rgba(0,0,0,0.18)' }} />
+                <div style={{ position:'absolute', top:`${t}%`, bottom:`${t}%`, left:0, width:`${l}%`, background:'rgba(0,0,0,0.18)' }} />
+                <div style={{ position:'absolute', top:`${t}%`, bottom:`${t}%`, right:0, width:`${l}%`, background:'rgba(0,0,0,0.18)' }} />
                 <div style={{
-                  position: 'absolute', top: 8, left: 8,
-                  background: 'rgba(0,0,0,0.4)', color: '#fff',
-                  fontSize: 10, fontWeight: 600, letterSpacing: 1.2,
-                  padding: '4px 8px', borderRadius: 4, fontFamily: '"Plus Jakarta Sans",system-ui',
-                  backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
-                }}>POLAROID CROP</div>
+                  position:'absolute', left:`${l}%`, top:`${t}%`, width:`${gW}%`, height:`${gH}%`,
+                  border:'1.5px solid rgba(255,255,255,0.92)', boxShadow:'0 0 0 1px rgba(0,0,0,0.18)',
+                  borderRadius:12, boxSizing:'border-box'
+                }}>
+                  <div style={{
+                    position:'absolute', top:8, left:8, padding:'4px 8px', borderRadius:4,
+                    background:'rgba(0,0,0,0.42)', color:'#fff', fontSize:10, fontWeight:600, 
+                    letterSpacing:0.5, fontFamily:'Pretendard, system-ui'
+                  }}>저장 영역</div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           
           {/* Transparent hole for global camera box */}
           
