@@ -34,6 +34,9 @@ void main(){
 // FRAGMENT SHADERS
 // 
 const FRAGS = {
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIVE CORE SHADERS — used by visible filter pipelines (porcelain/smooth/blush)
+// ─────────────────────────────────────────────────────────────────────────────
 
 passthrough: `
 precision mediump float;
@@ -599,7 +602,13 @@ void main(){
   gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),u_intensity),orig.a);
 }`,
 
-// ─── Lip Color — landmark-aware lip tint + gloss ───────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGACY / EXPERIMENTAL SHADERS — face warp + makeup FX; only used in hidden
+// filter pipelines (glam/aurora/seoul/purikura). NEVER called by any visible
+// pipeline (original / porcelain / smooth / blush / grain / bw).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Lip Color — landmark-aware lip tint + gloss — LEGACY AR-ONLY (glam hidden filter) ──
 lip_color: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -634,6 +643,10 @@ void main(){
 }`,
 
 // ─── Face Slim — UV warp that pulls jaw/cheek edges inward ─────────────────
+// LEGACY AR-ONLY: Only in the 'glam' pipeline (hidden filter).
+// NEVER included in any visible filter pipeline (original/porcelain/smooth/blush/grain/bw).
+// Uniforms (u_slimStrength, u_leftJaw, u_rightJaw, u_chin) are only injected
+// inside the "if (key === 'glam' || key === 'aurora')" block in useFilterEngine.
 face_slim: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -665,7 +678,7 @@ void main(){
   gl_FragColor=texture2D(u_tex,uv);
 }`,
 
-// ─── Eye Bright — per-eye luminosity + iris sparkle halo ──────────────────
+// ─── Eye Bright — per-eye luminosity + iris sparkle halo — LEGACY AR-ONLY (glam/aurora hidden) ──
 eye_bright: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -702,7 +715,7 @@ void main(){
   gl_FragColor=vec4(c,orig.a);
 }`,
 
-// ─── Contour — nose slim + highlight for 3D depth ──────────────────────────
+// ─── Contour — nose slim + highlight for 3D depth — LEGACY AR-ONLY (glam hidden filter) ──
 contour: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -739,18 +752,20 @@ void main(){
 // Filter pipeline presets
 // 
 const FILTER_PIPELINES = {
+// ─────────────────────────────────────────────────────────────────────────────
+// VISIBLE FILTER PIPELINES — shown in the filter carousel to all users.
+// Rules: no face_slim / lip_color / eye_bright / contour / purikura warp calls.
+// ─────────────────────────────────────────────────────────────────────────────
   original: { pipeline:[] },
 
-  //   
+  //   Window Light — 1×bilateral, lighter than smooth, natural light feel, no warp
   porcelain: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.2, u_sigmaColor:0.10 } }, // 2nd pass
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.2, u_sigmaColor:0.10 } },
-    { shader:'skin_lift',    uniforms:{ u_strength:0.80 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:4.5, u_sigmaColor:0.11 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:4.5, u_sigmaColor:0.11 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.65 } },
     { shader:'porcelain',    uniforms:{ u_intensity:1.0 } },
-    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.92,0.94,1.04], u_highlightColor:[1.04,1.01,0.97], u_intensity:0.7 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.08,u_contrast:-0.06,u_saturation:-0.08,u_temperature:0.15,u_tint:0,u_vibrance:0,u_highlights:0.04,u_shadows:0.03 } },
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.96,0.97,1.02], u_highlightColor:[1.02,1.01,0.98], u_intensity:0.38 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.07,u_contrast:-0.04,u_saturation:-0.06,u_temperature:0.12,u_tint:0,u_vibrance:0,u_highlights:0.03,u_shadows:0.02 } },
   ]},
 
   //  2002 (Y2K) 
@@ -840,35 +855,36 @@ const FILTER_PIPELINES = {
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.96,0.94,1.03], u_highlightColor:[1.04,1.02,1.02], u_intensity:0.38 } },
   ]},
 
-  //    (Smooth) — SNOW-level skin retouching 
+  //    Cream Skin — 2×bilateral, lower sigmaSpace to preserve hair/eye edges
   smooth: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.12 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.12 } },
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:4.0, u_sigmaColor:0.10 } }, // 2nd pass
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:4.0, u_sigmaColor:0.10 } },
-    { shader:'skin_lift',    uniforms:{ u_strength:0.90 } }, // blemish/acne suppression
-    { shader:'smooth_skin',  uniforms:{ u_intensity:0.75 } },
-    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.95,0.96,1.02], u_highlightColor:[1.03,1.015,0.99], u_intensity:0.42 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.06,u_saturation:-0.05,u_temperature:0.10,u_tint:0,u_vibrance:0,u_highlights:0.02,u_shadows:0.04 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.5, u_sigmaColor:0.12 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } }, // 2nd pass — sharper edges
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.80 } }, // blemish suppression — lighter than before
+    { shader:'smooth_skin',  uniforms:{ u_intensity:0.60 } }, // reduced to avoid over-smoothing
+    { shader:'split_tone',   uniforms:{ u_shadowColor:[0.95,0.96,1.02], u_highlightColor:[1.03,1.015,0.99], u_intensity:0.38 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.06,u_contrast:-0.05,u_saturation:-0.04,u_temperature:0.10,u_tint:0,u_vibrance:0,u_highlights:0.02,u_shadows:0.03 } },
   ]},
 
-  //   (Blush) 
+  //   First Love — 1×bilateral, blush-only, no dream/halation/warp, no face geometry change
   blush: { pipeline:[
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.12 } },
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.0, u_sigmaColor:0.12 } },
-    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } }, // 2nd pass
-    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } },
-    { shader:'skin_lift',    uniforms:{ u_strength:0.88 } }, // blemish suppression
-    { shader:'dream',        uniforms:{ u_intensity:0.35 } },
-    { shader:'color_adjust', uniforms:{ u_exposure:0.10,u_saturation:0.08,u_contrast:-0.08,u_temperature:0.10,u_tint:0.02,u_vibrance:0.1,u_highlights:-0.05,u_shadows:0.04 } },
+    { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.11 } },
+    { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.11 } },
+    { shader:'skin_lift',    uniforms:{ u_strength:0.82 } },
+    { shader:'color_adjust', uniforms:{ u_exposure:0.08,u_saturation:0.05,u_contrast:-0.06,u_temperature:0.10,u_tint:0.01,u_vibrance:0.06,u_highlights:-0.03,u_shadows:0.03 } },
     { shader:'blush',        uniforms:{ u_faceCount:0.0,
         u_leftCheek0:[0,0], u_rightCheek0:[0,0], u_cheekRadius0:0.0,
         u_leftCheek1:[0,0], u_rightCheek1:[0,0], u_cheekRadius1:0.0,
         u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
         u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
         u_blushStrength:1.05, u_blushColor:[1.0,0.58,0.62] } },
-    { shader:'halation',     uniforms:{ u_intensity:0.18, u_threshold:0.82 } },
   ]},
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HIDDEN FILTER PIPELINES — not shown in the filter carousel.
+// May use LEGACY shaders (face_slim, lip_color, eye_bright, contour, purikura warp).
+// ─────────────────────────────────────────────────────────────────────────────
 
   //   
   golden: { pipeline:[
@@ -1285,6 +1301,12 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
         const face = faceDataRef?.current;
 
         // Dynamic face uniforms
+        // SAFETY: UV-warp uniforms (u_slimStrength/u_leftJaw/u_rightJaw/u_chin for face_slim,
+        // u_eyeScale for purikura eye-warp, u_lipCenter/u_lipColor for lip_color,
+        // u_noseTip/u_noseTop for contour) are ONLY injected for hidden filters (glam/aurora/purikura).
+        // Visible filter pipelines (original/porcelain/smooth/blush/grain/bw) do NOT contain
+        // face_slim, purikura, eye_bright, lip_color, or contour shader steps, so these
+        // uniforms have no effect even if accidentally present.
         let faceUniforms = {};
         if (face?.detected) {
           // coordinate transformation: MP(0,0)=top-left → GL(0,0)=bottom-left + mirror correction
