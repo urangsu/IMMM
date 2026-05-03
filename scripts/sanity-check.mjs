@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,6 +50,21 @@ function checkFrameSystem() {
 
   if (!content.includes('"Plus Jakarta Sans", Pretendard') && !content.includes('Pretendard, "Plus Jakarta Sans"')) {
     console.error('❌ FAIL: frame-system.jsx date font missing Plus Jakarta Sans.');
+    hasErrors = true;
+  }
+
+  if (!/async\s+function\s+drawStickerToCtx[\s\S]*sticker\.sizeNorm/.test(content)) {
+    console.error('❌ FAIL: frame-system.jsx drawStickerToCtx must reference sticker.sizeNorm');
+    hasErrors = true;
+  }
+
+  if (!/const\s+targetW\s*=\s*actualSizeNorm\s*\?\s*baseW\s*\*\s*actualSizeNorm/.test(content)) {
+    console.error('❌ FAIL: frame-system.jsx drawStickerToCtx must derive export sticker width from baseW * sizeNorm');
+    hasErrors = true;
+  }
+
+  if (/drawCatalog\(ctx,\s*item,\s*scalePx\)/.test(content)) {
+    console.error('❌ FAIL: frame-system.jsx preset draw path still passes scalePx after ctx scale; this can double-scale stickers');
     hasErrors = true;
   }
 }
@@ -140,7 +156,7 @@ function checkStickerEngine() {
       console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds must use sizeNorm and canvasW');
       hasErrors = true;
     }
-    if (content.includes('const visualW = raw.w * (decoScale?.x || 1);') && !content.includes('sticker.sizeNorm')) {
+    if (content.includes('const visualW = raw.w * (decoScale?.x || 1);') || content.includes('let visualW = raw.w * (decoScale?.x || 1);')) {
       console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds relies purely on decoScale without sizeNorm');
       hasErrors = true;
     }
@@ -156,6 +172,31 @@ function checkStickerEngine() {
 
   if (content.includes('function renderStickerInstance') && content.includes('renderLibSticker(item, 1)')) {
     console.error('❌ FAIL: sticker-engine.jsx renderStickerInstance preset path ignores scaleMul parameter');
+    hasErrors = true;
+  }
+
+  if (!content.includes('function getDefaultStickerSizeNorm')) {
+    console.error('❌ FAIL: sticker-engine.jsx missing getDefaultStickerSizeNorm helper');
+    hasErrors = true;
+  }
+
+  if (!/function\s+makeSticker[\s\S]*sizeNorm:\s*opts\.sizeNorm\s*\?\?\s*defaultSizeNorm/.test(content)) {
+    console.error('❌ FAIL: sticker-engine.jsx makeSticker must persist sizeNorm on created stickers');
+    hasErrors = true;
+  }
+
+  if (!/const\s+visualScale\s*=\s*getStickerNormScale\(s,\s*canvasW\)/.test(content)) {
+    console.error('❌ FAIL: sticker-engine.jsx StickerCanvas visual size must derive from sizeNorm via getStickerNormScale');
+    hasErrors = true;
+  }
+
+  if (/effectiveScale\s*=\s*\(s\.scale\s*\|\|\s*1\)\s*\*\s*normScale/.test(content)) {
+    console.error('❌ FAIL: sticker-engine.jsx StickerCanvas still multiplies sizeNorm into wrapper transform');
+    hasErrors = true;
+  }
+
+  if (/hitbox\.(w|h)\s*\/\s*normScale/.test(content) || /visualW\s*\/\s*normScale/.test(content) || /visualH\s*\/\s*normScale/.test(content)) {
+    console.error('❌ FAIL: sticker-engine.jsx StickerCanvas still compensates hitbox/outline by dividing through normScale');
     hasErrors = true;
   }
 
@@ -207,6 +248,22 @@ function checkRuntimeBootGuards() {
       console.error('❌ FAIL: main.jsx uses <ScreenTransition> but no ScreenTransition definition/export was found');
       hasErrors = true;
     }
+  }
+}
+
+function checkSetupAndDecoStickerCanvas() {
+  const setup = readFile('screens-v2.jsx');
+  const deco = readFile('screens-v2-deco.jsx');
+  if (!setup || !deco) return;
+
+  if (!/<StickerCanvas[\s\S]*canvasW=\{frameW\}/.test(setup)) {
+    console.error('❌ FAIL: screens-v2.jsx SetupScreen StickerCanvas must receive canvasW={frameW}');
+    hasErrors = true;
+  }
+
+  if (!/<StickerCanvas[\s\S]*canvasW=\{frameW\}/.test(deco)) {
+    console.error('❌ FAIL: screens-v2-deco.jsx Deco StickerCanvas must receive canvasW={frameW}');
+    hasErrors = true;
   }
 }
 
@@ -318,6 +375,24 @@ function checkTask() {
     console.warn('⚠️ WARN: task.md contains QA Pass log for commit 99c50f0, which lacked sizeNorm implementation');
     hasWarnings = true;
   }
+
+  let head = null;
+  try {
+    head = execSync('git rev-parse --short HEAD', { cwd: rootDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    head = null;
+  }
+
+  if (head) {
+    const passLogs = [...content.matchAll(/###\s+\d{4}-\d{2}-\d{2}[^\n]*commit\s+([a-f0-9]+)[\s\S]*?- Pass\/Fail:\s*Pass/g)];
+    for (const match of passLogs) {
+      const sha = match[1];
+      if (sha !== head && !head.startsWith(sha) && !sha.startsWith(head)) {
+        console.warn(`⚠️ WARN: task.md contains Pass QA log for old commit ${sha}; current HEAD is ${head}`);
+        hasWarnings = true;
+      }
+    }
+  }
 }
 
 console.log('🔍 Running IMMM Sanity Checks...');
@@ -326,6 +401,7 @@ checkFrameSystem();
 checkStickerEngine();
 checkCapture();
 checkRuntimeBootGuards();
+checkSetupAndDecoStickerCanvas();
 checkDeco();
 checkTask();
 

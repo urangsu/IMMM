@@ -206,14 +206,17 @@ function getInteractionBounds(sticker, mode, decoScale, canvasW) {
     ? getStickerVisualBounds(sticker)
     : getStickerHitboxSize(sticker);
 
-  if (mode !== 'deco-overlay') return raw;
-
-  let visualW = raw.w * (decoScale?.x || 1);
-  let visualH = raw.h * (decoScale?.y || 1);
-
+  let visualW;
+  let visualH;
   if (sticker.sizeNorm && canvasW) {
     visualW = sticker.sizeNorm * canvasW;
     visualH = visualW * (raw.h / raw.w);
+  } else if (mode === 'deco-overlay') {
+    visualW = raw.w * (decoScale?.x || 1);
+    visualH = raw.h * (decoScale?.y || 1);
+  } else {
+    visualW = raw.w;
+    visualH = raw.h;
   }
 
   return {
@@ -226,8 +229,6 @@ function getInteractionBounds(sticker, mode, decoScale, canvasW) {
 
 function getStickerNormScale(sticker, canvasW) {
   if (!sticker.sizeNorm || !canvasW) return 1;
-  // If kind === 'text', we already size it natively in drawStickerToCtx,
-  // but for StickerCanvas rendering, we can apply normScale to the base span so the CSS matches.
   const baseBounds = getStickerVisualBounds({ ...sticker, sizeNorm: null });
   const targetW = sticker.sizeNorm * canvasW;
   return targetW / baseBounds.w;
@@ -356,9 +357,9 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
     slottedMap[s.frameSlot].push(s);
   });
 
-  const renderStickerControls = (s, isSel, normScale = 1) => {
+  const renderStickerControls = (s, isSel) => {
     if (!isSel) return null;
-    const invScale = 1 / Math.max(0.25, Math.min(4, (s.scale || 1) * normScale));
+    const invScale = 1 / Math.max(0.25, Math.min(4, s.scale || 1));
     const tr = `scale(${invScale})`;
     return (
       <>
@@ -405,6 +406,24 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
     );
   };
 
+  const renderStickerVisual = (s, visualScale, opacity = 1) => {
+    const raw = getStickerVisualBounds(s);
+    return (
+      <div style={{
+        width: raw.w,
+        height: raw.h,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transform: `scale(${visualScale})`,
+        transformOrigin: 'center',
+        opacity,
+      }}>
+        {renderStickerInstance(s, 1)}
+      </div>
+    );
+  };
+
   return (
     <SlottedStickersCtx.Provider value={slottedMap}>
       <div ref={canvasRef}
@@ -446,36 +465,36 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Free stickers: full visual render */}
         {sortedStickers.filter(s => s.frameSlot == null).map(s => {
           const isSel = s.id === selectedId;
-          const normScale = getStickerNormScale(s, canvasW);
-          const effectiveScale = (s.scale || 1) * normScale;
+          const visualScale = getStickerNormScale(s, canvasW);
+          const userScale = s.scale || 1;
           const hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
+          const outlineW = hitbox.visualW || hitbox.w;
+          const outlineH = hitbox.visualH || hitbox.h;
           if (mode === 'deco-overlay' && window.IMMM_DEBUG_STICKER) {
             console.debug('[IMMM deco sticker]', {
               id: s.id, kind: s.kind, libId: s.payload?.libId,
-              scale: s.scale, normScale, effectiveScale, rawBounds: getStickerVisualBounds(s),
+              scale: s.scale, visualScale, userScale, rawBounds: getStickerVisualBounds(s),
               interactionBounds: hitbox, decoScale, mode,
             });
           }
           return (
             <div key={s.id} onPointerDown={(e)=>onPointerDown(e, s, 'move')} onClick={(e)=>e.stopPropagation()}
               style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-                transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${effectiveScale})`,
+                transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${userScale})`,
                 transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
                 zIndex:(s.z||0)+1, willChange:'transform',
                 transition: dragState?.id===s.id?'none':'box-shadow 0.2s' }}>
               <div className="sticker-hit-target" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
-                width: hideVisuals ? hitbox.w / normScale : 'auto',
-                height: hideVisuals ? hitbox.h / normScale : 'auto' }}>
+                width: hitbox.w,
+                height: hitbox.h }}>
                 
                 <div className="sticker-outline-box" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
-                  width: (hideVisuals && hitbox.visualW) ? hitbox.visualW / normScale : '100%',
-                  height: (hideVisuals && hitbox.visualH) ? hitbox.visualH / normScale : '100%',
+                  width: outlineW,
+                  height: outlineH,
                   outline: isSel?`1.5px dashed ${T?.pinkDeep||'#D98893'}`:'none',
                   outlineOffset: isSel?2:0, padding: 0 }}>
-                  <div style={{ opacity: hideVisuals ? 0 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {renderStickerInstance(s)}
-                  </div>
-                  {renderStickerControls(s, isSel, normScale)}
+                  {renderStickerVisual(s, visualScale, hideVisuals ? 0 : 1)}
+                  {renderStickerControls(s, isSel)}
                 </div>
               </div>
             </div>
@@ -484,35 +503,35 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Slotted stickers: transparent hit area, controls rendered separately when selected */}
         {sortedStickers.filter(s => s.frameSlot != null).map(s => {
           const isSel = s.id === selectedId;
-          const normScale = getStickerNormScale(s, canvasW);
-          const effectiveScale = (s.scale || 1) * normScale;
+          const visualScale = getStickerNormScale(s, canvasW);
+          const userScale = s.scale || 1;
           const hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
+          const outlineW = hitbox.visualW || hitbox.w;
+          const outlineH = hitbox.visualH || hitbox.h;
           return (
             <React.Fragment key={s.id}>
               {/* Invisible hit area for drag */}
               <div onPointerDown={(e)=>onPointerDown(e, s, 'move')} onClick={(e)=>e.stopPropagation()}
                 style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-                  transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${effectiveScale})`,
+                  transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${userScale})`,
                   transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
                   zIndex:(s.z||0)+50, willChange:'transform', opacity:0 }}>
-                <div style={{ width: hideVisuals ? hitbox.w / normScale : 'auto', height: hideVisuals ? hitbox.h / normScale : 'auto' }}>
-                  {!hideVisuals && renderStickerInstance(s)}
+                <div style={{ width: hitbox.w, height: hitbox.h, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {renderStickerVisual(s, visualScale, hideVisuals ? 0 : 1)}
                 </div>
               </div>
               {/* Controls shown separately (not under opacity:0) */}
               {isSel && (
                 <div style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-                  transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${effectiveScale})`,
+                  transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${userScale})`,
                   transformOrigin:'center', zIndex:(s.z||0)+51, pointerEvents:'none' }}>
                   <div className="sticker-outline-box" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
-                    width: (hideVisuals && hitbox.visualW) ? hitbox.visualW / normScale : (hideVisuals ? hitbox.w / normScale : 'auto'),
-                    height: (hideVisuals && hitbox.visualH) ? hitbox.visualH / normScale : (hideVisuals ? hitbox.h / normScale : 'auto'),
+                    width: outlineW,
+                    height: outlineH,
                     outline:`1.5px dashed ${T?.pinkDeep||'#D98893'}`, outlineOffset:2, padding:0,
                     pointerEvents:'auto' }}>
-                    <div style={{ opacity:0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {renderStickerInstance(s)}
-                    </div>
-                    {renderStickerControls(s, true, normScale)}
+                    {renderStickerVisual(s, visualScale, 0)}
+                    {renderStickerControls(s, true)}
                   </div>
                 </div>
               )}

@@ -134,27 +134,26 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
   ctx.translate(cx, cy);
   ctx.rotate((sticker.rotation || 0) * Math.PI / 180);
   const actualSizeNorm = sticker.sizeNorm ?? sticker.payload?.sizeNorm;
-  
-  let normScale = 1;
-  if (actualSizeNorm) {
-    let bw = 64;
-    if (sticker.kind === 'preset') {
-      const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload?.libId) : null;
-      bw = typeof getCatalogStickerBaseSize === 'function' ? getCatalogStickerBaseSize(item).w : 64;
-    } else if (sticker.kind === 'upload') {
-      bw = 120;
-    } else if (sticker.kind === 'text') {
-      const size = sticker.payload?.size || 32;
-      const text = sticker.payload?.text || '';
-      bw = Math.max(44, Math.min(220, text.length * size * 0.58));
-    } else if (sticker.kind === 'setlog') {
-      bw = 140;
-    }
-    const targetW = actualSizeNorm * baseW;
-    normScale = targetW / bw;
+
+  let raw = { w: 64, h: 64 };
+  if (typeof getStickerVisualBounds === 'function') {
+    raw = getStickerVisualBounds(sticker);
+  } else if (sticker.kind === 'preset') {
+    const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload?.libId) : null;
+    raw = typeof getCatalogStickerBaseSize === 'function' ? getCatalogStickerBaseSize(item) : raw;
+  } else if (sticker.kind === 'upload') {
+    raw = { w: 120, h: 120 };
+  } else if (sticker.kind === 'text') {
+    const size = sticker.payload?.size || 32;
+    const text = sticker.payload?.text || '';
+    raw = { w: Math.max(44, Math.min(220, text.length * size * 0.58)), h: Math.max(34, size * 1.25) };
+  } else if (sticker.kind === 'setlog') {
+    raw = { w: 140, h: 64 };
   }
 
-  const effectiveScale = (sticker.scale || 1) * normScale;
+  const targetW = actualSizeNorm ? baseW * actualSizeNorm : raw.w * scalePx;
+  const drawScale = targetW / (raw.w || 1);
+  const effectiveScale = drawScale * (sticker.scale || 1);
   ctx.scale(effectiveScale, effectiveScale);
 
   if (sticker.kind === 'preset') {
@@ -162,25 +161,25 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
     try {
       const drawCatalog = typeof drawCatalogSticker === 'function' ? drawCatalogSticker : (typeof window !== 'undefined' ? window.drawCatalogSticker : null);
       if (item && typeof drawCatalog === 'function') {
-        drawCatalog(ctx, item, scalePx);
+        drawCatalog(ctx, item, 1);
       } else if (item) {
-        drawFallbackSticker(ctx, item, scalePx);
+        drawFallbackSticker(ctx, item, 1);
       }
     } catch (err) {
       console.warn('[IMMM] preset sticker render failed, using fallback', err);
-      if (item) drawFallbackSticker(ctx, item, scalePx);
+      if (item) drawFallbackSticker(ctx, item, 1);
     }
   } else if (sticker.kind === 'upload') {
     const img = await loadImageForCanvas(sticker.payload.dataUrl);
     if (img) {
-      const w = 120 * scalePx;
+      const w = 120;
       const h = w / (img.width / img.height || 1);
       ctx.drawImage(img, -w / 2, -h / 2, w, h);
     }
   } else if (sticker.kind === 'text') {
     ctx.fillStyle = sticker.payload.color || '#111';
     // sizeNorm is applied via ctx.scale(effectiveScale) above.
-    const fontPx = (sticker.payload.size || 32) * scalePx;
+    const fontPx = sticker.payload.size || 32;
     ctx.font = `600 ${fontPx}px Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -190,15 +189,15 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
     const fg = theme === 'white' ? '#fff' : '#000';
     ctx.fillStyle = fg;
     ctx.shadowColor = theme === 'white' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)';
-    ctx.shadowBlur = 4 * scalePx;
-    ctx.font = `800 ${28 * scalePx}px "Plus Jakarta Sans", sans-serif`;
+    ctx.shadowBlur = 4;
+    ctx.font = '800 28px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(time || '', 0, 0);
     if (caption) {
       ctx.globalAlpha = 0.8;
-      ctx.font = `600 ${12 * scalePx}px Pretendard, sans-serif`;
-      ctx.fillText(caption, 0, 32 * scalePx);
+      ctx.font = '600 12px Pretendard, sans-serif';
+      ctx.fillText(caption, 0, 32);
     }
   }
   ctx.restore();
