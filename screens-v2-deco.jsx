@@ -21,6 +21,28 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const [drawVersion, setDrawVersion] = React.useState(0);
   const drawRafRef = React.useRef(null);
 
+  // One-time font readiness gate — keeps preview/export text rendering consistent
+  const [fontsReady, setFontsReady] = React.useState(false);
+  React.useEffect(() => {
+    let alive = true;
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => { if (alive) setFontsReady(true); });
+    } else {
+      setFontsReady(true);
+    }
+    return () => { alive = false; };
+  }, []);
+
+  // Cleanup drawRafRef on unmount to prevent RAF leak
+  React.useEffect(() => {
+    return () => {
+      if (drawRafRef.current) {
+        cancelAnimationFrame(drawRafRef.current);
+        drawRafRef.current = null;
+      }
+    };
+  }, []);
+
   const requestDrawRefresh = React.useCallback(() => {
     if (drawRafRef.current) return;
     drawRafRef.current = requestAnimationFrame(() => {
@@ -56,19 +78,24 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const onDrawStart = React.useCallback((e) => {
     if (!drawModeRef.current || !frameNativeRef.current) return;
     e.stopPropagation(); e.preventDefault();
-    const pt = e.touches ? e.touches[0] : e;
+    // Pointer capture: keeps move/up events even if pointer leaves element
+    if (e.pointerId != null && e.currentTarget?.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
     const rect = frameNativeRef.current.getBoundingClientRect();
-    const x = (pt.clientX - rect.left) / rect.width * 100;
-    const y = (pt.clientY - rect.top) / rect.height * 100;
+    const x = (e.clientX - rect.left) / rect.width * 100;
+    const y = (e.clientY - rect.top) / rect.height * 100;
     // Store normalized width so export renders at same visual size regardless of canvas scale
     const widthNorm = rect.width > 0 ? drawWidth / rect.width : null;
+    // High-entropy seed: avoids collision even when multiple strokes start same ms
+    const seed = Math.floor(performance.now() * 1000) ^ Math.floor(Math.random() * 1e9);
     curStrokeRef.current = {
       color: drawColor,
       width: drawWidth,    // legacy fallback
       widthNorm,           // normalized: 0~1 of frame display width
       brush: drawBrush,
       points: [[x, y]],
-      seed: Date.now() % 100000,
+      seed,
     };
     curPathDRef.current = `M${x} ${y}`;
     if (curPathElRef.current) {
@@ -81,10 +108,9 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const onDrawMove = React.useCallback((e) => {
     if (!drawModeRef.current || !frameNativeRef.current || !curStrokeRef.current) return;
     e.preventDefault();
-    const pt = e.touches ? e.touches[0] : e;
     const rect = frameNativeRef.current.getBoundingClientRect();
-    const x = (pt.clientX - rect.left) / rect.width * 100;
-    const y = (pt.clientY - rect.top) / rect.height * 100;
+    const x = (e.clientX - rect.left) / rect.width * 100;
+    const y = (e.clientY - rect.top) / rect.height * 100;
     curStrokeRef.current.points.push([x, y]);
     curPathDRef.current += ` L${x} ${y}`;
     if (curPathElRef.current) {
@@ -93,7 +119,10 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     requestDrawRefresh();
   }, [requestDrawRefresh]);
 
-  const onDrawEnd = React.useCallback(() => {
+  const onDrawEnd = React.useCallback((e) => {
+    if (e?.pointerId != null && e.currentTarget?.releasePointerCapture) {
+      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
     if (curStrokeRef.current && curStrokeRef.current.points.length > 1) {
       const stroke = curStrokeRef.current;
       setDrawStrokes((p) => [...p.filter(Boolean), stroke]);
@@ -144,13 +173,13 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   React.useEffect(() => {
     let cancelled = false;
     const draw = async () => {
-      if (!compositionCanvasRef.current) return;
+      if (cancelled || !compositionCanvasRef.current || !fontsReady) return;
       const cvs = compositionCanvasRef.current;
       const ctx = cvs.getContext('2d');
       const template = getFrameTemplate(layout);
       const baseW = template.canvasSize.width;
       const baseH = template.canvasSize.height;
-      
+
       // Use a fixed internal resolution for preview consistency
       cvs.width = baseW;
       cvs.height = baseH;
@@ -160,20 +189,22 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         stickers, drawStrokes: [...drawStrokes, curStrokeRef.current],
         logo, dateText, accent, orientation
       };
-      
+
       await renderComposition(ctx, data, { scale: 1 });
     };
-    draw();
-    // Throttle slightly or use RAF for drawing? For now direct call is fine.
+    // RAF-only: avoids double render per dependency change
     const raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, drawVersion, logo, dateText, accent, orientation, drawMode]);
+    return () => { cancelled = true; cancelAnimationFrame(raf); };
+  }, [fontsReady, layout, shots, selected, filter, frameColor, stickers, drawStrokes, drawVersion, logo, dateText, accent, orientation, drawMode]);
 
   const preview =
   <div ref={previewContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
       <div ref={frameNativeRef} style={{ transform: `scale(${zoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0, touchAction: drawMode ? 'none' : 'auto' }}
-        onPointerDown={onDrawStart} onPointerMove={onDrawMove} onPointerUp={onDrawEnd} onPointerLeave={onDrawEnd}
-        onTouchStart={onDrawStart}  onTouchMove={onDrawMove}  onTouchEnd={onDrawEnd}>
+        onPointerDown={onDrawStart}
+        onPointerMove={onDrawMove}
+        onPointerUp={onDrawEnd}
+        onPointerCancel={onDrawEnd}
+        onPointerLeave={onDrawEnd}>
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
           width={layout === 'strip' || layout === 'trip' ? 180 : 220} height="auto" hideVisuals={true}>
           <canvas ref={compositionCanvasRef} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
