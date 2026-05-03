@@ -13,7 +13,6 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   // 4. Frame export quality: scale 3.0 (mobile) or 4.0 (desktop) based on memory safety.
   // ──────────────────────────────────────────────────────────────────────────
 
-  const CAPTURE_LONG_EDGE = mobile ? 1920 : 2560;
   const shotCount = layout === 'polaroid' ? 1 : 6;
   const getCaptureLongEdges = () => mobile ? [1920, 1280] : [2560, 1920, 1280];
   const frameTemplate = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
@@ -75,7 +74,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     touchStartY.current = null;
   };
 
-  const captureFromVideo = React.useCallback(async (v, filterKey, cssFilter, mirrorX, edge) => {
+  const captureFromVideo = React.useCallback(async (v, cssFilter, mirrorX, edge) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
     const rect = cameraFrameRef.current?.getBoundingClientRect();
     const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
@@ -292,7 +291,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         if (v && v.readyState >= 2 && v.videoWidth > 0) {
           const cssFilter = FILTERS[filter]?.css || 'none';
           for (const edge of candidates) {
-            const result = await captureFromVideo(v, filter, cssFilter, facingMode === 'user', edge);
+            const result = await captureFromVideo(v, cssFilter, facingMode === 'user', edge);
             if (result) {
               dataUrl = result.dataUrl;
               captureMeta = { edge: result.edge, sourceW: result.sourceW, sourceH: result.sourceH };
