@@ -84,26 +84,6 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const undoStroke = () => setDrawStrokes((p) => p.slice(0, -1));
   const clearDraw = () => setDrawStrokes([]);
 
-  const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
-  const renderStroke = (stroke, key) => {
-    if (!stroke || !Array.isArray(stroke.points) || stroke.points.length < 2) return null;
-    if (stroke.brush === 'sparkle') {
-      const step = 12;
-      const sparkles = [];
-      for (let i = 0; i < stroke.points.length; i += step) {
-        const [x, y] = stroke.points[i];
-        const s = (stroke.width || 3) * 1.5;
-        sparkles.push(
-          <g key={i} transform={`translate(${x},${y})`}>
-            <path d={`M0,-${s} L${s * 0.25},-${s * 0.25} L${s},0 L${s * 0.25},${s * 0.25} L0,${s} L-${s * 0.25},${s * 0.25} L-${s},0 L-${s * 0.25},-${s * 0.25} Z`}
-            fill={stroke.color} opacity="0.8" />
-          </g>
-        );
-      }
-      return <g key={key}>{sparkles}</g>;
-    }
-    return <path key={key} d={pathFor(stroke)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
-  };
 
   const previewContainerRef = React.useRef(null);
   const frameNativeRef = React.useRef(null);
@@ -137,20 +117,44 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     </div>;
 
 
+  const compositionCanvasRef = React.useRef(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const draw = async () => {
+      if (!compositionCanvasRef.current) return;
+      const cvs = compositionCanvasRef.current;
+      const ctx = cvs.getContext('2d');
+      const template = getFrameTemplate(layout);
+      const baseW = template.canvasSize.width;
+      const baseH = template.canvasSize.height;
+      
+      // Use a fixed internal resolution for preview consistency
+      cvs.width = baseW;
+      cvs.height = baseH;
+
+      const data = {
+        layout, shots, selected, filter, frameColor,
+        stickers, drawStrokes: [...drawStrokes, curStrokeRef.current],
+        logo, dateText, accent, orientation
+      };
+      
+      await renderComposition(ctx, data, { scale: 1 });
+    };
+    draw();
+    // Throttle slightly or use RAF for drawing? For now direct call is fine.
+    const raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, drawMode]);
+
   const preview =
   <div ref={previewContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
       <div ref={frameNativeRef} style={{ transform: `scale(${zoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0, touchAction: drawMode ? 'none' : 'auto' }}
-    onPointerDown={onDrawStart} onPointerMove={onDrawMove} onPointerUp={onDrawEnd} onPointerLeave={onDrawEnd}
-    onTouchStart={onDrawStart}  onTouchMove={onDrawMove}  onTouchEnd={onDrawEnd}>
+        onPointerDown={onDrawStart} onPointerMove={onDrawMove} onPointerUp={onDrawEnd} onPointerLeave={onDrawEnd}
+        onTouchStart={onDrawStart}  onTouchMove={onDrawMove}  onTouchEnd={onDrawEnd}>
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
-      width={layout === 'strip' || layout === 'trip' ? 180 : 220} height="auto">
-          <FrameThumb layout={layout} shots={shotsForFrame} selected={selected} T={T}
-        logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation||'portrait'} frameColor={frameColor} />
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}>
-            {drawStrokes.filter(Boolean).map((s, i) => renderStroke(s, i))}
-            <path ref={curPathElRef} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          width={layout === 'strip' || layout === 'trip' ? 180 : 220} height="auto" hideVisuals={true}>
+          <canvas ref={compositionCanvasRef} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
         </StickerCanvas>
       </div>
       {zoomControls}
@@ -408,48 +412,30 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   });
 
 
-  const pathFor = (stroke) => stroke.points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
-  const renderStroke = (stroke, key) => {
-    if (!stroke || !Array.isArray(stroke.points) || stroke.points.length < 2) return null;
-    if (stroke.brush === 'sparkle') {
-      const step = 12;
-      const sparkles = [];
-      for (let i = 0; i < stroke.points.length; i += step) {
-        const [x, y] = stroke.points[i];
-        const s = (stroke.width || 3) * 1.5;
-        sparkles.push(
-          <g key={i} transform={`translate(${x},${y})`}>
-            <path d={`M0,-${s} L${s * 0.25},-${s * 0.25} L${s},0 L${s * 0.25},${s * 0.25} L0,${s} L-${s * 0.25},${s * 0.25} L-${s},0 L-${s * 0.25},-${s * 0.25} Z`}
-            fill={stroke.color} opacity="0.8" />
-          </g>
-        );
-      }
-      return <g key={key}>{sparkles}</g>;
-    }
-    return <path key={key} d={pathFor(stroke)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
-  };
+  const compositionCanvasRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const draw = async () => {
+      if (!compositionCanvasRef.current) return;
+      const cvs = compositionCanvasRef.current;
+      const ctx = cvs.getContext('2d');
+      const template = getFrameTemplate(layout);
+      cvs.width = template.canvasSize.width;
+      cvs.height = template.canvasSize.height;
+
+      const data = {
+        layout, shots, selected, filter, frameColor,
+        stickers, drawStrokes, logo, dateText, accent, orientation
+      };
+      await renderComposition(ctx, data, { scale: 1 });
+    };
+    draw();
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
 
   const resultFrame = (scale) => (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
-        <SlottedStickersCtx.Provider value={slottedMap}>
-          <FrameThumb layout={layout} shots={shotsForFrame} selected={selected} T={T}
-            logo={logo} dateText={dateText} accent={accent} scale={1} stickers={[]} orientation={orientation||'portrait'} frameColor={frameColor} />
-        </SlottedStickersCtx.Provider>
-        {/* Place stickers as static overlay */}
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          {freeStickers.map((s) =>
-            <div key={s.id} style={{ position: 'absolute', left: `${s.x}%`, top: `${s.y}%`,
-              transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg) scale(${s.scale || 1})`, zIndex: (s.z || 0) + 1 }}>
-              {renderStickerInstance(s)}
-            </div>
-          )}
-        </div>
-        {drawStrokes.length > 0 &&
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            {drawStrokes.filter(Boolean).map((s, i) => renderStroke(s, i))}
-          </svg>
-        }
+        <canvas ref={compositionCanvasRef} style={{ width: 180 * (layout==='strip'||layout==='trip'?1:1.2), height: 'auto', display: 'block', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} />
       </div>
     </div>
   );
@@ -635,6 +621,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     
     const runExport = async (s) => {
       if (typeof FrameRenderEngine === 'undefined') return null;
+      if (document.fonts) await document.fonts.ready;
       return FrameRenderEngine.renderToBlob({
         layout, shots, selected, stickers, drawStrokes,
         logo, dateText, accent, frameColor,

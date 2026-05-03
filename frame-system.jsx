@@ -82,7 +82,7 @@ const FRAME_TEMPLATES = {
     type: '1x1',
     name: 'Polaroid 1x1',
     ko: '폴라로이드 1x1',
-    canvasSize: { width: 800, height: 1080 },
+    canvasSize: { width: 880, height: 1070 }, // 88:107 ratio
     previewImage: 'asset/1x1.png',
     premium: false,
     recommended: true,
@@ -91,10 +91,11 @@ const FRAME_TEMPLATES = {
     locked: false,
     purchaseId: null,
     author: 'IMMM',
-    logoSafeArea: { x: 64, y: 38, width: 672, height: 112 },
+    logoSafeArea: { x: 45, y: 34, width: 790, height: 110 },
     overlayLayer: 'logo-top',
     photoSlots: [
-      { x: 84, y: 174, width: 632, height: 632 },
+      // Normalized: x: 0.051, y: 0.042, w: 0.898, h: 0.738
+      { x: 44.8, y: 44.9, width: 790.2, height: 789.6 },
     ],
   },
 };
@@ -180,72 +181,6 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
   ctx.restore();
 }
 
-function drawCatalogSticker(ctx, item, scalePx) {
-  ctx.save();
-  ctx.strokeStyle = '#111';
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  if (item.type === 'mini') {
-    const sz = 44 * scalePx;
-    ctx.fillStyle = item.fill || '#D98893';
-    ctx.lineWidth = 2 * scalePx;
-    if (item.kind === 'heart') {
-      ctx.beginPath();
-      ctx.moveTo(0, sz * 0.3);
-      ctx.bezierCurveTo(-sz * 0.4, -sz * 0.2, -sz * 0.4, -sz * 0.7, 0, -sz * 0.4);
-      ctx.bezierCurveTo(sz * 0.4, -sz * 0.7, sz * 0.4, -sz * 0.2, 0, sz * 0.3);
-      ctx.fill(); ctx.stroke();
-    } else if (item.kind === 'star') {
-      ctx.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const r = i % 2 === 0 ? sz * 0.5 : sz * 0.25;
-        const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
-        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-      }
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-    } else if (item.kind === 'dot') {
-      ctx.beginPath(); ctx.arc(0, 0, sz * 0.3, 0, Math.PI * 2); ctx.fill();
-    } else if (item.kind === 'sparkle') {
-      ctx.beginPath();
-      ctx.moveTo(0, -sz / 2); ctx.lineTo(0, sz / 2);
-      ctx.moveTo(-sz / 2, 0); ctx.lineTo(sz / 2, 0);
-      ctx.stroke();
-    }
-  } else if (item.type === 'text') {
-    ctx.fillStyle = item.color || '#111';
-    ctx.font = `${(item.size || 30) * scalePx}px ${item.font || 'Caveat'}, cursive`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(item.text || '', 0, 0);
-  } else {
-    const w = (item.w || 100) * scalePx;
-    const h = (item.h || 64) * scalePx;
-    ctx.fillStyle = item.fill || '#fff';
-    ctx.lineWidth = 2 * scalePx;
-    if (item.type === 'burst') {
-      const rO = Math.min(w, h) / 2 - 2 * scalePx;
-      const rI = rO * 0.74;
-      ctx.beginPath();
-      for (let i = 0; i < 28; i++) {
-        const r = i % 2 === 0 ? rO : rI;
-        const a = (i / 28) * Math.PI * 2 - Math.PI / 2;
-        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-      }
-      ctx.closePath();
-    } else {
-      ctx.beginPath();
-      ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
-    }
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = item.tc || '#111';
-    ctx.font = `800 ${(item.fs || 11) * scalePx}px Pretendard, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(item.text || '', 0, 0);
-  }
-  ctx.restore();
-}
-
 function drawLogoLayer(ctx, template, opts, scale) {
   if (opts.logo === false) return;
   const safe = template.logoSafeArea;
@@ -262,22 +197,26 @@ function drawLogoLayer(ctx, template, opts, scale) {
   ctx.restore();
 }
 
-async function renderFrameToCanvas(input) {
-  const template = getFrameTemplate(input.layout || input.templateType);
-  const scale = input.scale || 1;
+/**
+ * Renders the entire composition to a canvas context.
+ * Unified path for both Preview and Export.
+ */
+async function renderComposition(ctx, data, options = {}) {
+  const template = getFrameTemplate(data.layout || data.templateType);
+  const scale = options.scale || 1;
   const w = template.canvasSize.width * scale;
   const h = template.canvasSize.height * scale;
-  const cvs = document.createElement('canvas');
-  cvs.width = Math.round(w);
-  cvs.height = Math.round(h);
-  const ctx = cvs.getContext('2d');
-  const bg = input.frameColor || '#fff';
+
+  // 1. Background
+  const bg = data.frameColor || '#fff';
   const isDark = ['#111', '#111111', '#000', '#000000'].includes(String(bg).toLowerCase());
+  const inkColor = isDark ? '#fff' : '#111';
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
-  const selected = input.selected || [];
-  const shots = input.shots || [];
+  // 2. Photo Slots
+  const selected = data.selected || [];
+  const shots = data.shots || [];
   const images = await Promise.all(template.photoSlots.map((_, i) => {
     const shot = shots[selected[i]];
     return loadImageForCanvas(shot?.dataUrl);
@@ -285,66 +224,118 @@ async function renderFrameToCanvas(input) {
 
   for (let i = 0; i < template.photoSlots.length; i++) {
     const slot = template.photoSlots[i];
-    const x = slot.x * scale;
-    const y = slot.y * scale;
+    const sx = slot.x * scale;
+    const sy = slot.y * scale;
     const sw = slot.width * scale;
     const sh = slot.height * scale;
+
     ctx.save();
     ctx.beginPath();
-    ctx.rect(x, y, sw, sh);
+    ctx.rect(sx, sy, sw, sh);
     ctx.clip();
-    ctx.fillStyle = '#e7e7e7';
-    ctx.fillRect(x, y, sw, sh);
-    drawCoverToCtx(ctx, images[i], x, y, sw, sh);
-    const slotted = (input.stickers || []).filter((s) => s.frameSlot === i);
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(sx, sy, sw, sh);
+    
+    if (images[i]) {
+      drawCoverToCtx(ctx, images[i], sx, sy, sw, sh);
+    }
+    
+    // Slotted stickers
+    const slotted = (data.stickers || []).filter((s) => s.frameSlot === i);
     for (const s of slotted) {
       const local = { ...s, x: s.slotX ?? 50, y: s.slotY ?? 50 };
       ctx.save();
-      ctx.translate(x, y);
+      ctx.translate(sx, sy);
       await drawStickerToCtx(ctx, local, sw, sh, scale);
       ctx.restore();
     }
     ctx.restore();
   }
 
-  for (const s of (input.stickers || []).filter((st) => st.frameSlot == null)) {
+  // 3. Global Stickers (not in slots)
+  const freeStickers = (data.stickers || []).filter((st) => st.frameSlot == null);
+  for (const s of freeStickers) {
     await drawStickerToCtx(ctx, s, w, h, scale);
   }
 
-  (input.drawStrokes || []).filter(Boolean).forEach((stroke) => {
+  // 4. Drawing Strokes
+  const drawStrokes = data.drawStrokes || [];
+  drawStrokes.filter(Boolean).forEach((stroke) => {
     if (!Array.isArray(stroke.points) || stroke.points.length < 2) return;
+    
     ctx.save();
-    ctx.strokeStyle = stroke.color || '#111';
-    ctx.fillStyle = stroke.color || '#111';
-    ctx.lineWidth = Math.max(1, (stroke.width || 3) * scale * 0.9);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.beginPath();
-    stroke.points.forEach(([px, py], idx) => {
-      const x = px / 100 * w;
-      const y = py / 100 * h;
-      if (idx === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
+    
+    if (stroke.brush === 'sparkle') {
+      const step = 8; // Consistent spacing
+      const sz = (stroke.width || 3) * scale * 1.5;
+      ctx.fillStyle = stroke.color || '#fff';
+      ctx.globalAlpha = 0.85;
+      for (let i = 0; i < stroke.points.length; i += step) {
+        const [px, py] = stroke.points[i];
+        const tx = (px / 100) * w;
+        const ty = (py / 100) * h;
+        
+        ctx.save();
+        ctx.translate(tx, ty);
+        // Draw sparkle star stamp
+        ctx.beginPath();
+        const s = sz;
+        ctx.moveTo(0, -s);
+        ctx.lineTo(s * 0.25, -s * 0.25); ctx.lineTo(s, 0); ctx.lineTo(s * 0.25, s * 0.25);
+        ctx.lineTo(0, s); ctx.lineTo(-s * 0.25, s * 0.25); ctx.lineTo(-s, 0); ctx.lineTo(-s * 0.25, -s * 0.25);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    } else {
+      ctx.strokeStyle = stroke.color || '#111';
+      ctx.lineWidth = (stroke.width || 3) * scale;
+      ctx.beginPath();
+      stroke.points.forEach(([px, py], idx) => {
+        const tx = (px / 100) * w;
+        const ty = (py / 100) * h;
+        if (idx === 0) ctx.moveTo(tx, ty);
+        else ctx.lineTo(tx, ty);
+      });
+      ctx.stroke();
+    }
     ctx.restore();
   });
 
-  if (input.dateText !== false) {
+  // 5. Text & Logo
+  if (data.dateText !== false) {
     ctx.save();
     ctx.fillStyle = isDark ? 'rgba(255,255,255,0.78)' : '#555';
+    // Use scale-aware font size
     ctx.font = `${22 * scale}px Caveat, cursive`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' }), w / 2, h - 34 * scale);
+    const dateStr = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
+    ctx.fillText(dateStr, w / 2, h - (template.type === '1x1' ? 44 : 34) * scale);
     ctx.restore();
   }
 
   drawLogoLayer(ctx, template, {
-    logo: input.logo,
-    accent: input.accent,
+    logo: data.logo,
+    accent: data.accent,
     inkColor: isDark ? '#fff' : '#111',
   }, scale);
+}
+
+async function renderFrameToCanvas(input) {
+  const template = getFrameTemplate(input.layout || input.templateType);
+  const scale = input.scale || 1;
+  const w = template.canvasSize.width * scale;
+  const h = template.canvasSize.height * scale;
+  
+  const cvs = document.createElement('canvas');
+  cvs.width = Math.round(w);
+  cvs.height = Math.round(h);
+  const ctx = cvs.getContext('2d');
+
+  await renderComposition(ctx, input, { scale });
 
   return cvs;
 }
@@ -464,12 +455,55 @@ function generateQrDataUrl(text) {
   return Promise.resolve(null);
 }
 
+/**
+ * A consistent, canvas-based preview component.
+ */
+function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = [], drawStrokes = [], logo, dateText, accent, scale = 1, orientation }) {
+  const canvasRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const draw = async () => {
+      if (!canvasRef.current) return;
+      const cvs = canvasRef.current;
+      const ctx = cvs.getContext('2d');
+      const template = getFrameTemplate(layout);
+      if (!template) return;
+      
+      const baseW = template.canvasSize.width;
+      const baseH = template.canvasSize.height;
+      cvs.width = baseW;
+      cvs.height = baseH;
+
+      const data = {
+        layout, shots, selected, filter, frameColor,
+        stickers, drawStrokes, logo, dateText, accent, orientation
+      };
+      await renderComposition(ctx, data, { scale: 1 });
+    };
+    draw();
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
+
+  return (
+    <canvas 
+      ref={canvasRef} 
+      style={{ 
+        width: 200 * scale * (layout === 'strip' || layout === 'trip' ? 1 : 1.2), 
+        height: 'auto', 
+        display: 'block',
+        maxWidth: '100%'
+      }} 
+    />
+  );
+}
+
 Object.assign(window, {
   FRAME_TEMPLATES,
   FRAME_TEMPLATE_ALIASES,
   getFrameTemplate,
   getShotCountForFrame,
   FrameRenderEngine,
+  renderComposition,
+  FrameThumb,
   LocalGalleryStore,
   ShareStore,
   generateQrDataUrl,

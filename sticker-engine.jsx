@@ -102,7 +102,7 @@ function renderStickerInstance(s, scaleMul=1) {
 }
 
 // ─────────────────────────────────────────────────────────────
-function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T }) {
+function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T, hideVisuals = false }) {
   const canvasRef = useRR(null);
   const [dragState, setDragState] = useSE(null);
   const [snapMode, setSnapMode] = useSE(false);
@@ -313,7 +313,8 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                 transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`,
                 transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
                 zIndex:(s.z||0)+1, willChange:'transform',
-                transition: dragState?.id===s.id?'none':'box-shadow 0.2s' }}>
+                transition: dragState?.id===s.id?'none':'box-shadow 0.2s',
+                opacity: hideVisuals ? 0 : 1 }}>
               <div style={{ position:'relative', display:'inline-block',
                 outline: isSel?`1.5px dashed ${T?.pinkDeep||'#D98893'}`:'none',
                 outlineOffset: isSel?4:0, padding: isSel?2:0 }}>
