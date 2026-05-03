@@ -313,12 +313,13 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                 transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`,
                 transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
                 zIndex:(s.z||0)+1, willChange:'transform',
-                transition: dragState?.id===s.id?'none':'box-shadow 0.2s',
-                opacity: hideVisuals ? 0 : 1 }}>
+                transition: dragState?.id===s.id?'none':'box-shadow 0.2s' }}>
               <div style={{ position:'relative', display:'inline-block',
                 outline: isSel?`1.5px dashed ${T?.pinkDeep||'#D98893'}`:'none',
                 outlineOffset: isSel?4:0, padding: isSel?2:0 }}>
-                {renderStickerInstance(s)}
+                <div style={{ opacity: hideVisuals ? 0 : 1 }}>
+                  {renderStickerInstance(s)}
+                </div>
                 {renderStickerControls(s, isSel)}
               </div>
             </div>
@@ -382,4 +383,39 @@ function sendBackward(stickers, id) {
   return stickers.map(s => s.id === id ? { ...s, z: minZ - 1 } : s);
 }
 
-Object.assign(window, { STICKER_CATALOG, getStickerByLibId, renderLibSticker, renderStickerInstance, StickerCanvas, SlottedStickersCtx, makeSticker, bringForward, sendBackward });
+// Canvas renderer for preset catalog stickers
+function drawCatalogSticker(ctx, item, scalePx = 1) {
+  if (!item) return;
+  ctx.save();
+  if (item.type === 'burst' || item.type === 'cloud') {
+    ctx.fillStyle = item.tc || '#111';
+    ctx.font = `800 ${(item.fs || 11) * 2 * scalePx}px "Plus Jakarta Sans", Pretendard, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.text || '', 0, 0);
+  } else if (item.type === 'mini') {
+    ctx.fillStyle = item.fill || '#111';
+    ctx.font = `700 ${32 * scalePx}px "Plus Jakarta Sans", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // basic text fallback for mini stickers
+    const charMap = { 'heart': '♥', 'star': '★', 'sparkle': '✦', 'dot': '●' };
+    ctx.fillText(charMap[item.kind] || '●', 0, 0);
+  } else if (item.type === 'text') {
+    ctx.fillStyle = item.color || '#111';
+    ctx.font = `600 ${(item.size || 32) * scalePx}px ${item.font || 'Pretendard'}, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.text || '', 0, 0);
+  } else {
+    // Unknown preset type fallback
+    ctx.fillStyle = item.color || item.tc || item.fill || '#111';
+    ctx.font = `700 ${28 * scalePx}px Pretendard, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.text || item.label || item.id || '♡', 0, 0);
+  }
+  ctx.restore();
+}
+
+Object.assign(window, { STICKER_CATALOG, getStickerByLibId, renderLibSticker, renderStickerInstance, StickerCanvas, SlottedStickersCtx, makeSticker, bringForward, sendBackward, drawCatalogSticker });

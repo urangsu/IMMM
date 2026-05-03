@@ -115,6 +115,17 @@ function drawCoverToCtx(ctx, img, x, y, w, h) {
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
+function drawFallbackSticker(ctx, item, scalePx = 1) {
+  const label = item?.label || item?.text || item?.id || '♡';
+  ctx.save();
+  ctx.fillStyle = item?.color || item?.tc || item?.fill || '#111';
+  ctx.font = `700 ${28 * scalePx}px Pretendard, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, 0, 0);
+  ctx.restore();
+}
+
 async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
   if (!sticker) return;
   ctx.save();
@@ -126,7 +137,17 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
 
   if (sticker.kind === 'preset') {
     const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload.libId) : null;
-    if (item) drawCatalogSticker(ctx, item, scalePx);
+    try {
+      const drawCatalog = typeof drawCatalogSticker === 'function' ? drawCatalogSticker : (typeof window !== 'undefined' ? window.drawCatalogSticker : null);
+      if (item && typeof drawCatalog === 'function') {
+        drawCatalog(ctx, item, scalePx);
+      } else if (item) {
+        drawFallbackSticker(ctx, item, scalePx);
+      }
+    } catch (err) {
+      console.warn('[IMMM] preset sticker render failed, using fallback', err);
+      if (item) drawFallbackSticker(ctx, item, scalePx);
+    }
   } else if (sticker.kind === 'upload') {
     const img = await loadImageForCanvas(sticker.payload.dataUrl);
     if (img) {

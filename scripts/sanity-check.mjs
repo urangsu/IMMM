@@ -27,6 +27,22 @@ function checkWebGL() {
   }
 }
 
+function checkFrameSystem() {
+  const content = readFile('frame-system.jsx');
+  if (!content) return;
+  
+  if (content.includes('drawCatalogSticker') && !content.includes('drawFallbackSticker')) {
+    console.error('❌ FAIL: frame-system.jsx calls drawCatalogSticker but missing drawFallbackSticker definition');
+    hasErrors = true;
+  }
+  
+  // Check if preset branch has try/catch
+  if (content.includes('if (sticker.kind === \'preset\')') && !content.includes('try {') && !content.includes('catch (err)')) {
+    console.error('❌ FAIL: frame-system.jsx preset branch is missing try/catch wrapper');
+    hasErrors = true;
+  }
+}
+
 function checkCapture() {
   const content = readFile('screens-v2-rest.jsx');
   if (!content) return;
@@ -114,6 +130,7 @@ function checkTask() {
 
 console.log('🔍 Running IMMM Sanity Checks...');
 checkWebGL();
+checkFrameSystem();
 checkCapture();
 checkDeco();
 checkTask();
