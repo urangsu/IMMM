@@ -160,17 +160,31 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
 }
 
 /**
- * Unified Frame Overlay Renderer.
- * Used for Preview, Live Overlay, and Export.
+ * Draws text with explicit per-character spacing (cross-browser safe).
+ * Replaces ctx.letterSpacing which is not supported on all platforms.
+ */
+function drawLetterSpacedText(ctx, text, x, y, spacingPx) {
+  let curX = x;
+  for (const ch of text) {
+    ctx.fillText(ch, curX, y);
+    curX += ctx.measureText(ch).width + spacingPx;
+  }
+}
+
+/**
+ * Unified Frame Overlay Renderer — single source of truth.
+ * Used for Picker preview, Live Capture overlay, and Export.
+ * options.dateText: string to show | false to hide | undefined = auto (today)
  */
 function renderFrameOverlay(ctx, template, width, height, options = {}) {
-  const bg = options.frameColor || template.theme.frameFill;
-  const isDark = ['#111', '#111111', '#000', '#000000'].includes(String(bg).toLowerCase());
-  
-  const textColor = options.textColor || (isDark ? '#eee' : template.theme.textColor);
-  const logoColor = options.logoColor || (isDark ? '#fff' : template.theme.logoColor);
-  const dotColor = options.dotColor || (isDark ? '#333' : template.theme.dotColor);
-  const accent = options.accent || '#D98893';
+  const bg = options.frameColor || template.theme?.frameFill || '#fff';
+  const isDark = /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(bg).trim());
+
+  const textColor = options.textColor || (isDark ? '#eee' : (template.theme?.textColor || '#555'));
+  const logoColor = options.logoColor || (isDark ? '#fff' : (template.theme?.logoColor || '#111'));
+  // Dot: always use theme dotColor; on white frames ensure dark fallback for visibility
+  const rawDotColor = template.theme?.dotColor || '#D98893';
+  const dotColor = options.dotColor || (isDark ? '#aaa' : rawDotColor) || '#111';
 
   // 1. Logo
   if (options.logo !== false && template.logo) {
@@ -178,23 +192,23 @@ function renderFrameOverlay(ctx, template, width, height, options = {}) {
     ctx.fillStyle = logoColor;
     const fs = template.logo.fontSize * width;
     ctx.font = `800 ${fs}px "Plus Jakarta Sans", sans-serif`;
-    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    if (template.logo.letterSpacing) {
-      ctx.letterSpacing = `${template.logo.letterSpacing}px`;
+    ctx.textAlign = 'left';
+    const lx = template.logo.x * width;
+    const ly = template.logo.y * height;
+    const spacing = template.logo.letterSpacing || 0;
+    if (spacing > 0) {
+      drawLetterSpacedText(ctx, 'IMMM', lx, ly, spacing * (width / (template.canvasSize?.width || width)));
+    } else {
+      ctx.fillText('IMMM', lx, ly);
     }
-    ctx.fillText('IMMM', template.logo.x * width, template.logo.y * height);
     ctx.restore();
   }
 
-  // 2. Dot
+  // 2. Dot — always render when template.dot exists
   if (template.dot) {
     ctx.save();
     ctx.fillStyle = dotColor;
-    // For white polaroid, if bg is white, dot should be dark for contrast
-    if (!isDark && bg.toLowerCase() === '#ffffff' && template.type === '1x1') {
-      ctx.fillStyle = '#111'; // Ensure visibility on white
-    }
     ctx.beginPath();
     ctx.arc(template.dot.x * width, template.dot.y * height, template.dot.r * width, 0, Math.PI * 2);
     ctx.fill();
@@ -202,6 +216,9 @@ function renderFrameOverlay(ctx, template, width, height, options = {}) {
   }
 
   // 3. Date
+  // options.dateText === false  → hide
+  // options.dateText === string → use that string
+  // options.dateText === undefined/null → auto (today)
   if (options.dateText !== false && template.date) {
     ctx.save();
     ctx.fillStyle = textColor;
@@ -209,17 +226,20 @@ function renderFrameOverlay(ctx, template, width, height, options = {}) {
     ctx.font = `${fs}px Caveat, cursive`;
     ctx.textAlign = template.date.align || 'center';
     ctx.textBaseline = 'middle';
-    
-    const dateStr = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
-    let dx = template.date.x * width;
-    let dy = template.date.y * height;
-    
-    // Relative to captionRect if available
+
+    const dateStr = (typeof options.dateText === 'string' && options.dateText)
+      ? options.dateText
+      : new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
+
+    let dx, dy;
     if (template.captionRect) {
       dx = (template.captionRect.x + template.captionRect.w * template.date.x) * width;
       dy = (template.captionRect.y + template.captionRect.h * template.date.y) * height;
+    } else {
+      dx = template.date.x * width;
+      dy = template.date.y * height;
     }
-    
+
     ctx.fillText(dateStr, dx, dy);
     ctx.restore();
   }
@@ -517,6 +537,7 @@ Object.assign(window, {
   getShotCountForFrame,
   FrameRenderEngine,
   renderComposition,
+  renderFrameOverlay,
   FrameThumb,
   LocalGalleryStore,
   ShareStore,

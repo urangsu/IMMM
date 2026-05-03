@@ -898,84 +898,107 @@ function SharedPhotoV2({ T, go, mobile }) {
 function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, viewfinderAspect }) {
   const canvasRef = React.useRef(null);
 
-  React.useEffect(() => {
+  const draw = React.useCallback(() => {
     const cvs = canvasRef.current;
     if (!cvs || !template) return;
-    const ctx = cvs.getContext('2d');
-    
-    // Use high resolution for sharp text/logo
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
     const rect = cvs.getBoundingClientRect();
     const w = rect.width;
     const h = rect.height;
     if (!w || !h) return;
-    
-    cvs.width = w * dpr;
-    cvs.height = h * dpr;
+
+    const ctx = cvs.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cvs.width  = Math.round(w * dpr);
+    cvs.height = Math.round(h * dpr);
     ctx.scale(dpr, dpr);
 
-    // 1. Calculate Crop Dimming
-    const slot = template.photoSlots[0];
-    const targetAspect = slot.width / slot.height;
-    const containerAspect = viewfinderAspect;
-    
-    let gW = w, gH = h;
-    if (containerAspect > targetAspect) {
-      gH = h; gW = h * targetAspect;
+    // 1. Compute photo slot aspect — use photoRects (normalized) for accuracy
+    const pr = template.photoRects?.[0];
+    const ps = template.photoSlots?.[0];
+    const slotAspect = pr
+      ? pr.w / pr.h
+      : ps
+        ? ps.width / ps.height
+        : (viewfinderAspect || 3 / 4);
+
+    const containerAspect = viewfinderAspect || slotAspect;
+
+    // Photo area inside the viewfinder (letter-box / pillar-box)
+    let gW, gH;
+    if (containerAspect > slotAspect) {
+      gH = h; gW = h * slotAspect;
     } else {
-      gW = w; gH = w / targetAspect;
+      gW = w; gH = w / slotAspect;
     }
     const l = (w - gW) / 2;
     const t = (h - gH) / 2;
 
     ctx.clearRect(0, 0, w, h);
-    
-    // Dim outside
+
+    // Dim outside photo area
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.fillRect(0, 0, w, t); // top
-    ctx.fillRect(0, h - t, w, t); // bottom
-    ctx.fillRect(0, t, l, gH); // left
-    ctx.fillRect(w - l, t, w - l, gH); // right
-    
-    // Slot outline
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    if (t > 0) { ctx.fillRect(0, 0, w, t); ctx.fillRect(0, h - t, w, t); }
+    if (l > 0) { ctx.fillRect(0, t, l, gH); ctx.fillRect(w - l, t, l, gH); }
+
+    // Photo area border
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(l, t, gW, gH);
+    ctx.strokeRect(l + 0.75, t + 0.75, gW - 1.5, gH - 1.5);
 
-    // 2. Render Frame Overlay (Logo, Dot, Date)
-    const templateSlot = template.photoRects[0];
-    const s = gW / (templateSlot.w * template.canvasSize.width);
-    const fullW = template.canvasSize.width * s;
-    const fullH = template.canvasSize.height * s;
-    const offsetX = l - (templateSlot.x * template.canvasSize.width * s);
-    const offsetY = t - (templateSlot.y * template.canvasSize.height * s);
+    // 2. Map template space → viewfinder space and call renderFrameOverlay
+    if (pr && typeof renderFrameOverlay === 'function') {
+      // Scale factor: the photo rect occupies gW px in the overlay
+      const s = gW / (pr.w * template.canvasSize.width);
+      const fullW = template.canvasSize.width * s;
+      const fullH = template.canvasSize.height * s;
+      const offsetX = l - pr.x * template.canvasSize.width * s;
+      const offsetY = t - pr.y * template.canvasSize.height * s;
 
-    ctx.save();
-    ctx.translate(offsetX, offsetY);
-    if (typeof renderFrameOverlay === 'function') {
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
       renderFrameOverlay(ctx, template, fullW, fullH, {
-        frameColor, logo, dateText, accent,
-        textColor: 'rgba(255,255,255,0.9)', // Overlay white visibility
+        frameColor,
+        logo,
+        dateText,
+        accent,
+        // Force light colors so overlay is visible against any background
+        textColor: 'rgba(255,255,255,0.88)',
         logoColor: 'rgba(255,255,255,0.95)',
-        dotColor: 'rgba(255,255,255,0.7)',
+        dotColor:  'rgba(255,255,255,0.72)',
       });
+      ctx.restore();
     }
-    ctx.restore();
-    
-    // Label
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+
+    // "저장 영역" label badge
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(l + 8, t + 8, 54, 20, 4); else ctx.rect(l + 8, t + 8, 54, 20);
+    if (ctx.roundRect) ctx.roundRect(l + 8, t + 8, 56, 20, 4);
+    else ctx.rect(l + 8, t + 8, 56, 20);
     ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = '600 10px Pretendard, system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('저장 영역', l + 35, t + 19);
-
+    ctx.fillText('저장 영역', l + 36, t + 19);
   }, [template, layout, logo, dateText, accent, frameColor, viewfinderAspect]);
 
-  return <canvas ref={canvasRef} style={{ position:'absolute', inset:0, width:'100%', height:'100%', zIndex:10, pointerEvents:'none' }} />;
+  React.useEffect(() => {
+    draw();
+    const cvs = canvasRef.current;
+    if (!cvs) return;
+    const ro = new ResizeObserver(() => draw());
+    ro.observe(cvs);
+    return () => ro.disconnect();
+  }, [draw]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 10, pointerEvents: 'none' }}
+    />
+  );
 }
 
 Object.assign(window, { CaptureV2, SelectV2, GalleryV2, SharedPhotoV2, CaptureOverlay });
+
