@@ -133,6 +133,7 @@ uniform sampler2D u_tex;
 uniform sampler2D u_blurredTex;
 uniform sampler2D u_maskTex;
 uniform float u_strength;
+uniform float u_debugMask;
 varying vec2 v_uv;
 
 float getSkinConfidence(vec3 rgb) {
@@ -148,16 +149,21 @@ float getSkinConfidence(vec3 rgb) {
 void main(){
   vec4 ori = texture2D(u_tex, v_uv);
   vec4 blur = texture2D(u_blurredTex, v_uv);
-  float mask = texture2D(u_maskTex, v_uv).r;
+  float faceMask = texture2D(u_maskTex, v_uv).r;
   float conf = getSkinConfidence(ori.rgb);
-  float finalMask = mask * conf;
+  float finalMask = faceMask * conf;
   
-  if (u_debugMask > 0.5) {
+  if (u_debugMask > 2.5) {
     gl_FragColor = vec4(vec3(finalMask), 1.0);
+  } else if (u_debugMask > 1.5) {
+    gl_FragColor = vec4(vec3(conf), 1.0);
+  } else if (u_debugMask > 0.5) {
+    gl_FragColor = vec4(vec3(faceMask), 1.0);
   } else {
     gl_FragColor = mix(ori, blur, finalMask * u_strength);
   }
 }`,
+
 
 
 
@@ -1378,18 +1384,25 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
     maskCanvasRef.current = mc;
   }
 
-  const updateRetouchMask = (face) => {
-    if (!face?.detected || !maskCanvasRef.current) return false;
-    if (!face.faceOval || face.faceOval.length < 3) {
-      // Clear mask to black if face data is invalid
+  const updateRetouchMask = (faceData) => {
+    if (!faceData?.detected || !maskCanvasRef.current) return false;
+    const faces = faceData.faces?.length ? faceData.faces.slice(0, 4) : [faceData];
+    
+    let validCount = 0;
+    for (const f of faces) {
+      if (f.faceOval && f.faceOval.length >= 3) validCount++;
+    }
+
+    if (validCount === 0) {
       const mc = maskCanvasRef.current;
       const ctx = mc.getContext('2d');
       ctx.clearRect(0,0,512,512);
       if (engineRef.current) engineRef.current.updateMask(mc);
       return false;
     }
+
     const now = Date.now();
-    if (now - lastMaskUpdateRef.current < 66) return true; // ~15fps limit, but treat as success
+    if (now - lastMaskUpdateRef.current < 66) return true; 
     lastMaskUpdateRef.current = now;
 
     const mc = maskCanvasRef.current;
@@ -1411,16 +1424,18 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
       ctx.restore();
     };
 
-    // 1. Face Oval (Main Mask)
-    drawPoly(face.faceOval, '#fff', 12); // Feathered edge
+    // 1. Draw all Face Ovals
+    faces.forEach(f => drawPoly(f.faceOval, '#fff', 8)); // 8px for multi-face clarity
 
-    // 2. Exclusions (Eyes, Brows, Lips)
+    // 2. Draw all Exclusions
     ctx.globalCompositeOperation = 'destination-out';
-    drawPoly(face.leftEye,  '#fff', 4);
-    drawPoly(face.rightEye, '#fff', 4);
-    drawPoly(face.leftEyebrow,  '#fff', 4);
-    drawPoly(face.rightEyebrow, '#fff', 4);
-    drawPoly(face.lips,  '#fff', 4);
+    faces.forEach(f => {
+      drawPoly(f.leftEye,  '#fff', 4);
+      drawPoly(f.rightEye, '#fff', 4);
+      drawPoly(f.leftEyebrow,  '#fff', 4);
+      drawPoly(f.rightEyebrow, '#fff', 4);
+      drawPoly(f.lips,  '#fff', 4);
+    });
     ctx.globalCompositeOperation = 'source-over';
 
     if (engineRef.current) engineRef.current.updateMask(mc);
@@ -1553,24 +1568,26 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
 
         // PR 2-5: Experimental Skin Retouch (OFF by default)
         const enableExperimentalSkinRetouch = typeof window !== 'undefined' && window.IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH === true;
-        const debugMask = typeof window !== 'undefined' && window.IMMM_DEBUG_SKIN_MASK === true;
+        const debugMaskMode = typeof window !== 'undefined' 
+          ? (Number(window.IMMM_DEBUG_SKIN_MASK_MODE || 0) || (window.IMMM_DEBUG_SKIN_MASK === true ? 3 : 0))
+          : 0;
 
         if (enableExperimentalSkinRetouch) {
-          const maskOk = (face?.detected) ? updateRetouchMask(face) : false;
-          if (!face?.detected && engineRef.current) engineRef.current.clearMask();
+          const faceData = faceDataRef.current;
+          const maskOk = (faceData?.detected) ? updateRetouchMask(faceData) : false;
+          if (!faceData?.detected && engineRef.current) engineRef.current.clearMask();
 
           const strengths = {
-            smooth: 0.40,
+            smooth: 0.32, // Adjusted for PR 4 tuning experiment
             porcelain: 0.20,
             blush: 0.32,
             grain: 0.08,
           };
           const strength = strengths[key];
           if (strength > 0 && maskOk) {
-            // TODO: In next PR, loop through faces[] to draw multi-face mask
             steps = [{ 
               shader: 'skin_retouch', 
-              uniforms: { u_strength: strength, u_debugMask: debugMask ? 1.0 : 0.0 } 
+              uniforms: { u_strength: strength, u_debugMask: debugMaskMode } 
             }, ...steps];
           }
         }
