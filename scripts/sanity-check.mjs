@@ -67,6 +67,21 @@ function checkFrameSystem() {
     console.error('❌ FAIL: frame-system.jsx preset draw path still passes scalePx after ctx scale; this can double-scale stickers');
     hasErrors = true;
   }
+
+  if (content.includes("frameFill: '#fff'") && content.includes("dotColor: '#D98893'")) {
+    console.error("❌ FAIL: frame-system.jsx white frame templates still use pink dotColor #D98893");
+    hasErrors = true;
+  }
+
+  if (content.includes("const dotColor = options.dotColor || (isDark ? '#aaa' : rawDotColor) || '#111'") && content.includes("'#D98893'")) {
+    console.error("❌ FAIL: frame-system.jsx renderFrameOverlay uses #D98893 as a fallback.");
+    hasErrors = true;
+  }
+
+  if (!content.includes('template.theme?.dotColor') && !content.includes('template.theme.dotColor')) {
+    console.warn('⚠️ WARN: frame-system.jsx renderFrameOverlay does not reference template.theme.dotColor');
+    hasWarnings = true;
+  }
 }
 
 function checkStickerEngine() {
@@ -140,6 +155,16 @@ function checkStickerEngine() {
     hasErrors = true;
   }
 
+  if (!content.includes('function getVisibleStickerPacks')) {
+    console.error('❌ FAIL: sticker-engine.jsx missing getVisibleStickerPacks helper');
+    hasErrors = true;
+  }
+
+  if (content.includes('function getVisibleStickerPacks') && !content.includes('!pack.hidden')) {
+    console.error('❌ FAIL: sticker-engine.jsx getVisibleStickerPacks missing !pack.hidden filter');
+    hasErrors = true;
+  }
+
   // getInteractionBounds must apply decoScale in deco-overlay mode
   if (content.includes('function getInteractionBounds') &&
       !content.includes('decoScale?.x') && !content.includes('decoScale.x')) {
@@ -209,6 +234,25 @@ function checkStickerEngine() {
     console.warn('⚠️ WARN: sticker-engine.jsx StickerCanvas decoScale default is not {x:1, y:1}');
     hasWarnings = true;
   }
+
+  // Capture slot filter helpers must exist
+  for (const fn of ['getLayoutSlotCount', 'getCaptureSlotIndex', 'getStickersForCapturePreview']) {
+    if (!content.includes(`function ${fn}`)) {
+      console.error(`❌ FAIL: sticker-engine.jsx missing ${fn} helper`);
+      hasErrors = true;
+    }
+  }
+
+  if (!content.includes('captureIndex >= slotCount') && !content.includes('slotIndex == null')) {
+    console.error('❌ FAIL: sticker-engine.jsx getStickersForCapturePreview must return [] when captureIndex >= slotCount or slotIndex == null');
+    hasErrors = true;
+  }
+
+  // Debug log must include sizeNorm and canvasW
+  if (content.includes('IMMM_DEBUG_STICKER') && (!content.includes('sizeNorm: s.sizeNorm') || !content.includes('canvasW,'))) {
+    console.warn('⚠️ WARN: sticker-engine.jsx IMMM_DEBUG_STICKER log missing sizeNorm or canvasW');
+    hasWarnings = true;
+  }
 }
 
 function checkCapture() {
@@ -219,6 +263,18 @@ function checkCapture() {
   if (/<CaptureOverlay[^>]*frameColor=\{frameColor\}/.test(content)) {
     console.warn('⚠️ WARN: screens-v2-rest.jsx passes frameColor directly without safeFrameColor fallback to CaptureOverlay');
     hasWarnings = true;
+  }
+
+  // preStickers must NOT be rendered raw in capture overlays — must use visibleCaptureStickers
+  if (content.includes('preStickers.map(') || content.includes('{preStickers.map(')) {
+    console.error('❌ FAIL: screens-v2-rest.jsx renders preStickers directly without slot filtering in capture overlay');
+    hasErrors = true;
+  }
+
+  // bakePreStickers must not loop stickers into raw shot
+  if (content.includes('for (const sticker of preStickers)') && content.includes('drawStickerToCanvas')) {
+    console.error('❌ FAIL: screens-v2-rest.jsx bakes preStickers into raw shot data — causes sticker duplication in final frame');
+    hasErrors = true;
   }
 }
 
@@ -264,6 +320,48 @@ function checkSetupAndDecoStickerCanvas() {
   if (!/<StickerCanvas[\s\S]*canvasW=\{frameW\}/.test(deco)) {
     console.error('❌ FAIL: screens-v2-deco.jsx Deco StickerCanvas must receive canvasW={frameW}');
     hasErrors = true;
+  }
+
+  // Setup addPreset must use getDefaultStickerSizeNorm
+  if (!setup.includes('getDefaultStickerSizeNorm')) {
+    console.error('❌ FAIL: screens-v2.jsx Setup addPreset must call getDefaultStickerSizeNorm for explicit sizeNorm');
+    hasErrors = true;
+  }
+
+  // Deco addPreset must use getDefaultStickerSizeNorm
+  if (!deco.includes('getDefaultStickerSizeNorm')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx Deco addPreset must call getDefaultStickerSizeNorm for explicit sizeNorm');
+    hasErrors = true;
+  }
+
+  if (!setup.includes('getVisibleStickerPacks') && !setup.includes('!pack.hidden')) {
+    console.error('❌ FAIL: screens-v2.jsx STICKER_CATALOG map missing getVisibleStickerPacks or !pack.hidden filter');
+    hasErrors = true;
+  }
+
+  if (!deco.includes('getVisibleStickerPacks') && !deco.includes('!pack.hidden')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx STICKER_CATALOG map missing getVisibleStickerPacks or !pack.hidden filter');
+    hasErrors = true;
+  }
+
+  if (setup.includes('Object.entries(STICKER_CATALOG).map') || setup.includes('Object.values(STICKER_CATALOG).map')) {
+    console.error('❌ FAIL: screens-v2.jsx uses direct STICKER_CATALOG map without filtering');
+    hasErrors = true;
+  }
+
+  if (deco.includes('Object.entries(STICKER_CATALOG).map') || deco.includes('Object.values(STICKER_CATALOG).map')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx uses direct STICKER_CATALOG map without filtering');
+    hasErrors = true;
+  }
+
+  if (!setup.includes('repeat(auto-fill') && setup.includes('flexDirection: \'column\'')) {
+    console.warn('⚠️ WARN: screens-v2.jsx sticker picker container is vertical. Use grid or flex-wrap.');
+    hasWarnings = true;
+  }
+
+  if (!deco.includes('repeat(auto-fill') && deco.includes('flexDirection: \'column\'')) {
+    console.warn('⚠️ WARN: screens-v2-deco.jsx sticker picker container is vertical. Use grid or flex-wrap.');
+    hasWarnings = true;
   }
 }
 

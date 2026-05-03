@@ -261,13 +261,23 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, onGallery, lang = 
 // ═══════════════════════════════════════════════════════════════
 // 2. SETUP — Frame + Filter + Pre-stickers
 // ═══════════════════════════════════════════════════════════════
+function getStickerPickerPacks() {
+  return typeof getVisibleStickerPacks === 'function'
+    ? getVisibleStickerPacks()
+    : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
+}
+
 function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks }) {
   const [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
   const [selStId, setSelStId] = uS(null);
   const fileRef = uR(null);
 
   const addPreset = (libId) => {
-    setPreStickers((prev) => [...prev, makeSticker('preset', { libId })]);
+    const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
+    const sizeNorm = typeof getDefaultStickerSizeNorm === 'function'
+      ? getDefaultStickerSizeNorm(item)
+      : undefined;
+    setPreStickers((prev) => [...prev, makeSticker('preset', { libId }, { sizeNorm })]);
   };
   const addUpload = (dataUrl) => {
     setPreStickers((prev) => [...prev, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
@@ -527,7 +537,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
       <div style={{ marginTop: 10, fontSize: 11.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui', lineHeight: 1.45 }}>
         스티커를 프레임에 드래그하여 배치하세요. 크기 조절, 회전 가능.
       </div>
-      {Object.entries(STICKER_CATALOG).map(([k, pack]) =>
+      {getStickerPickerPacks().map(([k, pack]) =>
     <div key={k} style={{ marginTop: 14 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom: 6 }}>
             <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: 600, textTransform: 'uppercase', color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui' }}>
@@ -537,21 +547,22 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
               {pack.recommended && <StoreBadge T={T} tone="light">Pick</StoreBadge>}
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 8 }}>
             {pack.items.map((it) =>
-        <button key={it.id} onClick={() => addPreset(it.id)} style={{
-          padding: 10, background: T.card, border: 'none', borderRadius: 12,
-          boxShadow: '0 0 0 1px rgba(26,26,31,0.06)', cursor: 'pointer',
-          minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'transform 0.2s'
-        }}
-        onPointerDown={(e) => e.currentTarget.style.transform = 'scale(0.94)'}
-        onPointerUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        onPointerLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
-          
-                {renderLibSticker(it, 0.65)}
+              <button key={it.id} onClick={() => addPreset(it.id)} style={{
+                padding: 10, background: T.card, border: 'none', borderRadius: 12,
+                boxShadow: '0 0 0 1px rgba(26,26,31,0.06)', cursor: 'pointer',
+                minHeight: 58, height: 58, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                transition: 'transform 0.2s'
+              }}
+              onPointerDown={(e) => e.currentTarget.style.transform = 'scale(0.94)'}
+              onPointerUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              onPointerLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                <div style={{ width: '100%', height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', writingMode: 'horizontal-tb', whiteSpace: 'nowrap' }}>
+                  {renderLibSticker(it, 0.65)}
+                </div>
               </button>
-        )}
+            )}
           </div>
         </div>
     )}

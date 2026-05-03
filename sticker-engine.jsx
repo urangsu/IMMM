@@ -39,6 +39,9 @@ const STICKER_CATALOG = {
       { id:'h-forever', type:'text', text:'forever', font:'Caveat', size:32, color:'#D98893' },
     ],
   },
+  // kretro는 품질 미달로 신규 UI에서는 숨긴다.
+  // 기존 저장 데이터 호환을 위해 catalog와 renderer는 유지한다.
+  // 신규 선택 UI에서는 getVisibleStickerPacks()를 통해 제외한다.
   kretro: {
     id: 'kretro', name: 'K-Variety Retro', ko: '예능 자막', premium: true, recommended: true, price: 900, owned: true, locked: false, purchaseId: 'sticker_kretro_premium', hidden: true,
     items: [
@@ -55,6 +58,19 @@ const STICKER_CATALOG = {
     ],
   },
 };
+
+function getVisibleStickerPacks() {
+  return Object.entries(STICKER_CATALOG).filter(([key, pack]) => !pack.hidden);
+}
+
+function getVisibleStickerItems() {
+  return getVisibleStickerPacks().flatMap(([key, pack]) => pack.items || []);
+}
+
+if (typeof window !== 'undefined') {
+  window.getVisibleStickerPacks = getVisibleStickerPacks;
+  window.getVisibleStickerItems = getVisibleStickerItems;
+}
 
 function getStickerByLibId(libId) {
   for (const pack of Object.values(STICKER_CATALOG)) {
@@ -511,8 +527,9 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           if (mode === 'deco-overlay' && window.IMMM_DEBUG_STICKER) {
             console.debug('[IMMM deco sticker]', {
               id: s.id, kind: s.kind, libId: s.payload?.libId,
+              sizeNorm: s.sizeNorm,
               scale: s.scale, visualScale, userScale, rawBounds: getStickerVisualBounds(s),
-              interactionBounds: hitbox, decoScale, mode,
+              interactionBounds: hitbox, decoScale, canvasW, mode,
             });
           }
           return (

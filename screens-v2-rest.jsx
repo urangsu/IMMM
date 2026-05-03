@@ -312,7 +312,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           sourceVideoWidth: captureMeta.sourceW,
           sourceVideoHeight: captureMeta.sourceH,
           preStickers: [],
-          bakedPreStickers: preStickers.map(s => ({ ...s })),
+          bakedPreStickers: [...preStickers].map(s => ({ ...s })),
           facingMode,
           mirrored: facingMode === 'user',
           width: rect?.width ? Math.round(rect.width) : 720,
@@ -958,7 +958,6 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
         // Force light colors so overlay is visible against any background
         textColor: 'rgba(255,255,255,0.88)',
         logoColor: 'rgba(255,255,255,0.95)',
-        dotColor:  'rgba(255,255,255,0.72)',
       });
       ctx.restore();
     }

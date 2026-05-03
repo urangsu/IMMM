@@ -3,6 +3,12 @@
 // ═══════════════════════════════════════════════════════════════
 // DECO STUDIO — final edit (filter+frame locked)
 // ═══════════════════════════════════════════════════════════════
+function getStickerPickerPacks() {
+  return typeof getVisibleStickerPacks === 'function'
+    ? getVisibleStickerPacks()
+    : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
+}
+
 function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation,
   stickers, setStickers, drawStrokes, setDrawStrokes, logo, dateText, setDateText, accent, frameColor }) {
   const [tab, setTab] = React.useState('stickers'); // stickers | draw | text
@@ -61,8 +67,10 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   };
   const addPreset = (libId) => {
     const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
-    const scale = getDecoInitialPresetScale(item);
-    setStickers((p) => [...p, makeSticker('preset', { libId }, { scale })]);
+    const sizeNorm = typeof getDefaultStickerSizeNorm === 'function'
+      ? getDefaultStickerSizeNorm(item)
+      : undefined;
+    setStickers((p) => [...p, makeSticker('preset', { libId }, { sizeNorm, scale: 1 })]);
   };
   const addUpload = (dataUrl) => setStickers((p) => [...p, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
   const addText = () => {
@@ -319,24 +327,28 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
       </div>
       {layerBar}
-      {Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden).map(([k, pack]) =>
+      {getStickerPickerPacks().map(([k, pack]) =>
     <div key={k} style={{ marginTop: 14 }}>
           <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: 600, textTransform: 'uppercase', color: T.inkSoft, marginBottom: 6 }}>
             {pack.name} · {pack.ko}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 8 }}>
             {(expandedPacks[k] ? pack.items : pack.items.slice(0, 5)).map((it) =>
               <button key={it.id} onClick={() => addPreset(it.id)} style={{
                 padding: 10, background: T.card, border: 'none', borderRadius: 12,
                 boxShadow: '0 0 0 1px rgba(26,26,31,0.06)', cursor: 'pointer',
-                minHeight: 58, display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}>{renderLibSticker(it, 0.62)}</button>
+                minHeight: 58, height: 58, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+              }}>
+                <div style={{ width: '100%', height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', writingMode: 'horizontal-tb', whiteSpace: 'nowrap' }}>
+                  {renderLibSticker(it, 0.62)}
+                </div>
+              </button>
             )}
             {!expandedPacks[k] && pack.items.length > 5 && (
               <button onClick={() => setExpandedPacks(p => ({ ...p, [k]: true }))} style={{
                 padding: 10, background: 'rgba(26,26,31,0.04)', border: 'none', borderRadius: 12,
                 color: T.inkSoft, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                minHeight: 58, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                minHeight: 58, height: 58, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
               }}>+{pack.items.length - 5}</button>
             )}
           </div>

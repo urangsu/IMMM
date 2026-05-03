@@ -15,7 +15,7 @@ const FRAME_TEMPLATES = {
     name: 'Classic 1x4',
     ko: '클래식 1x4',
     canvasSize: { width: 560, height: 1808 },
-    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#D98893' },
+    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#111' },
     photoRects: [
       { x: 0.093, y: 0.092, w: 0.814, h: 0.189 },
       { x: 0.093, y: 0.297, w: 0.814, h: 0.189 },
@@ -34,7 +34,7 @@ const FRAME_TEMPLATES = {
     name: 'Gallery 2x2',
     ko: '갤러리 2x2',
     canvasSize: { width: 880, height: 1096 },
-    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#D98893' },
+    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#111' },
     photoRects: [
       { x: 0.08, y: 0.155, w: 0.398, h: 0.319 },
       { x: 0.523, y: 0.155, w: 0.398, h: 0.319 },
@@ -290,8 +290,8 @@ function renderFrameOverlay(ctx, template, width, height, options = {}) {
   const textColor = options.textColor || (isDark ? '#eee' : (template.theme?.textColor || '#555'));
   const logoColor = options.logoColor || (isDark ? '#fff' : (template.theme?.logoColor || '#111'));
   // Dot: always use theme dotColor; on white frames ensure dark fallback for visibility
-  const rawDotColor = template.theme?.dotColor || '#D98893';
-  const dotColor = options.dotColor || (isDark ? '#aaa' : rawDotColor) || '#111';
+  const rawDotColor = template.theme?.dotColor;
+  const dotColor = options.dotColor || rawDotColor || (isDark ? '#aaa' : '#111');
 
   // 1. Logo
   if (options.logo !== false && template.logo) {
@@ -357,6 +357,19 @@ function renderFrameOverlay(ctx, template, width, height, options = {}) {
  * Renders the entire composition to a canvas context.
  * Unified path for both Preview and Export.
  */
+/**
+ * Returns true if the sticker should be rendered in the given layout.
+ * Free stickers (no frameSlot) are always valid.
+ * Slot stickers are only valid if their slot index falls within the layout's slot count.
+ */
+function isStickerValidForLayout(sticker, layout) {
+  if (sticker?.frameSlot == null) return true;
+  const slotCount = typeof getLayoutSlotCount === 'function'
+    ? getLayoutSlotCount(layout)
+    : 4;
+  return Number(sticker.frameSlot) >= 0 && Number(sticker.frameSlot) < slotCount;
+}
+
 async function renderComposition(ctx, data, options = {}) {
   const template = getFrameTemplate(data.layout || data.templateType);
   const scale = options.scale || 1;
@@ -394,8 +407,9 @@ async function renderComposition(ctx, data, options = {}) {
       drawCoverToCtx(ctx, images[i], sx, sy, sw, sh);
     }
     
-    // Slotted stickers
-    const slotted = (data.stickers || []).filter((s) => s.frameSlot === i);
+    // Slotted stickers — only valid slots for this layout
+    const slotted = (data.stickers || [])
+      .filter((s) => s.frameSlot === i && isStickerValidForLayout(s, data.layout || data.templateType));
     for (const s of slotted) {
       const local = { ...s, x: s.slotX ?? 50, y: s.slotY ?? 50 };
       ctx.save();
@@ -406,8 +420,9 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.restore();
   }
 
-  // 3. Global Stickers (not in slots)
-  const freeStickers = (data.stickers || []).filter((st) => st.frameSlot == null);
+  // 3. Global Stickers (not in slots) — validate layout-slot compatibility
+  const freeStickers = (data.stickers || []).filter((st) =>
+    st.frameSlot == null && isStickerValidForLayout(st, data.layout || data.templateType));
   for (const s of freeStickers) {
     await drawStickerToCtx(ctx, s, w, h, scale);
   }
