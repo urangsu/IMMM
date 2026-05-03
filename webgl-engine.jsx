@@ -1578,13 +1578,15 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
           const maskOk = (faceData?.detected) ? updateRetouchMask(faceData) : false;
           if (!faceData?.detected && engineRef.current) engineRef.current.clearMask();
 
+          const overrideStrength = typeof window !== 'undefined' ? Number(window.IMMM_SKIN_RETOUCH_STRENGTH || 0) : 0;
+
           const strengths = {
-            smooth: 0.32, // Default: Balanced
-            porcelain: 0.20,
-            blush: 0.32,
-            grain: 0.08,
+            smooth: overrideStrength > 0 ? overrideStrength : 0.32,
+            porcelain: 0.16,
+            blush: 0.24,
+            grain: 0.06,
           };
-          const strength = strengths[key];
+          const strength = strengths[key] || 0;
           if (strength > 0 && maskOk) {
             steps = [{ 
               shader: 'skin_retouch', 

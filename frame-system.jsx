@@ -15,22 +15,18 @@ const FRAME_TEMPLATES = {
     name: 'Classic 1x4',
     ko: '클래식 1x4',
     canvasSize: { width: 560, height: 1808 },
-    previewImage: 'asset/1x4.png',
-    premium: false,
-    recommended: true,
-    price: 0,
-    owned: true,
-    locked: false,
-    purchaseId: null,
-    author: 'IMMM',
-    logoSafeArea: { x: 40, y: 34, width: 480, height: 110 },
-    overlayLayer: 'logo-top',
-    photoSlots: [
-      { x: 52, y: 166, width: 456, height: 342 },
-      { x: 52, y: 536, width: 456, height: 342 },
-      { x: 52, y: 906, width: 456, height: 342 },
-      { x: 52, y: 1276, width: 456, height: 342 },
+    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#D98893' },
+    photoRects: [
+      { x: 0.093, y: 0.092, w: 0.814, h: 0.189 },
+      { x: 0.093, y: 0.297, w: 0.814, h: 0.189 },
+      { x: 0.093, y: 0.501, w: 0.814, h: 0.189 },
+      { x: 0.093, y: 0.706, w: 0.814, h: 0.189 },
     ],
+    logo: { x: 0.071, y: 0.038, fontSize: 0.06 },
+    dot: { x: 0.92, y: 0.038, r: 0.024 },
+    captionRect: { x: 0, y: 0.90, w: 1, h: 0.10 },
+    date: { x: 0.5, y: 0.5, fontSize: 0.04, align: 'center' },
+    photoSlots: [], // Legacy compat
   },
   '2x2': {
     id: 'core-2x2',
@@ -38,67 +34,49 @@ const FRAME_TEMPLATES = {
     name: 'Gallery 2x2',
     ko: '갤러리 2x2',
     canvasSize: { width: 880, height: 1096 },
-    previewImage: 'asset/2x2.png',
-    premium: false,
-    recommended: true,
-    price: 0,
-    owned: true,
-    locked: false,
-    purchaseId: null,
-    author: 'IMMM',
-    logoSafeArea: { x: 60, y: 36, width: 760, height: 110 },
-    overlayLayer: 'logo-top',
-    photoSlots: [
-      { x: 70, y: 170, width: 350, height: 350 },
-      { x: 460, y: 170, width: 350, height: 350 },
-      { x: 70, y: 560, width: 350, height: 350 },
-      { x: 460, y: 560, width: 350, height: 350 },
+    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#D98893' },
+    photoRects: [
+      { x: 0.08, y: 0.155, w: 0.398, h: 0.319 },
+      { x: 0.523, y: 0.155, w: 0.398, h: 0.319 },
+      { x: 0.08, y: 0.511, w: 0.398, h: 0.319 },
+      { x: 0.523, y: 0.511, w: 0.398, h: 0.319 },
     ],
-  },
-  '1x3': {
-    id: 'core-1x3',
-    type: '1x3',
-    name: 'Triple 1x3',
-    ko: '트리플 1x3',
-    canvasSize: { width: 560, height: 1424 },
-    previewImage: 'asset/1x3.png',
-    premium: false,
-    recommended: false,
-    price: 0,
-    owned: true,
-    locked: false,
-    purchaseId: null,
-    author: 'IMMM',
-    logoSafeArea: { x: 40, y: 34, width: 480, height: 110 },
-    overlayLayer: 'logo-top',
-    photoSlots: [
-      { x: 52, y: 166, width: 456, height: 342 },
-      { x: 52, y: 548, width: 456, height: 342 },
-      { x: 52, y: 930, width: 456, height: 342 },
-    ],
+    logo: { x: 0.068, y: 0.064, fontSize: 0.045 },
+    dot: { x: 0.932, y: 0.064, r: 0.016 },
+    captionRect: { x: 0, y: 0.86, w: 1, h: 0.14 },
+    date: { x: 0.5, y: 0.5, fontSize: 0.035, align: 'center' },
+    photoSlots: [],
   },
   '1x1': {
     id: 'core-1x1',
     type: '1x1',
     name: 'Polaroid 1x1',
     ko: '폴라로이드 1x1',
-    canvasSize: { width: 880, height: 1070 }, // 88:107 ratio
-    previewImage: 'asset/1x1.png',
-    premium: false,
-    recommended: true,
-    price: 0,
-    owned: true,
-    locked: false,
-    purchaseId: null,
-    author: 'IMMM',
-    logoSafeArea: { x: 45, y: 34, width: 790, height: 110 },
-    overlayLayer: 'logo-top',
-    photoSlots: [
-      // Normalized: x: 0.051, y: 0.042, w: 0.898, h: 0.738
-      { x: 44.8, y: 44.9, width: 790.2, height: 789.6 },
+    canvasSize: { width: 880, height: 1070 },
+    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#111' },
+    photoRects: [
+      { x: 0.051, y: 0.10, w: 0.898, h: 0.68 }, // Structure consistent for black/white
     ],
+    logo: { x: 0.051, y: 0.045, fontSize: 0.042, letterSpacing: 2 },
+    dot: { x: 0.92, y: 0.045, r: 0.018 },
+    captionRect: { x: 0.051, y: 0.78, w: 0.898, h: 0.22 },
+    date: { x: 0.5, y: 0.62, fontSize: 0.048, align: 'center' },
+    photoSlots: [],
   },
 };
+
+// Map legacy photoSlots to new photoRects
+Object.keys(FRAME_TEMPLATES).forEach(k => {
+  const t = FRAME_TEMPLATES[k];
+  if (!t.photoSlots || t.photoSlots.length === 0) {
+    t.photoSlots = t.photoRects.map(r => ({
+      x: r.x * t.canvasSize.width,
+      y: r.y * t.canvasSize.height,
+      width: r.w * t.canvasSize.width,
+      height: r.h * t.canvasSize.height
+    }));
+  }
+});
 
 function getFrameTemplate(layoutOrType) {
   const type = FRAME_TEMPLATE_ALIASES[layoutOrType] || layoutOrType || '1x4';
@@ -181,20 +159,70 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
   ctx.restore();
 }
 
-function drawLogoLayer(ctx, template, opts, scale) {
-  if (opts.logo === false) return;
-  const safe = template.logoSafeArea;
-  ctx.save();
-  ctx.fillStyle = opts.inkColor || '#111';
-  ctx.font = `800 ${Math.max(18, safe.height * 0.26 * scale)}px "Plus Jakarta Sans", sans-serif`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
-  ctx.fillText('IMMM', safe.x * scale, (safe.y + safe.height / 2) * scale);
-  ctx.fillStyle = opts.accent || '#D98893';
-  ctx.beginPath();
-  ctx.arc((safe.x + safe.width - 12) * scale, (safe.y + safe.height / 2) * scale, 8 * scale, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+/**
+ * Unified Frame Overlay Renderer.
+ * Used for Preview, Live Overlay, and Export.
+ */
+function renderFrameOverlay(ctx, template, width, height, options = {}) {
+  const bg = options.frameColor || template.theme.frameFill;
+  const isDark = ['#111', '#111111', '#000', '#000000'].includes(String(bg).toLowerCase());
+  
+  const textColor = options.textColor || (isDark ? '#eee' : template.theme.textColor);
+  const logoColor = options.logoColor || (isDark ? '#fff' : template.theme.logoColor);
+  const dotColor = options.dotColor || (isDark ? '#333' : template.theme.dotColor);
+  const accent = options.accent || '#D98893';
+
+  // 1. Logo
+  if (options.logo !== false && template.logo) {
+    ctx.save();
+    ctx.fillStyle = logoColor;
+    const fs = template.logo.fontSize * width;
+    ctx.font = `800 ${fs}px "Plus Jakarta Sans", sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    if (template.logo.letterSpacing) {
+      ctx.letterSpacing = `${template.logo.letterSpacing}px`;
+    }
+    ctx.fillText('IMMM', template.logo.x * width, template.logo.y * height);
+    ctx.restore();
+  }
+
+  // 2. Dot
+  if (template.dot) {
+    ctx.save();
+    ctx.fillStyle = dotColor;
+    // For white polaroid, if bg is white, dot should be dark for contrast
+    if (!isDark && bg.toLowerCase() === '#ffffff' && template.type === '1x1') {
+      ctx.fillStyle = '#111'; // Ensure visibility on white
+    }
+    ctx.beginPath();
+    ctx.arc(template.dot.x * width, template.dot.y * height, template.dot.r * width, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 3. Date
+  if (options.dateText !== false && template.date) {
+    ctx.save();
+    ctx.fillStyle = textColor;
+    const fs = template.date.fontSize * width;
+    ctx.font = `${fs}px Caveat, cursive`;
+    ctx.textAlign = template.date.align || 'center';
+    ctx.textBaseline = 'middle';
+    
+    const dateStr = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
+    let dx = template.date.x * width;
+    let dy = template.date.y * height;
+    
+    // Relative to captionRect if available
+    if (template.captionRect) {
+      dx = (template.captionRect.x + template.captionRect.w * template.date.x) * width;
+      dy = (template.captionRect.y + template.captionRect.h * template.date.y) * height;
+    }
+    
+    ctx.fillText(dateStr, dx, dy);
+    ctx.restore();
+  }
 }
 
 /**
@@ -208,9 +236,7 @@ async function renderComposition(ctx, data, options = {}) {
   const h = template.canvasSize.height * scale;
 
   // 1. Background
-  const bg = data.frameColor || '#fff';
-  const isDark = ['#111', '#111111', '#000', '#000000'].includes(String(bg).toLowerCase());
-  const inkColor = isDark ? '#fff' : '#111';
+  const bg = data.frameColor || template.theme.frameFill;
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
@@ -268,7 +294,7 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.lineJoin = 'round';
     
     if (stroke.brush === 'sparkle') {
-      const step = 8; // Consistent spacing
+      const step = 8;
       const sz = (stroke.width || 3) * scale * 1.5;
       ctx.fillStyle = stroke.color || '#fff';
       ctx.globalAlpha = 0.85;
@@ -279,7 +305,6 @@ async function renderComposition(ctx, data, options = {}) {
         
         ctx.save();
         ctx.translate(tx, ty);
-        // Draw sparkle star stamp
         ctx.beginPath();
         const s = sz;
         ctx.moveTo(0, -s);
@@ -304,24 +329,13 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.restore();
   });
 
-  // 5. Text & Logo
-  if (data.dateText !== false) {
-    ctx.save();
-    ctx.fillStyle = isDark ? 'rgba(255,255,255,0.78)' : '#555';
-    // Use scale-aware font size
-    ctx.font = `${22 * scale}px Caveat, cursive`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    const dateStr = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' });
-    ctx.fillText(dateStr, w / 2, h - (template.type === '1x1' ? 44 : 34) * scale);
-    ctx.restore();
-  }
-
-  drawLogoLayer(ctx, template, {
+  // 5. Unified Overlay (Logo, Dot, Date)
+  renderFrameOverlay(ctx, template, w, h, {
+    frameColor: data.frameColor,
     logo: data.logo,
-    accent: data.accent,
-    inkColor: isDark ? '#fff' : '#111',
-  }, scale);
+    dateText: data.dateText,
+    accent: data.accent
+  });
 }
 
 async function renderFrameToCanvas(input) {

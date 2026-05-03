@@ -466,39 +466,16 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           )}
           
-          {/* Polaroid Crop Guide — shows actual saving area for 1:1 slots */}
-          {layout === 'polaroid' && (() => {
-            const slot = frameTemplate?.photoSlots?.[0];
-            const targetAspect = slot ? slot.width / slot.height : 1;
-            const containerAspect = viewfinderAspect;
-            let gW = 100, gH = 100;
-            if (containerAspect > targetAspect) {
-              gH = 100; gW = (targetAspect / containerAspect) * 100;
-            } else {
-              gW = 100; gH = (containerAspect / targetAspect) * 100;
-            }
-            const l = (100 - gW) / 2;
-            const t = (100 - gH) / 2;
-            return (
-              <div style={{ position:'absolute', inset:0, zIndex:10, pointerEvents:'none', borderRadius:24, overflow:'hidden' }}>
-                <div style={{ position:'absolute', top:0, left:0, right:0, height:`${t}%`, background:'rgba(0,0,0,0.18)' }} />
-                <div style={{ position:'absolute', bottom:0, left:0, right:0, height:`${t}%`, background:'rgba(0,0,0,0.18)' }} />
-                <div style={{ position:'absolute', top:`${t}%`, bottom:`${t}%`, left:0, width:`${l}%`, background:'rgba(0,0,0,0.18)' }} />
-                <div style={{ position:'absolute', top:`${t}%`, bottom:`${t}%`, right:0, width:`${l}%`, background:'rgba(0,0,0,0.18)' }} />
-                <div style={{
-                  position:'absolute', left:`${l}%`, top:`${t}%`, width:`${gW}%`, height:`${gH}%`,
-                  border:'1.5px solid rgba(255,255,255,0.92)', boxShadow:'0 0 0 1px rgba(0,0,0,0.18)',
-                  borderRadius:12, boxSizing:'border-box'
-                }}>
-                  <div style={{
-                    position:'absolute', top:8, left:8, padding:'4px 8px', borderRadius:4,
-                    background:'rgba(0,0,0,0.42)', color:'#fff', fontSize:10, fontWeight:600, 
-                    letterSpacing:0.5, fontFamily:'Pretendard, system-ui'
-                  }}>저장 영역</div>
-                </div>
-              </div>
-            );
-          })()}
+          {/* Unified Frame Overlay Guide — shows logo, dot, date, and crop dimming */}
+          <CaptureOverlay 
+            template={frameTemplate} 
+            layout={layout}
+            logo={logo}
+            dateText={dateText}
+            accent={accent}
+            frameColor={frameColor}
+            viewfinderAspect={viewfinderAspect}
+          />
           
           {/* Transparent hole for global camera box */}
           
@@ -913,4 +890,87 @@ function SharedPhotoV2({ T, go, mobile }) {
   );
 }
 
-Object.assign(window, { CaptureV2, SelectV2, GalleryV2, SharedPhotoV2 });
+function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, viewfinderAspect }) {
+  const canvasRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const cvs = canvasRef.current;
+    if (!cvs || !template) return;
+    const ctx = cvs.getContext('2d');
+    
+    // Use high resolution for sharp text/logo
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = cvs.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    if (!w || !h) return;
+    
+    cvs.width = w * dpr;
+    cvs.height = h * dpr;
+    ctx.scale(dpr, dpr);
+
+    // 1. Calculate Crop Dimming
+    const slot = template.photoSlots[0];
+    const targetAspect = slot.width / slot.height;
+    const containerAspect = viewfinderAspect;
+    
+    let gW = w, gH = h;
+    if (containerAspect > targetAspect) {
+      gH = h; gW = h * targetAspect;
+    } else {
+      gW = w; gH = w / targetAspect;
+    }
+    const l = (w - gW) / 2;
+    const t = (h - gH) / 2;
+
+    ctx.clearRect(0, 0, w, h);
+    
+    // Dim outside
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(0, 0, w, t); // top
+    ctx.fillRect(0, h - t, w, t); // bottom
+    ctx.fillRect(0, t, l, gH); // left
+    ctx.fillRect(w - l, t, w - l, gH); // right
+    
+    // Slot outline
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(l, t, gW, gH);
+
+    // 2. Render Frame Overlay (Logo, Dot, Date)
+    const templateSlot = template.photoRects[0];
+    const s = gW / (templateSlot.w * template.canvasSize.width);
+    const fullW = template.canvasSize.width * s;
+    const fullH = template.canvasSize.height * s;
+    const offsetX = l - (templateSlot.x * template.canvasSize.width * s);
+    const offsetY = t - (templateSlot.y * template.canvasSize.height * s);
+
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    if (typeof renderFrameOverlay === 'function') {
+      renderFrameOverlay(ctx, template, fullW, fullH, {
+        frameColor, logo, dateText, accent,
+        textColor: 'rgba(255,255,255,0.9)', // Overlay white visibility
+        logoColor: 'rgba(255,255,255,0.95)',
+        dotColor: 'rgba(255,255,255,0.7)',
+      });
+    }
+    ctx.restore();
+    
+    // Label
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(l + 8, t + 8, 54, 20, 4); else ctx.rect(l + 8, t + 8, 54, 20);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '600 10px Pretendard, system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('저장 영역', l + 35, t + 19);
+
+  }, [template, layout, logo, dateText, accent, frameColor, viewfinderAspect]);
+
+  return <canvas ref={canvasRef} style={{ position:'absolute', inset:0, width:'100%', height:'100%', zIndex:10, pointerEvents:'none' }} />;
+}
+
+Object.assign(window, { CaptureV2, SelectV2, GalleryV2, SharedPhotoV2, CaptureOverlay });
