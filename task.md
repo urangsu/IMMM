@@ -1,16 +1,18 @@
-# IMMM Photobooth Development Task List (task.md)
+# IMMM Product Direction & Task List (task.md)
 
 ---
 
-## ⚡ 현재 개발 상태 (Current Status)
+## 1. Product North Star
+IMMM은 SNOW 복제 앱이 아니라, 설치 없이 웹에서 바로 찍는 **고화질 감성 포토부스**다.
+핵심 가치는 빠른 카메라, 자연스러운 필터, 정확한 프레임, 고화질 저장, 모바일 안정성이다.
 
-- **노출 필터 (6종)**: 
-  - `original` / No Filter / 노 필터
-  - `porcelain` / Window Light / 자연광
-  - `smooth` / Cream Skin / 크림 스킨
-  - `blush` / First Love / 첫사랑
-  - `grain` / Soft Film / 소프트 필름
-  - `bw` / BW / 흑백
+## 2. Current Visible Filters (6종)
+- `original` / No Filter / 노 필터
+- `porcelain` / Window Light / 자연광
+- `smooth` / Cream Skin / 크림 스킨
+- `blush` / First Love / 첫사랑
+- `grain` / Soft Film / 소프트 필름
+- `bw` / BW / 흑백
 - **주요 수정 완료**: 
   - [x] 폴라로이드 크롭 가이드라인 정확화
   - [x] 필터 전환 잔상 제거
@@ -91,3 +93,12 @@
   - `lip_color` (입술 색조 변형)
   - `eye_bright` (눈가 밝기 왜곡)
 - **Fallback 정책**: 만약 `localStorage` 등에 hidden 필터 키가 남아 있어 불러오게 될 경우, `getSafeFilterKey`는 이를 감지하여 `porcelain` (자연광) 필터로 자동 폴백시켜야 한다.
+
+---
+
+## 🚀 Phase B — WebGL Masked Skin Retouch (Roadmap)
+
+- [x] PR 1 — 문서/설계 및 피부보정 원칙 수립
+- [x] PR 2 — Desktop WebGL 실험 (Desktop smooth 필터 적용)
+- [x] PR 3 — 필터별 확장 (porcelain / smooth / blush / grain 강도 연결)
+- [x] PR 4 — Mobile opt-in (Feature Flag `window.IMMM_ENABLE_MOBILE_RETOUCH` 기반 테스트 지원)

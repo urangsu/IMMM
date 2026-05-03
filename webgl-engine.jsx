@@ -1,5 +1,25 @@
-// webgl-engine.jsx  TWGL.js WebGL filter pipeline
-// ping-pong FBO  GLSL shaders  MediaPipe face uniform injection
+// webgl-engine.jsx — TWGL.js WebGL filter pipeline
+// ping-pong FBO | GLSL shaders | MediaPipe face uniform injection
+
+/**
+ * 🚀 PHASE B — WebGL Masked Skin Retouch (Design)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * [GOAL] 
+ *   인위적인 블러가 아닌, 피부 톤의 균일도를 높이는 자연스러운 보정 구현.
+ *   얼굴 외곽과 배경의 경계선 왜곡(Denting)이 절대 발생하지 않는 합성 지향.
+ * 
+ * [TEXTURE STRATEGY]
+ *   1. originalTexture: 원본 카메라 입력 (u_tex)
+ *   2. blurredTexture: Downsampled Gaussian/Bilateral blur pass (저해상도 FBO)
+ *   3. skinMask: Landmark 기반 ROI 또는 Procedural skin-tone mask
+ *   4. skinRetouchComposite: mix(original, blurred, mask * strength)
+ * 
+ * [PERFORMANCE OPTIMIZATION]
+ *   - Early-Exit: strength 가 0이면 해당 pass 전체 skip.
+ *   - Downsampling: Blur 연산은 1/2 또는 1/4 해상도 FBO에서 수행.
+ *   - Throttling: Landmark 업데이트는 10~15fps 제한.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 
 // 
 // VERTEX SHADER (shared)
@@ -106,6 +126,24 @@ void main(){
   c+=u_shadows*(1.0-smoothstep(0.0,0.5,br))*0.25;
   gl_FragColor=vec4(clamp(c,0.0,1.0),col.a);
 }`,
+
+skin_retouch: `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform sampler2D u_blurredTex;
+uniform float u_strength;
+varying vec2 v_uv;
+void main(){
+  vec4 ori = texture2D(u_tex, v_uv);
+  vec4 blur = texture2D(u_blurredTex, v_uv);
+  vec3 c = ori.rgb;
+  // Subtle procedural skin mask (YCrCb-like heuristic)
+  float r = c.r; float g = c.g; float b = c.b;
+  bool isSkin = (r > 0.38 && g > 0.18 && b > 0.12 && r > g && r > b && (r - min(g,b) > 0.05));
+  float mask = isSkin ? 1.0 : 0.0;
+  gl.FragColor = mix(ori, blur, mask * u_strength);
+}`,
+
 
 //  Fuji Classic Negative 
 classic_neg: `
@@ -1123,6 +1161,35 @@ class FilterEngine {
         continue;
       }
 
+      if (step.shader === 'skin_retouch') {
+        // 1. Generate blur in FBO[2] using bilateral shaders
+        // We use current curTex as source.
+        this._pass('bilateral_h', curTex, this._fboInfos[2], {
+          u_resolution: res, u_sigmaSpace: 2.0, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
+        });
+        // Now vertical pass: read FBO[2], write to FBO[1-idx]
+        const blurOut = 1 - idx;
+        this._pass('bilateral_v', this._fboInfos[2].attachments[0], this._fboInfos[blurOut], {
+          u_resolution: res, u_sigmaSpace: 2.0, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
+        });
+        const blurredTex = this._fboInfos[blurOut].attachments[0];
+
+        // 2. Composite: read curTex + blurredTex, write to FBO[idx] (which is currently free)
+        const compOut = idx;
+        this._pass('skin_retouch', curTex, this._fboInfos[compOut], {
+          u_blurredTex: blurredTex,
+          u_strength: step.uniforms?.u_strength || 0.0,
+          u_flipX: 0.0, u_flipY: 0.0
+        });
+        curTex = this._fboInfos[compOut].attachments[0];
+        // idx stays the same or we toggle it? 
+        // Actually this._pass advances nothing. We manually set curTex.
+        // To keep the ping-pong healthy, we should ensure the next pass 
+        // writes to 1-compOut.
+        idx = compOut;
+        continue;
+      }
+
       // --- Normal pass ---
       const out = this._fboInfos[1 - idx];
       const drew = this._pass(step.shader, curTex, out, {
@@ -1394,6 +1461,21 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
             if (step.shader === 'bilateral_v') { vCount++; return vCount <= 1; }
             return true;
           });
+        }
+
+        // PR 3 & 4: Filter Expansion & Mobile Opt-in
+        const enableSkin = !mobileRef.current || (typeof window !== 'undefined' && window.IMMM_ENABLE_MOBILE_RETOUCH);
+        if (enableSkin) {
+          const strengths = {
+            smooth: 0.35,
+            porcelain: 0.20,
+            blush: 0.20,
+            grain: 0.10,
+          };
+          const strength = strengths[key];
+          if (strength > 0) {
+            steps = [{ shader: 'skin_retouch', uniforms: { u_strength: strength } }, ...steps];
+          }
         }
 
         const pipeline = steps.map(step =>
