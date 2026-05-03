@@ -22,6 +22,7 @@ const STICKER_CATALOG = {
       { id:'m-star-1', type:'mini', kind:'star', fill:'#FFE8A3' },
       { id:'m-sparkle', type:'mini', kind:'sparkle', fill:'#1A1A1F' },
       { id:'m-dot', type:'mini', kind:'dot', fill:'#D98893' },
+      { id:'m-immm', type:'text', text:'IMMM', font:'"Plus Jakarta Sans"', size:34, color:'#1A1A1F' },
     ],
   },
   handwrit: {
@@ -162,8 +163,32 @@ function getStickerHitboxSize(sticker) {
   return { w: 64, h: 64 };
 }
 
+function getStickerVisualBounds(sticker) {
+  if (!sticker) return { w:64, h:64 };
+
+  if (sticker.kind === 'preset') {
+    const item = getStickerByLibId(sticker.payload?.libId);
+    return getCatalogStickerBaseSize(item);
+  }
+
+  if (sticker.kind === 'upload') return { w:120, h:120 };
+
+  if (sticker.kind === 'text') {
+    const size = sticker.payload?.size || 32;
+    const text = sticker.payload?.text || '';
+    return {
+      w: Math.max(44, Math.min(220, text.length * size * 0.58)),
+      h: Math.max(34, size * 1.25)
+    };
+  }
+
+  if (sticker.kind === 'setlog') return { w:140, h:64 };
+
+  return { w:64, h:64 };
+}
+
 // ─────────────────────────────────────────────────────────────
-function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T, hideVisuals = false }) {
+function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T, hideVisuals = false, mode = 'default', style = {} }) {
   const canvasRef = useRR(null);
   const [dragState, setDragState] = useSE(null);
   const [snapMode, setSnapMode] = useSE(false);
@@ -338,7 +363,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
     <SlottedStickersCtx.Provider value={slottedMap}>
       <div ref={canvasRef}
         onPointerDown={() => { setSelectedId(null); setSnapMode(false); }}
-        style={{ position:'relative', width, height, touchAction:'none', userSelect:'none' }}>
+        style={{ position:'relative', width, height, touchAction:'none', userSelect:'none', ...style }}>
         {children}
         {/* Snap-to-frame slot overlay */}
         {snapMode && (() => {
@@ -375,7 +400,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Free stickers: full visual render */}
         {sortedStickers.filter(s => s.frameSlot == null).map(s => {
           const isSel = s.id === selectedId;
-          const hitbox = getStickerHitboxSize(s);
+          const hitbox = mode === 'deco-overlay' ? getStickerVisualBounds(s) : getStickerHitboxSize(s);
           return (
             <div key={s.id} onPointerDown={(e)=>onPointerDown(e, s, 'move')} onClick={(e)=>e.stopPropagation()}
               style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
@@ -399,7 +424,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Slotted stickers: transparent hit area, controls rendered separately when selected */}
         {sortedStickers.filter(s => s.frameSlot != null).map(s => {
           const isSel = s.id === selectedId;
-          const hitbox = getStickerHitboxSize(s);
+          const hitbox = mode === 'deco-overlay' ? getStickerVisualBounds(s) : getStickerHitboxSize(s);
           return (
             <React.Fragment key={s.id}>
               {/* Invisible hit area for drag */}

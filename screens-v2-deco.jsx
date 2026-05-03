@@ -210,16 +210,20 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     return () => { cancelled = true; cancelAnimationFrame(raf); };
   }, [fontsReady, layout, shots, selected, filter, frameColor, stickers, drawStrokes, drawVersion, logo, dateText, accent, orientation, drawMode]);
 
+  const frameW = layout === 'strip' || layout === 'trip' ? 180 : 220;
+
   const preview =
   <div ref={previewContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
-      <div ref={frameNativeRef} style={{ transform: `scale(${zoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0, touchAction: drawMode ? 'none' : 'auto' }}
+      <div ref={frameNativeRef} style={{ width: frameW, transform: `scale(${zoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0, touchAction: drawMode ? 'none' : 'auto' }}
         onPointerDown={onDrawStart}
         onPointerMove={onDrawMove}
         onPointerUp={onDrawEnd}
         onPointerCancel={onDrawEnd}>
+        
+        <canvas ref={compositionCanvasRef} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} />
+
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
-          width={layout === 'strip' || layout === 'trip' ? 180 : 220} height="auto" hideVisuals={true}>
-          <canvas ref={compositionCanvasRef} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
+          mode="deco-overlay" hideVisuals={true} width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
         </StickerCanvas>
       </div>
       {zoomControls}
@@ -244,6 +248,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   });
   const [setlogCaption, setSetlogCaption] = React.useState('');
   const [setlogTheme, setSetlogTheme] = React.useState('white'); // white | black
+  const [expandedPacks, setExpandedPacks] = React.useState({});
 
 
   const addSetlog = () => {
@@ -295,13 +300,20 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
             {pack.name} · {pack.ko}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-            {pack.items.map((it) =>
-        <button key={it.id} onClick={() => addPreset(it.id)} style={{
-          padding: 10, background: T.card, border: 'none', borderRadius: 12,
-          boxShadow: '0 0 0 1px rgba(26,26,31,0.06)', cursor: 'pointer',
-          minHeight: 58, display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>{renderLibSticker(it, 0.62)}</button>
-        )}
+            {(expandedPacks[k] ? pack.items : pack.items.slice(0, 5)).map((it) =>
+              <button key={it.id} onClick={() => addPreset(it.id)} style={{
+                padding: 10, background: T.card, border: 'none', borderRadius: 12,
+                boxShadow: '0 0 0 1px rgba(26,26,31,0.06)', cursor: 'pointer',
+                minHeight: 58, display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>{renderLibSticker(it, 0.62)}</button>
+            )}
+            {!expandedPacks[k] && pack.items.length > 5 && (
+              <button onClick={() => setExpandedPacks(p => ({ ...p, [k]: true }))} style={{
+                padding: 10, background: 'rgba(26,26,31,0.04)', border: 'none', borderRadius: 12,
+                color: T.inkSoft, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                minHeight: 58, display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>+{pack.items.length - 5}</button>
+            )}
           </div>
         </div>
     )}
