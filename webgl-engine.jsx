@@ -141,7 +141,8 @@ float getSkinConfidence(vec3 rgb) {
   float y = 0.299 * r + 0.587 * g + 0.114 * b;
   float cr = (r - y) * 0.713 + 0.5;
   float cb = (b - y) * 0.564 + 0.5;
-  float crW = smoothstep(0.50, 0.54, cr) * (1.0 - smoothstep(0.66, 0.72, cr));
+  // Slightly widened Cr range for warm indoor lighting
+  float crW = smoothstep(0.48, 0.52, cr) * (1.0 - smoothstep(0.68, 0.74, cr));
   float cbW = smoothstep(0.28, 0.34, cb) * (1.0 - smoothstep(0.48, 0.54, cb));
   return crW * cbW;
 }
@@ -1578,7 +1579,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
           if (!faceData?.detected && engineRef.current) engineRef.current.clearMask();
 
           const strengths = {
-            smooth: 0.32, // Adjusted for PR 4 tuning experiment
+            smooth: 0.32, // Default: Balanced
             porcelain: 0.20,
             blush: 0.32,
             grain: 0.08,
