@@ -46,6 +46,11 @@ function checkFrameSystem() {
     console.error('❌ FAIL: frame-system.jsx uses Caveat font for polaroid date. Use Pretendard/Plus Jakarta Sans.');
     hasErrors = true;
   }
+
+  if (!content.includes('"Plus Jakarta Sans", Pretendard') && !content.includes('Pretendard, "Plus Jakarta Sans"')) {
+    console.error('❌ FAIL: frame-system.jsx date font missing Plus Jakarta Sans.');
+    hasErrors = true;
+  }
 }
 
 function checkStickerEngine() {
@@ -68,6 +73,11 @@ function checkStickerEngine() {
   }
   
   if (content.includes('width: hideVisuals ? getStickerHitboxSize(s) :')) {
+    console.error('❌ FAIL: sticker-engine.jsx uses raw getStickerHitboxSize(s) scalar for width/height');
+    hasErrors = true;
+  }
+  
+  if (content.includes('height: hideVisuals ? getStickerHitboxSize(s) :')) {
     console.error('❌ FAIL: sticker-engine.jsx uses raw getStickerHitboxSize(s) scalar for width/height');
     hasErrors = true;
   }

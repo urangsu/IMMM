@@ -289,7 +289,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
       </div>
       {layerBar}
-      {Object.entries(STICKER_CATALOG).map(([k, pack]) =>
+      {Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden).map(([k, pack]) =>
     <div key={k} style={{ marginTop: 14 }}>
           <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: 600, textTransform: 'uppercase', color: T.inkSoft, marginBottom: 6 }}>
             {pack.name} · {pack.ko}

@@ -35,7 +35,7 @@ const STICKER_CATALOG = {
     ],
   },
   kretro: {
-    id: 'kretro', name: 'K-Variety Retro', ko: '예능 자막', premium: true, recommended: true, price: 900, owned: true, locked: false, purchaseId: 'sticker_kretro_premium',
+    id: 'kretro', name: 'K-Variety Retro', ko: '예능 자막', premium: true, recommended: true, price: 900, owned: true, locked: false, purchaseId: 'sticker_kretro_premium', hidden: true,
     items: [
       { id:'r-1', type:'burst', text:'다 같이!', fill:'#FFEB3B', tc:'#E53935' },
       { id:'r-2', type:'burst', text:'흥!', fill:'#FF6B88', tc:'#fff', fs:16 },
@@ -112,8 +112,8 @@ function getCatalogStickerBaseSize(item) {
     const fs = item.size || 32;
     const text = item.text || '';
     return {
-      w: Math.max(48, Math.min(180, text.length * fs * 0.62)),
-      h: Math.max(36, fs * 1.35)
+      w: Math.max(44, Math.min(180, text.length * fs * 0.58)),
+      h: Math.max(34, fs * 1.25)
     };
   }
 
@@ -150,8 +150,8 @@ function getStickerHitboxSize(sticker) {
     const size = sticker.payload?.size || 32;
     const text = sticker.payload?.text || '';
     return {
-      w: Math.max(48, Math.min(220, text.length * size * 0.62)),
-      h: Math.max(36, size * 1.35)
+      w: Math.max(44, Math.min(220, text.length * size * 0.58)),
+      h: Math.max(34, size * 1.25)
     };
   }
 
