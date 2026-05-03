@@ -130,6 +130,17 @@ function checkStickerEngine() {
     console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds does not apply decoScale.x');
     hasErrors = true;
   }
+  
+  if (content.includes('function getInteractionBounds')) {
+    if (!content.includes('visualW') || !content.includes('visualH')) {
+      console.warn('⚠️ WARN: sticker-engine.jsx getInteractionBounds should return visualW/visualH for outline box');
+      hasWarnings = true;
+    }
+    if (!content.includes('Math.max(24') && !content.includes('Math.max( 24') && !content.includes('Math.max(visualW, 24)') && !content.includes('Math.max(24, visualW)')) {
+      console.warn('⚠️ WARN: sticker-engine.jsx getInteractionBounds should ensure hit target is at least 24px');
+      hasWarnings = true;
+    }
+  }
 
   // StickerCanvas must default mode='default' and decoScale={x:1,y:1}
   if (!content.includes("mode = 'default'")) {

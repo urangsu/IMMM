@@ -209,9 +209,14 @@ function getInteractionBounds(sticker, mode, decoScale) {
 
   if (mode !== 'deco-overlay') return raw;
 
+  const visualW = raw.w * (decoScale?.x || 1);
+  const visualH = raw.h * (decoScale?.y || 1);
+
   return {
-    w: Math.max(8, raw.w * (decoScale?.x || 1)),
-    h: Math.max(8, raw.h * (decoScale?.y || 1)),
+    w: Math.max(24, visualW),
+    h: Math.max(24, visualH),
+    visualW,
+    visualH,
   };
 }
 
@@ -443,15 +448,20 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                 transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
                 zIndex:(s.z||0)+1, willChange:'transform',
                 transition: dragState?.id===s.id?'none':'box-shadow 0.2s' }}>
-              <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
+              <div className="sticker-hit-target" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
                 width: hideVisuals ? hitbox.w : 'auto',
-                height: hideVisuals ? hitbox.h : 'auto',
-                outline: isSel?`1.5px dashed ${T?.pinkDeep||'#D98893'}`:'none',
-                outlineOffset: isSel?2:0, padding: 0 }}>
-                <div style={{ opacity: hideVisuals ? 0 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {renderStickerInstance(s)}
+                height: hideVisuals ? hitbox.h : 'auto' }}>
+                
+                <div className="sticker-outline-box" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
+                  width: (hideVisuals && hitbox.visualW) ? hitbox.visualW : '100%',
+                  height: (hideVisuals && hitbox.visualH) ? hitbox.visualH : '100%',
+                  outline: isSel?`1.5px dashed ${T?.pinkDeep||'#D98893'}`:'none',
+                  outlineOffset: isSel?2:0, padding: 0 }}>
+                  <div style={{ opacity: hideVisuals ? 0 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {renderStickerInstance(s)}
+                  </div>
+                  {renderStickerControls(s, isSel)}
                 </div>
-                {renderStickerControls(s, isSel)}
               </div>
             </div>
           );
@@ -468,8 +478,8 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                   transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`,
                   transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
                   zIndex:(s.z||0)+50, willChange:'transform', opacity:0 }}>
-                <div style={{ position:'relative', display:'inline-block' }}>
-                  {renderStickerInstance(s)}
+                <div style={{ width: hideVisuals ? hitbox.w : 'auto', height: hideVisuals ? hitbox.h : 'auto' }}>
+                  {!hideVisuals && renderStickerInstance(s)}
                 </div>
               </div>
               {/* Controls shown separately (not under opacity:0) */}
@@ -477,9 +487,9 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                 <div style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
                   transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`,
                   transformOrigin:'center', zIndex:(s.z||0)+51, pointerEvents:'none' }}>
-                  <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
-                    width: hideVisuals ? hitbox.w : 'auto',
-                    height: hideVisuals ? hitbox.h : 'auto',
+                  <div className="sticker-outline-box" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
+                    width: (hideVisuals && hitbox.visualW) ? hitbox.visualW : (hideVisuals ? hitbox.w : 'auto'),
+                    height: (hideVisuals && hitbox.visualH) ? hitbox.visualH : (hideVisuals ? hitbox.h : 'auto'),
                     outline:`1.5px dashed ${T?.pinkDeep||'#D98893'}`, outlineOffset:2, padding:0,
                     pointerEvents:'auto' }}>
                     <div style={{ opacity:0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
