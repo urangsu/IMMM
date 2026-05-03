@@ -15,6 +15,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
   const CAPTURE_LONG_EDGE = mobile ? 1920 : 2560;
   const shotCount = layout === 'polaroid' ? 1 : 6;
+  const getCaptureLongEdges = () => mobile ? [1920, 1280] : [2560, 1920, 1280];
   const frameTemplate = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
   const firstSlot = frameTemplate?.photoSlots?.[0];
   const cameraAspect = firstSlot ? firstSlot.width / firstSlot.height : 4 / 3;
@@ -74,52 +75,49 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     touchStartY.current = null;
   };
 
-  const captureFromVideo = React.useCallback(async (v, filterKey, cssFilter, mirrorX) => {
+  const captureFromVideo = React.useCallback(async (v, filterKey, cssFilter, mirrorX, edge) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
-    const candidates = mobile ? [1920, 1280] : [2560, 1920, 1280];
     const rect = cameraFrameRef.current?.getBoundingClientRect();
     const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
 
-    for (const edge of candidates) {
-      try {
-        const c = document.createElement('canvas');
-        const capW = edge;
-        const capH = Math.max(1, Math.round(edge / aspect));
-        c.width = capW;
-        c.height = capH;
-        const ctx = c.getContext('2d');
-        ctx.save();
-        if (mirrorX) {
-          ctx.translate(c.width, 0);
-          ctx.scale(-1, 1);
-        }
-        if (cssFilter && cssFilter !== 'none') ctx.filter = cssFilter;
-        const vw = v.videoWidth, vh = v.videoHeight;
-        const srcAspect = vw / vh;
-        let sx = 0, sy = 0, sw = vw, sh = vh;
-        if (srcAspect > aspect) {
-          sw = vh * aspect; sx = (vw - sw) / 2;
-        } else {
-          sh = vw / aspect; sy = (vh - sh) / 2;
-        }
-        ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
-        ctx.restore();
-
-        if (typeof FrameRenderEngine !== 'undefined' && preStickers.length > 0) {
-          for (const sticker of preStickers) {
-            await FrameRenderEngine.drawStickerToCanvas(ctx, sticker, c.width, c.height, Math.max(1, c.width / 720));
-          }
-        }
-        const dataUrl = c.toDataURL('image/jpeg', 0.95);
-        if (dataUrl && dataUrl.length > 5000) {
-          return { dataUrl, edge, sourceW: vw, sourceH: vh };
-        }
-      } catch(e) {
-        console.warn(`[IMMM] Fallback capture failed at ${edge}px:`, e);
+    try {
+      const c = document.createElement('canvas');
+      const capW = edge;
+      const capH = Math.max(1, Math.round(edge / aspect));
+      c.width = capW;
+      c.height = capH;
+      const ctx = c.getContext('2d');
+      ctx.save();
+      if (mirrorX) {
+        ctx.translate(c.width, 0);
+        ctx.scale(-1, 1);
       }
+      if (cssFilter && cssFilter !== 'none') ctx.filter = cssFilter;
+      const vw = v.videoWidth, vh = v.videoHeight;
+      const srcAspect = vw / vh;
+      let sx = 0, sy = 0, sw = vw, sh = vh;
+      if (srcAspect > aspect) {
+        sw = vh * aspect; sx = (vw - sw) / 2;
+      } else {
+        sh = vw / aspect; sy = (vh - sh) / 2;
+      }
+      ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+      ctx.restore();
+
+      if (typeof FrameRenderEngine !== 'undefined' && preStickers.length > 0) {
+        for (const sticker of preStickers) {
+          await FrameRenderEngine.drawStickerToCanvas(ctx, sticker, c.width, c.height, Math.max(1, c.width / 720));
+        }
+      }
+      const dataUrl = c.toDataURL('image/jpeg', 0.95);
+      if (dataUrl && dataUrl.length > 5000) {
+        return { dataUrl, edge, sourceW: vw, sourceH: vh };
+      }
+    } catch(e) {
+      console.warn(`[IMMM] Fallback capture failed at ${edge}px:`, e);
     }
     return null;
-  }, [preStickers, mobile]);
+  }, [preStickers]);
 
   const applyCapturedFilterLook = (ctx, w, h, filterKey) => {
     ctx.save();
@@ -263,10 +261,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
     const doCapture = async () => {
       let dataUrl = null;
+      let captureMode = null;
       let captureMeta = { edge: 0, sourceW: 0, sourceH: 0 };
       const rect = cameraFrameRef.current?.getBoundingClientRect();
       const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
-      const candidates = mobile ? [1920, 1280] : [2560, 1920, 1280];
+      const candidates = getCaptureLongEdges();
 
       // 1. WebGL Path
       if (canvasActive && engineRef.current) {
@@ -280,6 +279,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             if (raw && raw.length > 5000) {
               dataUrl = await bakePreStickers(raw);
               captureMeta = { edge, sourceW: videoRef.current?.videoWidth||0, sourceH: videoRef.current?.videoHeight||0 };
+              captureMode = 'webgl';
               break;
             }
           } catch(e) { console.warn(`[IMMM] WebGL capture failed at ${edge}px:`, e); }
@@ -291,12 +291,21 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         const v = videoRef.current;
         if (v && v.readyState >= 2 && v.videoWidth > 0) {
           const cssFilter = FILTERS[filter]?.css || 'none';
-          const result = await captureFromVideo(v, filter, cssFilter, facingMode === 'user');
-          if (result) {
-            dataUrl = result.dataUrl;
-            captureMeta = { edge: result.edge, sourceW: result.sourceW, sourceH: result.sourceH };
+          for (const edge of candidates) {
+            const result = await captureFromVideo(v, filter, cssFilter, facingMode === 'user', edge);
+            if (result) {
+              dataUrl = result.dataUrl;
+              captureMeta = { edge: result.edge, sourceW: result.sourceW, sourceH: result.sourceH };
+              captureMode = 'canvas2d-css';
+              break;
+            }
           }
         }
+      }
+
+      if (!dataUrl) {
+        console.warn('[IMMM] All capture paths failed.');
+        captureMode = 'failed';
       }
 
       setShots(prev => {
@@ -306,7 +315,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           dataUrl,
           filter,
           capturedFilter: filter,
-          renderMode: dataUrl && canvasActive ? 'webgl' : 'canvas2d-css',
+          renderMode: captureMode,
           captureLongEdge: captureMeta.edge,
           sourceVideoWidth: captureMeta.sourceW,
           sourceVideoHeight: captureMeta.sourceH,

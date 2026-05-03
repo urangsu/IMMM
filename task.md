@@ -77,3 +77,17 @@
 - 재촬영 시 이전 사진 섞임 문제 해결 (SelectV2 초기화)
 - (과거) 셰이더 6개 및 필터 파이프라인 전면 재구성
 - (과거) 드로잉 성능 최적화 및 Sparkle 브러시 추가
+
+---
+
+## 🔒 Hidden Filter Policy
+
+- **Legacy Filters**: `purikura`, `glam`, `aurora`, `seoul`은 legacy hidden filter로 분류하며 신규 개발 범위에서 제외한다.
+- **호환성 유지**: `localStorage`나 공유 URL 대응을 위해 `FILTERS` 객체 내 정의는 유지하되, `VISIBLE_FILTER_KEYS`에 추가하여 UI에 노출하는 것을 절대 금지한다.
+- **기능 제한**: Hidden 필터의 `visible pipeline`에서 아래 기능을 사용하는 것을 금지한다.
+  - `eye_warp` (눈 키우기)
+  - `face_slim` (턱 깎기)
+  - `contour` (얼굴 외곽 변형)
+  - `lip_color` (입술 색조 변형)
+  - `eye_bright` (눈가 밝기 왜곡)
+- **Fallback 정책**: 만약 `localStorage` 등에 hidden 필터 키가 남아 있어 불러오게 될 경우, `getSafeFilterKey`는 이를 감지하여 `porcelain` (자연광) 필터로 자동 폴백시켜야 한다.
