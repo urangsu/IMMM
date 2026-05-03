@@ -42,18 +42,62 @@ function checkDeco() {
   const content = readFile('screens-v2-deco.jsx');
   if (!content) return;
   
-  if (content.includes('onTouchStart') || content.includes('onTouchMove') || content.includes('onTouchEnd')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx contains onTouchStart/Move/End. Use Pointer Events only.');
-    hasErrors = true;
-  }
-  
-  if (/draw\(\);\s*(const|let|var)\s+raf\s*=\s*requestAnimationFrame\(draw\)/.test(content)) {
-    console.error('❌ FAIL: screens-v2-deco.jsx contains double render pattern "draw(); const raf = requestAnimationFrame(draw)"');
-    hasErrors = true;
+  // 1. ctx / offscreen precision check
+  const requiredCtxPatterns = [
+    'const cvs = compositionCanvasRef.current;',
+    "const ctx = cvs.getContext('2d');",
+    'if (!ctx) return;',
+    "const off = document.createElement('canvas');",
+    "const offCtx = off.getContext('2d');",
+    'if (!offCtx) return;',
+    'ctx.drawImage(off, 0, 0);'
+  ];
+  for (const pattern of requiredCtxPatterns) {
+    if (!content.includes(pattern)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx is missing required async render guard pattern: "${pattern}"`);
+      hasErrors = true;
+    }
   }
 
-  if (content.includes('ctx.clearRect') && !content.includes('const ctx =')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx uses ctx.clearRect but missing "const ctx =" definition');
+  // 2. Pointer event check
+  const requiredPointer = [
+    'onPointerDown', 'onPointerMove', 'onPointerUp', 'onPointerCancel',
+    'setPointerCapture', 'releasePointerCapture'
+  ];
+  for (const ev of requiredPointer) {
+    if (!content.includes(ev)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx is missing pointer event requirement: "${ev}"`);
+      hasErrors = true;
+    }
+  }
+  
+  const forbiddenEvents = [
+    'onPointerLeave={onDrawEnd}',
+    'onTouchStart', 'onTouchMove', 'onTouchEnd'
+  ];
+  for (const ev of forbiddenEvents) {
+    if (content.includes(ev)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx contains forbidden event: "${ev}"`);
+      hasErrors = true;
+    }
+  }
+
+  // 3. fontsReady check
+  const requiredFonts = [
+    'const [fontsReady, setFontsReady]',
+    'document.fonts',
+    '!fontsReady',
+    'fontsReady' // Should ideally check inside dependency array, but testing presence is a good start
+  ];
+  for (const p of requiredFonts) {
+    if (!content.includes(p)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx is missing fontsReady logic: "${p}"`);
+      hasErrors = true;
+    }
+  }
+
+  if (/draw\(\);\s*(const|let|var)\s+raf\s*=\s*requestAnimationFrame\(draw\)/.test(content)) {
+    console.error('❌ FAIL: screens-v2-deco.jsx contains double render pattern "draw(); const raf = requestAnimationFrame(draw)"');
     hasErrors = true;
   }
 }
