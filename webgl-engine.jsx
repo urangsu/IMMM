@@ -1052,6 +1052,7 @@ class FilterEngine {
     this._destroyed = false;
     this._raf = null;
     this._fboW = 0; this._fboH = 0;
+    this._downW = 0; this._downH = 0;
 
     const gl = canvas.getContext('webgl', {
       alpha: false, antialias: false, depth: false,
@@ -1084,6 +1085,7 @@ class FilterEngine {
       width:2, height:2, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE, flipY:false,
     });
     this._fboInfos = [null, null, null];
+    this._downFboInfos = [null, null];
     this._halBlurTex = null;
     this._maskTex = twgl.createTexture(gl, { width:1, height:1, data: new Uint8Array([0,0,0,255]) });
   }
@@ -1103,18 +1105,35 @@ class FilterEngine {
   }
 
   _ensureFbos(w, h) {
-    if (this._fboW === w && this._fboH === h) return;
-    this._fboW = w; this._fboH = h;
     const gl = this.gl;
     const spec = [{ format:gl.RGBA, type:gl.UNSIGNED_BYTE, min:gl.LINEAR, wrap:gl.CLAMP_TO_EDGE }];
-    if (!this._fboInfos[0]) {
-      this._fboInfos[0] = twgl.createFramebufferInfo(gl, spec, w, h);
-      this._fboInfos[1] = twgl.createFramebufferInfo(gl, spec, w, h);
-      this._fboInfos[2] = twgl.createFramebufferInfo(gl, spec, w, h); // T-1: halation scratch
-    } else {
-      twgl.resizeFramebufferInfo(gl, this._fboInfos[0], spec, w, h);
-      twgl.resizeFramebufferInfo(gl, this._fboInfos[1], spec, w, h);
-      twgl.resizeFramebufferInfo(gl, this._fboInfos[2], spec, w, h);
+
+    // 1. Full-res FBOs
+    if (this._fboW !== w || this._fboH !== h) {
+      this._fboW = w; this._fboH = h;
+      if (!this._fboInfos[0]) {
+        this._fboInfos[0] = twgl.createFramebufferInfo(gl, spec, w, h);
+        this._fboInfos[1] = twgl.createFramebufferInfo(gl, spec, w, h);
+        this._fboInfos[2] = twgl.createFramebufferInfo(gl, spec, w, h);
+      } else {
+        twgl.resizeFramebufferInfo(gl, this._fboInfos[0], spec, w, h);
+        twgl.resizeFramebufferInfo(gl, this._fboInfos[1], spec, w, h);
+        twgl.resizeFramebufferInfo(gl, this._fboInfos[2], spec, w, h);
+      }
+    }
+
+    // 2. Downsampled FBOs (Max 512px for mobile-heavy tasks)
+    const dw = Math.round(w > h ? 512 : 512 * (w / h));
+    const dh = Math.round(h > w ? 512 : 512 * (h / w));
+    if (this._downW !== dw || this._downH !== dh) {
+      this._downW = dw; this._downH = dh;
+      if (!this._downFboInfos[0]) {
+        this._downFboInfos[0] = twgl.createFramebufferInfo(gl, spec, dw, dh);
+        this._downFboInfos[1] = twgl.createFramebufferInfo(gl, spec, dw, dh);
+      } else {
+        twgl.resizeFramebufferInfo(gl, this._downFboInfos[0], spec, dw, dh);
+        twgl.resizeFramebufferInfo(gl, this._downFboInfos[1], spec, dw, dh);
+      }
     }
   }
 
@@ -1135,7 +1154,7 @@ class FilterEngine {
     return true;
   }
 
-  render(source, pipeline, w, h, mirrorX, faceUniforms) {
+  render(source, pipeline, w, h, mirrorX, faceUniforms, isMobile = false) {
     if (this._destroyed) return;
     const gl = this.gl;
     if (this.canvas.width !== w)  this.canvas.width  = w;
@@ -1170,7 +1189,6 @@ class FilterEngine {
       }
       if (step.shader === 'halation_v') {
         // halation_v: read FBO[2] (H-result), write to fboInfos[1-idx].
-        // idx is NOT advanced — sceneTex is still tracked by curTex/idx above.
         const halVOut = 1 - idx;
         this._pass('halation_v', this._fboInfos[2].attachments[0], this._fboInfos[halVOut], {
           u_resolution: res,
@@ -1184,9 +1202,7 @@ class FilterEngine {
         continue;
       }
       if (step.shader === 'halation_comp') {
-        // SAFE: write to FBO[2] — halation_h output already consumed by halation_v.
-        // FBO[idx] = _halBlurTex, FBO[1-idx] = sceneTex → both are inputs.
-        // FBO[2] is the only slot that is neither.
+        // SAFE: write to FBO[2]
         this._pass('halation_comp', sceneTex, this._fboInfos[2], {
           u_tex: sceneTex,
           u_halTex: this._halBlurTex,
@@ -1195,36 +1211,56 @@ class FilterEngine {
           ...step.uniforms,
         });
         curTex = this._fboInfos[2].attachments[0];
-        // Both FBO[0] and FBO[1] are now free for subsequent passes.
-        // Set idx=0 so the next normal pass writes to FBO[1].
         idx = 0;
         continue;
       }
 
       if (step.shader === 'skin_retouch') {
-        // 1. Generate blur in FBO[2] using bilateral shaders
-        // We use current curTex as source.
-        this._pass('bilateral_h', curTex, this._fboInfos[2], {
-          u_resolution: res, u_sigmaSpace: 2.0, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
-        });
-        // Now vertical pass: read FBO[2], write to FBO[1-idx]
-        const blurOut = 1 - idx;
-        this._pass('bilateral_v', this._fboInfos[2].attachments[0], this._fboInfos[blurOut], {
-          u_resolution: res, u_sigmaSpace: 2.0, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
-        });
-        const blurredTex = this._fboInfos[blurOut].attachments[0];
-
-        // 2. Composite: read curTex + blurredTex + u_maskTex, write to FBO[idx]
-        const compOut = idx;
-        this._pass('skin_retouch', curTex, this._fboInfos[compOut], {
-          u_blurredTex: blurredTex,
-          u_maskTex: this._maskTex,
-          u_strength: step.uniforms?.u_strength || 0.0,
-          u_debugMask: step.uniforms?.u_debugMask || 0.0,
-          u_flipX: 0.0, u_flipY: 0.0
-        });
-        curTex = this._fboInfos[compOut].attachments[0];
-        idx = compOut;
+        const useDownsample = isMobile;
+        const resForBlur = useDownsample ? [this._downW, this._downH] : res;
+        const blurSigma = useDownsample ? 1.4 : 2.0; 
+        
+        if (useDownsample) {
+          // Downsample pass
+          this._pass('passthrough', curTex, this._downFboInfos[0], { u_resolution: resForBlur, u_flipX:0.0, u_flipY:0.0 });
+          // Blur on low-res
+          this._pass('bilateral_h', this._downFboInfos[0].attachments[0], this._downFboInfos[1], {
+            u_resolution: resForBlur, u_sigmaSpace: blurSigma, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
+          });
+          this._pass('bilateral_v', this._downFboInfos[1].attachments[0], this._downFboInfos[0], {
+            u_resolution: resForBlur, u_sigmaSpace: blurSigma, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
+          });
+          const blurredTex = this._downFboInfos[0].attachments[0];
+          
+          this._pass('skin_retouch', curTex, this._fboInfos[idx], {
+            u_blurredTex: blurredTex,
+            u_maskTex: this._maskTex,
+            u_strength: step.uniforms?.u_strength || 0.0,
+            u_debugMask: step.uniforms?.u_debugMask || 0.0,
+            u_flipX: 0.0, u_flipY: 0.0
+          });
+        } else {
+          // Normal high-res blur
+          this._pass('bilateral_h', curTex, this._fboInfos[2], {
+            u_resolution: res, u_sigmaSpace: 2.0, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
+          });
+          const blurOut = 1 - idx;
+          this._pass('bilateral_v', this._fboInfos[2].attachments[0], this._fboInfos[blurOut], {
+            u_resolution: res, u_sigmaSpace: 2.0, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
+          });
+          const blurredTex = this._fboInfos[blurOut].attachments[0];
+          
+          const compOut = idx;
+          this._pass('skin_retouch', curTex, this._fboInfos[compOut], {
+            u_blurredTex: blurredTex,
+            u_maskTex: this._maskTex,
+            u_strength: step.uniforms?.u_strength || 0.0,
+            u_debugMask: step.uniforms?.u_debugMask || 0.0,
+            u_flipX: 0.0, u_flipY: 0.0
+          });
+        }
+        curTex = this._fboInfos[idx].attachments[0];
+        // Note: idx stays same, following Normal pass will flip it
         continue;
       }
 
@@ -1275,7 +1311,7 @@ class FilterEngine {
       if (src && src.readyState >= 2 && src.videoWidth > 0) {
         const { w, h, mirrorX }          = getSize();
         const { pipeline, faceUniforms } = getParams();
-        this.render(src, pipeline, w, h, mirrorX, faceUniforms);
+        this.render(src, pipeline, w, h, mirrorX, faceUniforms, mobileRef.current);
         this._renderedFrames++;
 
         if (!this._firstFrameFired && this._renderedFrames >= 5) {
@@ -1353,11 +1389,11 @@ class FilterEngine {
     } catch (_) {}
   }
 
-  takeSnapshot(w, h, mirrorX, pipeline, faceUniforms) {
+  takeSnapshot(w, h, mirrorX, pipeline, faceUniforms, isMobile = false) {
     if (this._destroyed) return null;
     const src = this._getSource();
     if (!src || src.readyState < 2) return null;
-    this.render(src, pipeline, w, h, mirrorX, faceUniforms);
+    this.render(src, pipeline, w, h, mirrorX, faceUniforms, isMobile);
     return this.canvas.toDataURL('image/jpeg', 0.98);
   }
 
