@@ -188,6 +188,12 @@ function useFaceLandmarks(videoRef) {
           leftJaw:        primary.leftJaw,
           rightJaw:       primary.rightJaw,
           chin:           primary.chin,
+          faceOval:       primary.faceOval,
+          leftEye:        primary.leftEye,
+          rightEye:       primary.rightEye,
+          leftEyebrow:    primary.leftEyebrow,
+          rightEyebrow:   primary.rightEyebrow,
+          lips:           primary.lips,
         };
       } catch(_) {}
     };
