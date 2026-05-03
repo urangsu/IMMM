@@ -359,6 +359,9 @@ async function renderComposition(ctx, data, options = {}) {
 }
 
 async function renderFrameToCanvas(input) {
+  if (document.fonts && document.fonts.ready) {
+    await document.fonts.ready;
+  }
   const template = getFrameTemplate(input.layout || input.templateType);
   const scale = input.scale || 1;
   const w = template.canvasSize.width * scale;
