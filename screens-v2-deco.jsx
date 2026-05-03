@@ -248,7 +248,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         <canvas ref={compositionCanvasRef} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} />
 
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
-          mode="deco-overlay" hideVisuals={true} decoScale={decoScale} width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+          mode="deco-overlay" hideVisuals={true} decoScale={decoScale} width="100%" height="100%" canvasW={frameW} style={{ position: 'absolute', inset: 0 }}>
         </StickerCanvas>
       </div>
       {zoomControls}

@@ -133,7 +133,27 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
   const cy = (sticker.y / 100) * baseH;
   ctx.translate(cx, cy);
   ctx.rotate((sticker.rotation || 0) * Math.PI / 180);
-  ctx.scale(sticker.scale || 1, sticker.scale || 1);
+  let normScale = 1;
+  if (sticker.sizeNorm) {
+    let bw = 64;
+    if (sticker.kind === 'preset') {
+      const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload?.libId) : null;
+      bw = typeof getCatalogStickerBaseSize === 'function' ? getCatalogStickerBaseSize(item).w : 64;
+    } else if (sticker.kind === 'upload') {
+      bw = 120;
+    } else if (sticker.kind === 'text') {
+      const size = sticker.payload?.size || 32;
+      const text = sticker.payload?.text || '';
+      bw = Math.max(44, Math.min(220, text.length * size * 0.58));
+    } else if (sticker.kind === 'setlog') {
+      bw = 140;
+    }
+    const targetW = sticker.sizeNorm * baseW;
+    normScale = targetW / bw;
+  }
+
+  const effectiveScale = (sticker.scale || 1) * normScale;
+  ctx.scale(effectiveScale, effectiveScale);
 
   if (sticker.kind === 'preset') {
     const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload.libId) : null;
@@ -157,12 +177,8 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
     }
   } else if (sticker.kind === 'text') {
     ctx.fillStyle = sticker.payload.color || '#111';
-    // sizeNorm (0~1 relative to frame width) takes priority over absolute size px.
-    // NEW stickers store sizeNorm; LEGACY stickers fall back to size * scalePx.
-    // Do NOT migrate legacy stickers here — handle in a dedicated migration PR.
-    const fontPx = sticker.payload.sizeNorm
-      ? sticker.payload.sizeNorm * baseW
-      : (sticker.payload.size || 32) * scalePx;
+    // sizeNorm is applied via ctx.scale(effectiveScale) above.
+    const fontPx = (sticker.payload.size || 32) * scalePx;
     ctx.font = `600 ${fontPx}px Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
