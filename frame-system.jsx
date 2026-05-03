@@ -313,7 +313,8 @@ function renderFrameOverlay(ctx, template, width, height, options = {}) {
     ctx.save();
     ctx.fillStyle = textColor;
     const fs = template.date.fontSize * width;
-    ctx.font = `${fs}px Caveat, cursive`;
+    ctx.font = `600 ${fs}px Pretendard, "Plus Jakarta Sans", sans-serif`;
+    ctx.globalAlpha = 0.72;
     ctx.textAlign = template.date.align || 'center';
     ctx.textBaseline = 'middle';
 

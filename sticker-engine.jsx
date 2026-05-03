@@ -101,6 +101,14 @@ function renderStickerInstance(s, scaleMul=1) {
   return null;
 }
 
+function getStickerHitboxSize(sticker) {
+  if (!sticker) return 64;
+  if (sticker.kind === 'upload') return 120;
+  if (sticker.kind === 'text') return Math.max(48, Math.min(180, sticker.payload?.size || 64));
+  if (sticker.kind === 'setlog') return 140;
+  return 72; // preset fallback
+}
+
 // ─────────────────────────────────────────────────────────────
 function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T, hideVisuals = false }) {
   const canvasRef = useRR(null);
@@ -224,47 +232,54 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
     slottedMap[s.frameSlot].push(s);
   });
 
-  const renderStickerControls = (s, isSel) => isSel ? (
-    <>
-      {/* scale+rotate handle (top-right) */}
-      <div onPointerDown={(e)=>onPointerDown(e, s, 'scale-rotate')}
-        style={{ position:'absolute', top:-10, right:-10, width:22, height:22,
-          background:'#fff', borderRadius:999, boxShadow:'0 2px 8px rgba(0,0,0,0.18)',
-          display:'flex', alignItems:'center', justifyContent:'center', cursor:'nwse-resize', zIndex:200 }}>
-        <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3v2M3 3h2M9 9v-2M9 9h-2M3 9h6V3" stroke="#1A1A1F" strokeWidth="1.3" fill="none" strokeLinecap="round"/></svg>
-      </div>
-      {/* snap-to-frame handle (bottom-center) */}
-      <div onPointerDown={(e)=>{ e.stopPropagation(); if(s.frameSlot!=null){ unSnap(s.id); setSnapMode(false); } else { setSnapMode(v=>!v); } }}
-        title={s.frameSlot!=null ? '틀에서 꺼내기' : '틀 안에 넣기'}
-        style={{ position:'absolute', bottom:-10, left:'50%', transform:'translateX(-50%)', zIndex:200,
-          width:22, height:22, background: s.frameSlot!=null ? '#1A1A1F' : snapMode ? '#D98893' : '#fff',
-          borderRadius:999, boxShadow:'0 2px 8px rgba(0,0,0,0.18)',
-          display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-        {s.frameSlot!=null ? (
-          <svg width="12" height="12" viewBox="0 0 12 12">
-            <rect x="1" y="1" width="4" height="3" rx="0.5" stroke="#fff" strokeWidth="1.2" fill="none"/>
-            <rect x="7" y="1" width="4" height="3" rx="0.5" stroke="#fff" strokeWidth="1.2" fill="none"/>
-            <path d="M5 9.5l2-2M7 9.5l-2-2" stroke="#D98893" strokeWidth="1.4" strokeLinecap="round"/>
-          </svg>
-        ) : (
-          <svg width="12" height="12" viewBox="0 0 12 12">
-            <rect x="1" y="1" width="4" height="3" rx="0.5" stroke={snapMode?'#fff':'#1A1A1F'} strokeWidth="1.2" fill="none"/>
-            <rect x="7" y="1" width="4" height="3" rx="0.5" stroke={snapMode?'#fff':'#1A1A1F'} strokeWidth="1.2" fill="none"/>
-            <rect x="1" y="8" width="4" height="3" rx="0.5" stroke={snapMode?'#fff':'#1A1A1F'} strokeWidth="1.2" fill="none"/>
-            <rect x="7" y="8" width="4" height="3" rx="0.5" stroke={snapMode?'#fff':'#1A1A1F'} strokeWidth="1.2" fill="none"/>
-          </svg>
-        )}
-      </div>
-      {/* delete (top-left) */}
-      <div onPointerDown={(e)=>{ e.stopPropagation(); setStickers(prev => prev.filter(x => x.id !== s.id)); setSelectedId(null); }}
-        style={{ position:'absolute', top:-10, left:-10, width:22, height:22, zIndex:200,
-          background:'#1A1A1F', borderRadius:999, color:'#fff',
-          display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
-          boxShadow:'0 2px 8px rgba(0,0,0,0.2)' }}>
-        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2L2 8" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
-      </div>
-    </>
-  ) : null;
+  const renderStickerControls = (s, isSel) => {
+    if (!isSel) return null;
+    const invScale = 1 / (s.scale || 1);
+    const tr = `scale(${invScale})`;
+    return (
+      <>
+        {/* scale+rotate handle (top-right) */}
+        <div onPointerDown={(e)=>onPointerDown(e, s, 'scale-rotate')}
+          style={{ position:'absolute', top:-12, right:-12, width:28, height:28,
+            background:'#fff', borderRadius:999, boxShadow:'0 2px 8px rgba(0,0,0,0.18)',
+            display:'flex', alignItems:'center', justifyContent:'center', cursor:'nwse-resize', zIndex:200,
+            transform: tr, transformOrigin: 'center' }}>
+          <svg width="14" height="14" viewBox="0 0 12 12"><path d="M3 3v2M3 3h2M9 9v-2M9 9h-2M3 9h6V3" stroke="#1A1A1F" strokeWidth="1.3" fill="none" strokeLinecap="round"/></svg>
+        </div>
+        {/* snap-to-frame handle (bottom-center) */}
+        <div onPointerDown={(e)=>{ e.stopPropagation(); if(s.frameSlot!=null){ unSnap(s.id); setSnapMode(false); } else { setSnapMode(v=>!v); } }}
+          title={s.frameSlot!=null ? '틀에서 꺼내기' : '틀 안에 넣기'}
+          style={{ position:'absolute', bottom:-12, left:'50%', zIndex:200,
+            width:28, height:28, background: s.frameSlot!=null ? '#1A1A1F' : snapMode ? '#D98893' : '#fff',
+            borderRadius:999, boxShadow:'0 2px 8px rgba(0,0,0,0.18)',
+            display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
+            transform: `translateX(-50%) ${tr}`, transformOrigin: 'center' }}>
+          {s.frameSlot!=null ? (
+            <svg width="14" height="14" viewBox="0 0 12 12">
+              <rect x="1" y="1" width="4" height="3" rx="0.5" stroke="#fff" strokeWidth="1.2" fill="none"/>
+              <rect x="7" y="1" width="4" height="3" rx="0.5" stroke="#fff" strokeWidth="1.2" fill="none"/>
+              <path d="M5 9.5l2-2M7 9.5l-2-2" stroke="#D98893" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 12 12">
+              <rect x="1" y="1" width="4" height="3" rx="0.5" stroke={snapMode?'#fff':'#1A1A1F'} strokeWidth="1.2" fill="none"/>
+              <rect x="7" y="1" width="4" height="3" rx="0.5" stroke={snapMode?'#fff':'#1A1A1F'} strokeWidth="1.2" fill="none"/>
+              <rect x="1" y="8" width="4" height="3" rx="0.5" stroke={snapMode?'#fff':'#1A1A1F'} strokeWidth="1.2" fill="none"/>
+              <rect x="7" y="8" width="4" height="3" rx="0.5" stroke={snapMode?'#fff':'#1A1A1F'} strokeWidth="1.2" fill="none"/>
+            </svg>
+          )}
+        </div>
+        {/* delete (top-left) */}
+        <div onPointerDown={(e)=>{ e.stopPropagation(); setStickers(prev => prev.filter(x => x.id !== s.id)); setSelectedId(null); }}
+          style={{ position:'absolute', top:-12, left:-12, width:28, height:28, zIndex:200,
+            background:'#1A1A1F', borderRadius:999, color:'#fff',
+            display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
+            boxShadow:'0 2px 8px rgba(0,0,0,0.2)', transform: tr, transformOrigin: 'center' }}>
+          <svg width="12" height="12" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2L2 8" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
+        </div>
+      </>
+    );
+  };
 
   return (
     <SlottedStickersCtx.Provider value={slottedMap}>
@@ -314,10 +329,12 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                 transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
                 zIndex:(s.z||0)+1, willChange:'transform',
                 transition: dragState?.id===s.id?'none':'box-shadow 0.2s' }}>
-              <div style={{ position:'relative', display:'inline-block',
+              <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
+                width: hideVisuals ? getStickerHitboxSize(s) : 'auto',
+                height: hideVisuals ? getStickerHitboxSize(s) : 'auto',
                 outline: isSel?`1.5px dashed ${T?.pinkDeep||'#D98893'}`:'none',
-                outlineOffset: isSel?4:0, padding: isSel?2:0 }}>
-                <div style={{ opacity: hideVisuals ? 0 : 1 }}>
+                outlineOffset: isSel?2:0, padding: 0 }}>
+                <div style={{ opacity: hideVisuals ? 0 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {renderStickerInstance(s)}
                 </div>
                 {renderStickerControls(s, isSel)}
@@ -345,10 +362,14 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                 <div style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
                   transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`,
                   transformOrigin:'center', zIndex:(s.z||0)+51, pointerEvents:'none' }}>
-                  <div style={{ position:'relative', display:'inline-block',
-                    outline:`1.5px dashed ${T?.pinkDeep||'#D98893'}`, outlineOffset:4, padding:2,
+                  <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
+                    width: hideVisuals ? getStickerHitboxSize(s) : 'auto',
+                    height: hideVisuals ? getStickerHitboxSize(s) : 'auto',
+                    outline:`1.5px dashed ${T?.pinkDeep||'#D98893'}`, outlineOffset:2, padding:0,
                     pointerEvents:'auto' }}>
-                    <div style={{ opacity:0 }}>{renderStickerInstance(s)}</div>
+                    <div style={{ opacity:0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {renderStickerInstance(s)}
+                    </div>
                     {renderStickerControls(s, true)}
                   </div>
                 </div>

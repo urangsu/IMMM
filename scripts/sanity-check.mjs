@@ -41,6 +41,33 @@ function checkFrameSystem() {
     console.error('❌ FAIL: frame-system.jsx preset branch is missing try/catch wrapper');
     hasErrors = true;
   }
+  
+  if (content.includes('Caveat, cursive') && content.includes('template.date.fontSize')) {
+    console.error('❌ FAIL: frame-system.jsx uses Caveat font for polaroid date. Use Pretendard/Plus Jakarta Sans.');
+    hasErrors = true;
+  }
+}
+
+function checkStickerEngine() {
+  const content = readFile('sticker-engine.jsx');
+  if (!content) return;
+
+  if (!content.includes('function getStickerHitboxSize')) {
+    console.error('❌ FAIL: sticker-engine.jsx missing getStickerHitboxSize helper');
+    hasErrors = true;
+  }
+
+  // Check if hideVisuals wrapper is hiding controls
+  if (content.includes('opacity: hideVisuals ? 0 : 1') && content.match(/opacity:\s*hideVisuals\s*\?\s*0\s*:\s*1[^>]*>\s*\{renderStickerInstance[^}]*\}\s*\{renderStickerControls/)) {
+    console.error('❌ FAIL: sticker-engine.jsx wrapper opacity 0 hides interaction controls');
+    hasErrors = true;
+  }
+
+  // Check if controls are fixed size (using invScale)
+  if (!content.includes('1 / (s.scale || 1)') && !content.includes('invScale')) {
+    console.warn('⚠️ WARN: sticker-engine.jsx renderStickerControls may be scaling with sticker. Need inverse scale.');
+    hasWarnings = true;
+  }
 }
 
 function checkCapture() {
@@ -131,6 +158,7 @@ function checkTask() {
 console.log('🔍 Running IMMM Sanity Checks...');
 checkWebGL();
 checkFrameSystem();
+checkStickerEngine();
 checkCapture();
 checkDeco();
 checkTask();
