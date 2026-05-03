@@ -169,20 +169,17 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
 
   const compositionCanvasRef = React.useRef(null);
+  const renderSeqRef = React.useRef(0);
 
   React.useEffect(() => {
     let cancelled = false;
     const draw = async () => {
       if (cancelled || !compositionCanvasRef.current || !fontsReady) return;
       const cvs = compositionCanvasRef.current;
-      const ctx = cvs.getContext('2d');
+      const seq = ++renderSeqRef.current;
       const template = getFrameTemplate(layout);
       const baseW = template.canvasSize.width;
       const baseH = template.canvasSize.height;
-
-      // Use a fixed internal resolution for preview consistency
-      cvs.width = baseW;
-      cvs.height = baseH;
 
       const data = {
         layout, shots, selected, filter, frameColor,
@@ -190,7 +187,20 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         logo, dateText, accent, orientation
       };
 
-      await renderComposition(ctx, data, { scale: 1 });
+      // Render to offscreen canvas to prevent tearing/flickering
+      const off = document.createElement('canvas');
+      off.width = baseW;
+      off.height = baseH;
+      const offCtx = off.getContext('2d');
+
+      await renderComposition(offCtx, data, { scale: 1 });
+
+      if (cancelled || seq !== renderSeqRef.current) return;
+
+      cvs.width = baseW;
+      cvs.height = baseH;
+      ctx.clearRect(0, 0, baseW, baseH);
+      ctx.drawImage(off, 0, 0);
     };
     // RAF-only: avoids double render per dependency change
     const raf = requestAnimationFrame(draw);
@@ -203,8 +213,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         onPointerDown={onDrawStart}
         onPointerMove={onDrawMove}
         onPointerUp={onDrawEnd}
-        onPointerCancel={onDrawEnd}
-        onPointerLeave={onDrawEnd}>
+        onPointerCancel={onDrawEnd}>
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
           width={layout === 'strip' || layout === 'trip' ? 180 : 220} height="auto" hideVisuals={true}>
           <canvas ref={compositionCanvasRef} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
