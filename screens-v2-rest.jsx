@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 // CAPTURE — 6 shots
 // ═══════════════════════════════════════════════════════════════
-function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, muted, onRequestCamera,
+function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, frameColor, muted, onRequestCamera,
   videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
@@ -467,15 +467,20 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           )}
           
           {/* Unified Frame Overlay Guide — shows logo, dot, date, and crop dimming */}
-          <CaptureOverlay 
-            template={frameTemplate} 
-            layout={layout}
-            logo={logo}
-            dateText={dateText}
-            accent={accent}
-            frameColor={frameColor}
-            viewfinderAspect={viewfinderAspect}
-          />
+          {(() => {
+            const safeFrameColor = frameColor || frameTemplate?.theme?.frameFill || '#fff';
+            return (
+              <CaptureOverlay 
+                template={frameTemplate} 
+                layout={layout}
+                logo={logo}
+                dateText={dateText}
+                accent={accent}
+                frameColor={safeFrameColor}
+                viewfinderAspect={viewfinderAspect}
+              />
+            );
+          })()}
           
           {/* Transparent hole for global camera box */}
           

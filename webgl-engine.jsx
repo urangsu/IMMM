@@ -1053,6 +1053,7 @@ class FilterEngine {
     this._raf = null;
     this._fboW = 0; this._fboH = 0;
     this._downW = 0; this._downH = 0;
+    this._isMobile = false;
 
     const gl = canvas.getContext('webgl', {
       alpha: false, antialias: false, depth: false,
@@ -1102,6 +1103,10 @@ class FilterEngine {
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this._maskTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,255]));
+  }
+
+  setMobile(value) {
+    this._isMobile = Boolean(value);
   }
 
   _ensureFbos(w, h) {
@@ -1311,7 +1316,7 @@ class FilterEngine {
       if (src && src.readyState >= 2 && src.videoWidth > 0) {
         const { w, h, mirrorX }          = getSize();
         const { pipeline, faceUniforms } = getParams();
-        this.render(src, pipeline, w, h, mirrorX, faceUniforms, mobileRef.current);
+        this.render(src, pipeline, w, h, mirrorX, faceUniforms, this._isMobile);
         this._renderedFrames++;
 
         if (!this._firstFrameFired && this._renderedFrames >= 5) {
@@ -1479,7 +1484,10 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
     return true;
   };
 
-  React.useEffect(() => { mobileRef.current = mobile; }, [mobile]);
+  React.useEffect(() => {
+    mobileRef.current = mobile;
+    if (engineRef.current) engineRef.current.setMobile(mobile);
+  }, [mobile]);
 
   React.useEffect(() => { filterKeyRef.current = filterKey; }, [filterKey]);
   React.useEffect(() => { mirrorXRef.current = mirrorX; }, [mirrorX]);
@@ -1593,7 +1601,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
         }
 
         let steps = preset.pipeline;
-        if (mobileRef.current) {
+        if (engineRef.current?._isMobile) {
           // Mobile optimization: restrict bilateral to 1-pass only
           let hCount = 0, vCount = 0;
           steps = steps.filter(step => {
