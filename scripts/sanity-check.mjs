@@ -132,6 +132,18 @@ function checkStickerEngine() {
   }
   
   if (content.includes('function getInteractionBounds')) {
+    if (!content.includes('getInteractionBounds(sticker, mode, decoScale, canvasW)')) {
+      console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds must accept canvasW in signature');
+      hasErrors = true;
+    }
+    if (!content.includes('sticker.sizeNorm') || !content.includes('canvasW')) {
+      console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds must use sizeNorm and canvasW');
+      hasErrors = true;
+    }
+    if (content.includes('const visualW = raw.w * (decoScale?.x || 1);') && !content.includes('sticker.sizeNorm')) {
+      console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds relies purely on decoScale without sizeNorm');
+      hasErrors = true;
+    }
     if (!content.includes('visualW') || !content.includes('visualH')) {
       console.warn('⚠️ WARN: sticker-engine.jsx getInteractionBounds should return visualW/visualH for outline box');
       hasWarnings = true;
@@ -140,6 +152,11 @@ function checkStickerEngine() {
       console.warn('⚠️ WARN: sticker-engine.jsx getInteractionBounds should ensure hit target is at least 24px');
       hasWarnings = true;
     }
+  }
+
+  if (content.includes('function renderStickerInstance') && content.includes('renderLibSticker(item, 1)')) {
+    console.error('❌ FAIL: sticker-engine.jsx renderStickerInstance preset path ignores scaleMul parameter');
+    hasErrors = true;
   }
 
   // StickerCanvas must default mode='default' and decoScale={x:1,y:1}
@@ -266,6 +283,11 @@ function checkTask() {
   if (content.includes('[x] PR 5 — Mobile opt-in')) {
     console.error('❌ FAIL: task.md has "[x] PR 5 — Mobile opt-in" marked as complete. It must be [~] until real device QA passes.');
     hasErrors = true;
+  }
+  
+  if (content.includes('commit 99c50f0') && content.includes('Pass/Fail: Pass')) {
+    console.warn('⚠️ WARN: task.md contains QA Pass log for commit 99c50f0, which lacked sizeNorm implementation');
+    hasWarnings = true;
   }
 }
 

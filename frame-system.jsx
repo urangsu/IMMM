@@ -133,8 +133,10 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
   const cy = (sticker.y / 100) * baseH;
   ctx.translate(cx, cy);
   ctx.rotate((sticker.rotation || 0) * Math.PI / 180);
+  const actualSizeNorm = sticker.sizeNorm ?? sticker.payload?.sizeNorm;
+  
   let normScale = 1;
-  if (sticker.sizeNorm) {
+  if (actualSizeNorm) {
     let bw = 64;
     if (sticker.kind === 'preset') {
       const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload?.libId) : null;
@@ -148,7 +150,7 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
     } else if (sticker.kind === 'setlog') {
       bw = 140;
     }
-    const targetW = sticker.sizeNorm * baseW;
+    const targetW = actualSizeNorm * baseW;
     normScale = targetW / bw;
   }
 

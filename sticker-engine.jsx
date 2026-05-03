@@ -80,11 +80,10 @@ function renderLibSticker(item, scale=1) {
   return null;
 }
 
-// Renders a single sticker instance (for preview or deco surface)
 function renderStickerInstance(s, scaleMul=1) {
   if (s.kind === 'preset') {
     const item = getStickerByLibId(s.payload.libId);
-    return renderLibSticker(item, 1);
+    return renderLibSticker(item, scaleMul);
   }
   if (s.kind === 'upload') {
     return <img src={s.payload.dataUrl} draggable={false} style={{ width: 120, height: 'auto', display:'block', userSelect:'none', pointerEvents:'none' }}/>;
@@ -202,15 +201,20 @@ function getStickerVisualBounds(sticker) {
   return { w:64, h:64 };
 }
 
-function getInteractionBounds(sticker, mode, decoScale) {
+function getInteractionBounds(sticker, mode, decoScale, canvasW) {
   const raw = mode === 'deco-overlay'
     ? getStickerVisualBounds(sticker)
     : getStickerHitboxSize(sticker);
 
   if (mode !== 'deco-overlay') return raw;
 
-  const visualW = raw.w * (decoScale?.x || 1);
-  const visualH = raw.h * (decoScale?.y || 1);
+  let visualW = raw.w * (decoScale?.x || 1);
+  let visualH = raw.h * (decoScale?.y || 1);
+
+  if (sticker.sizeNorm && canvasW) {
+    visualW = sticker.sizeNorm * canvasW;
+    visualH = visualW * (raw.h / raw.w);
+  }
 
   return {
     w: Math.max(24, visualW),
@@ -444,7 +448,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           const isSel = s.id === selectedId;
           const normScale = getStickerNormScale(s, canvasW);
           const effectiveScale = (s.scale || 1) * normScale;
-          const hitbox = getInteractionBounds(s, mode, decoScale);
+          const hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
           if (mode === 'deco-overlay' && window.IMMM_DEBUG_STICKER) {
             console.debug('[IMMM deco sticker]', {
               id: s.id, kind: s.kind, libId: s.payload?.libId,
@@ -482,7 +486,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           const isSel = s.id === selectedId;
           const normScale = getStickerNormScale(s, canvasW);
           const effectiveScale = (s.scale || 1) * normScale;
-          const hitbox = getInteractionBounds(s, mode, decoScale);
+          const hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
           return (
             <React.Fragment key={s.id}>
               {/* Invisible hit area for drag */}
@@ -533,6 +537,13 @@ function getDefaultStickerSizeNorm(item) {
 function makeSticker(kind, payload, opts={}) {
   let defaultScale = 1;
   let defaultSizeNorm = null;
+  
+  // Hoist legacy payload.sizeNorm if present
+  if (payload && payload.sizeNorm !== undefined) {
+    defaultSizeNorm = payload.sizeNorm;
+    // Don't mutate payload to avoid side effects, but it will be overridden by logic using sticker.sizeNorm
+  }
+
   if (kind === 'preset') {
     const item = getStickerByLibId(payload.libId);
     if (item) {

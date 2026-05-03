@@ -69,7 +69,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     if (!textInput.trim()) return;
     const rect = frameNativeRef.current?.getBoundingClientRect();
     const sizeNorm = rect?.width ? 32 / rect.width : null;
-    setStickers((p) => [...p, makeSticker('text', { text: textInput, font: 'Caveat', size: 32, sizeNorm, color: drawColor })]);
+    setStickers((p) => [...p, makeSticker('text', { text: textInput, font: 'Caveat', size: 32, color: drawColor }, { sizeNorm })]);
     setTextInput('');
   };
   const onFile = (e) => {
