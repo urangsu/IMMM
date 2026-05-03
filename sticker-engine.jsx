@@ -18,11 +18,15 @@ const STICKER_CATALOG = {
     id: 'minimal', name: 'Minimal', ko: '미니멀', premium: false, recommended: true, price: 0, owned: true, locked: false,
     items: [
       { id:'m-heart-1', type:'mini', kind:'heart', fill:'#D98893' },
-      { id:'m-heart-2', type:'mini', kind:'heart', fill:'#F4C8CC' },
-      { id:'m-star-1', type:'mini', kind:'star', fill:'#FFE8A3' },
+      { id:'m-star-1',  type:'mini', kind:'star',  fill:'#FFE8A3' },
       { id:'m-sparkle', type:'mini', kind:'sparkle', fill:'#1A1A1F' },
-      { id:'m-dot', type:'mini', kind:'dot', fill:'#D98893' },
-      { id:'m-immm', type:'text', text:'IMMM', font:'"Plus Jakarta Sans"', size:34, color:'#1A1A1F' },
+      { id:'m-dot',     type:'mini', kind:'dot',   fill:'#D98893' },
+      { id:'m-heart-2', type:'mini', kind:'heart', fill:'#F4C8CC' },
+      { id:'m-immm-logo', type:'immm-logo', text:'IMMM', fill:'#111' },
+      { id:'m-camera',  type:'mini', kind:'camera', fill:'#1A1A1F' },
+      { id:'m-smile',   type:'mini', kind:'smile',  fill:'#FFE8A3' },
+      { id:'m-ribbon',  type:'mini', kind:'ribbon',  fill:'#D98893' },
+      { id:'m-moment',  type:'text', text:'my moment', font:'"Plus Jakarta Sans"', size:18, color:'#1A1A1F' },
     ],
   },
   handwrit: {
@@ -64,7 +68,14 @@ function renderLibSticker(item, scale=1) {
   if (!item) return null;
   if (item.type === 'burst') return <Starburst text={item.text} fill={item.fill} textColor={item.tc} fontSize={(item.fs||11)*scale} w={(item.w||90)*scale} h={(item.h||70)*scale}/>;
   if (item.type === 'cloud') return <CloudBubble text={item.text} fill={item.fill} textColor={item.tc} fontSize={(item.fs||11)*scale} w={(item.w||100)*scale} h={(item.h||60)*scale}/>;
-  if (item.type === 'mini') return <MiniSticker kind={item.kind} fill={item.fill} w={44*scale} h={44*scale}/>;
+  if (item.type === 'mini') {
+    const charMap = { heart:'♥', star:'★', sparkle:'✦', dot:'●', camera:'📷', smile:'☺', ribbon:'🎀' };
+    const ch = charMap[item.kind] || '●';
+    return <span style={{ fontSize: 28*scale, color: item.fill, lineHeight:1, userSelect:'none', pointerEvents:'none', display:'inline-block' }}>{ch}</span>;
+  }
+  if (item.type === 'immm-logo') {
+    return <span style={{ fontFamily:'"Plus Jakarta Sans", system-ui', fontSize: 22*scale, fontWeight:800, letterSpacing:'0.16em', color: item.fill||'#111', userSelect:'none', pointerEvents:'none', display:'inline-block', whiteSpace:'nowrap' }}>IMMM</span>;
+  }
   if (item.type === 'text') return <span style={{ fontFamily:item.font, fontSize:item.size*scale, color:item.color, whiteSpace:'nowrap' }}>{item.text}</span>;
   return null;
 }
@@ -107,6 +118,10 @@ function getCatalogStickerBaseSize(item) {
 
   if (item.type === 'mini') {
     return { w: 44, h: 44 };
+  }
+
+  if (item.type === 'immm-logo') {
+    return { w: 72, h: 30 };
   }
 
   if (item.type === 'text') {
@@ -496,7 +511,23 @@ function sendBackward(stickers, id) {
 function drawCatalogSticker(ctx, item, scalePx = 1) {
   if (!item) return;
   ctx.save();
-  if (item.type === 'burst' || item.type === 'cloud') {
+  if (item.type === 'immm-logo') {
+    ctx.fillStyle = item.fill || '#111';
+    const fs = 22 * scalePx;
+    ctx.font = `800 ${fs}px "Plus Jakarta Sans", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // letter spacing approximation: draw each char spaced
+    const text = 'IMMM';
+    const spacing = fs * 0.16;
+    const totalW = ctx.measureText(text).width + spacing * (text.length - 1);
+    let x = -totalW / 2;
+    for (const ch of text) {
+      const cw = ctx.measureText(ch).width;
+      ctx.fillText(ch, x + cw / 2, 0);
+      x += cw + spacing;
+    }
+  } else if (item.type === 'burst' || item.type === 'cloud') {
     ctx.fillStyle = item.tc || '#111';
     ctx.font = `800 ${(item.fs || 11) * 2 * scalePx}px "Plus Jakarta Sans", Pretendard, sans-serif`;
     ctx.textAlign = 'center';
@@ -507,8 +538,7 @@ function drawCatalogSticker(ctx, item, scalePx = 1) {
     ctx.font = `700 ${32 * scalePx}px "Plus Jakarta Sans", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // basic text fallback for mini stickers
-    const charMap = { 'heart': '♥', 'star': '★', 'sparkle': '✦', 'dot': '●' };
+    const charMap = { 'heart': '♥', 'star': '★', 'sparkle': '✦', 'dot': '●', 'camera': '📷', 'smile': '☺', 'ribbon': '🎀' };
     ctx.fillText(charMap[item.kind] || '●', 0, 0);
   } else if (item.type === 'text') {
     ctx.fillStyle = item.color || '#111';
@@ -517,7 +547,6 @@ function drawCatalogSticker(ctx, item, scalePx = 1) {
     ctx.textBaseline = 'middle';
     ctx.fillText(item.text || '', 0, 0);
   } else {
-    // Unknown preset type fallback
     ctx.fillStyle = item.color || item.tc || item.fill || '#111';
     ctx.font = `700 ${28 * scalePx}px Pretendard, sans-serif`;
     ctx.textAlign = 'center';

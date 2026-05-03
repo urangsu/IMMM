@@ -93,6 +93,30 @@ function checkStickerEngine() {
     console.warn('⚠️ WARN: sticker-engine.jsx renderStickerControls may be scaling with sticker. Need inverse scale.');
     hasWarnings = true;
   }
+
+  // Check getStickerVisualBounds exists
+  if (!content.includes('function getStickerVisualBounds')) {
+    console.error('❌ FAIL: sticker-engine.jsx missing getStickerVisualBounds helper');
+    hasErrors = true;
+  }
+
+  // Check getStickerVisualBounds returns {w,h}
+  if (content.includes('function getStickerVisualBounds') && !content.includes('return { w:') && !content.includes('return {w:')) {
+    console.error('❌ FAIL: sticker-engine.jsx getStickerVisualBounds does not return {w,h} objects');
+    hasErrors = true;
+  }
+
+  // Check m-immm-logo exists in STICKER_CATALOG
+  if (!content.includes("'m-immm-logo'")) {
+    console.error('❌ FAIL: sticker-engine.jsx Minimal pack missing m-immm-logo item');
+    hasErrors = true;
+  }
+
+  // kretro must be hidden
+  if (content.includes("id: 'kretro'") && !content.includes('hidden: true')) {
+    console.error('❌ FAIL: sticker-engine.jsx kretro pack is not hidden');
+    hasErrors = true;
+  }
 }
 
 function checkCapture() {
@@ -167,6 +191,18 @@ function checkDeco() {
   if (/draw\(\);\s*(const|let|var)\s+raf\s*=\s*requestAnimationFrame\(draw\)/.test(content)) {
     console.error('❌ FAIL: screens-v2-deco.jsx contains double render pattern "draw(); const raf = requestAnimationFrame(draw)"');
     hasErrors = true;
+  }
+
+  // 4. StickerCanvas must use mode="deco-overlay"
+  if (!content.includes('mode="deco-overlay"') && !content.includes("mode='deco-overlay'")) {
+    console.error('❌ FAIL: screens-v2-deco.jsx StickerCanvas missing mode="deco-overlay" prop');
+    hasErrors = true;
+  }
+
+  // 5. Pack expander UI
+  if (!content.includes('pack.items.slice(0, 5)') && !content.includes('slice(0,5)')) {
+    console.warn('⚠️ WARN: screens-v2-deco.jsx sticker picker missing pack expander (show 5 + button)');
+    hasWarnings = true;
   }
 }
 

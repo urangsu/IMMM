@@ -51,7 +51,19 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     });
   }, []);
 
-  const addPreset = (libId) => setStickers((p) => [...p, makeSticker('preset', { libId })]);
+  const getDecoInitialPresetScale = (item) => {
+    if (!item) return 1;
+    if (item.type === 'mini') return 1.25;
+    if (item.type === 'immm-logo') return 1.0;
+    if (item.type === 'text') return 1.12;
+    if (item.type === 'burst' || item.type === 'cloud') return 1.0;
+    return 1;
+  };
+  const addPreset = (libId) => {
+    const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
+    const scale = getDecoInitialPresetScale(item);
+    setStickers((p) => [...p, makeSticker('preset', { libId }, { scale })]);
+  };
   const addUpload = (dataUrl) => setStickers((p) => [...p, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
   const addText = () => {
     if (!textInput.trim()) return;
