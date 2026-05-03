@@ -181,6 +181,35 @@ function checkCapture() {
   }
 }
 
+function checkRuntimeBootGuards() {
+  const screens = readFile('screens-v2.jsx');
+  const main = readFile('main.jsx');
+  if (!screens || !main) return;
+
+  if (/canvasW=\{frameW\}\s*\n\s*\}\s*height/.test(screens)) {
+    console.error('❌ FAIL: screens-v2.jsx contains stray JSX brace after canvasW={frameW}');
+    hasErrors = true;
+  }
+
+  const suspiciousPropBrace = /[A-Za-z0-9_$-]+=\{[^}\n]+\}\s*\n\s*\}\s+height=\{/;
+  if (suspiciousPropBrace.test(screens)) {
+    console.error('❌ FAIL: screens-v2.jsx contains suspicious "} height={" JSX prop pattern');
+    hasErrors = true;
+  }
+
+  if (main.includes('<ScreenTransition')) {
+    const hasDefinition =
+      /function\s+ScreenTransition\s*\(/.test(screens) ||
+      /const\s+ScreenTransition\s*=/.test(screens) ||
+      /window\.ScreenTransition\s*=/.test(screens) ||
+      /Object\.assign\(window,[\s\S]*ScreenTransition/.test(screens);
+    if (!hasDefinition) {
+      console.error('❌ FAIL: main.jsx uses <ScreenTransition> but no ScreenTransition definition/export was found');
+      hasErrors = true;
+    }
+  }
+}
+
 function checkDeco() {
   const content = readFile('screens-v2-deco.jsx');
   if (!content) return;
@@ -296,6 +325,7 @@ checkWebGL();
 checkFrameSystem();
 checkStickerEngine();
 checkCapture();
+checkRuntimeBootGuards();
 checkDeco();
 checkTask();
 

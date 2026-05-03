@@ -317,9 +317,16 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const preview =
   <div ref={setupContainerRef} style={{ overflow: 'hidden', width: '100%', height: '100%', position: 'relative' }}>
       <div ref={setupFrameRef} style={{ position: 'absolute', top: '50%', left: '50%', transform: `translate(-50%, -50%) scale(${setupZoom})`, transformOrigin: 'center' }}>
-        <StickerCanvas T={T} stickers={preStickers} setStickers={setPreStickers} selectedId={selStId} setSelectedId={setSelStId}
-      width={frameW} canvasW={frameW}
-      } height={'auto'}>
+        <StickerCanvas
+          T={T}
+          stickers={preStickers}
+          setStickers={setPreStickers}
+          selectedId={selStId}
+          setSelectedId={setSelStId}
+          width={frameW}
+          canvasW={frameW}
+          height="auto"
+        >
           <FrameThumb key={frameColor} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
         logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} />
         </StickerCanvas>
