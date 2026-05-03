@@ -176,6 +176,8 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     const draw = async () => {
       if (cancelled || !compositionCanvasRef.current || !fontsReady) return;
       const cvs = compositionCanvasRef.current;
+      const ctx = cvs.getContext('2d');
+      if (!ctx) return;
       const seq = ++renderSeqRef.current;
       const template = getFrameTemplate(layout);
       const baseW = template.canvasSize.width;
@@ -192,6 +194,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       off.width = baseW;
       off.height = baseH;
       const offCtx = off.getContext('2d');
+      if (!offCtx) return;
 
       await renderComposition(offCtx, data, { scale: 1 });
 
