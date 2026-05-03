@@ -131,18 +131,29 @@ skin_retouch: `
 precision mediump float;
 uniform sampler2D u_tex;
 uniform sampler2D u_blurredTex;
+uniform sampler2D u_maskTex;
 uniform float u_strength;
 varying vec2 v_uv;
+
+float getSkinConfidence(vec3 rgb) {
+  float r = rgb.r; float g = rgb.g; float b = rgb.b;
+  float y = 0.299 * r + 0.587 * g + 0.114 * b;
+  float cr = (r - y) * 0.713 + 0.5;
+  float cb = (b - y) * 0.564 + 0.5;
+  float crW = smoothstep(0.50, 0.54, cr) * (1.0 - smoothstep(0.66, 0.72, cr));
+  float cbW = smoothstep(0.28, 0.34, cb) * (1.0 - smoothstep(0.48, 0.54, cb));
+  return crW * cbW;
+}
+
 void main(){
   vec4 ori = texture2D(u_tex, v_uv);
   vec4 blur = texture2D(u_blurredTex, v_uv);
-  vec3 c = ori.rgb;
-  // Subtle procedural skin mask (YCrCb-like heuristic)
-  float r = c.r; float g = c.g; float b = c.b;
-  bool isSkin = (r > 0.38 && g > 0.18 && b > 0.12 && r > g && r > b && (r - min(g,b) > 0.05));
-  float mask = isSkin ? 1.0 : 0.0;
-  gl.FragColor = mix(ori, blur, mask * u_strength);
+  float mask = texture2D(u_maskTex, v_uv).r;
+  float conf = getSkinConfidence(ori.rgb);
+  gl_FragColor = mix(ori, blur, mask * conf * u_strength);
 }`,
+
+
 
 
 //  Fuji Classic Negative 
@@ -1060,6 +1071,14 @@ class FilterEngine {
     });
     this._fboInfos = [null, null, null];
     this._halBlurTex = null;
+    this._maskTex = twgl.createTexture(gl, { width:1, height:1, data: new Uint8Array([255,255,255,255]) });
+  }
+
+  updateMask(canvas) {
+    if (this._destroyed || !canvas) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this._maskTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
   }
 
   _ensureFbos(w, h) {
@@ -1174,18 +1193,15 @@ class FilterEngine {
         });
         const blurredTex = this._fboInfos[blurOut].attachments[0];
 
-        // 2. Composite: read curTex + blurredTex, write to FBO[idx] (which is currently free)
+        // 2. Composite: read curTex + blurredTex + u_maskTex, write to FBO[idx]
         const compOut = idx;
         this._pass('skin_retouch', curTex, this._fboInfos[compOut], {
           u_blurredTex: blurredTex,
+          u_maskTex: this._maskTex,
           u_strength: step.uniforms?.u_strength || 0.0,
           u_flipX: 0.0, u_flipY: 0.0
         });
         curTex = this._fboInfos[compOut].attachments[0];
-        // idx stays the same or we toggle it? 
-        // Actually this._pass advances nothing. We manually set curTex.
-        // To keep the ping-pong healthy, we should ensure the next pass 
-        // writes to 1-compOut.
         idx = compOut;
         continue;
       }
@@ -1338,6 +1354,54 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
   const [webglOk, setWebglOk]     = React.useState(false);
   const [firstFrame, setFirstFrame] = React.useState(false);
   const [webglFailed, setWebglFailed] = React.useState(false);
+  const maskCanvasRef = React.useRef(null);
+  const lastMaskUpdateRef = React.useRef(0);
+
+  if (!maskCanvasRef.current && typeof document !== 'undefined') {
+    const mc = document.createElement('canvas');
+    mc.width = 512; mc.height = 512;
+    maskCanvasRef.current = mc;
+  }
+
+  const updateRetouchMask = (face) => {
+    if (!face?.detected || !maskCanvasRef.current) return;
+    const now = Date.now();
+    if (now - lastMaskUpdateRef.current < 66) return; // ~15fps limit
+    lastMaskUpdateRef.current = now;
+
+    const mc = maskCanvasRef.current;
+    const ctx = mc.getContext('2d');
+    ctx.clearRect(0,0,512,512);
+
+    const drawPoly = (pts, color, blur=0) => {
+      if (!pts || pts.length < 3) return;
+      ctx.save();
+      if (blur > 0) ctx.filter = `blur(${blur}px)`;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const x = p[0] * 512, y = p[1] * 512;
+        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    };
+
+    // 1. Face Oval (Main Mask)
+    drawPoly(face.faceOval, '#fff', 12); // Feathered edge
+
+    // 2. Exclusions (Eyes, Brows, Lips)
+    ctx.globalCompositeOperation = 'destination-out';
+    drawPoly(face.leftEye,  '#fff', 4);
+    drawPoly(face.rightEye, '#fff', 4);
+    drawPoly(face.leftEyebrow,  '#fff', 4);
+    drawPoly(face.rightEyebrow, '#fff', 4);
+    drawPoly(face.lips,  '#fff', 4);
+    ctx.globalCompositeOperation = 'source-over';
+
+    if (engineRef.current) engineRef.current.updateMask(mc);
+  };
 
   React.useEffect(() => { mobileRef.current = mobile; }, [mobile]);
 
@@ -1463,17 +1527,18 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
           });
         }
 
-        // PR 3 & 4: Filter Expansion & Mobile Opt-in
-        const enableSkin = !mobileRef.current || (typeof window !== 'undefined' && window.IMMM_ENABLE_MOBILE_RETOUCH);
-        if (enableSkin) {
+        // PR 2-5: Experimental Skin Retouch (OFF by default)
+        const enableExperimentalSkinRetouch = typeof window !== 'undefined' && window.IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH === true;
+        if (enableExperimentalSkinRetouch) {
+          if (face?.detected) updateRetouchMask(face);
           const strengths = {
-            smooth: 0.35,
+            smooth: 0.40,
             porcelain: 0.20,
-            blush: 0.20,
-            grain: 0.10,
+            blush: 0.32,
+            grain: 0.08,
           };
           const strength = strengths[key];
-          if (strength > 0) {
+          if (strength > 0 && face?.detected) {
             steps = [{ shader: 'skin_retouch', uniforms: { u_strength: strength } }, ...steps];
           }
         }
