@@ -202,8 +202,21 @@ function getStickerVisualBounds(sticker) {
   return { w:64, h:64 };
 }
 
+function getInteractionBounds(sticker, mode, decoScale) {
+  const raw = mode === 'deco-overlay'
+    ? getStickerVisualBounds(sticker)
+    : getStickerHitboxSize(sticker);
+
+  if (mode !== 'deco-overlay') return raw;
+
+  return {
+    w: Math.max(8, raw.w * (decoScale?.x || 1)),
+    h: Math.max(8, raw.h * (decoScale?.y || 1)),
+  };
+}
+
 // ─────────────────────────────────────────────────────────────
-function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T, hideVisuals = false, mode = 'default', style = {} }) {
+function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T, hideVisuals = false, mode = 'default', style = {}, decoScale = { x: 1, y: 1 } }) {
   const canvasRef = useRR(null);
   const [dragState, setDragState] = useSE(null);
   const [snapMode, setSnapMode] = useSE(false);
@@ -415,7 +428,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Free stickers: full visual render */}
         {sortedStickers.filter(s => s.frameSlot == null).map(s => {
           const isSel = s.id === selectedId;
-          const hitbox = mode === 'deco-overlay' ? getStickerVisualBounds(s) : getStickerHitboxSize(s);
+          const hitbox = getInteractionBounds(s, mode, decoScale);
           return (
             <div key={s.id} onPointerDown={(e)=>onPointerDown(e, s, 'move')} onClick={(e)=>e.stopPropagation()}
               style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
@@ -439,7 +452,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Slotted stickers: transparent hit area, controls rendered separately when selected */}
         {sortedStickers.filter(s => s.frameSlot != null).map(s => {
           const isSel = s.id === selectedId;
-          const hitbox = mode === 'deco-overlay' ? getStickerVisualBounds(s) : getStickerHitboxSize(s);
+          const hitbox = getInteractionBounds(s, mode, decoScale);
           return (
             <React.Fragment key={s.id}>
               {/* Invisible hit area for drag */}

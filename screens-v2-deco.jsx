@@ -224,6 +224,15 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const frameW = layout === 'strip' || layout === 'trip' ? 180 : 220;
 
+  // Compute ratio of CSS displayed size to native canvas size.
+  // composition canvas renders at baseW px natively, but displays at frameW CSS px.
+  // StickerCanvas hitbox (in CSS px) must be scaled by this ratio for deco-overlay mode.
+  const decoScale = React.useMemo(() => {
+    const tmpl = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
+    const baseW = tmpl?.canvasSize?.width || 880;
+    return { x: frameW / baseW, y: frameW / baseW };
+  }, [layout, frameW]);
+
   const preview =
   <div ref={previewContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
       <div ref={frameNativeRef} style={{ width: frameW, transform: `scale(${zoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0, touchAction: drawMode ? 'none' : 'auto' }}
@@ -235,7 +244,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         <canvas ref={compositionCanvasRef} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} />
 
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
-          mode="deco-overlay" hideVisuals={true} width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+          mode="deco-overlay" hideVisuals={true} decoScale={decoScale} width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
         </StickerCanvas>
       </div>
       {zoomControls}

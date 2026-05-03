@@ -117,6 +117,29 @@ function checkStickerEngine() {
     console.error('❌ FAIL: sticker-engine.jsx kretro pack is not hidden');
     hasErrors = true;
   }
+
+  // getInteractionBounds must exist
+  if (!content.includes('function getInteractionBounds')) {
+    console.error('❌ FAIL: sticker-engine.jsx missing getInteractionBounds helper');
+    hasErrors = true;
+  }
+
+  // getInteractionBounds must apply decoScale in deco-overlay mode
+  if (content.includes('function getInteractionBounds') &&
+      !content.includes('decoScale?.x') && !content.includes('decoScale.x')) {
+    console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds does not apply decoScale.x');
+    hasErrors = true;
+  }
+
+  // StickerCanvas must default mode='default' and decoScale={x:1,y:1}
+  if (!content.includes("mode = 'default'")) {
+    console.warn('⚠️ WARN: sticker-engine.jsx StickerCanvas mode default is not \'default\'');
+    hasWarnings = true;
+  }
+  if (!content.includes("decoScale = { x: 1, y: 1 }")) {
+    console.warn('⚠️ WARN: sticker-engine.jsx StickerCanvas decoScale default is not {x:1, y:1}');
+    hasWarnings = true;
+  }
 }
 
 function checkCapture() {
@@ -203,6 +226,20 @@ function checkDeco() {
   if (!content.includes('pack.items.slice(0, 5)') && !content.includes('slice(0,5)')) {
     console.warn('⚠️ WARN: screens-v2-deco.jsx sticker picker missing pack expander (show 5 + button)');
     hasWarnings = true;
+  }
+
+  // 6. decoScale must be computed and passed to StickerCanvas
+  if (!content.includes('decoScale')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx missing decoScale state/computation');
+    hasErrors = true;
+  }
+  if (!content.includes('canvasSize.width') && !content.includes('canvasSize?.width')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx decoScale does not reference template.canvasSize.width');
+    hasErrors = true;
+  }
+  if (!content.includes('decoScale={decoScale}')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx StickerCanvas missing decoScale prop');
+    hasErrors = true;
   }
 }
 
