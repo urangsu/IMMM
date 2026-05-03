@@ -19,6 +19,12 @@ const DEFAULT_FACE = {
   leftJaw:        [0.20, 0.70],
   rightJaw:       [0.80, 0.70],
   chin:           [0.50, 0.88],
+  faceOval:       [],
+  leftEye:        [],
+  rightEye:       [],
+  leftEyebrow:    [],
+  rightEyebrow:   [],
+  lips:           [],
 };
 
 // Wait for MediaPipe classes exposed by the <script type="module"> tag
@@ -128,21 +134,39 @@ function useFaceLandmarks(videoRef) {
           const chin       = lmArr[152] || lmArr[175];// chin
           const forehead   = lmArr[10]  || lmArr[151];// forehead
 
+          const leftEyeCenter = [li?.x ?? 0.35, li?.y ?? 0.40];
+          const rightEyeCenter = [ri?.x ?? 0.65, ri?.y ?? 0.40];
+          const eyeRadius = Math.max(0.035, eyeW * 1.3);
+          const leftCheek = [lc?.x ?? 0.28, lc?.y ?? 0.55];
+          const rightCheek = [rc?.x ?? 0.72, rc?.y ?? 0.55];
+          const cheekRadius = Math.max(0.07, eyeW * 1.65);
+          const lipCenter = [lipCenterX, lipCenterY];
+          const lipRadius = Math.max(0.045, lipW * 0.65);
+          const leftJaw = [lJaw?.x ?? 0.20, lJaw?.y ?? 0.70];
+          const rightJaw = [rJaw?.x ?? 0.80, rJaw?.y ?? 0.70];
+          const chinPos = [chin?.x ?? 0.50, chin?.y ?? 0.88];
+
+          const getPoly = (indices) => indices.map(i => {
+            const p = lmArr[i];
+            return p ? [p.x, p.y] : null;
+          }).filter(p => p !== null);
+
           return {
-            leftEyeCenter:  [li?.x ?? 0.35, li?.y ?? 0.40],
-            rightEyeCenter: [ri?.x ?? 0.65, ri?.y ?? 0.40],
-            eyeRadius:      Math.max(0.035, eyeW * 1.3),
-            leftCheek:      [lc?.x ?? 0.28, lc?.y ?? 0.55],
-            rightCheek:     [rc?.x ?? 0.72, rc?.y ?? 0.55],
-            cheekRadius:    Math.max(0.07, eyeW * 1.65),
-            lipCenter:      [lipCenterX, lipCenterY],
-            lipRadius:      Math.max(0.045, lipW * 0.65),
-            noseTip:        [noseTip?.x ?? 0.50, noseTip?.y ?? 0.60],
+            detected:       true,
+            leftEyeCenter, rightEyeCenter, eyeRadius,
+            leftCheek, rightCheek, cheekRadius,
             noseTop:        [noseTop?.x ?? 0.50, noseTop?.y ?? 0.48],
+            noseTip:        [noseTip?.x ?? 0.50, noseTip?.y ?? 0.60],
             foreheadTop:    [forehead?.x ?? 0.50, forehead?.y ?? 0.18],
-            leftJaw:        [lJaw?.x ?? 0.20, lJaw?.y ?? 0.70],
-            rightJaw:       [rJaw?.x ?? 0.80, rJaw?.y ?? 0.70],
-            chin:           [chin?.x ?? 0.50, chin?.y ?? 0.88],
+            lipCenter, lipRadius,
+            leftJaw, rightJaw,
+            chin:           chinPos,
+            faceOval:     getPoly([10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]),
+            leftEye:      getPoly([33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7]),
+            rightEye:     getPoly([263, 466, 388, 387, 386, 385, 384, 398, 362, 382, 381, 380, 374, 373, 390, 249]),
+            leftEyebrow:  getPoly([70, 63, 105, 66, 107, 55, 65, 52, 53, 46]),
+            rightEyebrow: getPoly([336, 296, 334, 293, 300, 276, 283, 282, 295, 285]),
+            lips:         getPoly([61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 78]),
           };
         });
 

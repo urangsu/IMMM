@@ -1071,7 +1071,7 @@ class FilterEngine {
     });
     this._fboInfos = [null, null, null];
     this._halBlurTex = null;
-    this._maskTex = twgl.createTexture(gl, { width:1, height:1, data: new Uint8Array([255,255,255,255]) });
+    this._maskTex = twgl.createTexture(gl, { width:1, height:1, data: new Uint8Array([0,0,0,255]) });
   }
 
   updateMask(canvas) {
@@ -1364,9 +1364,17 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
   }
 
   const updateRetouchMask = (face) => {
-    if (!face?.detected || !maskCanvasRef.current) return;
+    if (!face?.detected || !maskCanvasRef.current) return false;
+    if (!face.faceOval || face.faceOval.length < 3) {
+      // Clear mask to black if face data is invalid
+      const mc = maskCanvasRef.current;
+      const ctx = mc.getContext('2d');
+      ctx.clearRect(0,0,512,512);
+      if (engineRef.current) engineRef.current.updateMask(mc);
+      return false;
+    }
     const now = Date.now();
-    if (now - lastMaskUpdateRef.current < 66) return; // ~15fps limit
+    if (now - lastMaskUpdateRef.current < 66) return true; // ~15fps limit, but treat as success
     lastMaskUpdateRef.current = now;
 
     const mc = maskCanvasRef.current;
@@ -1401,6 +1409,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
     ctx.globalCompositeOperation = 'source-over';
 
     if (engineRef.current) engineRef.current.updateMask(mc);
+    return true;
   };
 
   React.useEffect(() => { mobileRef.current = mobile; }, [mobile]);
@@ -1530,7 +1539,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
         // PR 2-5: Experimental Skin Retouch (OFF by default)
         const enableExperimentalSkinRetouch = typeof window !== 'undefined' && window.IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH === true;
         if (enableExperimentalSkinRetouch) {
-          if (face?.detected) updateRetouchMask(face);
+          const maskOk = (face?.detected) ? updateRetouchMask(face) : false;
           const strengths = {
             smooth: 0.40,
             porcelain: 0.20,
@@ -1538,7 +1547,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
             grain: 0.08,
           };
           const strength = strengths[key];
-          if (strength > 0 && face?.detected) {
+          if (strength > 0 && maskOk) {
             steps = [{ shader: 'skin_retouch', uniforms: { u_strength: strength } }, ...steps];
           }
         }
