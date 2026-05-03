@@ -112,6 +112,44 @@ function renderStickerInstance(s, scaleMul=1) {
   return null;
 }
 
+// ─── Capture slot filter helpers ─────────────────────────────────────────────
+// captureIndex is 0-based: shot 1 = index 0, shot 5 = index 4, etc.
+
+function getLayoutSlotCount(layout) {
+  if (layout === 'trip') return 3;      // 1x3
+  if (layout === 'polaroid') return 1;  // 1x1
+  if (layout === 'grid') return 4;      // 2x2
+  if (layout === 'strip') return 4;     // 1x4
+  return 4;
+}
+
+function getCaptureSlotIndex(captureIndex, layout) {
+  const slotCount = getLayoutSlotCount(layout);
+  if (captureIndex == null) return null;
+  if (captureIndex < 0) return null;
+  if (captureIndex >= slotCount) return null;
+  return captureIndex;
+}
+
+// Returns only stickers visible during a given capture shot preview.
+// Free stickers (no frameSlot) are NOT shown during live capture — they must not be baked per-shot.
+// Slot stickers only show when captureIndex matches their slot.
+// Extra candidate shots (captureIndex >= slotCount) always return [].
+function getStickersForCapturePreview(preStickers, captureIndex, layout) {
+  const slotIndex = getCaptureSlotIndex(captureIndex, layout);
+  if (slotIndex == null) return [];
+  return (preStickers || []).filter((s) => {
+    if (s.frameSlot == null) return false;
+    return Number(s.frameSlot) === Number(slotIndex);
+  });
+}
+
+if (typeof window !== 'undefined') {
+  window.getLayoutSlotCount = getLayoutSlotCount;
+  window.getCaptureSlotIndex = getCaptureSlotIndex;
+  window.getStickersForCapturePreview = getStickersForCapturePreview;
+}
+
 function getCatalogStickerBaseSize(item) {
   if (!item) return { w: 64, h: 64 };
 

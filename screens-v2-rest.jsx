@@ -28,6 +28,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const touchStartY = React.useRef(null);
   const cameraFrameRef = React.useRef(null);
 
+  // Only show stickers assigned to the current frame slot during live capture preview.
+  // Extra candidate shots (idx >= slotCount) get no stickers to prevent duplication.
+  const visibleCaptureStickers = typeof getStickersForCapturePreview === 'function'
+    ? getStickersForCapturePreview(preStickers, idx, layout)
+    : [];
+
   const canvasActive = webglOk && firstFrame;
 
   React.useEffect(() => {
@@ -103,11 +109,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
       ctx.restore();
 
-      if (typeof FrameRenderEngine !== 'undefined' && preStickers.length > 0) {
-        for (const sticker of preStickers) {
-          await FrameRenderEngine.drawStickerToCanvas(ctx, sticker, c.width, c.height, Math.max(1, c.width / 720));
-        }
-      }
+      // Step 1 slot stickers are NOT baked into individual raw shots.
+      // They are rendered once in the final frame composite via frameSlot.
+      // Baking them per-shot would cause each original photo to carry the sticker,
+      // resulting in duplicate rendering in the final frame output.
       const dataUrl = c.toDataURL('image/jpeg', 0.95);
       if (dataUrl && dataUrl.length > 5000) {
         return { dataUrl, edge, sourceW: vw, sourceH: vh };
@@ -229,24 +234,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
 
   const bakePreStickers = React.useCallback(async (dataUrl) => {
-    if (!dataUrl || !preStickers.length || typeof FrameRenderEngine === 'undefined') return dataUrl;
-    const img = await new Promise((resolve) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => resolve(null);
-      el.src = dataUrl;
-    });
-    if (!img) return dataUrl;
-    const c = document.createElement('canvas');
-    c.width = img.width;
-    c.height = img.height;
-    const ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    for (const sticker of preStickers) {
-      await FrameRenderEngine.drawStickerToCanvas(ctx, sticker, c.width, c.height, Math.max(1, c.width / 720));
-    }
-    return c.toDataURL('image/jpeg', 0.95);
-  }, [preStickers]);
+    // Step 1 slot stickers must NOT be baked into raw shot data.
+    // They are composited once in the final frame render (frame-system.jsx drawStickerToCtx),
+    // placed per frameSlot. Baking here would duplicate them in every original photo
+    // and cause double-rendering in the exported frame.
+    return dataUrl;
+  }, []);
 
   const enhanceCapturedDataUrl = React.useCallback(async (dataUrl, filterKey, mirrorX) => {
     // DISABLED: WebGL filter is already fully applied in takeSnapshot.
@@ -379,7 +372,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           width:overlayBox.width, height:overlayBox.height,
           borderRadius:24, overflow:'hidden', pointerEvents:'none', zIndex:99999,
         }}>
-          {preStickers.map(s => (
+          {visibleCaptureStickers.map(s => (
             <div key={s.id} style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
               transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`, opacity:0.88 }}>
               {renderStickerInstance(s)}
@@ -485,7 +478,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           {/* Transparent hole for global camera box */}
           
           <div style={{ position:'absolute', inset:0, pointerEvents:'none', zIndex:12 }}>
-            {preStickers.map(s => (
+            {visibleCaptureStickers.map(s => (
               <div key={s.id} style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
                 transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`, opacity:0.88 }}>
                 {renderStickerInstance(s)}
