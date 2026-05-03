@@ -18,12 +18,24 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const curStrokeRef = React.useRef(null);
   const curPathElRef = React.useRef(null);
   const curPathDRef  = React.useRef('');
+  const [drawVersion, setDrawVersion] = React.useState(0);
+  const drawRafRef = React.useRef(null);
+
+  const requestDrawRefresh = React.useCallback(() => {
+    if (drawRafRef.current) return;
+    drawRafRef.current = requestAnimationFrame(() => {
+      drawRafRef.current = null;
+      setDrawVersion(v => v + 1);
+    });
+  }, []);
 
   const addPreset = (libId) => setStickers((p) => [...p, makeSticker('preset', { libId })]);
   const addUpload = (dataUrl) => setStickers((p) => [...p, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
   const addText = () => {
     if (!textInput.trim()) return;
-    setStickers((p) => [...p, makeSticker('text', { text: textInput, font: 'Caveat', size: 32, color: drawColor })]);
+    const rect = frameNativeRef.current?.getBoundingClientRect();
+    const sizeNorm = rect?.width ? 32 / rect.width : null;
+    setStickers((p) => [...p, makeSticker('text', { text: textInput, font: 'Caveat', size: 32, sizeNorm, color: drawColor })]);
     setTextInput('');
   };
   const onFile = (e) => {
@@ -48,7 +60,16 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     const rect = frameNativeRef.current.getBoundingClientRect();
     const x = (pt.clientX - rect.left) / rect.width * 100;
     const y = (pt.clientY - rect.top) / rect.height * 100;
-    curStrokeRef.current = { color: drawColor, width: drawWidth, brush: drawBrush, points: [[x, y]] };
+    // Store normalized width so export renders at same visual size regardless of canvas scale
+    const widthNorm = rect.width > 0 ? drawWidth / rect.width : null;
+    curStrokeRef.current = {
+      color: drawColor,
+      width: drawWidth,    // legacy fallback
+      widthNorm,           // normalized: 0~1 of frame display width
+      brush: drawBrush,
+      points: [[x, y]],
+      seed: Date.now() % 100000,
+    };
     curPathDRef.current = `M${x} ${y}`;
     if (curPathElRef.current) {
       curPathElRef.current.setAttribute('d', curPathDRef.current);
@@ -69,7 +90,8 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     if (curPathElRef.current) {
       curPathElRef.current.setAttribute('d', curPathDRef.current);
     }
-  }, []);
+    requestDrawRefresh();
+  }, [requestDrawRefresh]);
 
   const onDrawEnd = React.useCallback(() => {
     if (curStrokeRef.current && curStrokeRef.current.points.length > 1) {
@@ -145,7 +167,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     // Throttle slightly or use RAF for drawing? For now direct call is fine.
     const raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, drawMode]);
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, drawVersion, logo, dateText, accent, orientation, drawMode]);
 
   const preview =
   <div ref={previewContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>

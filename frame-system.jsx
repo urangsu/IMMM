@@ -136,7 +136,11 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
     }
   } else if (sticker.kind === 'text') {
     ctx.fillStyle = sticker.payload.color || '#111';
-    ctx.font = `600 ${(sticker.payload.size || 32) * scalePx}px Pretendard, sans-serif`;
+    // sizeNorm (0~1 relative to frame width) takes priority over absolute size px
+    const fontPx = sticker.payload.sizeNorm
+      ? sticker.payload.sizeNorm * baseW
+      : (sticker.payload.size || 32) * scalePx;
+    ctx.font = `600 ${fontPx}px Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(sticker.payload.text || '', 0, 0);
@@ -168,6 +172,69 @@ function drawLetterSpacedText(ctx, text, x, y, spacingPx) {
   for (const ch of text) {
     ctx.fillText(ch, curX, y);
     curX += ctx.measureText(ch).width + spacingPx;
+  }
+}
+
+/**
+ * Deterministic pseudo-random from a seed integer.
+ * Returns a float in [0, 1). Same seed → same sequence.
+ */
+function seededRand(seed) {
+  // xorshift32
+  let s = (seed ^ 0xdeadbeef) >>> 0;
+  s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+  return (s >>> 0) / 0xffffffff;
+}
+
+/**
+ * Distance-based sparkle stamp.
+ * Stamps at fixed world-space intervals regardless of pointer speed/device.
+ * Uses a deterministic seed so preview and export produce identical results.
+ */
+function renderSparkleStroke(ctx, stroke, w, h, lineWidth) {
+  if (!Array.isArray(stroke.points) || stroke.points.length < 1) return;
+  const spacing = lineWidth * 2.2;  // world-space distance between stamps
+  const sz = lineWidth * 1.5;
+  const baseSeed = stroke.seed || 0;
+  let accumulated = 0;
+  let stampIdx = 0;
+
+  ctx.fillStyle = stroke.color || '#fff';
+  ctx.globalAlpha = 0.85;
+
+  for (let i = 1; i < stroke.points.length; i++) {
+    const [ax, ay] = stroke.points[i - 1];
+    const [bx, by] = stroke.points[i];
+    const segX = (bx - ax) / 100 * w;
+    const segY = (by - ay) / 100 * h;
+    const segLen = Math.sqrt(segX * segX + segY * segY);
+    if (segLen === 0) continue;
+    const ux = segX / segLen;
+    const uy = segY / segLen;
+
+    let d = accumulated === 0 ? 0 : spacing - accumulated;
+    while (d <= segLen) {
+      const tx = (ax / 100 * w) + ux * d;
+      const ty = (ay / 100 * h) + uy * d;
+      const rotSeed = seededRand(baseSeed + stampIdx * 7);
+      const rot = rotSeed * Math.PI * 2;
+
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(rot);
+      ctx.beginPath();
+      ctx.moveTo(0, -sz);
+      ctx.lineTo(sz * 0.25, -sz * 0.25); ctx.lineTo(sz, 0); ctx.lineTo(sz * 0.25, sz * 0.25);
+      ctx.lineTo(0, sz); ctx.lineTo(-sz * 0.25, sz * 0.25); ctx.lineTo(-sz, 0); ctx.lineTo(-sz * 0.25, -sz * 0.25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      stampIdx++;
+      d += spacing;
+    }
+    accumulated = segLen - (d - spacing);
+    if (accumulated < 0) accumulated = 0;
   }
 }
 
@@ -307,36 +374,23 @@ async function renderComposition(ctx, data, options = {}) {
   // 4. Drawing Strokes
   const drawStrokes = data.drawStrokes || [];
   drawStrokes.filter(Boolean).forEach((stroke) => {
-    if (!Array.isArray(stroke.points) || stroke.points.length < 2) return;
-    
+    if (!Array.isArray(stroke.points) || stroke.points.length < 1) return;
+
+    // Prefer normalized width (0~1 of frame width), fall back to absolute px * scale
+    const lineWidth = stroke.widthNorm
+      ? stroke.widthNorm * w
+      : (stroke.width || 3) * scale;
+
     ctx.save();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    
+
     if (stroke.brush === 'sparkle') {
-      const step = 8;
-      const sz = (stroke.width || 3) * scale * 1.5;
-      ctx.fillStyle = stroke.color || '#fff';
-      ctx.globalAlpha = 0.85;
-      for (let i = 0; i < stroke.points.length; i += step) {
-        const [px, py] = stroke.points[i];
-        const tx = (px / 100) * w;
-        const ty = (py / 100) * h;
-        
-        ctx.save();
-        ctx.translate(tx, ty);
-        ctx.beginPath();
-        const s = sz;
-        ctx.moveTo(0, -s);
-        ctx.lineTo(s * 0.25, -s * 0.25); ctx.lineTo(s, 0); ctx.lineTo(s * 0.25, s * 0.25);
-        ctx.lineTo(0, s); ctx.lineTo(-s * 0.25, s * 0.25); ctx.lineTo(-s, 0); ctx.lineTo(-s * 0.25, -s * 0.25);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
+      renderSparkleStroke(ctx, stroke, w, h, lineWidth);
     } else {
+      if (stroke.points.length < 2) { ctx.restore(); return; }
       ctx.strokeStyle = stroke.color || '#111';
-      ctx.lineWidth = (stroke.width || 3) * scale;
+      ctx.lineWidth = lineWidth;
       ctx.beginPath();
       stroke.points.forEach(([px, py], idx) => {
         const tx = (px / 100) * w;
