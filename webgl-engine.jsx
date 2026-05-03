@@ -1413,7 +1413,6 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
   const engineRef    = React.useRef(null);
   const filterKeyRef = React.useRef(filterKey);
   const mirrorXRef = React.useRef(mirrorX);
-  const mobileRef = React.useRef(mobile);
   const [webglOk, setWebglOk]     = React.useState(false);
   const [firstFrame, setFirstFrame] = React.useState(false);
   const [webglFailed, setWebglFailed] = React.useState(false);
@@ -1485,7 +1484,6 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
   };
 
   React.useEffect(() => {
-    mobileRef.current = mobile;
     if (engineRef.current) engineRef.current.setMobile(mobile);
   }, [mobile]);
 
