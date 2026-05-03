@@ -225,12 +225,16 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const frameW = layout === 'strip' || layout === 'trip' ? 180 : 220;
 
   // Compute ratio of CSS displayed size to native canvas size.
-  // composition canvas renders at baseW px natively, but displays at frameW CSS px.
-  // StickerCanvas hitbox (in CSS px) must be scaled by this ratio for deco-overlay mode.
+  // composition canvas renders at native baseW×baseH, but CSS displays at frameW wide.
+  // hitbox bounds (in CSS px) = native bounds × (cssSize / nativeSize).
+  // Do NOT use getBoundingClientRect here — it reflects zoom transform.
   const decoScale = React.useMemo(() => {
     const tmpl = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
     const baseW = tmpl?.canvasSize?.width || 880;
-    return { x: frameW / baseW, y: frameW / baseW };
+    const baseH = tmpl?.canvasSize?.height || 1070;
+    const cssW = frameW;
+    const cssH = frameW * (baseH / baseW);
+    return { x: cssW / baseW, y: cssH / baseH };
   }, [layout, frameW]);
 
   const preview =

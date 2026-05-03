@@ -429,6 +429,13 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {sortedStickers.filter(s => s.frameSlot == null).map(s => {
           const isSel = s.id === selectedId;
           const hitbox = getInteractionBounds(s, mode, decoScale);
+          if (mode === 'deco-overlay' && window.IMMM_DEBUG_STICKER) {
+            console.debug('[IMMM deco sticker]', {
+              id: s.id, kind: s.kind, libId: s.payload?.libId,
+              scale: s.scale, rawBounds: getStickerVisualBounds(s),
+              interactionBounds: hitbox, decoScale, mode,
+            });
+          }
           return (
             <div key={s.id} onPointerDown={(e)=>onPointerDown(e, s, 'move')} onClick={(e)=>e.stopPropagation()}
               style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,

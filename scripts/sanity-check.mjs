@@ -241,6 +241,11 @@ function checkDeco() {
     console.error('❌ FAIL: screens-v2-deco.jsx StickerCanvas missing decoScale prop');
     hasErrors = true;
   }
+  // y-axis must use explicit cssH = frameW * (baseH / baseW)
+  if (!content.includes('cssH') || !content.includes('cssH / baseH')) {
+    console.warn('⚠️ WARN: screens-v2-deco.jsx decoScale y-axis should use cssH = frameW * (baseH/baseW); y: cssH/baseH');
+    hasWarnings = true;
+  }
 }
 
 function checkTask() {
