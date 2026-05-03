@@ -150,8 +150,15 @@ void main(){
   vec4 blur = texture2D(u_blurredTex, v_uv);
   float mask = texture2D(u_maskTex, v_uv).r;
   float conf = getSkinConfidence(ori.rgb);
-  gl_FragColor = mix(ori, blur, mask * conf * u_strength);
+  float finalMask = mask * conf;
+  
+  if (u_debugMask > 0.5) {
+    gl_FragColor = vec4(vec3(finalMask), 1.0);
+  } else {
+    gl_FragColor = mix(ori, blur, finalMask * u_strength);
+  }
 }`,
+
 
 
 
@@ -1081,6 +1088,13 @@ class FilterEngine {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
   }
 
+  clearMask() {
+    if (this._destroyed) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this._maskTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,255]));
+  }
+
   _ensureFbos(w, h) {
     if (this._fboW === w && this._fboH === h) return;
     this._fboW = w; this._fboH = h;
@@ -1199,6 +1213,7 @@ class FilterEngine {
           u_blurredTex: blurredTex,
           u_maskTex: this._maskTex,
           u_strength: step.uniforms?.u_strength || 0.0,
+          u_debugMask: step.uniforms?.u_debugMask || 0.0,
           u_flipX: 0.0, u_flipY: 0.0
         });
         curTex = this._fboInfos[compOut].attachments[0];
@@ -1538,8 +1553,12 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
 
         // PR 2-5: Experimental Skin Retouch (OFF by default)
         const enableExperimentalSkinRetouch = typeof window !== 'undefined' && window.IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH === true;
+        const debugMask = typeof window !== 'undefined' && window.IMMM_DEBUG_SKIN_MASK === true;
+
         if (enableExperimentalSkinRetouch) {
           const maskOk = (face?.detected) ? updateRetouchMask(face) : false;
+          if (!face?.detected && engineRef.current) engineRef.current.clearMask();
+
           const strengths = {
             smooth: 0.40,
             porcelain: 0.20,
@@ -1548,7 +1567,11 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
           };
           const strength = strengths[key];
           if (strength > 0 && maskOk) {
-            steps = [{ shader: 'skin_retouch', uniforms: { u_strength: strength } }, ...steps];
+            // TODO: In next PR, loop through faces[] to draw multi-face mask
+            steps = [{ 
+              shader: 'skin_retouch', 
+              uniforms: { u_strength: strength, u_debugMask: debugMask ? 1.0 : 0.0 } 
+            }, ...steps];
           }
         }
 
