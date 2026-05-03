@@ -56,6 +56,21 @@ function checkStickerEngine() {
     console.error('❌ FAIL: sticker-engine.jsx missing getStickerHitboxSize helper');
     hasErrors = true;
   }
+  
+  if (!content.includes('function getCatalogStickerBaseSize')) {
+    console.error('❌ FAIL: sticker-engine.jsx missing getCatalogStickerBaseSize helper');
+    hasErrors = true;
+  }
+
+  if (content.includes('return 72;') || content.includes('return 72')) {
+    console.error('❌ FAIL: sticker-engine.jsx getStickerHitboxSize still uses scalar return 72 fallback instead of {w, h}');
+    hasErrors = true;
+  }
+  
+  if (content.includes('width: hideVisuals ? getStickerHitboxSize(s) :')) {
+    console.error('❌ FAIL: sticker-engine.jsx uses raw getStickerHitboxSize(s) scalar for width/height');
+    hasErrors = true;
+  }
 
   // Check if hideVisuals wrapper is hiding controls
   if (content.includes('opacity: hideVisuals ? 0 : 1') && content.match(/opacity:\s*hideVisuals\s*\?\s*0\s*:\s*1[^>]*>\s*\{renderStickerInstance[^}]*\}\s*\{renderStickerControls/)) {

@@ -101,12 +101,65 @@ function renderStickerInstance(s, scaleMul=1) {
   return null;
 }
 
+function getCatalogStickerBaseSize(item) {
+  if (!item) return { w: 64, h: 64 };
+
+  if (item.type === 'mini') {
+    return { w: 44, h: 44 };
+  }
+
+  if (item.type === 'text') {
+    const fs = item.size || 32;
+    const text = item.text || '';
+    return {
+      w: Math.max(48, Math.min(180, text.length * fs * 0.62)),
+      h: Math.max(36, fs * 1.35)
+    };
+  }
+
+  if (item.type === 'burst') {
+    return {
+      w: item.w || 90,
+      h: item.h || 70
+    };
+  }
+
+  if (item.type === 'cloud') {
+    return {
+      w: item.w || 100,
+      h: item.h || 60
+    };
+  }
+
+  return { w: 64, h: 64 };
+}
+
 function getStickerHitboxSize(sticker) {
-  if (!sticker) return 64;
-  if (sticker.kind === 'upload') return 120;
-  if (sticker.kind === 'text') return Math.max(48, Math.min(180, sticker.payload?.size || 64));
-  if (sticker.kind === 'setlog') return 140;
-  return 72; // preset fallback
+  if (!sticker) return { w: 64, h: 64 };
+
+  if (sticker.kind === 'preset') {
+    const item = getStickerByLibId(sticker.payload?.libId);
+    return getCatalogStickerBaseSize(item);
+  }
+
+  if (sticker.kind === 'upload') {
+    return { w: 120, h: 120 };
+  }
+
+  if (sticker.kind === 'text') {
+    const size = sticker.payload?.size || 32;
+    const text = sticker.payload?.text || '';
+    return {
+      w: Math.max(48, Math.min(220, text.length * size * 0.62)),
+      h: Math.max(36, size * 1.35)
+    };
+  }
+
+  if (sticker.kind === 'setlog') {
+    return { w: 140, h: 64 };
+  }
+
+  return { w: 64, h: 64 };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -234,7 +287,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
 
   const renderStickerControls = (s, isSel) => {
     if (!isSel) return null;
-    const invScale = 1 / (s.scale || 1);
+    const invScale = 1 / Math.max(0.25, Math.min(4, s.scale || 1));
     const tr = `scale(${invScale})`;
     return (
       <>
@@ -322,6 +375,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Free stickers: full visual render */}
         {sortedStickers.filter(s => s.frameSlot == null).map(s => {
           const isSel = s.id === selectedId;
+          const hitbox = getStickerHitboxSize(s);
           return (
             <div key={s.id} onPointerDown={(e)=>onPointerDown(e, s, 'move')} onClick={(e)=>e.stopPropagation()}
               style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
@@ -330,8 +384,8 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                 zIndex:(s.z||0)+1, willChange:'transform',
                 transition: dragState?.id===s.id?'none':'box-shadow 0.2s' }}>
               <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
-                width: hideVisuals ? getStickerHitboxSize(s) : 'auto',
-                height: hideVisuals ? getStickerHitboxSize(s) : 'auto',
+                width: hideVisuals ? hitbox.w : 'auto',
+                height: hideVisuals ? hitbox.h : 'auto',
                 outline: isSel?`1.5px dashed ${T?.pinkDeep||'#D98893'}`:'none',
                 outlineOffset: isSel?2:0, padding: 0 }}>
                 <div style={{ opacity: hideVisuals ? 0 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -345,6 +399,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Slotted stickers: transparent hit area, controls rendered separately when selected */}
         {sortedStickers.filter(s => s.frameSlot != null).map(s => {
           const isSel = s.id === selectedId;
+          const hitbox = getStickerHitboxSize(s);
           return (
             <React.Fragment key={s.id}>
               {/* Invisible hit area for drag */}
@@ -363,8 +418,8 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                   transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`,
                   transformOrigin:'center', zIndex:(s.z||0)+51, pointerEvents:'none' }}>
                   <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
-                    width: hideVisuals ? getStickerHitboxSize(s) : 'auto',
-                    height: hideVisuals ? getStickerHitboxSize(s) : 'auto',
+                    width: hideVisuals ? hitbox.w : 'auto',
+                    height: hideVisuals ? hitbox.h : 'auto',
                     outline:`1.5px dashed ${T?.pinkDeep||'#D98893'}`, outlineOffset:2, padding:0,
                     pointerEvents:'auto' }}>
                     <div style={{ opacity:0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -384,12 +439,20 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
 
 // Helpers for creating stickers
 function makeSticker(kind, payload, opts={}) {
+  let defaultScale = 1;
+  if (kind === 'preset') {
+    const item = getStickerByLibId(payload.libId);
+    if (item) {
+      if (item.type === 'burst' || item.type === 'cloud') defaultScale = 0.9;
+    }
+  }
+
   return {
     id: 'st_' + Math.random().toString(36).slice(2,9),
     kind, payload,
     x: opts.x ?? (40 + Math.random()*20),
     y: opts.y ?? (30 + Math.random()*30),
-    scale: opts.scale ?? 1,
+    scale: opts.scale ?? defaultScale,
     rotation: opts.rotation ?? (Math.random()*20 - 10),
     z: opts.z ?? Date.now(),
   };
