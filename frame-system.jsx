@@ -136,7 +136,9 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
     }
   } else if (sticker.kind === 'text') {
     ctx.fillStyle = sticker.payload.color || '#111';
-    // sizeNorm (0~1 relative to frame width) takes priority over absolute size px
+    // sizeNorm (0~1 relative to frame width) takes priority over absolute size px.
+    // NEW stickers store sizeNorm; LEGACY stickers fall back to size * scalePx.
+    // Do NOT migrate legacy stickers here — handle in a dedicated migration PR.
     const fontPx = sticker.payload.sizeNorm
       ? sticker.payload.sizeNorm * baseW
       : (sticker.payload.size || 32) * scalePx;
