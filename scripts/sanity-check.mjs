@@ -35,47 +35,66 @@ function checkEmergencyFaceSafety() {
   const rest = readFile('screens-v2-rest.jsx');
 
   if (webgl) {
-    // Rule 8, 9
-    if (webgl.includes('warpEye')) {
-      if (!webgl.match(/\/\/\s*warpEye/) && !webgl.match(/\/\*\s*warpEye/) && !webgl.includes('SAFETY:')) {
-         // Allow in neutralization comments, but fail if active
-         if (webgl.includes('uv = warpEye')) {
-            console.error('❌ FAIL: webgl-engine.jsx still contains active warpEye calls');
-            hasErrors = true;
-         }
-      }
+    // 1. webgl-engine.jsx의 skin_retouch shader body 안에 u_blurredTex가 있으면 fail
+    const skinRetouchBody = webgl.match(/skin_retouch:\s*`([\s\S]*?)`/)?.[1] || '';
+    if (skinRetouchBody.includes('u_blurredTex')) {
+       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains u_blurredTex');
+       hasErrors = true;
     }
-    if (webgl.includes('warpToward')) {
-       if (webgl.includes('uv = warpToward')) {
-          console.error('❌ FAIL: webgl-engine.jsx still contains active warpToward calls');
-          hasErrors = true;
-       }
+    // 2. skin_retouch shader body 안에 u_maskTex가 있으면 fail
+    if (skinRetouchBody.includes('u_maskTex')) {
+       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains u_maskTex');
+       hasErrors = true;
+    }
+    // 3. skin_retouch shader body 안에 finalMask가 있으면 fail
+    if (skinRetouchBody.includes('finalMask')) {
+       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains finalMask');
+       hasErrors = true;
+    }
+    // 4. skin_retouch shader body 안에 getSkinConfidence가 있으면 fail
+    if (skinRetouchBody.includes('getSkinConfidence')) {
+       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains getSkinConfidence');
+       hasErrors = true;
+    }
+    // 5. skin_retouch shader body 안에 mix(ori, blur가 있으면 fail
+    if (skinRetouchBody.includes('mix(ori, blur')) {
+       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains mix(ori, blur');
+       hasErrors = true;
+    }
+    // 6. IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH 문자열이 있으면 fail
+    if (webgl.includes('IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH')) {
+       console.error('❌ FAIL: webgl-engine.jsx contains prohibited IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH');
+       hasErrors = true;
+    }
+    // 7. active pipeline에 shader:'skin_retouch'가 있으면 fail
+    if (webgl.match(/^\s*(?!\/\/).*\bshader\s*:\s*'skin_retouch'\b/m)) {
+       console.error('❌ FAIL: webgl-engine.jsx active pipeline contains skin_retouch');
+       hasErrors = true;
+    }
+    // 8. blush shader body 안에 u_faceCount, u_leftCheek, u_rightCheek, cheek(가 있으면 fail
+    const blushBody = webgl.match(/blush:\s*`([\s\S]*?)`/)?.[1] || '';
+    const blushProhibited = ['u_faceCount', 'u_leftCheek', 'u_rightCheek', 'cheek('];
+    blushProhibited.forEach(word => {
+      if (blushBody.includes(word)) {
+        console.error(`❌ FAIL: webgl-engine.jsx blush shader body contains prohibited word: ${word}`);
+        hasErrors = true;
+      }
+    });
+
+    // 10. webgl-engine.jsx에 faceUniforms.u_ 할당이 있으면 fail, 주석 안이면 warn만 허용
+    if (webgl.match(/^\s*(?!\/\/).*\bfaceUniforms\.u_\w+\b\s*=/m)) {
+       console.error('❌ FAIL: webgl-engine.jsx contains active faceUniforms.u_ assignment');
+       hasErrors = true;
     }
 
-    // Rule 7
-    if (webgl.match(/^\s*(?!\/\/).*\bu_eyeScale\b/m)) {
-      console.error('❌ FAIL: webgl-engine.jsx still contains active u_eyeScale uniform usage');
+    // Geometry guards
+    if (webgl.includes('uv = warpEye')) {
+      console.error('❌ FAIL: webgl-engine.jsx contains active warpEye calls');
       hasErrors = true;
     }
-
-    // Rule 4, 5, 6
-    if (webgl.includes('faceUniforms.u_faceCount') || webgl.includes('faceUniforms.u_leftCheek')) {
-       if (!webgl.match(/\/\/\s*faceUniforms\.u_faceCount/)) {
-          console.error('❌ FAIL: webgl-engine.jsx still injects landmark-based faceUniforms');
-          hasErrors = true;
-       }
-    }
-
-    // Rule 10, 11
-    if (webgl.includes('shader: \'skin_retouch\'')) {
-       if (!webgl.match(/\/\/\s*shader:\s*'skin_retouch'/)) {
-          console.error('❌ FAIL: webgl-engine.jsx still has active skin_retouch pass in FILTER_PIPELINES');
-          hasErrors = true;
-       }
-    }
-    if (webgl.includes('IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH')) {
-       console.warn('⚠️ WARN: webgl-engine.jsx still contains IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH reference');
-       // hasWarnings = true;
+    if (webgl.includes('uv = warpToward')) {
+      console.error('❌ FAIL: webgl-engine.jsx contains active warpToward calls');
+      hasErrors = true;
     }
 
     // Shader neutralization check
@@ -90,17 +109,15 @@ function checkEmergencyFaceSafety() {
   }
 
   if (main) {
-    // Rule 1
+    // 9. main.jsx에 useFaceLandmarks(videoRef)가 있으면 fail
     if (main.includes('useFaceLandmarks(videoRef)')) {
       console.error('❌ FAIL: main.jsx still calls useFaceLandmarks(videoRef) - Must be GLOBALLY disabled');
       hasErrors = true;
     }
-    // Rule 2
     if (!main.includes('const FACE_LANDMARKS_DISABLED = true')) {
       console.error('❌ FAIL: main.jsx missing const FACE_LANDMARKS_DISABLED = true');
       hasErrors = true;
     }
-    // Rule 3
     if (!main.includes('const faceTrackedFilters = [];')) {
       console.error('❌ FAIL: main.jsx faceTrackedFilters must be empty []');
       hasErrors = true;
@@ -108,7 +125,6 @@ function checkEmergencyFaceSafety() {
   }
 
   if (rest) {
-    // Rule 12, 13
     if (!rest.includes('const applyBeautyGeometry = () => { return; };')) {
       console.error('❌ FAIL: screens-v2-rest.jsx applyBeautyGeometry is not a no-op stub');
       hasErrors = true;
@@ -117,18 +133,9 @@ function checkEmergencyFaceSafety() {
       console.error('❌ FAIL: screens-v2-rest.jsx applyFaceZoneSoftening is not a no-op stub');
       hasErrors = true;
     }
-    // Rule 14
     if (rest.match(/applyFaceZoneSoftening\(\s*ctx/)) {
        console.error('❌ FAIL: screens-v2-rest.jsx still calls applyFaceZoneSoftening(ctx');
        hasErrors = true;
-    }
-    // Rule 15
-    if (rest.includes('faceDataRef.current') && rest.includes('ctx.drawImage')) {
-       // Simple heuristic: if both are in the file, check if landmarks are used for crop/geometry
-       if (rest.includes('landmarks[') || rest.includes('faces[')) {
-          // This is a bit greedy but safe for emergency
-          // console.warn('⚠️ WARN: screens-v2-rest.jsx might still use face landmarks for geometry');
-       }
     }
   }
 }
