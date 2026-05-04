@@ -89,10 +89,10 @@ function App() {
   // ═══════════════════════════════════════════════════════════════
   const videoRef  = React.useRef(null);
   const canvasRef = React.useRef(null);
-  // EMERGENCY: Disable face landmarks entirely on Samsung Internet or if GEOMETRY_DISABLED is true.
-  const faceDataRef = (!forceSafeCameraMode && typeof useFaceLandmarks === 'function')
-    ? useFaceLandmarks(videoRef)
-    : React.useRef({ detected: false, faces: [] });
+  // EMERGENCY FACE SHAPE SAFETY:
+  // faceDataRef is PERMANENTLY set to a dummy object.
+  // useFaceLandmarks is disabled for ALL browsers to prevent any geometry warp or landmark-based distortion.
+  const faceDataRef = React.useRef({ detected: false, faces: [] });
   const [facingMode, setFacingMode] = React.useState('user');
   const [camOk, setCamOk] = React.useState(null);
   const streamRef = React.useRef(null);

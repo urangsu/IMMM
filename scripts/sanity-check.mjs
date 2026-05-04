@@ -43,7 +43,7 @@ function checkEmergencyFaceSafety() {
     }
     
     // Shader neutralization check
-    const shaders = ['face_slim', 'eye_bright', 'lip_color', 'contour'];
+    const shaders = ['face_slim', 'eye_bright', 'lip_color', 'contour', 'skin_retouch'];
     shaders.forEach(s => {
       const pattern = new RegExp(`${s}:\\s*\`[\\s\\S]*?void\\s+main\\(\\)\\s*\\{[\\s\\S]*?gl_FragColor=texture2D\\(u_tex,v_uv\\);[\\s\\S]*?\\}\``);
       if (!pattern.test(webgl)) {
@@ -52,18 +52,22 @@ function checkEmergencyFaceSafety() {
       }
     });
 
-    if (webgl.includes('shader: \'skin_retouch\'')) {
-      // Should be commented out or removed
-      if (!webgl.match(/\/\/\s*shader:\s*'skin_retouch'/)) {
-        console.error('❌ FAIL: webgl-engine.jsx still injects active skin_retouch pass');
+    if (webgl.includes('faceUniforms.u_faceCount')) {
+      if (!webgl.match(/\/\/\s*faceUniforms\.u_faceCount/)) {
+        console.error('❌ FAIL: webgl-engine.jsx still injects landmark-based faceUniforms');
         hasErrors = true;
       }
+    }
+
+    if (webgl.includes('mobileRef')) {
+      console.error('❌ FAIL: webgl-engine.jsx contains "mobileRef" (legacy guard)');
+      hasErrors = true;
     }
   }
 
   if (main) {
-    if (main.includes('faceTrackedFilters = [\'blush\']')) {
-      console.error('❌ FAIL: main.jsx still has blush in faceTrackedFilters');
+    if (main.includes('useFaceLandmarks(videoRef)')) {
+      console.error('❌ FAIL: main.jsx still calls useFaceLandmarks(videoRef) - Must be GLOBALLY disabled');
       hasErrors = true;
     }
     if (!main.includes('const faceTrackedFilters = [];')) {

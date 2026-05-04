@@ -127,42 +127,13 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),col.a);
 }`,
 
+// skin_retouch — PERMANENTLY DISABLED
 skin_retouch: `
 precision mediump float;
 uniform sampler2D u_tex;
-uniform sampler2D u_blurredTex;
-uniform sampler2D u_maskTex;
-uniform float u_strength;
-uniform float u_debugMask;
 varying vec2 v_uv;
-
-float getSkinConfidence(vec3 rgb) {
-  float r = rgb.r; float g = rgb.g; float b = rgb.b;
-  float y = 0.299 * r + 0.587 * g + 0.114 * b;
-  float cr = (r - y) * 0.713 + 0.5;
-  float cb = (b - y) * 0.564 + 0.5;
-  // Slightly widened Cr range for warm indoor lighting
-  float crW = smoothstep(0.48, 0.52, cr) * (1.0 - smoothstep(0.68, 0.74, cr));
-  float cbW = smoothstep(0.28, 0.34, cb) * (1.0 - smoothstep(0.48, 0.54, cb));
-  return crW * cbW;
-}
-
 void main(){
-  vec4 ori = texture2D(u_tex, v_uv);
-  vec4 blur = texture2D(u_blurredTex, v_uv);
-  float faceMask = texture2D(u_maskTex, v_uv).r;
-  float conf = getSkinConfidence(ori.rgb);
-  float finalMask = faceMask * conf;
-  
-  if (u_debugMask > 2.5) {
-    gl_FragColor = vec4(vec3(finalMask), 1.0);
-  } else if (u_debugMask > 1.5) {
-    gl_FragColor = vec4(vec3(conf), 1.0);
-  } else if (u_debugMask > 0.5) {
-    gl_FragColor = vec4(vec3(faceMask), 1.0);
-  } else {
-    gl_FragColor = mix(ori, blur, finalMask * u_strength);
-  }
+  gl_FragColor=texture2D(u_tex,v_uv);
 }`,
 
 
@@ -363,51 +334,28 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
-//  Blush  face-landmark-aware cheek blush 
+//  Blush — EMERGENCY: GLOBAL WARM TINT (NON-LANDMARK)
+// SAFETY: Removed landmark awareness (cheek position) to prevent distortion.
+// Now applies a subtle, natural warm pinkish lift to the entire frame.
 blush: `
 precision mediump float;
 uniform sampler2D u_tex;
-uniform float u_faceCount;
-uniform vec2 u_leftCheek0;
-uniform vec2 u_rightCheek0;
-uniform float u_cheekRadius0;
-uniform vec2 u_leftCheek1;
-uniform vec2 u_rightCheek1;
-uniform float u_cheekRadius1;
-uniform vec2 u_leftCheek2;
-uniform vec2 u_rightCheek2;
-uniform float u_cheekRadius2;
-uniform vec2 u_leftCheek3;
-uniform vec2 u_rightCheek3;
-uniform float u_cheekRadius3;
-uniform float u_blushStrength;
-uniform vec3 u_blushColor;
-uniform vec2 u_resolution;
+uniform float u_intensity;
 varying vec2 v_uv;
-float cheek(vec2 uv, vec2 p, float r, float ar){
-  float d=length(uv-vec2(p.x*ar,p.y));
-  return pow(1.0-smoothstep(0.0,r,d),2.2);
-}
 void main(){
   vec4 orig=texture2D(u_tex,v_uv);
   vec3 c=orig.rgb;
-  float ar=u_resolution.x/u_resolution.y;
-  vec2 uv=vec2(v_uv.x*ar,v_uv.y);
-  float mask=0.0;
-  if(u_faceCount>0.5) mask+=cheek(uv,u_leftCheek0,u_cheekRadius0,ar)+cheek(uv,u_rightCheek0,u_cheekRadius0,ar);
-  if(u_faceCount>1.5) mask+=cheek(uv,u_leftCheek1,u_cheekRadius1,ar)+cheek(uv,u_rightCheek1,u_cheekRadius1,ar);
-  if(u_faceCount>2.5) mask+=cheek(uv,u_leftCheek2,u_cheekRadius2,ar)+cheek(uv,u_rightCheek2,u_cheekRadius2,ar);
-  if(u_faceCount>3.5) mask+=cheek(uv,u_leftCheek3,u_cheekRadius3,ar)+cheek(uv,u_rightCheek3,u_cheekRadius3,ar);
-  float blush=min(mask,1.0)*u_blushStrength;
-  vec3 screened=c+u_blushColor-c*u_blushColor;
-  float lum0=dot(orig.rgb,vec3(0.299,0.587,0.114));
-  float protect=1.0-smoothstep(0.72,0.95,lum0);
-  c=mix(c,screened,clamp(blush*0.50*protect,0.0,1.0));
-  // Warm lift + slight desat
+  
+  // Natural warm pink lift
+  vec3 warm=vec3(1.0, 0.94, 0.92);
+  c=mix(c, c+warm-c*warm, 0.08 * u_intensity);
+  
+  // Subtle red lift in midtones
   float lum=dot(c,vec3(0.299,0.587,0.114));
-  c=mix(vec3(lum),c,0.92);
-  c*=1.035; c.r=min(c.r+0.014,1.0);
-  gl_FragColor=vec4(mix(orig.rgb,clamp(c,0.0,1.0),1.0),orig.a);
+  float mid=smoothstep(0.2, 0.7, lum) * (1.0-smoothstep(0.6, 0.95, lum));
+  c.r=min(c.r+0.015*u_intensity*mid, 1.0);
+  
+  gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
 //  Halation pass-1 H: extract bright  horizontal Gaussian (unrolled for GLES1) 
@@ -1413,68 +1361,10 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
         const time = performance.now() / 1000;
         const face = faceDataRef?.current;
 
-        // Dynamic face uniforms
-        // SAFETY: UV-warp uniforms (SLIM_STRENGTH/u_leftJaw/u_rightJaw/u_chin for face_slim,
-        // EYE_SCALE for purikura eye-warp, u_lipCenter/u_lipColor for lip_color,
-        // u_noseTip/u_noseTop for contour) are ONLY injected for hidden filters (glam/aurora/purikura).
-        // Visible filter pipelines (original/porcelain/smooth/blush/grain/bw) do NOT contain
-        // face_slim, purikura, eye_bright, lip_color, or contour shader steps, so these
-        // uniforms have no effect even if accidentally present.
+        // EMERGENCY FACE SHAPE SAFETY:
+        // All face landmark processing and uniform injection are PERMANENTLY DISABLED.
+        // No browser will process face coordinates or apply landmark-based shaders.
         let faceUniforms = {};
-        const isSamsungInternet = typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent);
-
-        if (face?.detected && !isSamsungInternet) {
-          // coordinate transformation: MP(0,0)=top-left → GL(0,0)=bottom-left + mirror correction
-          const tx = (p) => [mirrorXRef.current ? 1.0 - p[0] : p[0], 1.0 - p[1]];
-
-          // SAFETY: purikura eye-warp permanently disabled. Eye warpEye fn removed from shader.
-          // Do NOT inject u_eyeRadius or EYE_SCALE for any filter.
-          // if (key === 'purikura') { ... } — REMOVED
-
-          if (key === 'blush' || key === 'glam' || key === 'aurora') {
-            const faces = (face.faces?.length ? face.faces : [face]).slice(0, 4);
-            // Cheek blush uniforms
-            const blushPart = { u_faceCount: faces.length };
-            for (let i = 0; i < 4; i++) {
-              const f = faces[i];
-              blushPart[`u_leftCheek${i}`]  = f ? tx(f.leftCheek)  : [0, 0];
-              blushPart[`u_rightCheek${i}`] = f ? tx(f.rightCheek) : [0, 0];
-              blushPart[`u_cheekRadius${i}`] = f ? f.cheekRadius * 1.65 : 0.0;
-            }
-            if (key === 'blush') {
-              blushPart.u_blushStrength = 1.15;
-              blushPart.u_blushColor    = [1.0, 0.58, 0.64];
-            }
-            faceUniforms = { ...faceUniforms, ...blushPart };
-          }
-
-          if (key === 'glam' || key === 'aurora') {
-            const primary = face;
-            // Face slim — jaw/chin warp
-            faceUniforms.u_leftJaw      = tx(primary.leftJaw  ?? [0.20, 0.70]);
-            faceUniforms.u_rightJaw     = tx(primary.rightJaw ?? [0.80, 0.70]);
-            faceUniforms.u_chin         = tx(primary.chin     ?? [0.50, 0.88]);
-            // SAFETY: SLIM_STRENGTH injection permanently disabled
-            // Eye bright
-            faceUniforms.u_leftEyeCenter  = tx(primary.leftEyeCenter);
-            faceUniforms.u_rightEyeCenter = tx(primary.rightEyeCenter);
-            faceUniforms.u_eyeRadius      = primary.eyeRadius * 0.85;
-            faceUniforms.u_brightness     = 1.0;
-          }
-
-          if (key === 'glam') {
-            const primary = face;
-            // Lip color
-            faceUniforms.u_lipCenter  = tx(primary.lipCenter ?? [0.50, 0.68]);
-            faceUniforms.u_lipRadius  = primary.lipRadius ?? 0.085;
-            faceUniforms.u_lipColor   = [0.88, 0.30, 0.38];
-            faceUniforms.u_lipStrength = 0.68;
-            // Contour
-            faceUniforms.u_noseTip          = tx(primary.noseTip  ?? [0.50, 0.60]);
-            faceUniforms.u_noseTop          = tx(primary.noseTop  ?? [0.50, 0.48]);
-            faceUniforms.u_contourStrength  = 0.9;
-          }
-        }
 
         let steps = preset.pipeline;
         if (engineRef.current?._isMobile) {
