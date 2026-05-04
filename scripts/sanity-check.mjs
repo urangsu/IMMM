@@ -73,14 +73,19 @@ function checkFrameSystem() {
     hasErrors = true;
   }
 
-  if (content.includes("const dotColor = options.dotColor || (isDark ? '#aaa' : rawDotColor) || '#111'") && content.includes("'#D98893'")) {
-    console.error("❌ FAIL: frame-system.jsx renderFrameOverlay uses #D98893 as a fallback.");
+  if (content.includes("const dotColor = options.dotColor || rawDotColor || (isDark ? 'rgba(255,255,255,0.88)' : '#111')") === false) {
+    console.error("❌ FAIL: frame-system.jsx renderFrameOverlay missing correct dotColor fallback logic");
     hasErrors = true;
   }
 
-  if (!content.includes('template.theme?.dotColor') && !content.includes('template.theme.dotColor')) {
-    console.warn('⚠️ WARN: frame-system.jsx renderFrameOverlay does not reference template.theme.dotColor');
-    hasWarnings = true;
+  if (content.includes("s.frameSlot === i")) {
+    console.error("❌ FAIL: frame-system.jsx still uses s.frameSlot === i; use Number(s.frameSlot) === i");
+    hasErrors = true;
+  }
+
+  if (!content.includes('Number(s.frameSlot) === i')) {
+    console.error('❌ FAIL: frame-system.jsx missing Number(s.frameSlot) === i comparison');
+    hasErrors = true;
   }
 }
 
@@ -352,6 +357,27 @@ function checkSetupAndDecoStickerCanvas() {
   if (deco.includes('Object.entries(STICKER_CATALOG).map') || deco.includes('Object.values(STICKER_CATALOG).map')) {
     console.error('❌ FAIL: screens-v2-deco.jsx uses direct STICKER_CATALOG map without filtering');
     hasErrors = true;
+  }
+
+  if (!setup.includes('expandedPacks')) {
+    console.error('❌ FAIL: screens-v2.jsx missing expandedPacks state for sticker picker');
+    hasErrors = true;
+  }
+
+  if (!setup.includes('pack.items.slice(0, 5)')) {
+    console.error('❌ FAIL: screens-v2.jsx missing pack.items.slice(0, 5) for sticker picker');
+    hasErrors = true;
+  }
+
+  if (!deco.includes('pack.items.slice(0, 5)')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx missing pack.items.slice(0, 5) for sticker picker');
+    hasErrors = true;
+  }
+
+  const rest = readFile('screens-v2-rest.jsx');
+  if (rest && !rest.includes('dotColor: isDarkFrame ? \'rgba(255,255,255,0.88)\' : \'rgba(255,255,255,0.72)\'')) {
+    console.warn('⚠️ WARN: screens-v2-rest.jsx CaptureOverlay missing specific guide dotColor logic');
+    hasWarnings = true;
   }
 
   if (!setup.includes('repeat(auto-fill') && setup.includes('flexDirection: \'column\'')) {

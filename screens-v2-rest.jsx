@@ -950,6 +950,7 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
 
       ctx.save();
       ctx.translate(offsetX, offsetY);
+      const isDarkFrame = /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(frameColor || '').trim());
       renderFrameOverlay(ctx, template, fullW, fullH, {
         frameColor,
         logo,
@@ -958,6 +959,7 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
         // Force light colors so overlay is visible against any background
         textColor: 'rgba(255,255,255,0.88)',
         logoColor: 'rgba(255,255,255,0.95)',
+        dotColor: isDarkFrame ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.72)',
       });
       ctx.restore();
     }

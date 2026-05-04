@@ -291,7 +291,7 @@ function renderFrameOverlay(ctx, template, width, height, options = {}) {
   const logoColor = options.logoColor || (isDark ? '#fff' : (template.theme?.logoColor || '#111'));
   // Dot: always use theme dotColor; on white frames ensure dark fallback for visibility
   const rawDotColor = template.theme?.dotColor;
-  const dotColor = options.dotColor || rawDotColor || (isDark ? '#aaa' : '#111');
+  const dotColor = options.dotColor || rawDotColor || (isDark ? 'rgba(255,255,255,0.88)' : '#111');
 
   // 1. Logo
   if (options.logo !== false && template.logo) {
@@ -409,7 +409,7 @@ async function renderComposition(ctx, data, options = {}) {
     
     // Slotted stickers — only valid slots for this layout
     const slotted = (data.stickers || [])
-      .filter((s) => s.frameSlot === i && isStickerValidForLayout(s, data.layout || data.templateType));
+      .filter((s) => Number(s.frameSlot) === i && isStickerValidForLayout(s, data.layout || data.templateType));
     for (const s of slotted) {
       const local = { ...s, x: s.slotX ?? 50, y: s.slotY ?? 50 };
       ctx.save();

@@ -270,6 +270,7 @@ function getStickerPickerPacks() {
 function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks }) {
   const [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
   const [selStId, setSelStId] = uS(null);
+  const [expandedPacks, setExpandedPacks] = uS({});
   const fileRef = uR(null);
 
   const addPreset = (libId) => {
@@ -548,7 +549,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 8 }}>
-            {pack.items.map((it) =>
+            {(expandedPacks[k] ? pack.items : pack.items.slice(0, 5)).map((it) =>
               <button key={it.id} onClick={() => addPreset(it.id)} style={{
                 padding: 10, background: T.card, border: 'none', borderRadius: 12,
                 boxShadow: '0 0 0 1px rgba(26,26,31,0.06)', cursor: 'pointer',
@@ -562,6 +563,13 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                   {renderLibSticker(it, 0.65)}
                 </div>
               </button>
+            )}
+            {!expandedPacks[k] && pack.items.length > 5 && (
+              <button onClick={() => setExpandedPacks(p => ({ ...p, [k]: true }))} style={{
+                padding: 10, background: 'rgba(26,26,31,0.04)', border: 'none', borderRadius: 12,
+                color: T.inkSoft, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                minHeight: 58, height: 58, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+              }}>+{pack.items.length - 5}</button>
             )}
           </div>
         </div>
