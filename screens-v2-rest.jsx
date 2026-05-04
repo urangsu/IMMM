@@ -129,8 +129,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     // ── Skin-retouching base (for all skin-enhancing filters) ─────────────────
     const isSkinFilter = ['smooth','porcelain','blush','purikura'].includes(filterKey);
     if (isSkinFilter) {
-      const strength = filterKey === 'smooth' ? 0.32 : filterKey === 'blush' ? 0.24 : 0.18;
-      applyFaceZoneSoftening(ctx, w, h, strength);
+      // EMERGENCY FACE SHAPE SAFETY:
+      // applyFaceZoneSoftening and applyBeautyGeometry are permanently disabled
+      // to prevent face/cheek/boundary distortion on Galaxy/Samsung Internet.
+      // const strength = filterKey === 'smooth' ? 0.32 : filterKey === 'blush' ? 0.24 : 0.18;
+      // applyFaceZoneSoftening(ctx, w, h, strength);
 
       // Step 1: Soft warm lift — raises skin into warmer/brighter range
       // Using 'screen' to brighten without blowing out highlights
@@ -219,13 +222,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     return [mirrorX ? 1 - p[0] : p[0], p[1]];
   };
 
-  // LEGACY — applyBeautyGeometry: scanline jaw/cheek warp using face landmarks.
-  // DISABLED: caused visible distortion at face/background boundary.
-  // Kept as no-op stub so any stale reference does not throw a runtime error.
+  // EMERGENCY FACE SHAPE SAFETY:
+  // Do not re-enable geometry, radial face blur, or landmark-based deformation.
+  // Galaxy Samsung Internet showed face distortion at face/background boundary.
+  // All face-shape-changing code must remain disabled.
   const applyBeautyGeometry = () => { return; };
-
-
-  // applyFaceZoneSoftening — DISABLED.
   // The radial-gradient-masked blur caused face/background boundary distortion
   // ("cheek denting") visible in porcelain/smooth/blush capture results.
   // Kept as a no-op so references in applyCapturedFilterLook do not throw.
@@ -243,10 +244,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   }, []);
 
   const enhanceCapturedDataUrl = React.useCallback(async (dataUrl, filterKey, mirrorX) => {
-    // DISABLED: WebGL filter is already fully applied in takeSnapshot.
-    // Re-applying applyCapturedFilterLook causes double-filtering and JPEG quality loss.
+    // EMERGENCY FACE SHAPE SAFETY:
+    // WebGL filter is already fully applied in takeSnapshot.
+    // Do not re-apply any landmark-based logic here.
     return dataUrl;
-  }, [faceDataRef]);
+  }, []);
 
   const takeShot = React.useCallback(() => {
     setFlashing(true);

@@ -68,13 +68,20 @@ function App() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const safeFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
-  // faceTrackedFilters: only blush injects face-landmark uniforms (cheek positions).
-  // No visible filter uses UV-warp shaders (face_slim / eye-warp are glam-only, which is hidden).
-  const faceTrackedFilters = ['blush'];
-  // shouldUseWebgl: enabled for ALL visible filters when tweaks.useWebgl is true.
-  // Mobile default (window.innerWidth < 640) keeps useWebgl=false → CSS filter path.
-  // Not gated on faceTrackedFilters — face tracking is a bonus for blush, not a WebGL requirement.
-  const shouldUseWebgl = tweaks.useWebgl;
+
+  // EMERGENCY FACE SHAPE SAFETY:
+  // Disabling ALL face-tracked filters and geometry warp to prevent distortion on Galaxy/Samsung Internet.
+  const faceTrackedFilters = [];
+
+  const isSamsungInternet = () => {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /SamsungBrowser/i.test(ua);
+  };
+  const forceSafeCameraMode = isSamsungInternet();
+
+  // shouldUseWebgl: forced OFF on Samsung Internet for emergency safety.
+  const shouldUseWebgl = !forceSafeCameraMode && tweaks.useWebgl;
   const [cameraBox, setCameraBox] = React.useState(null);
 
   // ═══════════════════════════════════════════════════════════════
@@ -82,9 +89,10 @@ function App() {
   // ═══════════════════════════════════════════════════════════════
   const videoRef  = React.useRef(null);
   const canvasRef = React.useRef(null);
-  const faceDataRef = (typeof useFaceLandmarks === 'function')
+  // EMERGENCY: Disable face landmarks entirely on Samsung Internet or if GEOMETRY_DISABLED is true.
+  const faceDataRef = (!forceSafeCameraMode && typeof useFaceLandmarks === 'function')
     ? useFaceLandmarks(videoRef)
-    : React.useRef({ detected: false });
+    : React.useRef({ detected: false, faces: [] });
   const [facingMode, setFacingMode] = React.useState('user');
   const [camOk, setCamOk] = React.useState(null);
   const streamRef = React.useRef(null);

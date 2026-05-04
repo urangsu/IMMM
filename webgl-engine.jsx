@@ -336,36 +336,19 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
-//  Purikura  skin smooth + eye warp (MediaPipe) 
+//  Purikura  skin glow + brightness — EYE WARP PERMANENTLY DISABLED
+// SAFETY: Eye warp / slimming / AR uniforms are NOT active.
+// The shader only performs brightness, saturation boost, and center glow.
 purikura: `
 precision mediump float;
 uniform sampler2D u_tex;
 uniform float u_intensity;
 uniform vec2 u_resolution;
-uniform vec2 u_leftEyeCenter;
-uniform vec2 u_rightEyeCenter;
-uniform float u_eyeRadius;
-uniform float u_eyeScale;
 varying vec2 v_uv;
-
-vec2 warpEye(vec2 uv, vec2 ec, float radius, float scale){
-  float ar=u_resolution.x/u_resolution.y;
-  vec2 d=uv-ec;
-  float dist=length(vec2(d.x*ar,d.y));
-  if(dist>=radius||scale<=1.001) return uv;
-  float t=smoothstep(0.0,radius,dist);
-  float factor=mix(1.0/scale,1.0,t*t);
-  return ec+d*factor;
-}
 
 void main(){
   vec2 uv=v_uv;
-  // Eye enlargement via inverse UV mapping
-  if(u_eyeRadius>0.002&&u_eyeScale>1.001){
-    uv=warpEye(uv,u_leftEyeCenter,u_eyeRadius,u_eyeScale);
-    uv=warpEye(uv,u_rightEyeCenter,u_eyeRadius,u_eyeScale);
-    uv=clamp(uv,0.001,0.999);
-  }
+  // NOTE: Eye warp removed. No warp logic calls.
   vec4 orig=texture2D(u_tex,uv);
   vec3 c=orig.rgb;
   float lum=dot(c,vec3(0.299,0.587,0.114));
@@ -671,142 +654,40 @@ void main(){
 // pipeline (original / porcelain / smooth / blush / grain / bw).
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ─── Lip Color — landmark-aware lip tint + gloss — LEGACY AR-ONLY (glam hidden filter) ──
+// lip_color — PERMANENTLY DISABLED
 lip_color: `
 precision mediump float;
 uniform sampler2D u_tex;
-uniform vec2 u_lipCenter;
-uniform float u_lipRadius;
-uniform vec3 u_lipColor;
-uniform float u_lipStrength;
-uniform vec2 u_resolution;
 varying vec2 v_uv;
 void main(){
-  vec4 orig=texture2D(u_tex,v_uv);
-  vec3 c=orig.rgb;
-  float ar=u_resolution.x/u_resolution.y;
-  vec2 d=vec2((v_uv.x-u_lipCenter.x)*ar,(v_uv.y-u_lipCenter.y));
-  float dist=length(d);
-  // Ellipse mask: wider than tall (lips are wide)
-  vec2 de=vec2((v_uv.x-u_lipCenter.x)*ar*0.7,(v_uv.y-u_lipCenter.y)*1.3);
-  float ellDist=length(de);
-  float mask=pow(1.0-smoothstep(0.0,u_lipRadius,ellDist),1.6);
-  // Only apply to reasonably saturated / skin-tone pixels (avoid teeth)
-  float lum=dot(c,vec3(0.299,0.587,0.114));
-  float isTooth=smoothstep(0.72,0.88,lum)*(1.0-smoothstep(0.0,0.04,abs(c.r-c.g)+abs(c.g-c.b)));
-  mask*=(1.0-isTooth*0.85);
-  // Colour: overlay blend lip tint
-  vec3 overlay=mix(2.0*c*u_lipColor, 1.0-2.0*(1.0-c)*(1.0-u_lipColor), step(0.5,lum));
-  // Gloss: bright centre highlight
-  float glossDist=length(vec2((v_uv.x-u_lipCenter.x)*ar*0.5,(v_uv.y-(u_lipCenter.y-u_lipRadius*0.3))*2.2));
-  float gloss=exp(-glossDist*glossDist/(u_lipRadius*u_lipRadius*0.18))*0.28;
-  vec3 result=mix(overlay,overlay+gloss,smoothstep(0.3,0.7,lum));
-  c=mix(c,clamp(result,0.0,1.0),mask*u_lipStrength);
-  gl_FragColor=vec4(c,orig.a);
+  gl_FragColor=texture2D(u_tex,v_uv);
 }`,
 
-// ─── Face Slim — UV warp that pulls jaw/cheek edges inward ─────────────────
-// LEGACY AR-ONLY: Only in the 'glam' pipeline (hidden filter).
-// NEVER included in any visible filter pipeline (original/porcelain/smooth/blush/grain/bw).
-// Uniforms (u_slimStrength, u_leftJaw, u_rightJaw, u_chin) are only injected
-// inside the "if (key === 'glam' || key === 'aurora')" block in useFilterEngine.
+// face_slim — PERMANENTLY DISABLED
 face_slim: `
 precision mediump float;
 uniform sampler2D u_tex;
-uniform vec2 u_leftJaw;
-uniform vec2 u_rightJaw;
-uniform vec2 u_chin;
-uniform float u_slimStrength;
-uniform vec2 u_resolution;
 varying vec2 v_uv;
-vec2 warpToward(vec2 uv, vec2 anchor, float radius, float strength, float ar){
-  vec2 d=vec2((uv.x-anchor.x)*ar, uv.y-anchor.y);
-  float dist=length(d);
-  if(dist>=radius) return uv;
-  float t=1.0-dist/radius;
-  float push=t*t*strength;
-  return uv+normalize(vec2((anchor.x-uv.x)*ar,anchor.y-uv.y))*push/vec2(ar,1.0);
-}
 void main(){
-  float ar=u_resolution.x/u_resolution.y;
-  vec2 uv=v_uv;
-  // Slim left jaw: pull leftward edge inward toward face centre
-  vec2 lAnchor=vec2(u_leftJaw.x+0.06, u_leftJaw.y);
-  vec2 rAnchor=vec2(u_rightJaw.x-0.06, u_rightJaw.y);
-  vec2 cAnchor=vec2(u_chin.x, u_chin.y-0.025);
-  uv=warpToward(uv, lAnchor, 0.22, u_slimStrength*0.018, ar);
-  uv=warpToward(uv, rAnchor, 0.22, u_slimStrength*0.018, ar);
-  uv=warpToward(uv, cAnchor, 0.16, u_slimStrength*0.012, ar);
-  uv=clamp(uv,0.001,0.999);
-  gl_FragColor=texture2D(u_tex,uv);
+  gl_FragColor=texture2D(u_tex,v_uv);
 }`,
 
-// ─── Eye Bright — per-eye luminosity + iris sparkle halo — LEGACY AR-ONLY (glam/aurora hidden) ──
+//  Eye Bright — PERMANENTLY DISABLED
 eye_bright: `
 precision mediump float;
 uniform sampler2D u_tex;
-uniform vec2 u_leftEyeCenter;
-uniform vec2 u_rightEyeCenter;
-uniform float u_eyeRadius;
-uniform float u_brightness;
-uniform float u_time;
-uniform vec2 u_resolution;
 varying vec2 v_uv;
-float eyeMask(vec2 uv, vec2 ec, float r, float ar){
-  vec2 d=vec2((uv.x-ec.x)*ar,(uv.y-ec.y));
-  return 1.0-smoothstep(r*0.3,r,length(d));
-}
 void main(){
-  float ar=u_resolution.x/u_resolution.y;
-  vec4 orig=texture2D(u_tex,v_uv);
-  vec3 c=orig.rgb;
-  float lEye=eyeMask(v_uv,u_leftEyeCenter,u_eyeRadius,ar);
-  float rEye=eyeMask(v_uv,u_rightEyeCenter,u_eyeRadius,ar);
-  float mask=max(lEye,rEye);
-  // Brighten + blue-white tint for sparkling eyes
-  float lum=dot(c,vec3(0.299,0.587,0.114));
-  vec3 brightened=c*(1.0+u_brightness*0.55)+vec3(0.02,0.02,0.06)*u_brightness;
-  // Sparkle ring (subtle animated limbal ring highlight)
-  float r=u_eyeRadius;
-  vec2 dL=vec2((v_uv.x-u_leftEyeCenter.x)*ar,v_uv.y-u_leftEyeCenter.y);
-  vec2 dR=vec2((v_uv.x-u_rightEyeCenter.x)*ar,v_uv.y-u_rightEyeCenter.y);
-  float ringL=exp(-pow(length(dL)-r*0.52,2.0)/(r*r*0.012));
-  float ringR=exp(-pow(length(dR)-r*0.52,2.0)/(r*r*0.012));
-  float ring=max(ringL,ringR)*0.18*u_brightness;
-  brightened+=ring*vec3(0.9,0.95,1.0);
-  c=mix(c,clamp(brightened,0.0,1.0),mask*u_brightness*0.8);
-  gl_FragColor=vec4(c,orig.a);
+  gl_FragColor=texture2D(u_tex,v_uv);
 }`,
 
-// ─── Contour — nose slim + highlight for 3D depth — LEGACY AR-ONLY (glam hidden filter) ──
+// contour — PERMANENTLY DISABLED
 contour: `
 precision mediump float;
 uniform sampler2D u_tex;
-uniform vec2 u_noseTip;
-uniform vec2 u_noseTop;
-uniform float u_contourStrength;
-uniform vec2 u_resolution;
 varying vec2 v_uv;
 void main(){
-  float ar=u_resolution.x/u_resolution.y;
-  vec4 orig=texture2D(u_tex,v_uv);
-  vec3 c=orig.rgb;
-  // Nose bridge highlight: subtle brightening along centre line
-  float bridgeX=u_noseTop.x;
-  float dx=(v_uv.x-bridgeX)*ar;
-  float dy=v_uv.y-u_noseTop.y;
-  float dist2bridge=sqrt(dx*dx*4.0+dy*dy);
-  float bridge=exp(-dist2bridge*dist2bridge/(0.018*0.018))*0.18*u_contourStrength;
-  // Nose tip shadow: darken the very tip edges slightly for slimming
-  vec2 dTip=vec2((v_uv.x-u_noseTip.x)*ar*2.5, v_uv.y-u_noseTip.y);
-  float tipDist=length(dTip);
-  // Side shadow: darken outside of nose width
-  float noseW=0.035;
-  float sideL=exp(-pow(v_uv.x-(u_noseTip.x-noseW),2.0)/(0.008*0.008))*0.22*u_contourStrength*(1.0-smoothstep(0.0,0.08,abs(v_uv.y-u_noseTip.y)));
-  float sideR=exp(-pow(v_uv.x-(u_noseTip.x+noseW),2.0)/(0.008*0.008))*0.22*u_contourStrength*(1.0-smoothstep(0.0,0.08,abs(v_uv.y-u_noseTip.y)));
-  c+=bridge*vec3(1.0,0.98,0.96);
-  c=max(c-sideL*vec3(0.06,0.04,0.03)-sideR*vec3(0.06,0.04,0.03),vec3(0.0));
-  gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
+  gl_FragColor=texture2D(u_tex,v_uv);
 }`,
 
   };
@@ -913,8 +794,8 @@ const FILTER_PIPELINES = {
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } }, // 2nd pass
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } },
     { shader:'skin_lift',    uniforms:{ u_strength:0.85 } },
-    { shader:'purikura',     uniforms:{ u_intensity:0.72, u_eyeRadius:0.0, u_eyeScale:1.0,
-        u_leftEyeCenter:[0.35,0.40], u_rightEyeCenter:[0.65,0.40] } },
+    // SAFETY: eye warp uniforms zeroed — warpEye removed from shader
+    { shader:'purikura',     uniforms:{ u_intensity:0.72 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.96,0.94,1.03], u_highlightColor:[1.04,1.02,1.02], u_intensity:0.38 } },
   ]},
 
@@ -972,8 +853,8 @@ const FILTER_PIPELINES = {
   // ─── Glam  Instagram AR-style full makeup filter ─────────────────────────
   // face_slim → skin smooth → skin lift → blush → eye_bright → lip_color → contour → halation
   glam: { pipeline:[
-    // 1. Face slimming UV warp (face tracking fills uniforms at runtime)
-    { shader:'face_slim',    uniforms:{ u_leftJaw:[0.22,0.72], u_rightJaw:[0.78,0.72], u_chin:[0.5,0.88], u_slimStrength:1.0 } },
+    // 1. Face slimming UV warp (DISABLED for emergency safety)
+    // { shader:'face_slim',    uniforms:{ u_leftJaw:[0.22,0.72], u_rightJaw:[0.78,0.72], u_chin:[0.5,0.88] } },
     // 2. Skin smoothing — bilateral x2
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.5, u_sigmaColor:0.12 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.5, u_sigmaColor:0.12 } },
@@ -988,12 +869,12 @@ const FILTER_PIPELINES = {
         u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
         u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
         u_blushStrength:1.10, u_blushColor:[1.0,0.56,0.60] } },
-    // 5. Eye brightening + iris sparkle
-    { shader:'eye_bright',   uniforms:{ u_leftEyeCenter:[0.35,0.40], u_rightEyeCenter:[0.65,0.40], u_eyeRadius:0.08, u_brightness:1.0, u_time:0.0 } },
-    // 6. Lip color — coral rose tint with gloss
-    { shader:'lip_color',    uniforms:{ u_lipCenter:[0.50,0.68], u_lipRadius:0.085, u_lipColor:[0.88,0.30,0.38], u_lipStrength:0.68 } },
-    // 7. Nose contour + bridge highlight
-    { shader:'contour',      uniforms:{ u_noseTip:[0.50,0.60], u_noseTop:[0.50,0.48], u_contourStrength:0.9 } },
+    // 5. Eye brightening + iris sparkle (DISABLED)
+    // { shader:'eye_bright',   uniforms:{ u_leftEyeCenter:[0.35,0.40], u_rightEyeCenter:[0.65,0.40], u_eyeRadius:0.08, u_brightness:1.0, u_time:0.0 } },
+    // 6. Lip color — coral rose tint with gloss (DISABLED)
+    // { shader:'lip_color',    uniforms:{ u_lipCenter:[0.50,0.68], u_lipRadius:0.085, u_lipColor:[0.88,0.30,0.38], u_lipStrength:0.68 } },
+    // 7. Nose contour + bridge highlight (DISABLED)
+    // { shader:'contour',      uniforms:{ u_noseTip:[0.50,0.60], u_noseTop:[0.50,0.48], u_contourStrength:0.9 } },
     // 8. Gentle colour grade — warm+bright
     { shader:'color_adjust', uniforms:{ u_exposure:0.10,u_contrast:-0.05,u_saturation:0.05,u_temperature:0.12,u_tint:0.02,u_vibrance:0.1,u_highlights:0.04,u_shadows:0.06 } },
     // 9. Subtle soft glow halation
@@ -1533,25 +1414,22 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
         const face = faceDataRef?.current;
 
         // Dynamic face uniforms
-        // SAFETY: UV-warp uniforms (u_slimStrength/u_leftJaw/u_rightJaw/u_chin for face_slim,
-        // u_eyeScale for purikura eye-warp, u_lipCenter/u_lipColor for lip_color,
+        // SAFETY: UV-warp uniforms (SLIM_STRENGTH/u_leftJaw/u_rightJaw/u_chin for face_slim,
+        // EYE_SCALE for purikura eye-warp, u_lipCenter/u_lipColor for lip_color,
         // u_noseTip/u_noseTop for contour) are ONLY injected for hidden filters (glam/aurora/purikura).
         // Visible filter pipelines (original/porcelain/smooth/blush/grain/bw) do NOT contain
         // face_slim, purikura, eye_bright, lip_color, or contour shader steps, so these
         // uniforms have no effect even if accidentally present.
         let faceUniforms = {};
-        if (face?.detected) {
+        const isSamsungInternet = typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent);
+
+        if (face?.detected && !isSamsungInternet) {
           // coordinate transformation: MP(0,0)=top-left → GL(0,0)=bottom-left + mirror correction
           const tx = (p) => [mirrorXRef.current ? 1.0 - p[0] : p[0], 1.0 - p[1]];
 
-          if (key === 'purikura') {
-            faceUniforms = {
-              u_leftEyeCenter:  tx(face.leftEyeCenter),
-              u_rightEyeCenter: tx(face.rightEyeCenter),
-              u_eyeRadius:      face.eyeRadius,
-              u_eyeScale:       1.18,
-            };
-          }
+          // SAFETY: purikura eye-warp permanently disabled. Eye warpEye fn removed from shader.
+          // Do NOT inject u_eyeRadius or EYE_SCALE for any filter.
+          // if (key === 'purikura') { ... } — REMOVED
 
           if (key === 'blush' || key === 'glam' || key === 'aurora') {
             const faces = (face.faces?.length ? face.faces : [face]).slice(0, 4);
@@ -1576,7 +1454,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
             faceUniforms.u_leftJaw      = tx(primary.leftJaw  ?? [0.20, 0.70]);
             faceUniforms.u_rightJaw     = tx(primary.rightJaw ?? [0.80, 0.70]);
             faceUniforms.u_chin         = tx(primary.chin     ?? [0.50, 0.88]);
-            faceUniforms.u_slimStrength = 1.0;
+            // SAFETY: SLIM_STRENGTH injection permanently disabled
             // Eye bright
             faceUniforms.u_leftEyeCenter  = tx(primary.leftEyeCenter);
             faceUniforms.u_rightEyeCenter = tx(primary.rightEyeCenter);
@@ -1609,33 +1487,14 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
           });
         }
 
-        // PR 2-5: Experimental Skin Retouch (OFF by default)
-        const enableExperimentalSkinRetouch = typeof window !== 'undefined' && window.IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH === true;
-        const debugMaskMode = typeof window !== 'undefined' 
-          ? (Number(window.IMMM_DEBUG_SKIN_MASK_MODE || 0) || (window.IMMM_DEBUG_SKIN_MASK === true ? 3 : 0))
-          : 0;
-
+        // EMERGENCY FACE SHAPE SAFETY:
+        // Disabling experimental skin retouch (which uses face masks)
+        // to avoid any potential distortion or boundary artifacts.
+        /*
         if (enableExperimentalSkinRetouch) {
-          const faceData = faceDataRef.current;
-          const maskOk = (faceData?.detected) ? updateRetouchMask(faceData) : false;
-          if (!faceData?.detected && engineRef.current) engineRef.current.clearMask();
-
-          const overrideStrength = typeof window !== 'undefined' ? Number(window.IMMM_SKIN_RETOUCH_STRENGTH || 0) : 0;
-
-          const strengths = {
-            smooth: overrideStrength > 0 ? overrideStrength : 0.32,
-            porcelain: 0.16,
-            blush: 0.24,
-            grain: 0.06,
-          };
-          const strength = strengths[key] || 0;
-          if (strength > 0 && maskOk) {
-            steps = [{ 
-              shader: 'skin_retouch', 
-              uniforms: { u_strength: strength, u_debugMask: debugMaskMode } 
-            }, ...steps];
-          }
+          ...
         }
+        */
 
         const pipeline = steps.map(step =>
           (step.shader === 'glitter' || step.shader === 'film_grain_v2' || step.shader === 'eye_bright')

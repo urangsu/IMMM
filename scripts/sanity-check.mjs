@@ -19,12 +19,72 @@ function readFile(filename) {
 let hasErrors = false;
 let hasWarnings = false;
 
-function checkWebGL() {
-  const content = readFile('webgl-engine.jsx');
-  if (!content) return;
-  if (content.includes('mobileRef')) {
-    console.error('❌ FAIL: webgl-engine.jsx contains "mobileRef"');
-    hasErrors = true;
+function checkEmergencyFaceSafety() {
+  const webgl = readFile('webgl-engine.jsx');
+  const main = readFile('main.jsx');
+  const rest = readFile('screens-v2-rest.jsx');
+
+  if (webgl) {
+    if (webgl.includes('uv=warpEye')) {
+      console.error('❌ FAIL: webgl-engine.jsx still contains uv=warpEye calls');
+      hasErrors = true;
+    }
+    if (webgl.includes('uv=warpToward')) {
+      console.error('❌ FAIL: webgl-engine.jsx still contains uv=warpToward calls');
+      hasErrors = true;
+    }
+    if (webgl.match(/^\s*(?!\/\/).*\bu_eyeScale\b/m)) {
+      console.error('❌ FAIL: webgl-engine.jsx still contains active u_eyeScale uniform usage');
+      hasErrors = true;
+    }
+    if (webgl.match(/^\s*(?!\/\/).*\bu_slimStrength\b/m)) {
+      console.error('❌ FAIL: webgl-engine.jsx still contains active u_slimStrength uniform usage');
+      hasErrors = true;
+    }
+    
+    // Shader neutralization check
+    const shaders = ['face_slim', 'eye_bright', 'lip_color', 'contour'];
+    shaders.forEach(s => {
+      const pattern = new RegExp(`${s}:\\s*\`[\\s\\S]*?void\\s+main\\(\\)\\s*\\{[\\s\\S]*?gl_FragColor=texture2D\\(u_tex,v_uv\\);[\\s\\S]*?\\}\``);
+      if (!pattern.test(webgl)) {
+        console.error(`❌ FAIL: webgl-engine.jsx ${s} shader is not a minimal passthrough no-op`);
+        hasErrors = true;
+      }
+    });
+
+    if (webgl.includes('shader: \'skin_retouch\'')) {
+      // Should be commented out or removed
+      if (!webgl.match(/\/\/\s*shader:\s*'skin_retouch'/)) {
+        console.error('❌ FAIL: webgl-engine.jsx still injects active skin_retouch pass');
+        hasErrors = true;
+      }
+    }
+  }
+
+  if (main) {
+    if (main.includes('faceTrackedFilters = [\'blush\']')) {
+      console.error('❌ FAIL: main.jsx still has blush in faceTrackedFilters');
+      hasErrors = true;
+    }
+    if (!main.includes('const faceTrackedFilters = [];')) {
+      console.error('❌ FAIL: main.jsx faceTrackedFilters must be empty [] for emergency safety');
+      hasErrors = true;
+    }
+    if (!main.includes('isSamsungInternet()')) {
+      console.error('❌ FAIL: main.jsx missing Samsung Internet emergency safe mode');
+      hasErrors = true;
+    }
+  }
+
+  if (rest) {
+    if (!rest.includes('const applyBeautyGeometry = () => { return; };')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx applyBeautyGeometry is not a no-op stub');
+      hasErrors = true;
+    }
+    if (!rest.includes('const applyFaceZoneSoftening = () => { return; };')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx applyFaceZoneSoftening is not a no-op stub');
+      hasErrors = true;
+    }
   }
 }
 
@@ -644,7 +704,7 @@ function checkIllegalStickerCatalogUsage() {
 }
 
 console.log('🔍 Running IMMM Sanity Checks...');
-checkWebGL();
+checkEmergencyFaceSafety();
 checkFrameSystem();
 checkStickerEngine();
 checkCapture();
