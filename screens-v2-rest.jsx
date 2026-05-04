@@ -16,9 +16,14 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
   const shotCount = layout === 'polaroid' ? 1 : 6;
   const getCaptureLongEdges = () => mobile ? [1920, 1280] : [2560, 1920, 1280];
-  const resolveFrameTemplate = (l) => {
-    if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
-    if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+  const resolveFrameTemplate = (layout) => {
+    if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
+      return window.getFrameTemplateSafe(layout);
+    }
+    if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+      return window.getFrameTemplate(layout);
+    }
+    console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
     return null;
   };
   const frameTemplate = resolveFrameTemplate(layout);
@@ -936,9 +941,14 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = 1.5;
     // 2. Map template space → viewfinder space and call renderFrameOverlay
-    const resolveFrameTemplate = (l) => {
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+    const resolveFrameTemplate = (layout) => {
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
+        return window.getFrameTemplateSafe(layout);
+      }
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+        return window.getFrameTemplate(layout);
+      }
+      console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
       return null;
     };
     const template = resolveFrameTemplate(layout);

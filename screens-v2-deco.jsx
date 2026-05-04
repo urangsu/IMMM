@@ -188,6 +188,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
       return window.getFrameTemplate(layout);
     }
+    console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
     return null;
   };
 
@@ -210,7 +211,10 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       if (!ctx) return;
       const seq = ++renderSeqRef.current;
       const template = resolveFrameTemplate(layout);
-      if (!template) return;
+      if (!template) {
+        console.warn('[IMMM] skip draw: frame template unavailable', layout);
+        return;
+      }
       const baseW = template.canvasSize.width;
       const baseH = template.canvasSize.height;
 
@@ -550,9 +554,14 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const compositionCanvasRef = React.useRef(null);
 
   React.useEffect(() => {
-    const resolveFrameTemplate = (l) => {
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+    const resolveFrameTemplate = (layout) => {
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
+        return window.getFrameTemplateSafe(layout);
+      }
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+        return window.getFrameTemplate(layout);
+      }
+      console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
       return null;
     };
     const draw = async () => {
@@ -902,12 +911,21 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     if (!selectedShots.length) { alert('먼저 사진을 촬영해주세요'); return; }
     setVideoRecording(true);
 
-    const resolveFrameTemplate = (l) => {
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+    const resolveFrameTemplate = (layout) => {
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
+        return window.getFrameTemplateSafe(layout);
+      }
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+        return window.getFrameTemplate(layout);
+      }
+      console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
       return null;
     };
     const template = resolveFrameTemplate(layout);
+    if (!template) {
+      console.warn('[IMMM] skip draw: frame template unavailable', layout);
+      return;
+    }
     const baseW = template?.canvasSize?.width || 720;
     const baseH = template?.canvasSize?.height || 960;
     const W = 720;

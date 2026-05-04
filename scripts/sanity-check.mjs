@@ -751,23 +751,22 @@ function checkEmergencyFrameGlobals() {
     const content = readFile(f);
     if (!content) continue;
 
-    // Prohibit bare identifier calls in downstream files
+    // Rule 3-8: Prohibit bare identifier calls in downstream files
     const barePatterns = [
-      /\bgetFrameTemplate\(/,
-      /\bgetShotCountForFrame\(/,
-      /\brenderComposition\(/,
-      /\brenderFrameOverlay\(/,
-      /\bFrameRenderEngine\./
+      { name: 'getFrameTemplate', regex: /\bgetFrameTemplate\(/ },
+      { name: 'getShotCountForFrame', regex: /\bgetShotCountForFrame\(/ },
+      { name: 'renderComposition', regex: /\brenderComposition\(/ },
+      { name: 'renderFrameOverlay', regex: /\brenderFrameOverlay\(/ },
+      { name: 'FrameRenderEngine', regex: /\bFrameRenderEngine\./ },
+      { name: 'FrameThumb', regex: /<FrameThumb\b/ }
     ];
 
     for (const p of barePatterns) {
-      if (content.match(p)) {
-        // Skip check for comments or safe-resolver definitions
-        // (Simplified check: if it's on a line that doesn't have 'window.' or 'resolveFrameTemplate')
+      if (content.match(p.regex)) {
         const lines = content.split('\n');
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
-          if (line.match(p) && !line.includes('window.') && !line.includes('resolveFrameTemplate') && !line.trim().startsWith('//')) {
+          if (line.match(p.regex) && !line.includes('window.') && !line.includes('resolveFrameTemplate') && !line.includes('const FrameThumb') && !line.trim().startsWith('//')) {
              console.error(`❌ FAIL: ${f}:${i+1} uses bare frame global "${line.trim()}"`);
              hasErrors = true;
           }
@@ -800,17 +799,11 @@ function checkEmergencyServiceWorker() {
     console.error('❌ FAIL: sw.js missing self.clients.claim()');
     hasErrors = true;
   }
-  // Check if .js/.jsx/.html use cache-first
-  // (Search for fetch logic)
-  if (sw.includes('caches.match(e.request).then((res) => res || fetch(e.request))')) {
-     const lines = sw.split('\n');
-     const fetchLine = lines.findIndex(l => l.includes('self.addEventListener(\'fetch\''));
-     if (fetchLine !== -1) {
-        const body = lines.slice(fetchLine, fetchLine + 20).join('\n');
-        if (!body.includes('isCode') && !body.includes('network-first')) {
-           // console.warn('⚠️ WARN: sw.js might be using cache-first for code files');
-        }
-     }
+  
+  const isCacheFirstForCode = sw.includes('isCode') && sw.includes('caches.match(e.request).then((res) => res || fetch(e.request))');
+  if (sw.includes('const isCode =') && !/network-first/i.test(sw)) {
+     console.error('❌ FAIL: sw.js isCode block missing network-first strategy');
+     hasErrors = true;
   }
 }
 

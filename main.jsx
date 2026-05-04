@@ -43,7 +43,7 @@ class AppErrorBoundary extends React.Component {
   if (!window.FrameRenderEngine) missingFrameGlobals.push('FrameRenderEngine');
 
   if (missingFrameGlobals.length) {
-    console.error('[IMMM boot] critical frame globals missing:', missingFrameGlobals);
+    console.error('[IMMM boot] missing frame globals:', missingFrameGlobals);
     // We don't crash here to allow some basic UI to show, but log loudly.
   }
 })();
