@@ -33,6 +33,21 @@ class AppErrorBoundary extends React.Component {
   }
 }
 
+// EMERGENCY BOOT GUARD:
+// Check if critical frame system globals are available before rendering.
+// This prevents silent failures and "ReferenceError: getFrameTemplate is not defined" crashes on Samsung Internet.
+(() => {
+  const missingFrameGlobals = [];
+  if (typeof window.getFrameTemplateSafe !== 'function' && typeof window.getFrameTemplate !== 'function') missingFrameGlobals.push('getFrameTemplate');
+  if (typeof window.renderComposition !== 'function') missingFrameGlobals.push('renderComposition');
+  if (!window.FrameRenderEngine) missingFrameGlobals.push('FrameRenderEngine');
+
+  if (missingFrameGlobals.length) {
+    console.error('[IMMM boot] critical frame globals missing:', missingFrameGlobals);
+    // We don't crash here to allow some basic UI to show, but log loudly.
+  }
+})();
+
 function App() {
   const [tweaks, setTweaks] = React.useState({
     variant: 'A',

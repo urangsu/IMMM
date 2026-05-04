@@ -181,6 +181,16 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const zoomIn = () => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)));
   const zoomOut = () => setZoom((z) => Math.max(0.2, +(z - 0.15).toFixed(2)));
 
+  const resolveFrameTemplate = (layout) => {
+    if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
+      return window.getFrameTemplateSafe(layout);
+    }
+    if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+      return window.getFrameTemplate(layout);
+    }
+    return null;
+  };
+
   const zoomControls =
   <div style={{ position: 'absolute', bottom: 14, right: 14, display: 'flex', gap: 6, zIndex: 20 }}>
       <button onClick={zoomOut} style={{ width: 32, height: 32, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', cursor: 'pointer', fontSize: 18, fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>−</button>
@@ -199,7 +209,8 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       const ctx = cvs.getContext('2d');
       if (!ctx) return;
       const seq = ++renderSeqRef.current;
-      const template = getFrameTemplate(layout);
+      const template = resolveFrameTemplate(layout);
+      if (!template) return;
       const baseW = template.canvasSize.width;
       const baseH = template.canvasSize.height;
 
@@ -216,7 +227,12 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       const offCtx = off.getContext('2d');
       if (!offCtx) return;
 
-      await renderComposition(offCtx, data, { scale: 1 });
+      const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+      if (renderComp) {
+        await renderComp(offCtx, data, { scale: 1 });
+      } else {
+        console.warn('[IMMM] skip render: renderComposition missing');
+      }
 
       if (cancelled || seq !== renderSeqRef.current) return;
 
@@ -237,7 +253,12 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   // hitbox bounds (in CSS px) = native bounds × (cssSize / nativeSize).
   // Do NOT use getBoundingClientRect here — it reflects zoom transform.
   const decoScale = React.useMemo(() => {
-    const tmpl = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
+    const resolveFrameTemplate = (l) => {
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+      return null;
+    };
+    const tmpl = resolveFrameTemplate(layout);
     const baseW = tmpl?.canvasSize?.width || 880;
     const baseH = tmpl?.canvasSize?.height || 1070;
     const cssW = frameW;
@@ -529,11 +550,20 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const compositionCanvasRef = React.useRef(null);
 
   React.useEffect(() => {
+    const resolveFrameTemplate = (l) => {
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+      return null;
+    };
     const draw = async () => {
       if (!compositionCanvasRef.current) return;
       const cvs = compositionCanvasRef.current;
       const ctx = cvs.getContext('2d');
-      const template = getFrameTemplate(layout);
+      const template = resolveFrameTemplate(layout);
+      if (!template) {
+        console.warn('[IMMM] skip draw: frame template unavailable', layout);
+        return;
+      }
       cvs.width = template.canvasSize.width;
       cvs.height = template.canvasSize.height;
 
@@ -541,7 +571,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         layout, shots, selected, filter, frameColor,
         stickers, drawStrokes, logo, dateText, accent, orientation
       };
-      await renderComposition(ctx, data, { scale: 1 });
+      const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+      if (renderComp) await renderComp(ctx, data, { scale: 1 });
     };
     draw();
   }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
@@ -585,7 +616,10 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         source,
         blob,
         layout,
-        frameType: (typeof getFrameTemplate === 'function' ? getFrameTemplate(layout).type : layout),
+        frameType: (() => {
+          const getTpl = window.getFrameTemplateSafe || window.getFrameTemplate || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
+          return getTpl ? getTpl(layout).type : layout;
+        })(),
         filter,
         shareInfo,
         metadata: { selected, stickerCount: stickers.length, drawCount: drawStrokes.length },
@@ -734,9 +768,10 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     const targetScale = mobile ? 3 : 4;
     
     const runExport = async (s) => {
-      if (typeof FrameRenderEngine === 'undefined') return null;
+      const engine = window.FrameRenderEngine || (typeof FrameRenderEngine !== 'undefined' ? FrameRenderEngine : null);
+      if (!engine) return null;
       if (document.fonts) await document.fonts.ready;
-      return FrameRenderEngine.renderToBlob({
+      return engine.renderToBlob({
         layout, shots, selected, stickers, drawStrokes,
         logo, dateText, accent, frameColor,
         scale: s
@@ -867,7 +902,12 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     if (!selectedShots.length) { alert('먼저 사진을 촬영해주세요'); return; }
     setVideoRecording(true);
 
-    const template = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
+    const resolveFrameTemplate = (l) => {
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+      return null;
+    };
+    const template = resolveFrameTemplate(layout);
     const baseW = template?.canvasSize?.width || 720;
     const baseH = template?.canvasSize?.height || 960;
     const W = 720;
@@ -917,12 +957,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     };
 
     const renderProgressFrame = async (count) => {
-      if (typeof FrameRenderEngine !== 'undefined') {
+      const engine = window.FrameRenderEngine || (typeof FrameRenderEngine !== 'undefined' ? FrameRenderEngine : null);
+      if (engine) {
         const progressiveShots = shots.map((shot, index) => {
           const order = selected.indexOf(index);
           return order >= 0 && order < count ? shot : null;
         });
-        return FrameRenderEngine.renderToCanvas({
+        return engine.renderToCanvas({
           layout,
           shots: progressiveShots,
           selected,

@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 // EDITOR (filter + stickers + frame layout)
 // ════════════════════════════════════════════════════════════
-function FrameThumb({ layout, shots, selected, T, logo = true, dateText = true, accent, stickers = [], scale = 1, orientation = 'portrait', frameColor = '#ffffff' }) {
+function LegacyFrameThumb({ layout, shots, selected, T, logo = true, dateText = true, accent, stickers = [], scale = 1, orientation = 'portrait', frameColor = '#ffffff' }) {
   // Renders a photo strip. layout: 'strip'|'trip'|'grid'|'layered'|'polaroid', orientation: 'portrait'|'landscape'
   const isDark = frameColor.toLowerCase() === '#111' || frameColor.toLowerCase() === '#111111' || frameColor.toLowerCase() === '#000000';
   const inkColor = isDark ? '#ffffff' : '#111111';
@@ -200,7 +200,7 @@ function EditScreen({ T, go, shots, selected, mobile, variant,
   const preview =
   <div style={{ padding: '20px 0', display: 'flex', justifyContent: 'center' }}>
       <div style={{ transform: mobile ? 'scale(1.1)' : 'scale(1.5)', transformOrigin: 'center top' }}>
-        <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
+        <LegacyFrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
       logo={logo} dateText={dateText} accent={accent} stickers={stickers} scale={1} />
       </div>
     </div>;
@@ -268,7 +268,7 @@ function EditScreen({ T, go, shots, selected, mobile, variant,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8
       }}>
             <div style={{ transform: 'scale(0.45)', transformOrigin: 'center', height: 100, display: 'flex', alignItems: 'center' }}>
-              <FrameThumb layout={opt.id} shots={shotsWithFilter} selected={selected} T={T}
+              <LegacyFrameThumb layout={opt.id} shots={shotsWithFilter} selected={selected} T={T}
           logo={false} dateText={false} accent={accent} scale={1} />
             </div>
             <div style={{ fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
@@ -338,7 +338,7 @@ function EditScreen({ T, go, shots, selected, mobile, variant,
         </div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bgAlt, borderRadius: 24, marginTop: 20, position: 'relative' }}>
           <div style={{ transform: 'scale(1.8)', transformOrigin: 'center' }}>
-            <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
+            <LegacyFrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
             logo={logo} dateText={dateText} accent={accent} stickers={stickers} scale={1} />
           </div>
           <div style={{ position: 'absolute', bottom: 18, left: 18, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1 }}>
@@ -402,7 +402,7 @@ function ResultScreen({ T, go, shots, selected, layout, stickers, logo, dateText
 
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
         <div style={{ transform: mobile ? 'scale(1.2)' : 'scale(1.8)', transformOrigin: 'center' }}>
-          <FrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
+          <LegacyFrameThumb layout={layout} shots={shotsWithFilter} selected={selected} T={T}
           logo={logo} dateText={dateText} accent={accent} stickers={stickers} scale={1} />
         </div>
       </div>
@@ -417,4 +417,4 @@ function ResultScreen({ T, go, shots, selected, layout, stickers, logo, dateText
 
 }
 
-Object.assign(window, { EditScreen, FrameThumb, ResultScreen });
+Object.assign(window, { EditScreen, LegacyFrameThumb, ResultScreen });

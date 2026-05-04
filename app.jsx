@@ -55,7 +55,8 @@ const I = {
 };
 
 function getShotCountForLayout(layout) {
-  if (typeof getShotCountForFrame === 'function') return getShotCountForFrame(layout);
+  const getShotCount = window.getShotCountForFrameSafe || window.getShotCountForFrame || (typeof getShotCountForFrame === 'function' ? getShotCountForFrame : null);
+  if (getShotCount) return getShotCount(layout);
   if (layout === 'polaroid') return 1;
   if (layout === 'trip') return 3;
   return 4;

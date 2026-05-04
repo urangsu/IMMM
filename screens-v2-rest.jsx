@@ -16,7 +16,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
   const shotCount = layout === 'polaroid' ? 1 : 6;
   const getCaptureLongEdges = () => mobile ? [1920, 1280] : [2560, 1920, 1280];
-  const frameTemplate = typeof getFrameTemplate === 'function' ? getFrameTemplate(layout) : null;
+  const resolveFrameTemplate = (l) => {
+    if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
+    if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+    return null;
+  };
+  const frameTemplate = resolveFrameTemplate(layout);
   const firstSlot = frameTemplate?.photoSlots?.[0];
   const cameraAspect = firstSlot ? firstSlot.width / firstSlot.height : 4 / 3;
   const viewfinderAspect = mobile ? 3 / 4 : cameraAspect;
@@ -930,10 +935,20 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
     // Photo area border
     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(l + 0.75, t + 0.75, gW - 1.5, gH - 1.5);
-
     // 2. Map template space → viewfinder space and call renderFrameOverlay
-    if (pr && typeof renderFrameOverlay === 'function') {
+    const resolveFrameTemplate = (l) => {
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+      return null;
+    };
+    const template = resolveFrameTemplate(layout);
+    if (!template) {
+      console.warn('[IMMM] skip overlay draw: template unavailable', layout);
+      return;
+    }
+
+    const renderOverlay = window.renderFrameOverlay || (typeof renderFrameOverlay === 'function' ? renderFrameOverlay : null);
+    if (pr && renderOverlay) {
       // Scale factor: the photo rect occupies gW px in the overlay
       const s = gW / (pr.w * template.canvasSize.width);
       const fullW = template.canvasSize.width * s;
@@ -946,7 +961,7 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
       const isDarkFrame = typeof isDarkFrameColor === 'function'
         ? isDarkFrameColor(frameColor)
         : /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(frameColor || '').trim());
-      renderFrameOverlay(ctx, template, fullW, fullH, {
+      renderOverlay(ctx, template, fullW, fullH, {
         frameColor,
         logo,
         dateText,

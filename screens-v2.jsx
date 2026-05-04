@@ -141,6 +141,8 @@ const I18N = {
 };
 
 function LandingV2({ T, variant, go, mobile, onStart, onEdit, onGallery, lang = 'ko', setLang }) {
+  const FrameThumb = window.FrameThumb || (typeof FrameThumb !== 'undefined' ? FrameThumb : null);
+
   const t = I18N[lang] || I18N.ko;
   const toggleLang = () => setLang(l => l === 'ko' ? 'en' : l === 'en' ? 'jp' : 'ko');
 
@@ -268,6 +270,8 @@ function getStickerPickerPacks() {
 }
 
 function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks }) {
+  const FrameThumb = window.FrameThumb || (typeof FrameThumb !== 'undefined' ? FrameThumb : null);
+
   const [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
   const [selStId, setSelStId] = uS(null);
   const [expandedPacks, setExpandedPacks] = uS({});
@@ -355,7 +359,12 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           { id: 'grid',     en: '2×2 Grid',  ko: '그리드' },
           { id: 'polaroid', en: '1×1',       ko: '폴라로이드' },
         ].map((o) => {
-        const tpl = typeof getFrameTemplate === 'function' ? getFrameTemplate(o.id) : null;
+        const resolveFrameTemplate = (l) => {
+          if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
+          if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+          return null;
+        };
+        const tpl = resolveFrameTemplate(o.id);
         return (
       <button key={o.id} onClick={() => setLayout(o.id)}
       style={{
@@ -581,6 +590,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const maxUploadCount = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(layout)
     : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
+
   const onPhotoUpload = async (idx, e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;

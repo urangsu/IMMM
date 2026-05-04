@@ -647,8 +647,12 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
       if (!canvasRef.current) return;
       const cvs = canvasRef.current;
       const ctx = cvs.getContext('2d');
-      const template = getFrameTemplate(layout);
-      if (!template) return;
+      const getTpl = window.getFrameTemplateSafe || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
+      const template = getTpl ? getTpl(layout) : null;
+      if (!template) {
+        console.warn('[IMMM] skip draw: frame template unavailable', layout);
+        return;
+      }
       
       const baseW = template.canvasSize.width;
       const baseH = template.canvasSize.height;
@@ -659,7 +663,8 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
         layout, shots, selected, filter, frameColor,
         stickers, drawStrokes, logo, dateText, accent, orientation
       };
-      await renderComposition(ctx, data, { scale: 1 });
+      const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+      if (renderComp) await renderComp(ctx, data, { scale: 1 });
     };
     draw();
   }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
@@ -677,11 +682,29 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
   );
 }
 
+function getFrameTemplateSafe(layoutOrType) {
+  if (typeof getFrameTemplate === 'function') {
+    return getFrameTemplate(layoutOrType);
+  }
+  if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+    return window.getFrameTemplate(layoutOrType);
+  }
+  console.error('[IMMM] getFrameTemplate unavailable; using emergency 1x4 fallback');
+  return FRAME_TEMPLATES?.['1x4'];
+}
+
+function getShotCountForFrameSafe(layoutOrType) {
+  const t = getFrameTemplateSafe(layoutOrType);
+  return t?.photoSlots?.length || 4;
+}
+
 Object.assign(window, {
   FRAME_TEMPLATES,
   FRAME_TEMPLATE_ALIASES,
   getFrameTemplate,
+  getFrameTemplateSafe,
   getShotCountForFrame,
+  getShotCountForFrameSafe,
   FrameRenderEngine,
   renderComposition,
   renderFrameOverlay,

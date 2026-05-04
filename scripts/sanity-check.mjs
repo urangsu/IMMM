@@ -613,7 +613,7 @@ function checkDeco() {
     }
   }
 
-  if (!content.includes('await renderComposition(')) {
+  if (!content.includes('renderComposition(') && !content.includes('renderComp(')) {
     console.warn('⚠️ WARN: screens-v2-deco.jsx preview does not use renderComposition');
     hasWarnings = true;
   }
@@ -725,6 +725,95 @@ function checkTask() {
   }
 }
 
+function checkEmergencyFrameGlobals() {
+  const files = [
+    'screens-v2-rest.jsx',
+    'screens-v2-deco.jsx',
+    'screens-v2.jsx',
+    'screens-edit.jsx',
+    'main.jsx',
+    'app.jsx'
+  ];
+
+  const frameSystem = readFile('frame-system.jsx');
+  if (frameSystem) {
+    if (!frameSystem.includes('function getFrameTemplateSafe')) {
+      console.error('❌ FAIL: frame-system.jsx missing getFrameTemplateSafe');
+      hasErrors = true;
+    }
+    if (!frameSystem.includes('getFrameTemplateSafe,') && !frameSystem.includes('getFrameTemplateSafe:')) {
+      console.error('❌ FAIL: frame-system.jsx Object.assign missing getFrameTemplateSafe');
+      hasErrors = true;
+    }
+  }
+
+  for (const f of files) {
+    const content = readFile(f);
+    if (!content) continue;
+
+    // Prohibit bare identifier calls in downstream files
+    const barePatterns = [
+      /\bgetFrameTemplate\(/,
+      /\bgetShotCountForFrame\(/,
+      /\brenderComposition\(/,
+      /\brenderFrameOverlay\(/,
+      /\bFrameRenderEngine\./
+    ];
+
+    for (const p of barePatterns) {
+      if (content.match(p)) {
+        // Skip check for comments or safe-resolver definitions
+        // (Simplified check: if it's on a line that doesn't have 'window.' or 'resolveFrameTemplate')
+        const lines = content.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.match(p) && !line.includes('window.') && !line.includes('resolveFrameTemplate') && !line.trim().startsWith('//')) {
+             console.error(`❌ FAIL: ${f}:${i+1} uses bare frame global "${line.trim()}"`);
+             hasErrors = true;
+          }
+        }
+      }
+    }
+
+    if (f === 'screens-edit.jsx') {
+      if (content.includes('Object.assign(window, {') && /\bFrameThumb\b/.test(content)) {
+        console.error('❌ FAIL: screens-edit.jsx still exports FrameThumb; collision with frame-system.jsx');
+        hasErrors = true;
+      }
+    }
+  }
+}
+
+function checkEmergencyServiceWorker() {
+  const sw = readFile('sw.js');
+  if (!sw) return;
+
+  if (sw.includes("CACHE_NAME = 'immm-cache-v1'")) {
+    console.error('❌ FAIL: sw.js CACHE_NAME is still immm-cache-v1');
+    hasErrors = true;
+  }
+  if (!sw.includes('self.skipWaiting()')) {
+    console.error('❌ FAIL: sw.js missing self.skipWaiting()');
+    hasErrors = true;
+  }
+  if (!sw.includes('self.clients.claim()')) {
+    console.error('❌ FAIL: sw.js missing self.clients.claim()');
+    hasErrors = true;
+  }
+  // Check if .js/.jsx/.html use cache-first
+  // (Search for fetch logic)
+  if (sw.includes('caches.match(e.request).then((res) => res || fetch(e.request))')) {
+     const lines = sw.split('\n');
+     const fetchLine = lines.findIndex(l => l.includes('self.addEventListener(\'fetch\''));
+     if (fetchLine !== -1) {
+        const body = lines.slice(fetchLine, fetchLine + 20).join('\n');
+        if (!body.includes('isCode') && !body.includes('network-first')) {
+           // console.warn('⚠️ WARN: sw.js might be using cache-first for code files');
+        }
+     }
+  }
+}
+
 function checkIllegalStickerCatalogUsage() {
   const files = [
     'screens-v2.jsx',
@@ -758,6 +847,8 @@ function checkIllegalStickerCatalogUsage() {
 console.log('🔍 Running IMMM Sanity Checks...');
 checkWebGL();
 checkEmergencyFaceSafety();
+checkEmergencyFrameGlobals();
+checkEmergencyServiceWorker();
 checkFrameSystem();
 checkStickerEngine();
 checkCapture();
@@ -771,7 +862,7 @@ if (hasErrors) {
   console.error('\n💥 Sanity check failed! Fix the errors above before committing.');
   process.exit(1);
 } else if (hasWarnings) {
-  console.warn('\n⚠️ Sanity check passed with warnings. Please review them.');
+  console.log('\n⚠️ Sanity checks passed with warnings.');
 } else {
   console.log('\n✅ All sanity checks passed.');
 }
