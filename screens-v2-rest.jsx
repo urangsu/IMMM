@@ -4,7 +4,8 @@
 // CAPTURE — 6 shots
 // ═══════════════════════════════════════════════════════════════
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, frameColor, muted, onRequestCamera,
-  videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef
+  videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef,
+  cameraZoom = 1, cameraCapabilities = null, cameraSettings = null, applyCameraZoom
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -311,7 +312,6 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           captureLongEdge: captureMeta.edge,
           sourceVideoWidth: captureMeta.sourceW,
           sourceVideoHeight: captureMeta.sourceH,
-          sourceVideoHeight: captureMeta.sourceH,
           facingMode,
           mirrored: facingMode === 'user',
           width: rect?.width ? Math.round(rect.width) : 720,
@@ -353,9 +353,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const startCountdown = () => { if (countdown===0 && idx<shotCount) setCountdown(timerLen); };
   const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<shotCount && countdown===0) setCountdown(timerLen); };
   const thumbs = Array.from({length:shotCount}, (_,i)=> shots[i]);
-  const renderShotStickers = (s) => null;
-
-  const cameraOverlay = overlayBox && (countdown > 0 || flashing || preStickers.length > 0)
+  const cameraOverlay = overlayBox && (countdown > 0 || flashing || visibleCaptureStickers.length > 0)
     ? ReactDOM.createPortal(
         <div style={{
           position:'fixed', top:overlayBox.top, left:overlayBox.left,
@@ -401,7 +399,6 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           {s && s.dataUrl ? (
             <>
               <img src={s.dataUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-              {renderShotStickers(s)}
             </>
           ) : s ? (
             <PlaceholderPortrait seed={i} filter={s.filter}/>
@@ -466,15 +463,6 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           })()}
           
           {/* Transparent hole for global camera box */}
-          
-          <div style={{ position:'absolute', inset:0, pointerEvents:'none', zIndex:12 }}>
-            {visibleCaptureStickers.map(s => (
-              <div key={s.id} style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-                transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`, opacity:0.88 }}>
-                {renderStickerInstance(s)}
-              </div>
-            ))}
-          </div>
           {countdown>0 && (
             <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
               background:'radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.55))', zIndex:20 }}>
@@ -532,6 +520,45 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             {Math.max(0, shotCount-idx)} left
           </div>
         </div>
+        {/* Camera zoom buttons — mobile + rear camera only */}
+        {mobile && facingMode === 'environment' && (
+          <div style={{ flexShrink:0, display:'flex', gap:6, justifyContent:'center', paddingBottom:4 }}>
+            {(() => {
+              const canHardwareZoom = cameraCapabilities?.zoom;
+              const canPointSix = canHardwareZoom
+                && cameraCapabilities.zoom.min <= 0.6
+                && cameraCapabilities.zoom.max >= 0.6;
+              const btnStyle = (active, disabled) => ({
+                padding: '6px 14px', borderRadius:999, border:'none', fontSize:11, fontWeight:700,
+                fontFamily:'"Plus Jakarta Sans",system-ui', cursor: disabled ? 'not-allowed' : 'pointer',
+                background: active ? T.ink : 'rgba(26,26,31,0.06)',
+                color: active ? T.bg : disabled ? T.inkSoft : T.ink,
+                opacity: disabled ? 0.45 : 1, transition:'all 0.2s',
+              });
+              return (<>
+                <button
+                  onClick={() => canPointSix && applyCameraZoom?.(0.6)}
+                  disabled={!canPointSix}
+                  title={!canPointSix ? '기기/브라우저 미지원' : '0.6배율 (초광각)'}
+                  style={btnStyle(Math.abs(cameraZoom - 0.6) < 0.05, !canPointSix)}
+                >0.6×</button>
+                <button
+                  onClick={() => applyCameraZoom?.(1)}
+                  disabled={!canHardwareZoom}
+                  title={!canHardwareZoom ? '줌 미지원' : '1배율'}
+                  style={btnStyle(Math.abs(cameraZoom - 1) < 0.05, !canHardwareZoom)}
+                >1×</button>
+              </>);
+            })()}
+            {window.IMMM_DEBUG_CAMERA && (
+              <div style={{ display:'flex', alignItems:'center', padding:'0 10px', borderRadius:999,
+                background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
+                {cameraSettings?.zoom != null ? `${cameraSettings.zoom}×` : 'default'}
+                {cameraSettings?.width ? ` · ${cameraSettings.width}×${cameraSettings.height}` : ''}
+              </div>
+            )}
+          </div>
+        )}
         {/* Thumbnail strip - mobile only */}
         {mobile && (
           <div style={{ flexShrink:0, display:'flex', gap:5, paddingBottom:8, maxHeight:48 }}>
@@ -544,7 +571,6 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               }}>
                 {s && s.dataUrl ? <>
                   <img src={s.dataUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-                  {renderShotStickers(s)}
                 </>
                 : s ? <PlaceholderPortrait seed={i} filter={s.filter}/>
                 : <div style={{ fontSize:11, color:T.inkSoft, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:500 }}>{i+1}</div>}
@@ -573,7 +599,6 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
   const [previewIdx, setPreviewIdx] = React.useState(null);
   const pressTimerRef = React.useRef(null);
   const longPressRef = React.useRef(false);
-  const renderShotStickers = (s) => null;
   const toggle = (i) => {
     if (maxSel === 1) {
       // Polaroid / single-select: never deselect, just switch to the new index.
@@ -658,7 +683,6 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
               {s && s.dataUrl ? (
                 <>
                   <img src={s.dataUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-                  {renderShotStickers(s)}
                 </>
               ) : s ? <PlaceholderPortrait seed={i} filter={s.filter||'porcelain'}/> : null}
               {isSel && (
@@ -704,11 +728,7 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
                 boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
               }}
             />
-            {shots[previewIdx].preStickers?.length > 0 && (
-              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                {renderShotStickers(shots[previewIdx])}
-              </div>
-            )}
+            {/* Step 1 stickers are rendered in final composition only, not in raw shot preview */}
             <button
               onClick={() => setPreviewIdx(null)}
               style={{

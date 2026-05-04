@@ -422,6 +422,51 @@ function checkSetupAndDecoStickerCanvas() {
       console.error('❌ FAIL: screens-v2-rest.jsx has suspicious drawStickerToCanvas + preStickers loop in capture path');
       hasErrors = true;
     }
+
+    // Shot metadata duplicate key check
+    if (/sourceVideoHeight:.*\n.*sourceVideoHeight:/.test(rest) || rest.includes('sourceVideoHeight: captureMeta.sourceH,\n          sourceVideoHeight:')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx has duplicate sourceVideoHeight key in shot metadata');
+      hasErrors = true;
+    }
+
+    // renderShotStickers must be fully removed
+    if (rest.includes('const renderShotStickers = (s) => null')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx still has renderShotStickers stub — remove it and all call sites');
+      hasErrors = true;
+    }
+    if (rest.includes('{renderShotStickers(s)}')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx still calls {renderShotStickers(s)} — remove all call sites');
+      hasErrors = true;
+    }
+
+    // cameraOverlay condition must use visibleCaptureStickers
+    if (rest.includes('preStickers.length > 0') && rest.includes('cameraOverlay')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx cameraOverlay condition still uses preStickers.length > 0; use visibleCaptureStickers.length > 0');
+      hasErrors = true;
+    }
+    if (!rest.includes('visibleCaptureStickers.length > 0')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx cameraOverlay missing visibleCaptureStickers.length > 0 condition');
+      hasErrors = true;
+    }
+
+    // visibleCaptureStickers.map should appear only once (in the portal overlay)
+    const visMapMatches = (rest.match(/visibleCaptureStickers\.map/g) || []).length;
+    if (visMapMatches > 1) {
+      console.error(`❌ FAIL: screens-v2-rest.jsx has ${visMapMatches} occurrences of visibleCaptureStickers.map — sticker overlay is duplicated`);
+      hasErrors = true;
+    }
+  }
+
+  const main = readFile('main.jsx');
+  if (main) {
+    if (!main.includes('getCapabilities') && !main.includes('getSettings')) {
+      console.warn('⚠️ WARN: main.jsx missing camera getCapabilities/getSettings logging after getUserMedia');
+      hasWarnings = true;
+    }
+    if (!main.includes('applyCameraZoom')) {
+      console.warn('⚠️ WARN: main.jsx missing applyCameraZoom callback');
+      hasWarnings = true;
+    }
   }
 
   if (!setup.includes('repeat(auto-fill') && setup.includes('flexDirection: \'column\'')) {

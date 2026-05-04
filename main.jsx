@@ -88,6 +88,9 @@ function App() {
   const [facingMode, setFacingMode] = React.useState('user');
   const [camOk, setCamOk] = React.useState(null);
   const streamRef = React.useRef(null);
+  const [cameraZoom, setCameraZoom] = React.useState(1);
+  const [cameraCapabilities, setCameraCapabilities] = React.useState(null);
+  const [cameraSettings, setCameraSettings] = React.useState(null);
 
   // useFilterEngine stays active from the start, warming up shaders
   const { engineRef, webglOk, firstFrame, webglFailed } = (typeof useFilterEngine === 'function')
@@ -130,8 +133,28 @@ function App() {
         
         const track = s.getVideoTracks()[0];
         if (track) {
-          const settings = track.getSettings();
-          console.info('[IMMM camera] actual settings:', { width: settings.width, height: settings.height, frameRate: settings.frameRate, facingMode: settings.facingMode });
+          const settings = track.getSettings ? track.getSettings() : {};
+          const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+          const constraints = track.getConstraints ? track.getConstraints() : {};
+          setCameraSettings(settings);
+          setCameraCapabilities(capabilities);
+          setCameraZoom(1);
+          console.info('[IMMM camera] actual settings:', settings);
+          if (window.IMMM_DEBUG_CAMERA) {
+            console.info('[IMMM camera] capabilities:', capabilities);
+            console.info('[IMMM camera] constraints:', constraints);
+          }
+          // Ultrawide device candidate enumeration (debug only)
+          if (window.IMMM_DEBUG_CAMERA && navigator.mediaDevices?.enumerateDevices) {
+            navigator.mediaDevices.enumerateDevices().then(devices => {
+              const vidInputs = devices.filter(d => d.kind === 'videoinput');
+              const uwKeywords = ['ultra', 'wide', 'back', 'rear', '0.5', '0.6', '광각', '초광각'];
+              const candidates = vidInputs.filter(d =>
+                uwKeywords.some(kw => d.label.toLowerCase().includes(kw))
+              );
+              if (candidates.length) console.info('[IMMM camera] ultrawide candidates:', candidates);
+            }).catch(() => {});
+          }
         }
 
         if (videoRef.current) {
@@ -153,6 +176,25 @@ function App() {
       if (videoRef.current) videoRef.current.srcObject = null;
     };
   }, [facingMode]);
+
+  const applyCameraZoom = React.useCallback(async (zoom) => {
+    const track = streamRef.current?.getVideoTracks?.()[0];
+    if (!track || typeof track.applyConstraints !== 'function') return false;
+    const caps = track.getCapabilities?.() || {};
+    if (!caps.zoom) return false;
+    const min = caps.zoom.min ?? 1;
+    const max = caps.zoom.max ?? 1;
+    const clamped = Math.max(min, Math.min(max, zoom));
+    try {
+      await track.applyConstraints({ advanced: [{ zoom: clamped }] });
+      setCameraZoom(clamped);
+      setCameraSettings(track.getSettings?.() || {});
+      return true;
+    } catch (e) {
+      console.warn('[IMMM camera] zoom apply failed:', e);
+      return false;
+    }
+  }, []);
 
   React.useEffect(() => {
     const onHash = () => {
@@ -255,6 +297,10 @@ function App() {
           camOk={camOk} facingMode={facingMode} setFacingMode={setFacingMode}
           onCameraFrameChange={setCameraBox}
           faceDataRef={faceDataRef}
+          cameraZoom={cameraZoom}
+          cameraCapabilities={cameraCapabilities}
+          cameraSettings={cameraSettings}
+          applyCameraZoom={applyCameraZoom}
         />;
       case 'select':
         return <SelectV2 {...p}
