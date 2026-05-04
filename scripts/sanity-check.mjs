@@ -88,6 +88,23 @@ function checkFrameSystem() {
     hasErrors = true;
   }
 
+  if (!content.includes('st.frameSlot == null') && !content.includes('s.frameSlot == null')) {
+    console.error('❌ FAIL: frame-system.jsx freeStickers missing frameSlot == null check');
+    hasErrors = true;
+  }
+
+  if (!/function\s+renderComposition[\s\S]*renderFrameOverlay\(/.test(content)) {
+    console.error('❌ FAIL: frame-system.jsx renderComposition does not call renderFrameOverlay');
+    hasErrors = true;
+  }
+
+  if (content.includes('sticker.kind === \'text\'') || content.includes('sticker.kind === \'setlog\'')) {
+    if (content.includes('fontPx * scalePx') || content.includes('size * scalePx')) {
+      console.warn('⚠️ WARN: frame-system.jsx text/setlog export path has suspicious sizeNorm and scalePx double scaling');
+      hasWarnings = true;
+    }
+  }
+
   if (!content.includes('function isDarkFrameColor')) {
     console.error('❌ FAIL: frame-system.jsx missing isDarkFrameColor helper');
     hasErrors = true;
@@ -385,14 +402,26 @@ function checkSetupAndDecoStickerCanvas() {
   }
 
   const rest = readFile('screens-v2-rest.jsx');
-  if (rest && !rest.includes('isDarkFrameColor(frameColor)')) {
-    console.warn('⚠️ WARN: screens-v2-rest.jsx CaptureOverlay missing isDarkFrameColor(frameColor) check');
-    hasWarnings = true;
-  }
+  if (rest) {
+    if (!rest.includes('isDarkFrameColor(frameColor)')) {
+      console.warn('⚠️ WARN: screens-v2-rest.jsx CaptureOverlay missing isDarkFrameColor(frameColor) check');
+      hasWarnings = true;
+    }
 
-  if (rest && !rest.includes('dotColor: isDarkFrame ? \'rgba(255,255,255,0.88)\' : \'rgba(255,255,255,0.72)\'')) {
-    console.warn('⚠️ WARN: screens-v2-rest.jsx CaptureOverlay missing specific guide dotColor logic');
-    hasWarnings = true;
+    if (!rest.includes('dotColor: isDarkFrame ? \'rgba(255,255,255,0.88)\' : \'rgba(255,255,255,0.72)\'')) {
+      console.warn('⚠️ WARN: screens-v2-rest.jsx CaptureOverlay missing specific guide dotColor logic');
+      hasWarnings = true;
+    }
+
+    if (rest.includes('preStickers.map')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx still uses preStickers.map, Step 1 stickers might be baked!');
+      hasErrors = true;
+    }
+
+    if (rest.includes('drawStickerToCanvas') && rest.includes('preStickers')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx has suspicious drawStickerToCanvas + preStickers loop in capture path');
+      hasErrors = true;
+    }
   }
 
   if (!setup.includes('repeat(auto-fill') && setup.includes('flexDirection: \'column\'')) {
@@ -425,6 +454,11 @@ function checkDeco() {
       console.error(`❌ FAIL: screens-v2-deco.jsx is missing required async render guard pattern: "${pattern}"`);
       hasErrors = true;
     }
+  }
+
+  if (!content.includes('await renderComposition(')) {
+    console.warn('⚠️ WARN: screens-v2-deco.jsx preview does not use renderComposition');
+    hasWarnings = true;
   }
 
   // 2. Pointer event check

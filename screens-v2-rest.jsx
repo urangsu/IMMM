@@ -311,8 +311,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           captureLongEdge: captureMeta.edge,
           sourceVideoWidth: captureMeta.sourceW,
           sourceVideoHeight: captureMeta.sourceH,
-          preStickers: [],
-          bakedPreStickers: [...preStickers].map(s => ({ ...s })),
+          sourceVideoHeight: captureMeta.sourceH,
           facingMode,
           mirrored: facingMode === 'user',
           width: rect?.width ? Math.round(rect.width) : 720,
@@ -354,16 +353,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const startCountdown = () => { if (countdown===0 && idx<shotCount) setCountdown(timerLen); };
   const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<shotCount && countdown===0) setCountdown(timerLen); };
   const thumbs = Array.from({length:shotCount}, (_,i)=> shots[i]);
-  const renderShotStickers = (s) => (
-    <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
-      {(s?.preStickers || []).map(st => (
-        <div key={st.id} style={{ position:'absolute', left:`${st.x}%`, top:`${st.y}%`,
-          transform:`translate(-50%,-50%) rotate(${st.rotation||0}deg) scale(${st.scale||1})`, opacity:0.88 }}>
-          {renderStickerInstance(st)}
-        </div>
-      ))}
-    </div>
-  );
+  const renderShotStickers = (s) => null;
 
   const cameraOverlay = overlayBox && (countdown > 0 || flashing || preStickers.length > 0)
     ? ReactDOM.createPortal(
@@ -583,16 +573,7 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
   const [previewIdx, setPreviewIdx] = React.useState(null);
   const pressTimerRef = React.useRef(null);
   const longPressRef = React.useRef(false);
-  const renderShotStickers = (s) => (
-    <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
-      {(s?.preStickers || []).map(st => (
-        <div key={st.id} style={{ position:'absolute', left:`${st.x}%`, top:`${st.y}%`,
-          transform:`translate(-50%,-50%) rotate(${st.rotation||0}deg) scale(${st.scale||1})`, opacity:0.88 }}>
-          {renderStickerInstance(st)}
-        </div>
-      ))}
-    </div>
-  );
+  const renderShotStickers = (s) => null;
   const toggle = (i) => {
     if (maxSel === 1) {
       // Polaroid / single-select: never deselect, just switch to the new index.
