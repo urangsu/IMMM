@@ -141,7 +141,9 @@ const I18N = {
 };
 
 function LandingV2({ T, variant, go, mobile, onStart, onEdit, onGallery, lang = 'ko', setLang }) {
-  const WFrameThumb = window.FrameThumb || (typeof FrameThumb !== 'undefined' ? FrameThumb : null);
+  const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
+    ? window.FrameThumb
+    : null;
 
   const t = I18N[lang] || I18N.ko;
   const toggleLang = () => setLang(l => l === 'ko' ? 'en' : l === 'en' ? 'jp' : 'ko');
@@ -270,7 +272,9 @@ function getStickerPickerPacks() {
 }
 
 function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks }) {
-  const WFrameThumb = window.FrameThumb || (typeof FrameThumb !== 'undefined' ? FrameThumb : null);
+  const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
+    ? window.FrameThumb
+    : null;
 
   const [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
   const [selStId, setSelStId] = uS(null);
@@ -342,8 +346,14 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           canvasW={frameW}
           height="auto"
         >
-          <WFrameThumb key={frameColor} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
-        logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} />
+          {WFrameThumb ? (
+            <WFrameThumb key={frameColor} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
+              logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} />
+          ) : (
+            <div style={{ width: frameW, minHeight: 240, display:'grid', placeItems:'center', color:T.inkSoft, background: 'rgba(0,0,0,0.03)', borderRadius: 8 }}>
+              Frame preview unavailable
+            </div>
+          )}
         </StickerCanvas>
       </div>
     </div>;
@@ -382,9 +392,13 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
             <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none' }}>
               {tpl?.recommended && <div style={{ position: 'absolute', top: 4, left: 5, zIndex: 5 }}><StoreBadge T={T}>Pick</StoreBadge></div>}
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.28)' }}>
-                <WFrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
-                  logo={false} dateText={false} accent={accent} scale={1}
-                  orientation="portrait" frameColor={frameColor} />
+                {WFrameThumb ? (
+                  <WFrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
+                    logo={false} dateText={false} accent={accent} scale={1}
+                    orientation="portrait" frameColor={frameColor} />
+                ) : (
+                  <div style={{ width: 180, height: 240, background: 'rgba(0,0,0,0.05)', borderRadius: 4, display:'grid', placeItems:'center', fontSize: 20 }}>?</div>
+                )}
               </div>
             </div>
             <div style={{ fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>

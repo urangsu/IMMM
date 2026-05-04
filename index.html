@@ -72,6 +72,41 @@
 </style>
 
 <script>
+  window.IMMM_APP_VERSION = '2026-05-05-frame-hotfix-2';
+  
+  (function() {
+    var isSamsungInternet = /SamsungBrowser/i.test(navigator.userAgent);
+    var VERSION_KEY = 'immm.app.version';
+    var MIGRATION_KEY = 'immm.sw.frameHotfixApplied';
+    var currentVersion = window.IMMM_APP_VERSION;
+
+    // 1. One-time emergency cleanup for Samsung Internet
+    if (isSamsungInternet && localStorage.getItem(MIGRATION_KEY) !== '1') {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          return Promise.all(regs.map(function(r) { return r.unregister(); }));
+        }).then(function() {
+          localStorage.setItem(MIGRATION_KEY, '1');
+          location.reload();
+        }).catch(function() {
+          localStorage.setItem(MIGRATION_KEY, '1');
+        });
+      } else {
+        localStorage.setItem(MIGRATION_KEY, '1');
+      }
+    }
+
+    // 2. General version-based update check
+    if (localStorage.getItem(VERSION_KEY) !== currentVersion) {
+      localStorage.setItem(VERSION_KEY, currentVersion);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(r) { r.update(); });
+        });
+      }
+    }
+  })();
+
   window.__showBootError = function(message, source, line, col, error) {
     var box = document.getElementById('boot-error');
     if (!box) return;
@@ -146,8 +181,6 @@
 <script type="text/babel" src="frame-system.jsx"></script>
 <!-- Landing + Setup screens + shared UI primitives -->
 <script type="text/babel" src="screens-v2.jsx"></script>
-<!-- FrameThumb component (depends on sticker-engine and screens-v2 for Kick/Btn aliases) -->
-<script type="text/babel" src="screens-edit.jsx"></script>
 <!-- Capture + Select screens -->
 <script type="text/babel" src="screens-v2-rest.jsx"></script>
 <!-- Deco Studio + Result screens -->

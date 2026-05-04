@@ -2,22 +2,11 @@
 // ping-pong FBO | GLSL shaders | MediaPipe face uniform injection
 
 /**
- * 🚀 PHASE B — WebGL Masked Skin Retouch (Design)
+ * 🚀 EMERGENCY STABILITY MODE
  * ─────────────────────────────────────────────────────────────────────────────
  * [GOAL] 
- *   인위적인 블러가 아닌, 피부 톤의 균일도를 높이는 자연스러운 보정 구현.
- *   얼굴 외곽과 배경의 경계선 왜곡(Denting)이 절대 발생하지 않는 합성 지향.
- * 
- * [TEXTURE STRATEGY]
- *   1. originalTexture: 원본 카메라 입력 (u_tex)
- *   2. blurredTexture: Downsampled Gaussian/Bilateral blur pass (저해상도 FBO)
- *   3. skinMask: Landmark 기반 ROI 또는 Procedural skin-tone mask
- *   4. skinRetouchComposite: mix(original, blurred, mask * strength)
- * 
- * [PERFORMANCE OPTIMIZATION]
- *   - Early-Exit: strength 가 0이면 해당 pass 전체 skip.
- *   - Downsampling: Blur 연산은 1/2 또는 1/4 해상도 FBO에서 수행.
- *   - Throttling: Landmark 업데이트는 10~15fps 제한.
+ *   Global safety mode enabled. All face-aware distortion and mask-based 
+ *   retouching paths are permanently disabled to ensure runtime stability.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -334,9 +323,7 @@ void main(){
   gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
 }`,
 
-//  Blush — EMERGENCY: GLOBAL WARM TINT (NON-LANDMARK)
-// SAFETY: Removed landmark awareness (cheek position) to prevent distortion.
-// Now applies a subtle, natural warm pinkish lift to the entire frame.
+//  Blush — GLOBAL WARM TINT
 blush: `
 precision mediump float;
 uniform sampler2D u_tex;
@@ -347,11 +334,8 @@ void main(){
   vec4 orig = texture2D(u_tex, v_uv);
   vec3 c = orig.rgb;
   float lum = dot(c, vec3(0.299,0.587,0.114));
-  // Simple color tint
   vec3 tint = mix(c, c + u_blushColor * 0.08, u_blushStrength * 0.25);
   c = mix(c, tint, 0.35);
-  c = mix(vec3(lum), c, 0.96);
-  c *= 1.02;
   gl_FragColor = vec4(clamp(c,0.0,1.0), orig.a);
 }`,
 
@@ -599,41 +583,11 @@ void main(){
 // pipeline (original / porcelain / smooth / blush / grain / bw).
 // ─────────────────────────────────────────────────────────────────────────────
 
-// lip_color — PERMANENTLY DISABLED
-lip_color: `
-precision mediump float;
-uniform sampler2D u_tex;
-varying vec2 v_uv;
-void main(){
-  gl_FragColor=texture2D(u_tex,v_uv);
-}`,
-
-// face_slim — PERMANENTLY DISABLED
-face_slim: `
-precision mediump float;
-uniform sampler2D u_tex;
-varying vec2 v_uv;
-void main(){
-  gl_FragColor=texture2D(u_tex,v_uv);
-}`,
-
-//  Eye Bright — PERMANENTLY DISABLED
-eye_bright: `
-precision mediump float;
-uniform sampler2D u_tex;
-varying vec2 v_uv;
-void main(){
-  gl_FragColor=texture2D(u_tex,v_uv);
-}`,
-
-// contour — PERMANENTLY DISABLED
-contour: `
-precision mediump float;
-uniform sampler2D u_tex;
-varying vec2 v_uv;
-void main(){
-  gl_FragColor=texture2D(u_tex,v_uv);
-}`,
+// neutralized shaders
+lip_color: `precision mediump float; uniform sampler2D u_tex; varying vec2 v_uv; void main(){ gl_FragColor=texture2D(u_tex,v_uv); }`,
+face_slim: `precision mediump float; uniform sampler2D u_tex; varying vec2 v_uv; void main(){ gl_FragColor=texture2D(u_tex,v_uv); }`,
+eye_bright: `precision mediump float; uniform sampler2D u_tex; varying vec2 v_uv; void main(){ gl_FragColor=texture2D(u_tex,v_uv); }`,
+contour: `precision mediump float; uniform sampler2D u_tex; varying vec2 v_uv; void main(){ gl_FragColor=texture2D(u_tex,v_uv); }`,
 
   };
 
@@ -793,8 +747,6 @@ const FILTER_PIPELINES = {
   // ─── Glam  Instagram AR-style full makeup filter ─────────────────────────
   // face_slim → skin smooth → skin lift → blush → eye_bright → lip_color → contour → halation
   glam: { pipeline:[
-    // 1. Face slimming UV warp (DISABLED for emergency safety)
-    // { shader:'face_slim',    uniforms:{ u_leftJaw:[0.22,0.72], u_rightJaw:[0.78,0.72], u_chin:[0.5,0.88] } },
     // 2. Skin smoothing — bilateral x2
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:6.5, u_sigmaColor:0.12 } },
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:6.5, u_sigmaColor:0.12 } },
@@ -1031,52 +983,8 @@ class FilterEngine {
         continue;
       }
 
-      if (step.shader === 'skin_retouch') {
-        const useDownsample = isMobile;
-        const resForBlur = useDownsample ? [this._downW, this._downH] : res;
-        const blurSigma = useDownsample ? 1.4 : 2.0; 
-        
-        if (useDownsample) {
-          // Downsample pass
-          this._pass('passthrough', curTex, this._downFboInfos[0], { u_resolution: resForBlur, u_flipX:0.0, u_flipY:0.0 });
-          // Blur on low-res
-          this._pass('bilateral_h', this._downFboInfos[0].attachments[0], this._downFboInfos[1], {
-            u_resolution: resForBlur, u_sigmaSpace: blurSigma, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
-          });
-          this._pass('bilateral_v', this._downFboInfos[1].attachments[0], this._downFboInfos[0], {
-            u_resolution: resForBlur, u_sigmaSpace: blurSigma, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
-          });
-          const blurredTex = this._downFboInfos[0].attachments[0];
-          
-          this._pass('skin_retouch', curTex, this._fboInfos[idx], {
-            u_blurredTex: blurredTex,
-            u_maskTex: this._maskTex,
-            u_strength: step.uniforms?.u_strength || 0.0,
-            u_debugMask: step.uniforms?.u_debugMask || 0.0,
-            u_flipX: 0.0, u_flipY: 0.0
-          });
-        } else {
-          // Normal high-res blur
-          this._pass('bilateral_h', curTex, this._fboInfos[2], {
-            u_resolution: res, u_sigmaSpace: 2.0, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
-          });
-          const blurOut = 1 - idx;
-          this._pass('bilateral_v', this._fboInfos[2].attachments[0], this._fboInfos[blurOut], {
-            u_resolution: res, u_sigmaSpace: 2.0, u_sigmaColor: 0.1, u_flipX:0.0, u_flipY:0.0
-          });
-          const blurredTex = this._fboInfos[blurOut].attachments[0];
-          
-          const compOut = idx;
-          this._pass('skin_retouch', curTex, this._fboInfos[compOut], {
-            u_blurredTex: blurredTex,
-            u_maskTex: this._maskTex,
-            u_strength: step.uniforms?.u_strength || 0.0,
-            u_debugMask: step.uniforms?.u_debugMask || 0.0,
-            u_flipX: 0.0, u_flipY: 0.0
-          });
-        }
-        curTex = this._fboInfos[idx].attachments[0];
-        // Note: idx stays same, following Normal pass will flip it
+      // shader path disabled
+      if (step.shader === 'shader_0') {
         continue;
       }
 
@@ -1090,7 +998,6 @@ class FilterEngine {
         u_srcResolution: i === 0 ? srcRes : res,
         u_dstResolution: res,
         ...step.uniforms,
-        ...fu,
       });
       // Only advance curTex when the draw actually happened.
       // If _pass returned false (program missing), keep curTex so downstream

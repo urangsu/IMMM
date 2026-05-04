@@ -118,7 +118,7 @@ function getFrameTemplate(layoutOrType) {
 }
 
 function getShotCountForFrame(layoutOrType) {
-  return getFrameTemplate(layoutOrType).photoSlots.length;
+  return getFrameTemplateSafe(layoutOrType).photoSlots.length;
 }
 
 function loadImageForCanvas(src) {
@@ -405,7 +405,10 @@ function isStickerValidForLayout(sticker, layout) {
 }
 
 async function renderComposition(ctx, data, options = {}) {
-  const template = getFrameTemplate(data.layout || data.templateType);
+  const template = getFrameTemplateSafe(data.layout || data.templateType);
+  if (!template) {
+    throw new Error('[IMMM] frame template unavailable');
+  }
   const scale = options.scale || 1;
   const w = template.canvasSize.width * scale;
   const h = template.canvasSize.height * scale;
@@ -506,7 +509,10 @@ async function renderFrameToCanvas(input) {
   if (document.fonts && document.fonts.ready) {
     await document.fonts.ready;
   }
-  const template = getFrameTemplate(input.layout || input.templateType);
+  const template = getFrameTemplateSafe(input.layout || input.templateType);
+  if (!template) {
+    throw new Error('[IMMM] frame template unavailable');
+  }
   const scale = input.scale || 1;
   const w = template.canvasSize.width * scale;
   const h = template.canvasSize.height * scale;
@@ -516,7 +522,7 @@ async function renderFrameToCanvas(input) {
   cvs.height = Math.round(h);
   const ctx = cvs.getContext('2d');
 
-  await renderComposition(ctx, input, { scale });
+  await window.renderComposition(ctx, input, { scale });
 
   return cvs;
 }
@@ -683,10 +689,10 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
 }
 
 function getFrameTemplateSafe(layoutOrType) {
-  if (typeof getFrameTemplate === 'function') {
-    return getFrameTemplate(layoutOrType);
-  }
   if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+    return window.getFrameTemplate(layoutOrType);
+  }
+  if (typeof getFrameTemplate === 'function') {
     return window.getFrameTemplate(layoutOrType);
   }
   console.error('[IMMM] getFrameTemplate unavailable; using emergency 1x4 fallback');

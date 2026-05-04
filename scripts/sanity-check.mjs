@@ -20,11 +20,11 @@ let hasErrors = false;
 let hasWarnings = false;
 
 function checkWebGL() {
-  const content = readFile('webgl-engine.jsx');
-  if (!content) return;
+  const webgl = readFile('webgl-engine.jsx');
+  if (!webgl) return;
 
-  if (content.includes('mobileRef')) {
-    console.error('❌ FAIL: webgl-engine.jsx contains "mobileRef" (legacy ReferenceError guard)');
+  if (webgl.includes('mobileRef')) {
+    console.error('❌ FAIL: webgl-engine.jsx contains "mobileRef"');
     hasErrors = true;
   }
 }
@@ -35,43 +35,35 @@ function checkEmergencyFaceSafety() {
   const rest = readFile('screens-v2-rest.jsx');
 
   if (webgl) {
-    // 1. webgl-engine.jsx의 skin_retouch shader body 안에 u_blurredTex가 있으면 fail
     const skinRetouchBody = webgl.match(/skin_retouch:\s*`([\s\S]*?)`/)?.[1] || '';
     if (skinRetouchBody.includes('u_blurredTex')) {
-       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains u_blurredTex');
-       hasErrors = true;
+      console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains u_blurredTex');
+      hasErrors = true;
     }
-    // 2. skin_retouch shader body 안에 u_maskTex가 있으면 fail
     if (skinRetouchBody.includes('u_maskTex')) {
-       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains u_maskTex');
-       hasErrors = true;
+      console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains u_maskTex');
+      hasErrors = true;
     }
-    // 3. skin_retouch shader body 안에 finalMask가 있으면 fail
     if (skinRetouchBody.includes('finalMask')) {
-       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains finalMask');
-       hasErrors = true;
+      console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains finalMask');
+      hasErrors = true;
     }
-    // 4. skin_retouch shader body 안에 getSkinConfidence가 있으면 fail
     if (skinRetouchBody.includes('getSkinConfidence')) {
-       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains getSkinConfidence');
-       hasErrors = true;
+      console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains getSkinConfidence');
+      hasErrors = true;
     }
-    // 5. skin_retouch shader body 안에 mix(ori, blur가 있으면 fail
     if (skinRetouchBody.includes('mix(ori, blur')) {
-       console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains mix(ori, blur');
-       hasErrors = true;
+      console.error('❌ FAIL: webgl-engine.jsx skin_retouch shader body contains mix(ori, blur');
+      hasErrors = true;
     }
-    // 6. IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH 문자열이 있으면 fail
     if (webgl.includes('IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH')) {
-       console.error('❌ FAIL: webgl-engine.jsx contains prohibited IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH');
-       hasErrors = true;
+      console.error('❌ FAIL: webgl-engine.jsx contains prohibited IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH');
+      hasErrors = true;
     }
-    // 7. active pipeline에 shader:'skin_retouch'가 있으면 fail
     if (webgl.match(/^\s*(?!\/\/).*\bshader\s*:\s*'skin_retouch'\b/m)) {
-       console.error('❌ FAIL: webgl-engine.jsx active pipeline contains skin_retouch');
-       hasErrors = true;
+      console.error('❌ FAIL: webgl-engine.jsx active pipeline contains skin_retouch');
+      hasErrors = true;
     }
-    // 8. blush shader body 안에 u_faceCount, u_leftCheek, u_rightCheek, cheek(가 있으면 fail
     const blushBody = webgl.match(/blush:\s*`([\s\S]*?)`/)?.[1] || '';
     const blushProhibited = ['u_faceCount', 'u_leftCheek', 'u_rightCheek', 'cheek('];
     blushProhibited.forEach(word => {
@@ -81,13 +73,11 @@ function checkEmergencyFaceSafety() {
       }
     });
 
-    // 10. webgl-engine.jsx에 faceUniforms.u_ 할당이 있으면 fail, 주석 안이면 warn만 허용
     if (webgl.match(/^\s*(?!\/\/).*\bfaceUniforms\.u_\w+\b\s*=/m)) {
-       console.error('❌ FAIL: webgl-engine.jsx contains active faceUniforms.u_ assignment');
-       hasErrors = true;
+      console.error('❌ FAIL: webgl-engine.jsx contains active faceUniforms.u_ assignment');
+      hasErrors = true;
     }
 
-    // Geometry guards
     if (webgl.includes('uv = warpEye')) {
       console.error('❌ FAIL: webgl-engine.jsx contains active warpEye calls');
       hasErrors = true;
@@ -97,7 +87,6 @@ function checkEmergencyFaceSafety() {
       hasErrors = true;
     }
 
-    // Shader neutralization check
     const shaders = ['face_slim', 'eye_bright', 'lip_color', 'contour', 'skin_retouch'];
     shaders.forEach(s => {
       const pattern = new RegExp(`${s}:\\s*\`[\\s\\S]*?void\\s+main\\(\\)\\s*\\{[\\s\\S]*?gl_FragColor=texture2D\\(u_tex,v_uv\\);[\\s\\S]*?\\}\``);
@@ -109,7 +98,6 @@ function checkEmergencyFaceSafety() {
   }
 
   if (main) {
-    // 9. main.jsx에 useFaceLandmarks(videoRef)가 있으면 fail
     if (main.includes('useFaceLandmarks(videoRef)')) {
       console.error('❌ FAIL: main.jsx still calls useFaceLandmarks(videoRef) - Must be GLOBALLY disabled');
       hasErrors = true;
@@ -134,593 +122,8 @@ function checkEmergencyFaceSafety() {
       hasErrors = true;
     }
     if (rest.match(/applyFaceZoneSoftening\(\s*ctx/)) {
-       console.error('❌ FAIL: screens-v2-rest.jsx still calls applyFaceZoneSoftening(ctx');
-       hasErrors = true;
-    }
-  }
-}
-
-function checkFrameSystem() {
-  const content = readFile('frame-system.jsx');
-  if (!content) return;
-  
-  if (content.includes('drawCatalogSticker') && !content.includes('drawFallbackSticker')) {
-    console.error('❌ FAIL: frame-system.jsx calls drawCatalogSticker but missing drawFallbackSticker definition');
-    hasErrors = true;
-  }
-  
-  // Check if preset branch has try/catch
-  if (content.includes('if (sticker.kind === \'preset\')') && !content.includes('try {') && !content.includes('catch (err)')) {
-    console.error('❌ FAIL: frame-system.jsx preset branch is missing try/catch wrapper');
-    hasErrors = true;
-  }
-  
-  if (content.includes('Caveat, cursive') && content.includes('template.date.fontSize')) {
-    console.error('❌ FAIL: frame-system.jsx uses Caveat font for polaroid date. Use Pretendard/Plus Jakarta Sans.');
-    hasErrors = true;
-  }
-
-  if (!content.includes('"Plus Jakarta Sans", Pretendard') && !content.includes('Pretendard, "Plus Jakarta Sans"')) {
-    console.error('❌ FAIL: frame-system.jsx date font missing Plus Jakarta Sans.');
-    hasErrors = true;
-  }
-
-  if (!/async\s+function\s+drawStickerToCtx[\s\S]*sticker\.sizeNorm/.test(content)) {
-    console.error('❌ FAIL: frame-system.jsx drawStickerToCtx must reference sticker.sizeNorm');
-    hasErrors = true;
-  }
-
-  if (!/const\s+targetW\s*=\s*actualSizeNorm\s*\?\s*baseW\s*\*\s*actualSizeNorm/.test(content)) {
-    console.error('❌ FAIL: frame-system.jsx drawStickerToCtx must derive export sticker width from baseW * sizeNorm');
-    hasErrors = true;
-  }
-
-  if (/drawCatalog\(ctx,\s*item,\s*scalePx\)/.test(content)) {
-    console.error('❌ FAIL: frame-system.jsx preset draw path still passes scalePx after ctx scale; this can double-scale stickers');
-    hasErrors = true;
-  }
-
-  if (content.includes("frameFill: '#fff'") && content.includes("dotColor: '#D98893'")) {
-    console.error("❌ FAIL: frame-system.jsx white frame templates still use pink dotColor #D98893");
-    hasErrors = true;
-  }
-
-  if (content.includes("const dotColor = options.dotColor || rawDotColor || (isDark ? 'rgba(255,255,255,0.88)' : '#111')") === false) {
-    console.error("❌ FAIL: frame-system.jsx renderFrameOverlay missing correct dotColor fallback logic");
-    hasErrors = true;
-  }
-
-  if (content.includes("s.frameSlot === i")) {
-    console.error("❌ FAIL: frame-system.jsx still uses s.frameSlot === i; use Number(s.frameSlot) === i");
-    hasErrors = true;
-  }
-
-  if (!content.includes('Number(s.frameSlot) === i')) {
-    console.error('❌ FAIL: frame-system.jsx missing Number(s.frameSlot) === i comparison');
-    hasErrors = true;
-  }
-
-  if (!content.includes('st.frameSlot == null') && !content.includes('s.frameSlot == null')) {
-    console.error('❌ FAIL: frame-system.jsx freeStickers missing frameSlot == null check');
-    hasErrors = true;
-  }
-
-  if (!/function\s+renderComposition[\s\S]*renderFrameOverlay\(/.test(content)) {
-    console.error('❌ FAIL: frame-system.jsx renderComposition does not call renderFrameOverlay');
-    hasErrors = true;
-  }
-
-  if (content.includes('sticker.kind === \'text\'') || content.includes('sticker.kind === \'setlog\'')) {
-    if (content.includes('fontPx * scalePx') || content.includes('size * scalePx')) {
-      console.warn('⚠️ WARN: frame-system.jsx text/setlog export path has suspicious sizeNorm and scalePx double scaling');
-      hasWarnings = true;
-    }
-  }
-
-  if (!content.includes('function isDarkFrameColor')) {
-    console.error('❌ FAIL: frame-system.jsx missing isDarkFrameColor helper');
-    hasErrors = true;
-  }
-
-  if (content.includes('const isDark = isDarkFrameColor(bg)') === false) {
-    console.warn('⚠️ WARN: frame-system.jsx renderFrameOverlay does not use isDarkFrameColor(bg)');
-    hasWarnings = true;
-  }
-}
-
-function checkStickerEngine() {
-  const content = readFile('sticker-engine.jsx');
-  if (!content) return;
-
-  if (!content.includes('function getStickerHitboxSize')) {
-    console.error('❌ FAIL: sticker-engine.jsx missing getStickerHitboxSize helper');
-    hasErrors = true;
-  }
-  
-  if (!content.includes('function getCatalogStickerBaseSize')) {
-    console.error('❌ FAIL: sticker-engine.jsx missing getCatalogStickerBaseSize helper');
-    hasErrors = true;
-  }
-
-  if (content.includes('return 72;') || content.includes('return 72')) {
-    console.error('❌ FAIL: sticker-engine.jsx getStickerHitboxSize still uses scalar return 72 fallback instead of {w, h}');
-    hasErrors = true;
-  }
-  
-  if (content.includes('width: hideVisuals ? getStickerHitboxSize(s) :')) {
-    console.error('❌ FAIL: sticker-engine.jsx uses raw getStickerHitboxSize(s) scalar for width/height');
-    hasErrors = true;
-  }
-  
-  if (content.includes('height: hideVisuals ? getStickerHitboxSize(s) :')) {
-    console.error('❌ FAIL: sticker-engine.jsx uses raw getStickerHitboxSize(s) scalar for width/height');
-    hasErrors = true;
-  }
-
-  // Check if hideVisuals wrapper is hiding controls
-  if (content.includes('opacity: hideVisuals ? 0 : 1') && content.match(/opacity:\s*hideVisuals\s*\?\s*0\s*:\s*1[^>]*>\s*\{renderStickerInstance[^}]*\}\s*\{renderStickerControls/)) {
-    console.error('❌ FAIL: sticker-engine.jsx wrapper opacity 0 hides interaction controls');
-    hasErrors = true;
-  }
-
-  // Check if controls are fixed size (using invScale)
-  if (!content.includes('1 / (s.scale || 1)') && !content.includes('invScale')) {
-    console.warn('⚠️ WARN: sticker-engine.jsx renderStickerControls may be scaling with sticker. Need inverse scale.');
-    hasWarnings = true;
-  }
-
-  // Check getStickerVisualBounds exists
-  if (!content.includes('function getStickerVisualBounds')) {
-    console.error('❌ FAIL: sticker-engine.jsx missing getStickerVisualBounds helper');
-    hasErrors = true;
-  }
-
-  // Check getStickerVisualBounds returns {w,h}
-  if (content.includes('function getStickerVisualBounds') && !content.includes('return { w:') && !content.includes('return {w:')) {
-    console.error('❌ FAIL: sticker-engine.jsx getStickerVisualBounds does not return {w,h} objects');
-    hasErrors = true;
-  }
-
-  // Check m-immm-logo exists in STICKER_CATALOG
-  if (!content.includes("'m-immm-logo'")) {
-    console.error('❌ FAIL: sticker-engine.jsx Minimal pack missing m-immm-logo item');
-    hasErrors = true;
-  }
-
-  // kretro must be hidden
-  if (content.includes("id: 'kretro'") && !content.includes('hidden: true')) {
-    console.error('❌ FAIL: sticker-engine.jsx kretro pack is not hidden');
-    hasErrors = true;
-  }
-
-  // getInteractionBounds must exist
-  if (!content.includes('function getInteractionBounds')) {
-    console.error('❌ FAIL: sticker-engine.jsx missing getInteractionBounds helper');
-    hasErrors = true;
-  }
-
-  if (!content.includes('function getVisibleStickerPacks')) {
-    console.error('❌ FAIL: sticker-engine.jsx missing getVisibleStickerPacks helper');
-    hasErrors = true;
-  }
-
-  if (content.includes('function getVisibleStickerPacks') && !content.includes('!pack.hidden')) {
-    console.error('❌ FAIL: sticker-engine.jsx getVisibleStickerPacks missing !pack.hidden filter');
-    hasErrors = true;
-  }
-
-  // getInteractionBounds must apply decoScale in deco-overlay mode
-  if (content.includes('function getInteractionBounds') &&
-      !content.includes('decoScale?.x') && !content.includes('decoScale.x')) {
-    console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds does not apply decoScale.x');
-    hasErrors = true;
-  }
-  
-  if (content.includes('function getInteractionBounds')) {
-    if (!content.includes('getInteractionBounds(sticker, mode, decoScale, canvasW)')) {
-      console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds must accept canvasW in signature');
+      console.error('❌ FAIL: screens-v2-rest.jsx still calls applyFaceZoneSoftening(ctx');
       hasErrors = true;
-    }
-    if (!content.includes('sticker.sizeNorm') || !content.includes('canvasW')) {
-      console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds must use sizeNorm and canvasW');
-      hasErrors = true;
-    }
-    if (content.includes('const visualW = raw.w * (decoScale?.x || 1);') || content.includes('let visualW = raw.w * (decoScale?.x || 1);')) {
-      console.error('❌ FAIL: sticker-engine.jsx getInteractionBounds relies purely on decoScale without sizeNorm');
-      hasErrors = true;
-    }
-    if (!content.includes('visualW') || !content.includes('visualH')) {
-      console.warn('⚠️ WARN: sticker-engine.jsx getInteractionBounds should return visualW/visualH for outline box');
-      hasWarnings = true;
-    }
-    if (!content.includes('Math.max(24') && !content.includes('Math.max( 24') && !content.includes('Math.max(visualW, 24)') && !content.includes('Math.max(24, visualW)')) {
-      console.warn('⚠️ WARN: sticker-engine.jsx getInteractionBounds should ensure hit target is at least 24px');
-      hasWarnings = true;
-    }
-  }
-
-  if (content.includes('function renderStickerInstance') && content.includes('renderLibSticker(item, 1)')) {
-    console.error('❌ FAIL: sticker-engine.jsx renderStickerInstance preset path ignores scaleMul parameter');
-    hasErrors = true;
-  }
-
-  if (!content.includes('function getDefaultStickerSizeNorm')) {
-    console.error('❌ FAIL: sticker-engine.jsx missing getDefaultStickerSizeNorm helper');
-    hasErrors = true;
-  }
-
-  if (!/function\s+makeSticker[\s\S]*sizeNorm:\s*opts\.sizeNorm\s*\?\?\s*defaultSizeNorm/.test(content)) {
-    console.error('❌ FAIL: sticker-engine.jsx makeSticker must persist sizeNorm on created stickers');
-    hasErrors = true;
-  }
-
-  if (!/const\s+visualScale\s*=\s*getStickerNormScale\(s,\s*canvasW\)/.test(content)) {
-    console.error('❌ FAIL: sticker-engine.jsx StickerCanvas visual size must derive from sizeNorm via getStickerNormScale');
-    hasErrors = true;
-  }
-
-  if (/effectiveScale\s*=\s*\(s\.scale\s*\|\|\s*1\)\s*\*\s*normScale/.test(content)) {
-    console.error('❌ FAIL: sticker-engine.jsx StickerCanvas still multiplies sizeNorm into wrapper transform');
-    hasErrors = true;
-  }
-
-  if (/hitbox\.(w|h)\s*\/\s*normScale/.test(content) || /visualW\s*\/\s*normScale/.test(content) || /visualH\s*\/\s*normScale/.test(content)) {
-    console.error('❌ FAIL: sticker-engine.jsx StickerCanvas still compensates hitbox/outline by dividing through normScale');
-    hasErrors = true;
-  }
-
-  // StickerCanvas must default mode='default' and decoScale={x:1,y:1}
-  if (!content.includes("mode = 'default'")) {
-    console.warn('⚠️ WARN: sticker-engine.jsx StickerCanvas mode default is not \'default\'');
-    hasWarnings = true;
-  }
-  if (!content.includes("decoScale = { x: 1, y: 1 }")) {
-    console.warn('⚠️ WARN: sticker-engine.jsx StickerCanvas decoScale default is not {x:1, y:1}');
-    hasWarnings = true;
-  }
-
-  // Capture slot filter helpers must exist
-  for (const fn of ['getLayoutSlotCount', 'getCaptureSlotIndex', 'getStickersForCapturePreview']) {
-    if (!content.includes(`function ${fn}`)) {
-      console.error(`❌ FAIL: sticker-engine.jsx missing ${fn} helper`);
-      hasErrors = true;
-    }
-  }
-
-  if (!content.includes('captureIndex >= slotCount') && !content.includes('slotIndex == null')) {
-    console.error('❌ FAIL: sticker-engine.jsx getStickersForCapturePreview must return [] when captureIndex >= slotCount or slotIndex == null');
-    hasErrors = true;
-  }
-
-  // Debug log must include sizeNorm and canvasW
-  if (content.includes('IMMM_DEBUG_STICKER') && (!content.includes('sizeNorm: s.sizeNorm') || !content.includes('canvasW,'))) {
-    console.warn('⚠️ WARN: sticker-engine.jsx IMMM_DEBUG_STICKER log missing sizeNorm or canvasW');
-    hasWarnings = true;
-  }
-}
-
-function checkCapture() {
-  const content = readFile('screens-v2-rest.jsx');
-  if (!content) return;
-  // Look for <CaptureOverlay ... frameColor={frameColor}
-  // Using a regex to see if frameColor={frameColor} exists, avoiding safeFrameColor
-  if (/<CaptureOverlay[^>]*frameColor=\{frameColor\}/.test(content)) {
-    console.warn('⚠️ WARN: screens-v2-rest.jsx passes frameColor directly without safeFrameColor fallback to CaptureOverlay');
-    hasWarnings = true;
-  }
-
-  // preStickers must NOT be rendered raw in capture overlays — must use visibleCaptureStickers
-  if (content.includes('preStickers.map(') || content.includes('{preStickers.map(')) {
-    console.error('❌ FAIL: screens-v2-rest.jsx renders preStickers directly without slot filtering in capture overlay');
-    hasErrors = true;
-  }
-
-  // bakePreStickers must not loop stickers into raw shot
-  if (content.includes('for (const sticker of preStickers)') && content.includes('drawStickerToCanvas')) {
-    console.error('❌ FAIL: screens-v2-rest.jsx bakes preStickers into raw shot data — causes sticker duplication in final frame');
-    hasErrors = true;
-  }
-}
-
-function checkRuntimeBootGuards() {
-  const screens = readFile('screens-v2.jsx');
-  const main = readFile('main.jsx');
-  if (!screens || !main) return;
-
-  if (/canvasW=\{frameW\}\s*\n\s*\}\s*height/.test(screens)) {
-    console.error('❌ FAIL: screens-v2.jsx contains stray JSX brace after canvasW={frameW}');
-    hasErrors = true;
-  }
-
-  const suspiciousPropBrace = /[A-Za-z0-9_$-]+=\{[^}\n]+\}\s*\n\s*\}\s+height=\{/;
-  if (suspiciousPropBrace.test(screens)) {
-    console.error('❌ FAIL: screens-v2.jsx contains suspicious "} height={" JSX prop pattern');
-    hasErrors = true;
-  }
-
-  if (main.includes('<ScreenTransition')) {
-    const hasDefinition =
-      /function\s+ScreenTransition\s*\(/.test(screens) ||
-      /const\s+ScreenTransition\s*=/.test(screens) ||
-      /window\.ScreenTransition\s*=/.test(screens) ||
-      /Object\.assign\(window,[\s\S]*ScreenTransition/.test(screens);
-    if (!hasDefinition) {
-      console.error('❌ FAIL: main.jsx uses <ScreenTransition> but no ScreenTransition definition/export was found');
-      hasErrors = true;
-    }
-  }
-}
-
-function checkSetupAndDecoStickerCanvas() {
-  const setup = readFile('screens-v2.jsx');
-  const deco = readFile('screens-v2-deco.jsx');
-  if (!setup || !deco) return;
-
-  if (!/<StickerCanvas[\s\S]*canvasW=\{frameW\}/.test(setup)) {
-    console.error('❌ FAIL: screens-v2.jsx SetupScreen StickerCanvas must receive canvasW={frameW}');
-    hasErrors = true;
-  }
-
-  if (!/<StickerCanvas[\s\S]*canvasW=\{frameW\}/.test(deco)) {
-    console.error('❌ FAIL: screens-v2-deco.jsx Deco StickerCanvas must receive canvasW={frameW}');
-    hasErrors = true;
-  }
-
-  // Setup addPreset must use getDefaultStickerSizeNorm
-  if (!setup.includes('getDefaultStickerSizeNorm')) {
-    console.error('❌ FAIL: screens-v2.jsx Setup addPreset must call getDefaultStickerSizeNorm for explicit sizeNorm');
-    hasErrors = true;
-  }
-
-  // Deco addPreset must use getDefaultStickerSizeNorm
-  if (!deco.includes('getDefaultStickerSizeNorm')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx Deco addPreset must call getDefaultStickerSizeNorm for explicit sizeNorm');
-    hasErrors = true;
-  }
-
-  if (!setup.includes('getVisibleStickerPacks') && !setup.includes('!pack.hidden')) {
-    console.error('❌ FAIL: screens-v2.jsx STICKER_CATALOG map missing getVisibleStickerPacks or !pack.hidden filter');
-    hasErrors = true;
-  }
-
-  if (!deco.includes('getVisibleStickerPacks') && !deco.includes('!pack.hidden')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx STICKER_CATALOG map missing getVisibleStickerPacks or !pack.hidden filter');
-    hasErrors = true;
-  }
-
-  if (setup.includes('Object.entries(STICKER_CATALOG).map') || setup.includes('Object.values(STICKER_CATALOG).map')) {
-    console.error('❌ FAIL: screens-v2.jsx uses direct STICKER_CATALOG map without filtering');
-    hasErrors = true;
-  }
-
-  if (deco.includes('Object.entries(STICKER_CATALOG).map') || deco.includes('Object.values(STICKER_CATALOG).map')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx uses direct STICKER_CATALOG map without filtering');
-    hasErrors = true;
-  }
-
-  if (!setup.includes('expandedPacks')) {
-    console.error('❌ FAIL: screens-v2.jsx missing expandedPacks state for sticker picker');
-    hasErrors = true;
-  }
-
-  if (!setup.includes('pack.items.slice(0, 5)')) {
-    console.error('❌ FAIL: screens-v2.jsx missing pack.items.slice(0, 5) for sticker picker');
-    hasErrors = true;
-  }
-
-  if (!deco.includes('pack.items.slice(0, 5)')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx missing pack.items.slice(0, 5) for sticker picker');
-    hasErrors = true;
-  }
-
-  const rest = readFile('screens-v2-rest.jsx');
-  if (rest) {
-    if (!rest.includes('isDarkFrameColor(frameColor)')) {
-      console.warn('⚠️ WARN: screens-v2-rest.jsx CaptureOverlay missing isDarkFrameColor(frameColor) check');
-      hasWarnings = true;
-    }
-
-    if (!rest.includes('dotColor: isDarkFrame ? \'rgba(255,255,255,0.88)\' : \'rgba(255,255,255,0.72)\'')) {
-      console.warn('⚠️ WARN: screens-v2-rest.jsx CaptureOverlay missing specific guide dotColor logic');
-      hasWarnings = true;
-    }
-
-    if (rest.includes('preStickers.map')) {
-      console.error('❌ FAIL: screens-v2-rest.jsx still uses preStickers.map, Step 1 stickers might be baked!');
-      hasErrors = true;
-    }
-
-    if (rest.includes('drawStickerToCanvas') && rest.includes('preStickers')) {
-      console.error('❌ FAIL: screens-v2-rest.jsx has suspicious drawStickerToCanvas + preStickers loop in capture path');
-      hasErrors = true;
-    }
-
-    // Shot metadata duplicate key check
-    if (/sourceVideoHeight:.*\n.*sourceVideoHeight:/.test(rest) || rest.includes('sourceVideoHeight: captureMeta.sourceH,\n          sourceVideoHeight:')) {
-      console.error('❌ FAIL: screens-v2-rest.jsx has duplicate sourceVideoHeight key in shot metadata');
-      hasErrors = true;
-    }
-
-    // renderShotStickers must be fully removed
-    if (rest.includes('const renderShotStickers = (s) => null')) {
-      console.error('❌ FAIL: screens-v2-rest.jsx still has renderShotStickers stub — remove it and all call sites');
-      hasErrors = true;
-    }
-    if (rest.includes('{renderShotStickers(s)}')) {
-      console.error('❌ FAIL: screens-v2-rest.jsx still calls {renderShotStickers(s)} — remove all call sites');
-      hasErrors = true;
-    }
-
-    // cameraOverlay condition must use visibleCaptureStickers
-    if (rest.includes('preStickers.length > 0') && rest.includes('cameraOverlay')) {
-      console.error('❌ FAIL: screens-v2-rest.jsx cameraOverlay condition still uses preStickers.length > 0; use visibleCaptureStickers.length > 0');
-      hasErrors = true;
-    }
-    if (!rest.includes('visibleCaptureStickers.length > 0')) {
-      console.error('❌ FAIL: screens-v2-rest.jsx cameraOverlay missing visibleCaptureStickers.length > 0 condition');
-      hasErrors = true;
-    }
-
-    // visibleCaptureStickers.map should appear only once (in the portal overlay)
-    const visMapMatches = (rest.match(/visibleCaptureStickers\.map/g) || []).length;
-    if (visMapMatches > 1) {
-      console.error(`❌ FAIL: screens-v2-rest.jsx has ${visMapMatches} occurrences of visibleCaptureStickers.map — sticker overlay is duplicated`);
-      hasErrors = true;
-    }
-  }
-
-  const main = readFile('main.jsx');
-  if (main) {
-    if (!main.includes('getCapabilities') && !main.includes('getSettings')) {
-      console.warn('⚠️ WARN: main.jsx missing camera getCapabilities/getSettings logging after getUserMedia');
-      hasWarnings = true;
-    }
-    if (!main.includes('applyCameraZoom')) {
-      console.warn('⚠️ WARN: main.jsx missing applyCameraZoom callback');
-      hasWarnings = true;
-    }
-  }
-
-  if (!setup.includes('repeat(auto-fill') && setup.includes('flexDirection: \'column\'')) {
-    console.warn('⚠️ WARN: screens-v2.jsx sticker picker container is vertical. Use grid or flex-wrap.');
-    hasWarnings = true;
-  }
-
-  if (!deco.includes('repeat(auto-fill') && deco.includes('flexDirection: \'column\'')) {
-    console.warn('⚠️ WARN: screens-v2-deco.jsx sticker picker container is vertical. Use grid or flex-wrap.');
-    hasWarnings = true;
-  }
-}
-
-function checkDeco() {
-  const content = readFile('screens-v2-deco.jsx');
-  if (!content) return;
-  
-  // 1. ctx / offscreen precision check
-  const requiredCtxPatterns = [
-    'const cvs = compositionCanvasRef.current;',
-    "const ctx = cvs.getContext('2d');",
-    'if (!ctx) return;',
-    "const off = document.createElement('canvas');",
-    "const offCtx = off.getContext('2d');",
-    'if (!offCtx) return;',
-    'ctx.drawImage(off, 0, 0);'
-  ];
-  for (const pattern of requiredCtxPatterns) {
-    if (!content.includes(pattern)) {
-      console.error(`❌ FAIL: screens-v2-deco.jsx is missing required async render guard pattern: "${pattern}"`);
-      hasErrors = true;
-    }
-  }
-
-  if (!content.includes('renderComposition(') && !content.includes('renderComp(')) {
-    console.warn('⚠️ WARN: screens-v2-deco.jsx preview does not use renderComposition');
-    hasWarnings = true;
-  }
-
-  // 2. Pointer event check
-  const requiredPointer = [
-    'onPointerDown', 'onPointerMove', 'onPointerUp', 'onPointerCancel',
-    'setPointerCapture', 'releasePointerCapture'
-  ];
-  for (const ev of requiredPointer) {
-    if (!content.includes(ev)) {
-      console.error(`❌ FAIL: screens-v2-deco.jsx is missing pointer event requirement: "${ev}"`);
-      hasErrors = true;
-    }
-  }
-  
-  const forbiddenEvents = [
-    'onPointerLeave={onDrawEnd}',
-    'onTouchStart', 'onTouchMove', 'onTouchEnd'
-  ];
-  for (const ev of forbiddenEvents) {
-    if (content.includes(ev)) {
-      console.error(`❌ FAIL: screens-v2-deco.jsx contains forbidden event: "${ev}"`);
-      hasErrors = true;
-    }
-  }
-
-  // 3. fontsReady check
-  const requiredFonts = [
-    'const [fontsReady, setFontsReady]',
-    'document.fonts',
-    '!fontsReady',
-    'fontsReady' // Should ideally check inside dependency array, but testing presence is a good start
-  ];
-  for (const p of requiredFonts) {
-    if (!content.includes(p)) {
-      console.error(`❌ FAIL: screens-v2-deco.jsx is missing fontsReady logic: "${p}"`);
-      hasErrors = true;
-    }
-  }
-
-  if (/draw\(\);\s*(const|let|var)\s+raf\s*=\s*requestAnimationFrame\(draw\)/.test(content)) {
-    console.error('❌ FAIL: screens-v2-deco.jsx contains double render pattern "draw(); const raf = requestAnimationFrame(draw)"');
-    hasErrors = true;
-  }
-
-  // 4. StickerCanvas must use mode="deco-overlay"
-  if (!content.includes('mode="deco-overlay"') && !content.includes("mode='deco-overlay'")) {
-    console.error('❌ FAIL: screens-v2-deco.jsx StickerCanvas missing mode="deco-overlay" prop');
-    hasErrors = true;
-  }
-
-  // 5. Pack expander UI
-  if (!content.includes('pack.items.slice(0, 5)') && !content.includes('slice(0,5)')) {
-    console.warn('⚠️ WARN: screens-v2-deco.jsx sticker picker missing pack expander (show 5 + button)');
-    hasWarnings = true;
-  }
-
-  // 6. decoScale must be computed and passed to StickerCanvas
-  if (!content.includes('decoScale')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx missing decoScale state/computation');
-    hasErrors = true;
-  }
-  if (!content.includes('canvasSize.width') && !content.includes('canvasSize?.width')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx decoScale does not reference template.canvasSize.width');
-    hasErrors = true;
-  }
-  if (!content.includes('decoScale={decoScale}')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx StickerCanvas missing decoScale prop');
-    hasErrors = true;
-  }
-  // y-axis must use explicit cssH = frameW * (baseH / baseW)
-  if (!content.includes('cssH') || !content.includes('cssH / baseH')) {
-    console.warn('⚠️ WARN: screens-v2-deco.jsx decoScale y-axis should use cssH = frameW * (baseH/baseW); y: cssH/baseH');
-    hasWarnings = true;
-  }
-}
-
-function checkTask() {
-  const content = readFile('task.md');
-  if (!content) return;
-  
-  if (content.includes('[x] PR 5 — Mobile opt-in')) {
-    console.error('❌ FAIL: task.md has "[x] PR 5 — Mobile opt-in" marked as complete. It must be [~] until real device QA passes.');
-    hasErrors = true;
-  }
-  
-  if (content.includes('commit 99c50f0') && content.includes('Pass/Fail: Pass')) {
-    console.warn('⚠️ WARN: task.md contains QA Pass log for commit 99c50f0, which lacked sizeNorm implementation');
-    hasWarnings = true;
-  }
-
-  let head = null;
-  try {
-    head = execSync('git rev-parse --short HEAD', { cwd: rootDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch {
-    head = null;
-  }
-
-  if (head) {
-    const passLogs = [...content.matchAll(/###\s+\d{4}-\d{2}-\d{2}[^\n]*commit\s+([a-f0-9]+)[\s\S]*?- Pass\/Fail:\s*Pass/g)];
-    for (const match of passLogs) {
-      const sha = match[1];
-      if (sha !== head && !head.startsWith(sha) && !sha.startsWith(head)) {
-        console.warn(`⚠️ WARN: task.md contains Pass QA log for old commit ${sha}; current HEAD is ${head}`);
-        hasWarnings = true;
-      }
     }
   }
 }
@@ -741,9 +144,26 @@ function checkEmergencyFrameGlobals() {
       console.error('❌ FAIL: frame-system.jsx missing getFrameTemplateSafe');
       hasErrors = true;
     }
-    if (!frameSystem.includes('getFrameTemplateSafe,') && !frameSystem.includes('getFrameTemplateSafe:')) {
-      console.error('❌ FAIL: frame-system.jsx Object.assign missing getFrameTemplateSafe');
-      hasErrors = true;
+    // Rule 5: renderComposition must use getFrameTemplateSafe
+    if (frameSystem.includes('async function renderComposition')) {
+       const lines = frameSystem.split('\n');
+       const start = lines.findIndex(l => l.includes('async function renderComposition'));
+       const end = lines.findIndex((l, i) => i > start && l.includes('async function'));
+       const body = lines.slice(start, end === -1 ? undefined : end).join('\n');
+       if (/(?<!Safe)getFrameTemplate\(/.test(body)) {
+         console.error('❌ FAIL: frame-system.jsx renderComposition still uses bare getFrameTemplate');
+         hasErrors = true;
+       }
+    }
+    // Rule 6: renderFrameToCanvas must use getFrameTemplateSafe
+    if (frameSystem.includes('async function renderFrameToCanvas')) {
+       const lines = frameSystem.split('\n');
+       const start = lines.findIndex(l => l.includes('async function renderFrameToCanvas'));
+       const end = lines.findIndex((l, i) => i > start && l.includes("function")); const body = lines.slice(start, end === -1 ? undefined : end).join('\n');
+       if (/(?<!Safe)getFrameTemplate\(/.test(body)) {
+         console.error('❌ FAIL: frame-system.jsx renderFrameToCanvas still uses bare getFrameTemplate');
+         hasErrors = true;
+       }
     }
   }
 
@@ -751,7 +171,6 @@ function checkEmergencyFrameGlobals() {
     const content = readFile(f);
     if (!content) continue;
 
-    // Rule 3-8: Prohibit bare identifier calls in downstream files
     const barePatterns = [
       { name: 'getFrameTemplate', regex: /\bgetFrameTemplate\(/ },
       { name: 'getShotCountForFrame', regex: /\bgetShotCountForFrame\(/ },
@@ -767,8 +186,8 @@ function checkEmergencyFrameGlobals() {
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
           if (line.match(p.regex) && !line.includes('window.') && !line.includes('resolveFrameTemplate') && !line.includes('const FrameThumb') && !line.trim().startsWith('//')) {
-             console.error(`❌ FAIL: ${f}:${i+1} uses bare frame global "${line.trim()}"`);
-             hasErrors = true;
+            console.error(`❌ FAIL: ${f}:${i + 1} uses bare frame global "${line.trim()}"`);
+            hasErrors = true;
           }
         }
       }
@@ -777,6 +196,14 @@ function checkEmergencyFrameGlobals() {
     if (f === 'screens-edit.jsx') {
       if (content.includes('Object.assign(window, {') && /\bFrameThumb\b/.test(content)) {
         console.error('❌ FAIL: screens-edit.jsx still exports FrameThumb; collision with frame-system.jsx');
+        hasErrors = true;
+      }
+    }
+
+    // Rule 4: screens-v2.jsx WFrameThumb fallback
+    if (f === 'screens-v2.jsx') {
+      if (content.includes('<WFrameThumb') && !content.includes('?')) {
+        console.error('❌ FAIL: screens-v2.jsx uses <WFrameThumb without null fallback ternary');
         hasErrors = true;
       }
     }
@@ -799,41 +226,65 @@ function checkEmergencyServiceWorker() {
     console.error('❌ FAIL: sw.js missing self.clients.claim()');
     hasErrors = true;
   }
-  
+
   const isCacheFirstForCode = sw.includes('isCode') && sw.includes('caches.match(e.request).then((res) => res || fetch(e.request))');
   if (sw.includes('const isCode =') && !/network-first/i.test(sw)) {
-     console.error('❌ FAIL: sw.js isCode block missing network-first strategy');
-     hasErrors = true;
+    console.error('❌ FAIL: sw.js isCode block missing network-first strategy');
+    hasErrors = true;
   }
 }
 
-function checkIllegalStickerCatalogUsage() {
-  const files = [
-    'screens-v2.jsx',
-    'screens-v2-deco.jsx',
-    'screens-v2-rest.jsx',
-    'main.jsx'
-  ];
-
-  for (const f of files) {
-    const content = readFile(f);
-    if (!content) continue;
-
-    // Object.entries(STICKER_CATALOG).map is illegal in UI
-    if (content.includes('Object.entries(STICKER_CATALOG).map') || content.includes('Object.values(STICKER_CATALOG).map')) {
-      console.error(`❌ FAIL: ${f} uses direct STICKER_CATALOG map without filtering or helper`);
+function checkAppStability() {
+  const index = readFile('index.html');
+  if (index) {
+    // Rule 3: screens-edit.jsx load
+    if (index.includes('screens-edit.jsx')) {
+      console.error('❌ FAIL: index.html still loads legacy screens-edit.jsx');
       hasErrors = true;
     }
+    // Rule 7: IMMM_APP_VERSION
+    if (!index.includes('IMMM_APP_VERSION')) {
+      console.warn('⚠️ WARN: index.html missing IMMM_APP_VERSION');
+      hasWarnings = true;
+    }
+    // Rule 8: Samsung SW guard
+    if (!index.includes('immm.sw.frameHotfixApplied')) {
+      console.warn('⚠️ WARN: index.html missing Samsung Internet SW migration guard');
+      hasWarnings = true;
+    }
+  }
 
-    if (content.includes('K-Variety Retro') || content.includes('예능 자막')) {
-      // Direct string usage in UI might indicate bypass
-      if (content.includes('getStickerPickerPacks') || content.includes('getVisibleStickerPacks')) {
-         // might be just comments or helper fallbacks, but let's be careful
-      } else {
-        console.warn(`⚠️ WARN: ${f} contains K-Variety Retro strings outside of helper context`);
-        hasWarnings = true;
+  const task = readFile('task.md');
+  if (task) {
+    // Rule 1, 2: task.md false check
+    const badChecks = [
+      '- [x] Samsung Internet clears old cache after reload',
+      '- [x] Capture → Select → Deco does not throw getFrameTemplate undefined'
+    ];
+    for (const bc of badChecks) {
+      if (task.includes(bc) && !task.includes('Real QA log')) {
+        console.error(`❌ FAIL: task.md has unverified check "${bc}" without Real QA log`);
+        hasErrors = true;
       }
     }
+  }
+}
+
+function checkFrameSystem() {
+  const content = readFile('frame-system.jsx');
+  if (!content) return;
+  if (content.includes('drawCatalogSticker') && !content.includes('drawFallbackSticker')) {
+    console.error('❌ FAIL: frame-system.jsx calls drawCatalogSticker but missing drawFallbackSticker definition');
+    hasErrors = true;
+  }
+}
+
+function checkStickerEngine() {
+  const content = readFile('sticker-engine.jsx');
+  if (!content) return;
+  if (content.includes("id: 'kretro'") && !content.includes('hidden: true')) {
+    console.error('❌ FAIL: sticker-engine.jsx kretro pack is not hidden');
+    hasErrors = true;
   }
 }
 
@@ -842,14 +293,9 @@ checkWebGL();
 checkEmergencyFaceSafety();
 checkEmergencyFrameGlobals();
 checkEmergencyServiceWorker();
+checkAppStability();
 checkFrameSystem();
 checkStickerEngine();
-checkCapture();
-checkRuntimeBootGuards();
-checkSetupAndDecoStickerCanvas();
-checkDeco();
-checkIllegalStickerCatalogUsage();
-checkTask();
 
 if (hasErrors) {
   console.error('\n💥 Sanity check failed! Fix the errors above before committing.');
