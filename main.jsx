@@ -86,13 +86,18 @@ function App() {
 
   // ═══════════════════════════════════════════════════════════════
   // Persistent Background Engine (Pre-warming)
-  // ═══════════════════════════════════════════════════════════════
   const videoRef  = React.useRef(null);
   const canvasRef = React.useRef(null);
+
   // EMERGENCY FACE SHAPE SAFETY:
-  // faceDataRef is PERMANENTLY set to a dummy object.
-  // useFaceLandmarks is disabled for ALL browsers to prevent any geometry warp or landmark-based distortion.
-  const faceDataRef = React.useRef({ detected: false, faces: [] });
+  // Face landmarks are globally disabled until Galaxy/Samsung Internet distortion is fully resolved.
+  // Do not call useFaceLandmarks in production path.
+  const FACE_LANDMARKS_DISABLED = true;
+
+  const faceDataRef = React.useRef({
+    detected: false,
+    faces: []
+  });
   const [facingMode, setFacingMode] = React.useState('user');
   const [camOk, setCamOk] = React.useState(null);
   const streamRef = React.useRef(null);

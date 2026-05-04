@@ -340,22 +340,19 @@ void main(){
 blush: `
 precision mediump float;
 uniform sampler2D u_tex;
-uniform float u_intensity;
+uniform float u_blushStrength;
+uniform vec3 u_blushColor;
 varying vec2 v_uv;
 void main(){
-  vec4 orig=texture2D(u_tex,v_uv);
-  vec3 c=orig.rgb;
-  
-  // Natural warm pink lift
-  vec3 warm=vec3(1.0, 0.94, 0.92);
-  c=mix(c, c+warm-c*warm, 0.08 * u_intensity);
-  
-  // Subtle red lift in midtones
-  float lum=dot(c,vec3(0.299,0.587,0.114));
-  float mid=smoothstep(0.2, 0.7, lum) * (1.0-smoothstep(0.6, 0.95, lum));
-  c.r=min(c.r+0.015*u_intensity*mid, 1.0);
-  
-  gl_FragColor=vec4(clamp(c,0.0,1.0),orig.a);
+  vec4 orig = texture2D(u_tex, v_uv);
+  vec3 c = orig.rgb;
+  float lum = dot(c, vec3(0.299,0.587,0.114));
+  // Simple color tint
+  vec3 tint = mix(c, c + u_blushColor * 0.08, u_blushStrength * 0.25);
+  c = mix(c, tint, 0.35);
+  c = mix(vec3(lum), c, 0.96);
+  c *= 1.02;
+  gl_FragColor = vec4(clamp(c,0.0,1.0), orig.a);
 }`,
 
 //  Halation pass-1 H: extract bright  horizontal Gaussian (unrolled for GLES1) 
@@ -765,12 +762,7 @@ const FILTER_PIPELINES = {
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:5.0, u_sigmaColor:0.11 } },
     { shader:'skin_lift',    uniforms:{ u_strength:0.82 } },
     { shader:'color_adjust', uniforms:{ u_exposure:0.08,u_saturation:0.05,u_contrast:-0.06,u_temperature:0.10,u_tint:0.01,u_vibrance:0.06,u_highlights:-0.03,u_shadows:0.03 } },
-    { shader:'blush',        uniforms:{ u_faceCount:0.0,
-        u_leftCheek0:[0,0], u_rightCheek0:[0,0], u_cheekRadius0:0.0,
-        u_leftCheek1:[0,0], u_rightCheek1:[0,0], u_cheekRadius1:0.0,
-        u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
-        u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
-        u_blushStrength:1.05, u_blushColor:[1.0,0.58,0.62] } },
+    { shader:'blush',        uniforms:{ u_blushStrength:0.65, u_blushColor:[1.0,0.50,0.55] } },
   ]},
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -810,13 +802,8 @@ const FILTER_PIPELINES = {
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:4.0, u_sigmaColor:0.10 } },
     // 3. Blemish suppression
     { shader:'skin_lift',    uniforms:{ u_strength:0.92 } },
-    // 4. Cheek blush (face-landmark-aware, runtime-injected)
-    { shader:'blush',        uniforms:{ u_faceCount:0.0,
-        u_leftCheek0:[0,0], u_rightCheek0:[0,0], u_cheekRadius0:0.0,
-        u_leftCheek1:[0,0], u_rightCheek1:[0,0], u_cheekRadius1:0.0,
-        u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
-        u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
-        u_blushStrength:1.10, u_blushColor:[1.0,0.56,0.60] } },
+    // 4. Cheek blush (SAFE - GLOBAL TINT)
+    { shader:'blush',        uniforms:{ u_blushStrength:0.75, u_blushColor:[1.0,0.52,0.58] } },
     // 5. Eye brightening + iris sparkle (DISABLED)
     // { shader:'eye_bright',   uniforms:{ u_leftEyeCenter:[0.35,0.40], u_rightEyeCenter:[0.65,0.40], u_eyeRadius:0.08, u_brightness:1.0, u_time:0.0 } },
     // 6. Lip color — coral rose tint with gloss (DISABLED)
@@ -840,12 +827,7 @@ const FILTER_PIPELINES = {
     { shader:'skin_lift',    uniforms:{ u_strength:0.85 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.72,0.78,1.12], u_highlightColor:[1.08,1.00,1.10], u_intensity:0.88 } },
     { shader:'dream',        uniforms:{ u_intensity:1.10 } },
-    { shader:'blush',        uniforms:{ u_faceCount:0.0,
-        u_leftCheek0:[0,0], u_rightCheek0:[0,0], u_cheekRadius0:0.0,
-        u_leftCheek1:[0,0], u_rightCheek1:[0,0], u_cheekRadius1:0.0,
-        u_leftCheek2:[0,0], u_rightCheek2:[0,0], u_cheekRadius2:0.0,
-        u_leftCheek3:[0,0], u_rightCheek3:[0,0], u_cheekRadius3:0.0,
-        u_blushStrength:0.95, u_blushColor:[0.88,0.60,0.90] } },
+    { shader:'blush',        uniforms:{ u_blushStrength:0.55, u_blushColor:[0.92,0.58,0.88] } },
     { shader:'color_adjust', uniforms:{ u_exposure:0.08,u_contrast:-0.08,u_saturation:-0.08,u_temperature:-0.08,u_tint:0.04,u_vibrance:0.12,u_highlights:0.06,u_shadows:0.08 } },
     { shader:'halation_h',   uniforms:{ u_threshold:0.60 } },
     { shader:'halation_v',   uniforms:{} },
@@ -1362,9 +1344,14 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
         const face = faceDataRef?.current;
 
         // EMERGENCY FACE SHAPE SAFETY:
-        // All face landmark processing and uniform injection are PERMANENTLY DISABLED.
-        // No browser will process face coordinates or apply landmark-based shaders.
+        // No face uniforms are injected in emergency mode.
+        // All face landmark processing and uniform injection are PERMANENTLY DISABLED globally.
+        const FACE_UNIFORMS_DISABLED = true;
         let faceUniforms = {};
+        
+        /* Legacy injection block disabled
+        if (!FACE_UNIFORMS_DISABLED && face?.detected) { ... }
+        */
 
         let steps = preset.pipeline;
         if (engineRef.current?._isMobile) {

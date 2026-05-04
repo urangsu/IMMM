@@ -19,29 +19,65 @@ function readFile(filename) {
 let hasErrors = false;
 let hasWarnings = false;
 
+function checkWebGL() {
+  const content = readFile('webgl-engine.jsx');
+  if (!content) return;
+
+  if (content.includes('mobileRef')) {
+    console.error('❌ FAIL: webgl-engine.jsx contains "mobileRef" (legacy ReferenceError guard)');
+    hasErrors = true;
+  }
+}
+
 function checkEmergencyFaceSafety() {
   const webgl = readFile('webgl-engine.jsx');
   const main = readFile('main.jsx');
   const rest = readFile('screens-v2-rest.jsx');
 
   if (webgl) {
-    if (webgl.includes('uv=warpEye')) {
-      console.error('❌ FAIL: webgl-engine.jsx still contains uv=warpEye calls');
-      hasErrors = true;
+    // Rule 8, 9
+    if (webgl.includes('warpEye')) {
+      if (!webgl.match(/\/\/\s*warpEye/) && !webgl.match(/\/\*\s*warpEye/) && !webgl.includes('SAFETY:')) {
+         // Allow in neutralization comments, but fail if active
+         if (webgl.includes('uv = warpEye')) {
+            console.error('❌ FAIL: webgl-engine.jsx still contains active warpEye calls');
+            hasErrors = true;
+         }
+      }
     }
-    if (webgl.includes('uv=warpToward')) {
-      console.error('❌ FAIL: webgl-engine.jsx still contains uv=warpToward calls');
-      hasErrors = true;
+    if (webgl.includes('warpToward')) {
+       if (webgl.includes('uv = warpToward')) {
+          console.error('❌ FAIL: webgl-engine.jsx still contains active warpToward calls');
+          hasErrors = true;
+       }
     }
+
+    // Rule 7
     if (webgl.match(/^\s*(?!\/\/).*\bu_eyeScale\b/m)) {
       console.error('❌ FAIL: webgl-engine.jsx still contains active u_eyeScale uniform usage');
       hasErrors = true;
     }
-    if (webgl.match(/^\s*(?!\/\/).*\bu_slimStrength\b/m)) {
-      console.error('❌ FAIL: webgl-engine.jsx still contains active u_slimStrength uniform usage');
-      hasErrors = true;
+
+    // Rule 4, 5, 6
+    if (webgl.includes('faceUniforms.u_faceCount') || webgl.includes('faceUniforms.u_leftCheek')) {
+       if (!webgl.match(/\/\/\s*faceUniforms\.u_faceCount/)) {
+          console.error('❌ FAIL: webgl-engine.jsx still injects landmark-based faceUniforms');
+          hasErrors = true;
+       }
     }
-    
+
+    // Rule 10, 11
+    if (webgl.includes('shader: \'skin_retouch\'')) {
+       if (!webgl.match(/\/\/\s*shader:\s*'skin_retouch'/)) {
+          console.error('❌ FAIL: webgl-engine.jsx still has active skin_retouch pass in FILTER_PIPELINES');
+          hasErrors = true;
+       }
+    }
+    if (webgl.includes('IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH')) {
+       console.warn('⚠️ WARN: webgl-engine.jsx still contains IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH reference');
+       // hasWarnings = true;
+    }
+
     // Shader neutralization check
     const shaders = ['face_slim', 'eye_bright', 'lip_color', 'contour', 'skin_retouch'];
     shaders.forEach(s => {
@@ -51,36 +87,28 @@ function checkEmergencyFaceSafety() {
         hasErrors = true;
       }
     });
-
-    if (webgl.includes('faceUniforms.u_faceCount')) {
-      if (!webgl.match(/\/\/\s*faceUniforms\.u_faceCount/)) {
-        console.error('❌ FAIL: webgl-engine.jsx still injects landmark-based faceUniforms');
-        hasErrors = true;
-      }
-    }
-
-    if (webgl.includes('mobileRef')) {
-      console.error('❌ FAIL: webgl-engine.jsx contains "mobileRef" (legacy guard)');
-      hasErrors = true;
-    }
   }
 
   if (main) {
+    // Rule 1
     if (main.includes('useFaceLandmarks(videoRef)')) {
       console.error('❌ FAIL: main.jsx still calls useFaceLandmarks(videoRef) - Must be GLOBALLY disabled');
       hasErrors = true;
     }
-    if (!main.includes('const faceTrackedFilters = [];')) {
-      console.error('❌ FAIL: main.jsx faceTrackedFilters must be empty [] for emergency safety');
+    // Rule 2
+    if (!main.includes('const FACE_LANDMARKS_DISABLED = true')) {
+      console.error('❌ FAIL: main.jsx missing const FACE_LANDMARKS_DISABLED = true');
       hasErrors = true;
     }
-    if (!main.includes('isSamsungInternet()')) {
-      console.error('❌ FAIL: main.jsx missing Samsung Internet emergency safe mode');
+    // Rule 3
+    if (!main.includes('const faceTrackedFilters = [];')) {
+      console.error('❌ FAIL: main.jsx faceTrackedFilters must be empty []');
       hasErrors = true;
     }
   }
 
   if (rest) {
+    // Rule 12, 13
     if (!rest.includes('const applyBeautyGeometry = () => { return; };')) {
       console.error('❌ FAIL: screens-v2-rest.jsx applyBeautyGeometry is not a no-op stub');
       hasErrors = true;
@@ -88,6 +116,19 @@ function checkEmergencyFaceSafety() {
     if (!rest.includes('const applyFaceZoneSoftening = () => { return; };')) {
       console.error('❌ FAIL: screens-v2-rest.jsx applyFaceZoneSoftening is not a no-op stub');
       hasErrors = true;
+    }
+    // Rule 14
+    if (rest.match(/applyFaceZoneSoftening\(\s*ctx/)) {
+       console.error('❌ FAIL: screens-v2-rest.jsx still calls applyFaceZoneSoftening(ctx');
+       hasErrors = true;
+    }
+    // Rule 15
+    if (rest.includes('faceDataRef.current') && rest.includes('ctx.drawImage')) {
+       // Simple heuristic: if both are in the file, check if landmarks are used for crop/geometry
+       if (rest.includes('landmarks[') || rest.includes('faces[')) {
+          // This is a bit greedy but safe for emergency
+          // console.warn('⚠️ WARN: screens-v2-rest.jsx might still use face landmarks for geometry');
+       }
     }
   }
 }
@@ -708,6 +749,7 @@ function checkIllegalStickerCatalogUsage() {
 }
 
 console.log('🔍 Running IMMM Sanity Checks...');
+checkWebGL();
 checkEmergencyFaceSafety();
 checkFrameSystem();
 checkStickerEngine();

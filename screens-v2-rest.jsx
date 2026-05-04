@@ -132,8 +132,6 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       // EMERGENCY FACE SHAPE SAFETY:
       // applyFaceZoneSoftening and applyBeautyGeometry are permanently disabled
       // to prevent face/cheek/boundary distortion on Galaxy/Samsung Internet.
-      // const strength = filterKey === 'smooth' ? 0.32 : filterKey === 'blush' ? 0.24 : 0.18;
-      // applyFaceZoneSoftening(ctx, w, h, strength);
 
       // Step 1: Soft warm lift — raises skin into warmer/brighter range
       // Using 'screen' to brighten without blowing out highlights
@@ -176,19 +174,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       ctx.fillStyle = 'rgba(255,255,255,0.07)';
       ctx.fillRect(0, 0, w, h);
     } else if (filterKey === 'blush') {
+      // EMERGENCY: Global warm tint instead of landmark-ish radial gradients
       ctx.globalCompositeOperation = 'screen';
-      ctx.fillStyle = 'rgba(255,238,232,0.14)';
+      ctx.fillStyle = 'rgba(255,200,210,0.12)'; // Subtle warm pink lift
       ctx.fillRect(0, 0, w, h);
-      const blush = ctx.createRadialGradient(w * 0.30, h * 0.52, 0, w * 0.30, h * 0.52, w * 0.17);
-      blush.addColorStop(0, 'rgba(255,100,120,0.34)');
-      blush.addColorStop(1, 'rgba(255,108,124,0)');
-      ctx.fillStyle = blush;
-      ctx.fillRect(0, 0, w, h);
-      const blush2 = ctx.createRadialGradient(w * 0.70, h * 0.52, 0, w * 0.70, h * 0.52, w * 0.17);
-      blush2.addColorStop(0, 'rgba(255,100,120,0.34)');
-      blush2.addColorStop(1, 'rgba(255,108,124,0)');
-      ctx.fillStyle = blush2;
-      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
     } else if (filterKey === 'purikura') {
       ctx.globalCompositeOperation = 'screen';
       ctx.fillStyle = 'rgba(255,244,250,0.22)';
