@@ -950,7 +950,9 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
 
       ctx.save();
       ctx.translate(offsetX, offsetY);
-      const isDarkFrame = /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(frameColor || '').trim());
+      const isDarkFrame = typeof isDarkFrameColor === 'function'
+        ? isDarkFrameColor(frameColor)
+        : /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(frameColor || '').trim());
       renderFrameOverlay(ctx, template, fullW, fullH, {
         frameColor,
         logo,

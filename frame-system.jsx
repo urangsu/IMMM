@@ -8,6 +8,40 @@ const FRAME_TEMPLATE_ALIASES = {
   layered: '2x2',
 };
 
+function parseHexColor(hex) {
+  const s = String(hex || '').trim();
+  if (!s.startsWith('#')) return null;
+  const v = s.slice(1);
+  if (v.length === 3) {
+    return {
+      r: parseInt(v[0] + v[0], 16),
+      g: parseInt(v[1] + v[1], 16),
+      b: parseInt(v[2] + v[2], 16),
+    };
+  }
+  if (v.length === 6) {
+    return {
+      r: parseInt(v.slice(0, 2), 16),
+      g: parseInt(v.slice(2, 4), 16),
+      b: parseInt(v.slice(4, 6), 16),
+    };
+  }
+  return null;
+}
+
+function isDarkFrameColor(color) {
+  const rgb = parseHexColor(color);
+  if (!rgb) {
+    return /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(color || '').trim());
+  }
+  const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+  return luminance < 0.45;
+}
+
+if (typeof window !== 'undefined') {
+  window.isDarkFrameColor = isDarkFrameColor;
+}
+
 const FRAME_TEMPLATES = {
   '1x4': {
     id: 'core-1x4',
@@ -285,7 +319,7 @@ function renderSparkleStroke(ctx, stroke, w, h, lineWidth) {
  */
 function renderFrameOverlay(ctx, template, width, height, options = {}) {
   const bg = options.frameColor || template.theme?.frameFill || '#fff';
-  const isDark = /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(bg).trim());
+  const isDark = isDarkFrameColor(bg);
 
   const textColor = options.textColor || (isDark ? '#eee' : (template.theme?.textColor || '#555'));
   const logoColor = options.logoColor || (isDark ? '#fff' : (template.theme?.logoColor || '#111'));

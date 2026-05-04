@@ -87,6 +87,16 @@ function checkFrameSystem() {
     console.error('❌ FAIL: frame-system.jsx missing Number(s.frameSlot) === i comparison');
     hasErrors = true;
   }
+
+  if (!content.includes('function isDarkFrameColor')) {
+    console.error('❌ FAIL: frame-system.jsx missing isDarkFrameColor helper');
+    hasErrors = true;
+  }
+
+  if (content.includes('const isDark = isDarkFrameColor(bg)') === false) {
+    console.warn('⚠️ WARN: frame-system.jsx renderFrameOverlay does not use isDarkFrameColor(bg)');
+    hasWarnings = true;
+  }
 }
 
 function checkStickerEngine() {
@@ -375,6 +385,11 @@ function checkSetupAndDecoStickerCanvas() {
   }
 
   const rest = readFile('screens-v2-rest.jsx');
+  if (rest && !rest.includes('isDarkFrameColor(frameColor)')) {
+    console.warn('⚠️ WARN: screens-v2-rest.jsx CaptureOverlay missing isDarkFrameColor(frameColor) check');
+    hasWarnings = true;
+  }
+
   if (rest && !rest.includes('dotColor: isDarkFrame ? \'rgba(255,255,255,0.88)\' : \'rgba(255,255,255,0.72)\'')) {
     console.warn('⚠️ WARN: screens-v2-rest.jsx CaptureOverlay missing specific guide dotColor logic');
     hasWarnings = true;
@@ -519,6 +534,36 @@ function checkTask() {
   }
 }
 
+function checkIllegalStickerCatalogUsage() {
+  const files = [
+    'screens-v2.jsx',
+    'screens-v2-deco.jsx',
+    'screens-v2-rest.jsx',
+    'main.jsx'
+  ];
+
+  for (const f of files) {
+    const content = readFile(f);
+    if (!content) continue;
+
+    // Object.entries(STICKER_CATALOG).map is illegal in UI
+    if (content.includes('Object.entries(STICKER_CATALOG).map') || content.includes('Object.values(STICKER_CATALOG).map')) {
+      console.error(`❌ FAIL: ${f} uses direct STICKER_CATALOG map without filtering or helper`);
+      hasErrors = true;
+    }
+
+    if (content.includes('K-Variety Retro') || content.includes('예능 자막')) {
+      // Direct string usage in UI might indicate bypass
+      if (content.includes('getStickerPickerPacks') || content.includes('getVisibleStickerPacks')) {
+         // might be just comments or helper fallbacks, but let's be careful
+      } else {
+        console.warn(`⚠️ WARN: ${f} contains K-Variety Retro strings outside of helper context`);
+        hasWarnings = true;
+      }
+    }
+  }
+}
+
 console.log('🔍 Running IMMM Sanity Checks...');
 checkWebGL();
 checkFrameSystem();
@@ -527,6 +572,7 @@ checkCapture();
 checkRuntimeBootGuards();
 checkSetupAndDecoStickerCanvas();
 checkDeco();
+checkIllegalStickerCatalogUsage();
 checkTask();
 
 if (hasErrors) {
