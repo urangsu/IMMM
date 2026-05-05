@@ -197,7 +197,6 @@ function App() {
         if (!active) { s.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = s;
         setCamOk(true);
-        await refreshCameraDevices();
         
         const track = s.getVideoTracks()[0];
         if (track) {
@@ -212,6 +211,7 @@ function App() {
             console.info('[IMMM camera] capabilities:', capabilities);
             console.info('[IMMM camera] constraints:', constraints);
           }
+          await refreshCameraDevices();
         }
 
         if (videoRef.current) {

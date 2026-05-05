@@ -541,14 +541,16 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           <div style={{ flexShrink:0, display:'flex', gap:6, justifyContent:'center', paddingBottom:4 }}>
             {(() => {
               const hasZoomCapability = !!cameraCapabilities?.zoom;
+              const zoomMin = cameraCapabilities?.zoom?.min;
+              const zoomMax = cameraCapabilities?.zoom?.max;
               const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
               const shouldShowZoomControls = mobile && (hasZoomCapability || debugCamera);
               
               if (!shouldShowZoomControls) return null;
 
-              const canPointSix = hasZoomCapability
-                && cameraCapabilities.zoom.min <= 0.6
-                && cameraCapabilities.zoom.max >= 0.6;
+              const canPointSix = hasZoomCapability && zoomMin <= 0.6 && zoomMax >= 0.6;
+              const canOne = hasZoomCapability && zoomMin <= 1 && zoomMax >= 1;
+              const currentZoom = cameraSettings?.zoom ?? cameraZoom ?? 1;
 
               const btnStyle = (active, disabled) => ({
                 padding: '6px 14px', borderRadius:999, border:'none', fontSize:11, fontWeight:700,
@@ -562,30 +564,34 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   onClick={() => canPointSix && applyCameraZoom?.(0.6)}
                   disabled={!canPointSix}
                   title={!canPointSix ? '기기/브라우저 미지원' : '0.6배율 (초광각)'}
-                  style={btnStyle(Math.abs(cameraZoom - 0.6) < 0.05, !canPointSix)}
+                  style={btnStyle(Math.abs(currentZoom - 0.6) < 0.05, !canPointSix)}
                 >0.6×</button>
                 <button
-                  onClick={() => applyCameraZoom?.(1)}
+                  onClick={() => canOne && applyCameraZoom?.(1)}
                   disabled={!hasZoomCapability}
                   title={!hasZoomCapability ? '줌 미지원' : '1배율'}
-                  style={btnStyle(Math.abs(cameraZoom - 1) < 0.05, !hasZoomCapability)}
-                >1×</button>
+                  style={btnStyle(Math.abs(currentZoom - 1) < 0.05, !hasZoomCapability)}
+                >{!hasZoomCapability ? '기본' : '1×'}</button>
               </>);
             })()}
             {window.IMMM_DEBUG_CAMERA && (
               <div style={{ display:'flex', alignItems:'center', padding:'4px 10px', borderRadius:999,
-                background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui', gap:4 }}>
+                background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui', gap:4, overflowX:'auto' }}>
                 <span style={{fontWeight:700}}>{facingMode}</span>
                 <span>·</span>
-                <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(1)}×` : '1.0×'}</span>
+                <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(1)}×` : 'default'}</span>
                 <span>·</span>
                 <span>{cameraSettings?.width ? `${cameraSettings.width}×${cameraSettings.height}` : '0x0'}</span>
                 <span>·</span>
                 <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}-${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
                 <span>·</span>
-                <span>devices({cameraDevices.length})</span>
-                {facingMode === 'user' && frontWideCandidates.length > 0 && <span>· wide-front({frontWideCandidates.length})</span>}
-                {facingMode === 'environment' && rearWideCandidates.length > 0 && <span>· wide-rear({rearWideCandidates.length})</span>}
+                <span>canPointSix {cameraCapabilities?.zoom && cameraCapabilities.zoom.min <= 0.6 ? 'OK' : 'NO'}</span>
+                <span>·</span>
+                <span>devices {cameraDevices.length}</span>
+                <span>·</span>
+                <span>frontWide {frontWideCandidates.length}</span>
+                <span>·</span>
+                <span>rearWide {rearWideCandidates.length}</span>
               </div>
             )}
           </div>

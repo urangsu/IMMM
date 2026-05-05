@@ -511,3 +511,6 @@ Meaning:
 > [!IMPORTANT]
 > CSS `scale(0.6)` fake zoom is strictly prohibited.
 > Always prefer hardware zoom (`applyConstraints`) if available.
+>
+> **Status**: Code-side implementation is in progress.
+> **DO NOT mark Phase C complete until real-device behavior is verified.**

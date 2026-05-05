@@ -363,6 +363,15 @@ function checkDeco() {
 function checkTask() {
   const task = readFile('task.md');
   if (!task) return;
+
+  if (task.includes('## Selfie 0.6× / Wide Camera Support (Phase C)')) {
+    const section = task.split('## Selfie 0.6× / Wide Camera Support (Phase C)')[1].split('---')[0];
+    if (section.includes('[x]')) {
+      console.error("❌ FAIL: task.md Phase C items must not be checked [x] until real-device QA is done");
+      hasErrors = true;
+    }
+  }
+
   const unverified = ['- [x] Samsung Internet clears old cache after reload', '- [x] Capture → Select → Deco does not throw getFrameTemplate undefined'];
   unverified.forEach(bc => {
     if (task.includes(bc) && !task.includes('Real QA log')) {
@@ -381,12 +390,23 @@ function checkPhaseCCameraZoom() {
       console.error("❌ FAIL: screens-v2-rest.jsx restricts zoom UI to environment mode");
       hasErrors = true;
     }
+    if (rest.includes('frontWideCandidates.length > 0') && rest.includes('shouldShowZoomControls')) {
+      const line = rest.split('\n').find(l => l.includes('shouldShowZoomControls') && l.includes('Candidates.length'));
+      if (line) {
+        console.error("❌ FAIL: screens-v2-rest.jsx shouldShowZoomControls must not depend on candidate counts");
+        hasErrors = true;
+      }
+    }
     if (!rest.includes('canPointSix')) {
       console.error("❌ FAIL: screens-v2-rest.jsx missing canPointSix");
       hasErrors = true;
     }
     if (!rest.includes('shouldShowZoomControls')) {
       console.error("❌ FAIL: screens-v2-rest.jsx missing shouldShowZoomControls");
+      hasErrors = true;
+    }
+    if (!rest.includes('canOne')) {
+      console.error("❌ FAIL: screens-v2-rest.jsx missing canOne");
       hasErrors = true;
     }
     if (!rest.includes('cameraDevices')) {
@@ -415,6 +435,12 @@ function checkPhaseCCameraZoom() {
     }
     if (!main.includes('refreshCameraDevices')) {
       console.error("❌ FAIL: main.jsx missing refreshCameraDevices callback");
+      hasErrors = true;
+    }
+    if (main.indexOf('refreshCameraDevices()') < main.indexOf('setCameraCapabilities')) {
+      // Basic check: refresh should happen after capabilities are set in the first useEffect
+      // Note: this is a simple check and might need adjustment if logic changes
+      console.error("❌ FAIL: main.jsx refreshCameraDevices called before camera capabilities set");
       hasErrors = true;
     }
     if (!main.includes('switchCameraDevice')) {
