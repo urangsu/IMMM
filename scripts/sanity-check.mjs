@@ -212,6 +212,11 @@ function checkEmergencyServiceWorker() {
   if (!sw.toLowerCase().includes('network-first')) {
      console.warn('⚠️ WARN: sw.js should explicitly mention network-first strategy for stability');
   }
+  // Actual network-first pattern check
+  if (!sw.includes('fetch(e.request).catch(() => caches.match(e.request))')) {
+    console.error('❌ FAIL: sw.js missing actual network-first fetch implementation');
+    hasErrors = true;
+  }
 }
 
 function checkAppStability() {
@@ -229,6 +234,36 @@ function checkFrameSystem() {
     console.error('❌ FAIL: frame-system.jsx contains forbidden drawCatalog call');
     hasErrors = true;
   }
+  // Deepening checkFrameSystem
+  const frameChecks = [
+    'sticker.sizeNorm',
+    'options.dotColor',
+    'isDarkFrameColor',
+    'frameSlot == null',
+    'renderFrameOverlay'
+  ];
+  frameChecks.forEach(c => {
+    if (!content.includes(c)) {
+      console.error(`❌ FAIL: frame-system.jsx missing required element: ${c}`);
+      hasErrors = true;
+    }
+  });
+  if (!content.includes('baseW * actualSizeNorm') && !content.includes('sizeNorm')) {
+    console.error('❌ FAIL: frame-system.jsx missing sizeNorm scaling logic');
+    hasErrors = true;
+  }
+  if (content.includes('#D98893')) {
+    console.error('❌ FAIL: frame-system.jsx contains prohibited color #D98893');
+    hasErrors = true;
+  }
+  if (content.includes('s.frameSlot === i')) {
+    console.error('❌ FAIL: frame-system.jsx uses s.frameSlot === i (unreliable, use Number())');
+    hasErrors = true;
+  }
+  if (!content.includes('Number(s.frameSlot) === i')) {
+    console.error('❌ FAIL: frame-system.jsx missing Number(s.frameSlot) === i (required for stability)');
+    hasErrors = true;
+  }
 }
 
 function checkStickerEngine() {
@@ -238,6 +273,23 @@ function checkStickerEngine() {
     console.error('❌ FAIL: sticker-engine.jsx kretro must be hidden');
     hasErrors = true;
   }
+  // Deepening checkStickerEngine
+  const stickerChecks = [
+    'getVisibleStickerPacks',
+    '!pack.hidden',
+    'getDefaultStickerSizeNorm',
+    'makeSticker',
+    'sizeNorm',
+    'getLayoutSlotCount',
+    'getCaptureSlotIndex',
+    'getStickersForCapturePreview'
+  ];
+  stickerChecks.forEach(c => {
+    if (!content.includes(c)) {
+      console.error(`❌ FAIL: sticker-engine.jsx missing required function/element: ${c}`);
+      hasErrors = true;
+    }
+  });
 }
 
 function checkCapture() {
@@ -249,6 +301,29 @@ function checkCapture() {
   }
   if (rest.includes('renderShotStickers')) {
     console.error('❌ FAIL: screens-v2-rest.jsx contains legacy renderShotStickers');
+    hasErrors = true;
+  }
+  // Deepening checkCapture
+  if (rest.includes('drawStickerToCanvas') && rest.includes('preStickers')) {
+    // Basic detection for preStickers leakage in capture path
+    const captureBlock = rest.match(/CaptureV2[\s\S]*?\{([\s\S]*?)\}/);
+    if (captureBlock && captureBlock[1].includes('drawStickerToCanvas') && captureBlock[1].includes('preStickers')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx potential preStickers leakage in drawStickerToCanvas path');
+      hasErrors = true;
+    }
+  }
+  if (rest.includes('preStickers.length > 0') && rest.includes('cameraOverlay')) {
+    console.error('❌ FAIL: screens-v2-rest.jsx uses preStickers.length > 0 in cameraOverlay (risk of stale UI)');
+    hasErrors = true;
+  }
+  if (!rest.includes('visibleCaptureStickers.length > 0')) {
+    console.error('❌ FAIL: screens-v2-rest.jsx missing visibleCaptureStickers check');
+    hasErrors = true;
+  }
+  // Check visibleCaptureStickers.map count
+  const mapCount = (rest.match(/visibleCaptureStickers\.map/g) || []).length;
+  if (mapCount > 1) {
+    console.error(`❌ FAIL: screens-v2-rest.jsx contains multiple visibleCaptureStickers.map calls (current: ${mapCount})`);
     hasErrors = true;
   }
 }
