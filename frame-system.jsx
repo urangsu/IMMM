@@ -35,7 +35,7 @@ function isDarkFrameColor(color) {
     return /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(color || '').trim());
   }
   const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
-  return luminance < 0.45;
+  return luminance < 0.25;
 }
 
 if (typeof window !== 'undefined') {
