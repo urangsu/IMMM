@@ -31,7 +31,7 @@ self.addEventListener('fetch', (e) => {
     url.pathname.endsWith('.js');
 
   if (isCode) {
-    // Network-first for code files to prevent stale ReferenceErrors
+    // NETWORK-FIRST strategy for code files to prevent stale ReferenceErrors
     e.respondWith(
       fetch(e.request).catch(() => caches.match(e.request))
     );

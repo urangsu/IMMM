@@ -16,6 +16,15 @@ function readFile(filename) {
 
 let hasErrors = false;
 
+function checkWebGL() {
+  const webgl = readFile('webgl-engine.jsx');
+  if (!webgl) return;
+  if (webgl.includes('mobileRef')) {
+    console.error('❌ FAIL: webgl-engine.jsx contains "mobileRef"');
+    hasErrors = true;
+  }
+}
+
 function checkVisibleFilters() {
   const content = readFile('filters.jsx');
   if (!content) return;
@@ -166,6 +175,93 @@ function checkEmergencyFaceSafety() {
   }
 }
 
+function checkEmergencyFrameGlobals() {
+  const files = ['screens-v2-rest.jsx', 'screens-v2-deco.jsx', 'screens-v2.jsx', 'main.jsx'];
+  const frameSystem = readFile('frame-system.jsx');
+  if (frameSystem) {
+    if (!frameSystem.includes('getFrameTemplateSafe')) {
+      console.error('❌ FAIL: frame-system.jsx missing getFrameTemplateSafe');
+      hasErrors = true;
+    }
+    if (frameSystem.includes('async function renderComposition') && !frameSystem.includes('getFrameTemplateSafe')) {
+       console.error('❌ FAIL: frame-system.jsx renderComposition missing getFrameTemplateSafe usage');
+       hasErrors = true;
+    }
+    if (frameSystem.includes('async function renderFrameToCanvas') && !frameSystem.includes('getFrameTemplateSafe')) {
+       console.error('❌ FAIL: frame-system.jsx renderFrameToCanvas missing getFrameTemplateSafe usage');
+       hasErrors = true;
+    }
+  }
+  for (const f of files) {
+    const content = readFile(f);
+    if (!content) continue;
+    if (content.match(/\bgetFrameTemplate\(/) && !content.includes('window.getFrameTemplate') && !content.includes('resolveFrameTemplate') && !content.includes('getFrameTemplateSafe')) {
+      console.error(`❌ FAIL: ${f} uses bare getFrameTemplate instead of safe/resolved path`);
+      hasErrors = true;
+    }
+  }
+}
+
+function checkEmergencyServiceWorker() {
+  const sw = readFile('sw.js');
+  if (!sw) return;
+  if (!sw.includes('self.skipWaiting()') || !sw.includes('self.clients.claim()')) {
+    console.error('❌ FAIL: sw.js missing skipWaiting or clients.claim');
+    hasErrors = true;
+  }
+  if (!sw.toLowerCase().includes('network-first')) {
+     console.warn('⚠️ WARN: sw.js should explicitly mention network-first strategy for stability');
+  }
+}
+
+function checkAppStability() {
+  const index = readFile('index.html');
+  if (index && index.includes('screens-edit.jsx')) {
+    console.error('❌ FAIL: index.html still loads legacy screens-edit.jsx');
+    hasErrors = true;
+  }
+}
+
+function checkFrameSystem() {
+  const content = readFile('frame-system.jsx');
+  if (!content) return;
+  if (content.includes('drawCatalog(')) {
+    console.error('❌ FAIL: frame-system.jsx contains forbidden drawCatalog call');
+    hasErrors = true;
+  }
+}
+
+function checkStickerEngine() {
+  const content = readFile('sticker-engine.jsx');
+  if (!content) return;
+  if (!/id:\s*'kretro'[\s\S]*?hidden:\s*true/.test(content)) {
+    console.error('❌ FAIL: sticker-engine.jsx kretro must be hidden');
+    hasErrors = true;
+  }
+}
+
+function checkCapture() {
+  const rest = readFile('screens-v2-rest.jsx');
+  if (!rest) return;
+  if (rest.includes('preStickers.map') && rest.includes('CaptureV2')) {
+    console.error('❌ FAIL: screens-v2-rest.jsx CaptureV2 contains preStickers.map (risk of duplication)');
+    hasErrors = true;
+  }
+  if (rest.includes('renderShotStickers')) {
+    console.error('❌ FAIL: screens-v2-rest.jsx contains legacy renderShotStickers');
+    hasErrors = true;
+  }
+}
+
+function checkSetupAndDecoStickerCanvas() {
+  const deco = readFile('screens-v2-deco.jsx');
+  if (!deco) return;
+  if (!deco.includes('compositionCanvasRef')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx missing compositionCanvasRef');
+    hasErrors = true;
+  }
+}
+
 function checkDeco() {
   const content = readFile('screens-v2-deco.jsx');
   if (!content) return;
@@ -189,15 +285,36 @@ function checkDeco() {
   });
 }
 
-console.log('🔍 Running IMMM Final Hardened Sanity Checks...');
+function checkTask() {
+  const task = readFile('task.md');
+  if (!task) return;
+  const unverified = ['- [x] Samsung Internet clears old cache after reload', '- [x] Capture → Select → Deco does not throw getFrameTemplate undefined'];
+  unverified.forEach(bc => {
+    if (task.includes(bc) && !task.includes('Real QA log')) {
+      console.error(`❌ FAIL: task.md has unverified check "${bc}" (Galaxy QA pending)`);
+      hasErrors = true;
+    }
+  });
+}
+
+console.log('🔍 Running IMMM COMPREHENSIVE Hardened Sanity Checks...');
+checkWebGL();
 checkVisibleFilters();
 checkWebglVisiblePipelines();
 checkEmergencyFaceSafety();
+checkEmergencyFrameGlobals();
+checkEmergencyServiceWorker();
+checkAppStability();
+checkFrameSystem();
+checkStickerEngine();
+checkCapture();
+checkSetupAndDecoStickerCanvas();
 checkDeco();
+checkTask();
 
 if (hasErrors) {
-  console.error('\n💥 Sanity check failed! Fix the code or die.');
+  console.error('\n💥 Sanity check failed! DO NOT REMOVE GUARDS. FIX THE CODE.');
   process.exit(1);
 } else {
-  console.log('\n✅ All sanity checks passed. Zero-Distortion & Zero-Crash baseline confirmed.');
+  console.log('\n✅ All sanity checks passed. Zero-Distortion & Zero-Crash baseline restored.');
 }

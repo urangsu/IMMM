@@ -125,45 +125,6 @@ void main(){
   gl_FragColor=texture2D(u_tex,v_uv);
 }`,
 
-// Fuji Classic Negative
-classic_neg: `
-precision mediump float;
-uniform sampler2D u_tex;
-uniform float u_intensity;
-varying vec2 v_uv;
-void main(){
-  vec4 orig=texture2D(u_tex,v_uv);
-  vec3 c=orig.rgb;
-  float lum=dot(c,vec3(0.299,0.587,0.114));
-  vec3 d=mix(vec3(lum),c,0.72);
-  d=max(d,vec3(0.055,0.045,0.025));
-  float hi=smoothstep(0.62,1.0,lum);
-  d.b+=hi*0.07; d.r-=hi*0.035;
-  float mid=1.0-abs(lum-0.48)*2.2;
-  d.r+=mid*0.055; d.g+=mid*0.025;
-  d=d*0.87+0.055;
-  float n=fract(sin(dot(v_uv,vec2(127.1,311.7)))*43758.5453);
-  d+=mix(-0.015,0.015,n)*(1.0-lum)*0.6;
-  gl_FragColor=vec4(mix(orig.rgb,clamp(d,0.0,1.0),u_intensity),orig.a);
-}`,
-
-//  Ilford HP5+ B&W 
-ilford_hp5: `
-precision mediump float;
-uniform sampler2D u_tex;
-uniform float u_intensity;
-varying vec2 v_uv;
-void main(){
-  vec4 orig=texture2D(u_tex,v_uv);
-  float lum=dot(orig.rgb,vec3(0.299,0.587,0.114));
-  float bw=pow(lum,0.88)*1.08;
-  bw=clamp(smoothstep(0.04,0.96,bw),0.0,1.0);
-  // strong grain on shadow
-  float n=fract(sin(dot(v_uv,vec2(431.7,182.3)))*21341.7);
-  bw+=mix(-0.025,0.025,n)*(1.0-bw)*0.9;
-  gl_FragColor=vec4(mix(orig.rgb,vec3(clamp(bw,0.0,1.0)),u_intensity),orig.a);
-}`,
-
 // neutralized shaders
 lip_color: `precision mediump float; uniform sampler2D u_tex; varying vec2 v_uv; void main(){ gl_FragColor=texture2D(u_tex,v_uv); }`,
 face_slim: `precision mediump float; uniform sampler2D u_tex; varying vec2 v_uv; void main(){ gl_FragColor=texture2D(u_tex,v_uv); }`,
@@ -909,7 +870,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
         */
 
         const pipeline = steps.map(step =>
-          (step.shader === 'glitter' || step.shader === 'film_grain_v2' || step.shader === 'eye_bright')
+          (step.shader === 'film_grain_v2' || step.shader === 'eye_bright')
             ? { ...step, uniforms: { ...step.uniforms, u_time: time } }
             : step
         );
