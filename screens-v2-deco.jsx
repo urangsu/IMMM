@@ -1,13 +1,13 @@
 // screens-v2-deco.jsx — Deco Studio + Result
 
 const ZoomMinusIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
     <path d="M4 9H14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
   </svg>
 );
 
 const ZoomPlusIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
     <path d="M4 9H14M9 4V14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
   </svg>
 );

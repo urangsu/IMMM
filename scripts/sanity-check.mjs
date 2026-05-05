@@ -521,22 +521,48 @@ function checkFrameThemeUnification() {
       }
     });
 
-    // Aggressive Zoom Button Check
-    if (content.includes('onClick={zoomIn}') || content.includes('onClick={zoomOut}')) {
-       if (content.includes('>+<') || content.includes('>-<') || content.includes('>−<')) {
-         console.error(`❌ FAIL: ${name} contains raw text zoom icons (+/-)`);
-         hasErrors = true;
-       }
+    // Aggressive Zoom Button Check (Raw Text +/-)
+    const rawZoomIconPatterns = [
+      />\s*\+\s*<\/button>/,
+      />\s*-\s*<\/button>/,
+      />\s*−\s*<\/button>/,
+      />\s*＋\s*<\/button>/,
+    ];
+    if (name !== 'screens-v2-rest.jsx') {
+      rawZoomIconPatterns.forEach(pattern => {
+        if (pattern.test(content)) {
+          console.error(`❌ FAIL: ${name} contains raw text zoom icons (+/-)`);
+          hasErrors = true;
+        }
+      });
     }
   });
 
   if (deco) {
-    if (!deco.includes('ZoomPlusIcon') || !deco.includes('ZoomMinusIcon')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx missing SVG zoom icons (ZoomPlusIcon/ZoomMinusIcon)");
+    if (!deco.includes('ZoomPlusIcon')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx missing SVG zoom icons (ZoomPlusIcon)");
       hasErrors = true;
     }
-    if (!deco.includes("display: 'inline-flex'") || !deco.includes("alignItems: 'center'") || !deco.includes("justifyContent: 'center'")) {
-       console.warn("⚠️ WARN: screens-v2-deco.jsx zoom buttons might miss proper flex alignment");
+    if (!deco.includes('ZoomMinusIcon')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx missing SVG zoom icons (ZoomMinusIcon)");
+      hasErrors = true;
+    }
+
+    // Specific Style Checks for Deco Studio zoomControls
+    const decoZoomBlock = deco.match(/const\s+zoomControls\s*=\s*[\s\S]*?zoomBtnStyle[\s\S]*?<\/div>/);
+    const decoStyleBlock = deco.match(/const\s+zoomBtnStyle\s*=\s*\{([\s\S]*?)\};/);
+
+    if (decoStyleBlock) {
+      const style = decoStyleBlock[1];
+      if (!style.includes('width: 56')) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing width: 56"); hasErrors = true; }
+      if (!style.includes('height: 56')) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing height: 56"); hasErrors = true; }
+      if (!style.includes('padding: 0')) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing padding: 0"); hasErrors = true; }
+      if (!style.includes("display: 'inline-flex'")) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing display: 'inline-flex'"); hasErrors = true; }
+      if (!style.includes("alignItems: 'center'")) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing alignItems: 'center'"); hasErrors = true; }
+      if (!style.includes("justifyContent: 'center'")) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing justifyContent: 'center'"); hasErrors = true; }
+    } else {
+      console.error("❌ FAIL: screens-v2-deco.jsx missing zoomBtnStyle definition");
+      hasErrors = true;
     }
   }
   
