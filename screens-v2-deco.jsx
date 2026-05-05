@@ -1,5 +1,34 @@
 // screens-v2-deco.jsx — Deco Studio + Result
 
+const ZoomMinusIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+    <path d="M4 9H14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+  </svg>
+);
+
+const ZoomPlusIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+    <path d="M4 9H14M9 4V14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+  </svg>
+);
+
+const zoomBtnStyle = {
+  width: 56,
+  height: 56,
+  borderRadius: 999,
+  border: 'none',
+  padding: 0,
+  background: 'rgba(255,255,255,0.92)',
+  backdropFilter: 'blur(8px)',
+  WebkitBackdropFilter: 'blur(8px)',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 0,
+  boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
+};
+
 // ═══════════════════════════════════════════════════════════════
 // DECO STUDIO — final edit (filter+frame locked)
 // ═══════════════════════════════════════════════════════════════
@@ -193,10 +222,23 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   };
 
   const zoomControls =
-  <div style={{ position: 'absolute', bottom: 14, right: 14, display: 'flex', gap: 6, zIndex: 20 }}>
-      <button onClick={zoomOut} style={{ width: 32, height: 32, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', cursor: 'pointer', fontSize: 18, fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>−</button>
-      <button onClick={zoomIn} style={{ width: 32, height: 32, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', cursor: 'pointer', fontSize: 18, fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>+</button>
-    </div>;
+  <div style={{
+    position: 'absolute',
+    bottom: 18,
+    right: 18,
+    display: 'flex',
+    gap: 10,
+    zIndex: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  }}>
+    <button onClick={zoomOut} style={zoomBtnStyle} aria-label="Zoom out">
+      <ZoomMinusIcon />
+    </button>
+    <button onClick={zoomIn} style={zoomBtnStyle} aria-label="Zoom in">
+      <ZoomPlusIcon />
+    </button>
+  </div>;
 
 
   const compositionCanvasRef = React.useRef(null);

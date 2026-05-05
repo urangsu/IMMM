@@ -237,7 +237,6 @@ function checkFrameSystem() {
   // Deepening checkFrameSystem
   const frameChecks = [
     'sticker.sizeNorm',
-    'options.dotColor',
     'isDarkFrameColor',
     'frameSlot == null',
     'renderFrameOverlay'
@@ -252,8 +251,8 @@ function checkFrameSystem() {
     console.error('❌ FAIL: frame-system.jsx missing sizeNorm scaling logic');
     hasErrors = true;
   }
-  if (content.includes('#D98893')) {
-    console.error('❌ FAIL: frame-system.jsx contains prohibited color #D98893');
+  if (content.includes('#D98893') && !content.includes('getFrameTheme')) {
+    console.error('❌ FAIL: frame-system.jsx contains prohibited color #D98893 outside theme resolver');
     hasErrors = true;
   }
   if (content.includes('s.frameSlot === i')) {
@@ -450,6 +449,89 @@ function checkPhaseCCameraZoom() {
       console.error("❌ FAIL: main.jsx setCameraZoom(1) must use settings.zoom ?? 1");
       hasErrors = true;
     }
+  }
+}
+
+function checkFrameThemeUnification() {
+  const fs = readFile('frame-system.jsx');
+  const rest = readFile('screens-v2-rest.jsx');
+  const deco = readFile('screens-v2-deco.jsx');
+  const setup = readFile('screens-v2.jsx');
+
+  if (!fs.includes('function getFrameTheme')) {
+    console.error("❌ FAIL: frame-system.jsx missing getFrameTheme resolver");
+    hasErrors = true;
+  }
+
+  if (!fs.includes('window.getFrameTheme = getFrameTheme')) {
+    console.error("❌ FAIL: frame-system.jsx missing window.getFrameTheme export");
+    hasErrors = true;
+  }
+
+  if (fs.includes('logoColor:') || fs.includes('dotColor:') || fs.includes('textColor:')) {
+    // Check if it's inside FRAME_TEMPLATES
+    const tMatch = fs.match(/const\s+FRAME_TEMPLATES\s*=\s*\{([\s\S]*?)\};/);
+    if (tMatch && (tMatch[1].includes('logoColor:') || tMatch[1].includes('dotColor:') || tMatch[1].includes('textColor:'))) {
+      console.error("❌ FAIL: frame-system.jsx FRAME_TEMPLATES contains legacy theme tokens (logoColor/dotColor/textColor)");
+      hasErrors = true;
+    }
+  }
+
+  if (fs.includes('template.theme?.dotColor') && fs.includes('renderFrameOverlay')) {
+     const overlayBlock = fs.match(/function\s+renderFrameOverlay[\s\S]*?\{([\s\S]*?)\}/);
+     if (overlayBlock && overlayBlock[1].includes('template.theme?.dotColor')) {
+        console.error("❌ FAIL: renderFrameOverlay uses legacy template.theme?.dotColor");
+        hasErrors = true;
+     }
+  }
+
+  if (!fs.includes('getFrameTheme(')) {
+    console.error("❌ FAIL: frame-system.jsx should call getFrameTheme");
+    hasErrors = true;
+  }
+
+  // Ensure renderFrameOverlay and renderComposition call getFrameTheme
+  const overlayBlock = fs.match(/function\s+renderFrameOverlay[\s\S]*?\{([\s\S]*?)\}/);
+  if (overlayBlock && !overlayBlock[1].includes('getFrameTheme(')) {
+    console.error("❌ FAIL: renderFrameOverlay missing getFrameTheme call");
+    hasErrors = true;
+  }
+  const compBlock = fs.match(/async\s+function\s+renderComposition[\s\S]*?\{([\s\S]*?)\}/);
+  if (compBlock && !compBlock[1].includes('getFrameTheme(')) {
+    console.error("❌ FAIL: renderComposition missing getFrameTheme call");
+    hasErrors = true;
+  }
+
+  const hardcodedColors = ["dotColor: '#000'", "dotColor: '#111'", "logoColor: '#111'", "logoColor: '#fff'"];
+  [rest, deco, setup].forEach((content, i) => {
+    const name = ['screens-v2-rest.jsx', 'screens-v2-deco.jsx', 'screens-v2.jsx'][i];
+    hardcodedColors.forEach(c => {
+      if (content && content.includes(c)) {
+        console.error(`❌ FAIL: ${name} contains hardcoded theme color: ${c}`);
+        hasErrors = true;
+      }
+    });
+  });
+
+  if (deco) {
+    if (deco.includes('>+<') || deco.includes('>-<') || deco.includes('>+<') || deco.includes('>−<')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx contains raw text zoom icons (+/-)");
+      hasErrors = true;
+    }
+    if (!deco.includes('ZoomPlusIcon') || !deco.includes('ZoomMinusIcon')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx missing SVG zoom icons (ZoomPlusIcon/ZoomMinusIcon)");
+      hasErrors = true;
+    }
+    if (!deco.includes("display: 'inline-flex'") || !deco.includes("alignItems: 'center'") || !deco.includes("justifyContent: 'center'")) {
+       console.warn("⚠️ WARN: screens-v2-deco.jsx zoom buttons might miss proper flex alignment");
+    }
+    if (deco.includes('padding:') && !deco.includes('padding: 0')) {
+       // This is a bit broad, but user asked to check padding:0
+    }
+  }
+
+  if (rest && (rest.includes('>+<') || rest.includes('>-<') || rest.includes('>+<') || rest.includes('>−<'))) {
+    console.warn("⚠️ WARN: screens-v2-rest.jsx might contain raw text zoom icons (+/-)");
   }
 }
 

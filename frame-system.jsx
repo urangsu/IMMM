@@ -42,6 +42,38 @@ if (typeof window !== 'undefined') {
   window.isDarkFrameColor = isDarkFrameColor;
 }
 
+/**
+ * Common theme resolver for frames.
+ * Ensures consistent contrast for Logo, Dot, and Date across all renders.
+ */
+function getFrameTheme(template, options = {}) {
+  const frameBg =
+    options.frameColor ||
+    template?.theme?.frameFill ||
+    '#ffffff';
+
+  const dark = isDarkFrameColor(frameBg);
+
+  const markColor = dark ? '#FFFFFF' : '#111111';
+  const dotColor = markColor;
+  const dateColor = dark ? 'rgba(255,255,255,0.82)' : '#6B6B6B';
+  const photoBg = dark ? 'rgba(255,255,255,0.10)' : '#f0f0f0';
+
+  return {
+    frameBg,
+    photoBg,
+    markColor,
+    dotColor,
+    dateColor,
+    textColor: dateColor,
+    isDark: dark,
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.getFrameTheme = getFrameTheme;
+}
+
 const FRAME_TEMPLATES = {
   '1x4': {
     id: 'core-1x4',
@@ -49,7 +81,7 @@ const FRAME_TEMPLATES = {
     name: 'Classic 1x4',
     ko: '클래식 1x4',
     canvasSize: { width: 560, height: 1808 },
-    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#111' },
+    theme: { frameFill: '#fff' },
     photoRects: [
       { x: 0.093, y: 0.092, w: 0.814, h: 0.189 },
       { x: 0.093, y: 0.297, w: 0.814, h: 0.189 },
@@ -68,7 +100,7 @@ const FRAME_TEMPLATES = {
     name: 'Gallery 2x2',
     ko: '갤러리 2x2',
     canvasSize: { width: 880, height: 1096 },
-    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#111' },
+    theme: { frameFill: '#fff' },
     photoRects: [
       { x: 0.08, y: 0.155, w: 0.398, h: 0.319 },
       { x: 0.523, y: 0.155, w: 0.398, h: 0.319 },
@@ -87,7 +119,7 @@ const FRAME_TEMPLATES = {
     name: 'Polaroid 1x1',
     ko: '폴라로이드 1x1',
     canvasSize: { width: 880, height: 1070 },
-    theme: { frameFill: '#fff', textColor: '#555', logoColor: '#111', dotColor: '#111' },
+    theme: { frameFill: '#fff' },
     photoRects: [
       { x: 0.051, y: 0.10, w: 0.898, h: 0.68 }, // Structure consistent for black/white
     ],
@@ -318,14 +350,13 @@ function renderSparkleStroke(ctx, stroke, w, h, lineWidth) {
  * options.dateText: string to show | false to hide | undefined = auto (today)
  */
 function renderFrameOverlay(ctx, template, width, height, options = {}) {
-  const bg = options.frameColor || template.theme?.frameFill || '#fff';
-  const isDark = isDarkFrameColor(bg);
+  const theme = getFrameTheme(template, {
+    frameColor: options.frameColor,
+  });
 
-  const textColor = options.textColor || (isDark ? '#eee' : (template.theme?.textColor || '#555'));
-  const logoColor = options.logoColor || (isDark ? '#fff' : (template.theme?.logoColor || '#111'));
-  // Dot: always use theme dotColor; on white frames ensure dark fallback for visibility
-  const rawDotColor = template.theme?.dotColor;
-  const dotColor = options.dotColor || rawDotColor || (isDark ? 'rgba(255,255,255,0.88)' : '#111');
+  const textColor = options.textColor || theme.dateColor;
+  const logoColor = options.logoColor || theme.markColor;
+  const dotColor = options.dotColor || theme.dotColor;
 
   // 1. Logo
   if (options.logo !== false && template.logo) {
@@ -413,9 +444,10 @@ async function renderComposition(ctx, data, options = {}) {
   const w = template.canvasSize.width * scale;
   const h = template.canvasSize.height * scale;
 
+  const theme = getFrameTheme(template, data);
+
   // 1. Background
-  const bg = data.frameColor || template.theme.frameFill;
-  ctx.fillStyle = bg;
+  ctx.fillStyle = theme.frameBg;
   ctx.fillRect(0, 0, w, h);
 
   // 2. Photo Slots
@@ -437,7 +469,7 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.beginPath();
     ctx.rect(sx, sy, sw, sh);
     ctx.clip();
-    ctx.fillStyle = '#f0f0f0';
+    ctx.fillStyle = theme.photoBg;
     ctx.fillRect(sx, sy, sw, sh);
     
     if (images[i]) {
@@ -718,4 +750,5 @@ Object.assign(window, {
   LocalGalleryStore,
   ShareStore,
   generateQrDataUrl,
+  getFrameTheme,
 });

@@ -553,11 +553,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               const currentZoom = cameraSettings?.zoom ?? cameraZoom ?? 1;
 
               const btnStyle = (active, disabled) => ({
-                padding: '6px 14px', borderRadius:999, border:'none', fontSize:11, fontWeight:700,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 56, height: 42, borderRadius:999, border:'none', fontSize:11, fontWeight:700,
                 fontFamily:'"Plus Jakarta Sans",system-ui', cursor: disabled ? 'not-allowed' : 'pointer',
                 background: active ? T.ink : 'rgba(26,26,31,0.06)',
                 color: active ? T.bg : disabled ? T.inkSoft : T.ink,
-                opacity: disabled ? 0.45 : 1, transition:'all 0.2s',
+                opacity: disabled ? 0.45 : 1, transition:'all 0.2s', padding: 0, lineHeight: 1
               });
               return (<>
                 <button
@@ -565,13 +566,17 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   disabled={!canPointSix}
                   title={!canPointSix ? '기기/브라우저 미지원' : '0.6배율 (초광각)'}
                   style={btnStyle(Math.abs(currentZoom - 0.6) < 0.05, !canPointSix)}
-                >0.6×</button>
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
                 <button
                   onClick={() => canOne && applyCameraZoom?.(1)}
                   disabled={!hasZoomCapability}
                   title={!hasZoomCapability ? '줌 미지원' : '1배율'}
                   style={btnStyle(Math.abs(currentZoom - 1) < 0.05, !hasZoomCapability)}
-                >{!hasZoomCapability ? '기본' : '1×'}</button>
+                >
+                  {!hasZoomCapability ? '기본' : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}
+                </button>
               </>);
             })()}
             {window.IMMM_DEBUG_CAMERA && (
@@ -1003,18 +1008,18 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
 
       ctx.save();
       ctx.translate(offsetX, offsetY);
-      const isDarkFrame = typeof isDarkFrameColor === 'function'
-        ? isDarkFrameColor(frameColor)
-        : /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(frameColor || '').trim());
+      const getTheme = window.getFrameTheme || (typeof getFrameTheme === 'function' ? getFrameTheme : null);
+      const theme = getTheme ? getTheme(template, { frameColor }) : null;
+
       renderOverlay(ctx, template, fullW, fullH, {
         frameColor,
         logo,
         dateText,
         accent,
-        // Force light colors so overlay is visible against any background
-        textColor: 'rgba(255,255,255,0.88)',
-        logoColor: 'rgba(255,255,255,0.95)',
-        dotColor: isDarkFrame ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.72)',
+        // Force light colors if explicitly dark frame, but prioritize overlay visibility
+        textColor: theme?.dateColor || 'rgba(255,255,255,0.88)',
+        logoColor: theme?.markColor || 'rgba(255,255,255,0.95)',
+        dotColor: theme?.dotColor || 'rgba(255,255,255,0.88)',
       });
       ctx.restore();
     }
