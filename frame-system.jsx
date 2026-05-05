@@ -725,7 +725,7 @@ function getFrameTemplateSafe(layoutOrType) {
     return window.getFrameTemplate(layoutOrType);
   }
   if (typeof getFrameTemplate === 'function') {
-    return window.getFrameTemplate(layoutOrType);
+    return getFrameTemplate(layoutOrType);
   }
   console.error('[IMMM] getFrameTemplate unavailable; using emergency 1x4 fallback');
   return FRAME_TEMPLATES?.['1x4'];

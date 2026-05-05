@@ -502,22 +502,35 @@ function checkFrameThemeUnification() {
     hasErrors = true;
   }
 
+  if (fs.includes('window.getFrameTemplate(') && fs.includes('function getFrameTemplateSafe')) {
+    const safeBlock = fs.match(/function\s+getFrameTemplateSafe[\s\S]*?\{([\s\S]*?)\}/);
+    if (safeBlock && safeBlock[1].includes('window.getFrameTemplate(')) {
+       console.error("❌ FAIL: getFrameTemplateSafe calls window.getFrameTemplate instead of local function");
+       hasErrors = true;
+    }
+  }
+
   const hardcodedColors = ["dotColor: '#000'", "dotColor: '#111'", "logoColor: '#111'", "logoColor: '#fff'"];
   [rest, deco, setup].forEach((content, i) => {
     const name = ['screens-v2-rest.jsx', 'screens-v2-deco.jsx', 'screens-v2.jsx'][i];
+    if (!content) return;
     hardcodedColors.forEach(c => {
-      if (content && content.includes(c)) {
+      if (content.includes(c)) {
         console.error(`❌ FAIL: ${name} contains hardcoded theme color: ${c}`);
         hasErrors = true;
       }
     });
+
+    // Aggressive Zoom Button Check
+    if (content.includes('onClick={zoomIn}') || content.includes('onClick={zoomOut}')) {
+       if (content.includes('>+<') || content.includes('>-<') || content.includes('>−<')) {
+         console.error(`❌ FAIL: ${name} contains raw text zoom icons (+/-)`);
+         hasErrors = true;
+       }
+    }
   });
 
   if (deco) {
-    if (deco.includes('>+<') || deco.includes('>-<') || deco.includes('>+<') || deco.includes('>−<')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx contains raw text zoom icons (+/-)");
-      hasErrors = true;
-    }
     if (!deco.includes('ZoomPlusIcon') || !deco.includes('ZoomMinusIcon')) {
       console.error("❌ FAIL: screens-v2-deco.jsx missing SVG zoom icons (ZoomPlusIcon/ZoomMinusIcon)");
       hasErrors = true;
@@ -525,13 +538,17 @@ function checkFrameThemeUnification() {
     if (!deco.includes("display: 'inline-flex'") || !deco.includes("alignItems: 'center'") || !deco.includes("justifyContent: 'center'")) {
        console.warn("⚠️ WARN: screens-v2-deco.jsx zoom buttons might miss proper flex alignment");
     }
-    if (deco.includes('padding:') && !deco.includes('padding: 0')) {
-       // This is a bit broad, but user asked to check padding:0
+  }
+  
+  if (setup) {
+    if (!setup.includes('ZoomPlusIcon') || !setup.includes('ZoomMinusIcon')) {
+      console.error("❌ FAIL: screens-v2.jsx missing SVG zoom icons (ZoomPlusIcon/ZoomMinusIcon)");
+      hasErrors = true;
     }
   }
 
-  if (rest && (rest.includes('>+<') || rest.includes('>-<') || rest.includes('>+<') || rest.includes('>−<'))) {
-    console.warn("⚠️ WARN: screens-v2-rest.jsx might contain raw text zoom icons (+/-)");
+  if (rest && (rest.includes('>+<') || rest.includes('>-<') || rest.includes('>−<'))) {
+    // Already warned
   }
 }
 
