@@ -119,6 +119,33 @@ function App() {
   const [cameraZoom, setCameraZoom] = React.useState(1);
   const [cameraCapabilities, setCameraCapabilities] = React.useState(null);
   const [cameraSettings, setCameraSettings] = React.useState(null);
+  const [frontWideCandidates, setFrontWideCandidates] = React.useState([]);
+  const [rearWideCandidates, setRearWideCandidates] = React.useState([]);
+
+  // Device Enumeration for Wide Candidates
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        const isWide = (d) => {
+          const l = d.label.toLowerCase();
+          return l.includes('wide') || l.includes('0.6') || l.includes('ultra');
+        };
+        const front = videoDevices.filter(d => 
+          d.label.toLowerCase().includes('front') || d.label.toLowerCase().includes('selfie') || d.label.toLowerCase().includes('user')
+        );
+        const rear = videoDevices.filter(d => 
+          d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear') || d.label.toLowerCase().includes('environment')
+        );
+        setFrontWideCandidates(front.filter(isWide));
+        setRearWideCandidates(rear.filter(isWide));
+        console.info('[IMMM camera] wide candidates:', { front: front.filter(isWide).length, rear: rear.filter(isWide).length });
+      } catch (e) {
+        console.warn('[IMMM camera] enumerateDevices failed:', e);
+      }
+    })();
+  }, []);
 
   // useFilterEngine stays active from the start, warming up shaders
   const { engineRef, webglOk, firstFrame, webglFailed } = (typeof useFilterEngine === 'function')
@@ -209,6 +236,39 @@ function App() {
       return true;
     } catch (e) {
       console.warn('[IMMM camera] zoom apply failed:', e);
+      return false;
+    }
+  }, []);
+
+  const switchCameraDevice = React.useCallback(async (deviceId) => {
+    if (!deviceId) return false;
+    try {
+      const next = await navigator.mediaDevices.getUserMedia({
+        video: {
+          deviceId: { exact: deviceId },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30, max: 60 },
+        },
+        audio: false,
+      });
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+      streamRef.current = next;
+      if (videoRef.current) {
+        videoRef.current.srcObject = next;
+        await videoRef.current.play().catch(() => {});
+      }
+      const track = next.getVideoTracks()[0];
+      const settings = track.getSettings?.() || {};
+      const capabilities = track.getCapabilities?.() || {};
+      setCameraSettings(settings);
+      setCameraCapabilities(capabilities);
+      setCameraZoom(settings.zoom ?? 1);
+      return true;
+    } catch (e) {
+      console.warn('[IMMM camera] switchCameraDevice failed:', e);
       return false;
     }
   }, []);
@@ -318,6 +378,9 @@ function App() {
           cameraCapabilities={cameraCapabilities}
           cameraSettings={cameraSettings}
           applyCameraZoom={applyCameraZoom}
+          switchCameraDevice={switchCameraDevice}
+          frontWideCandidates={frontWideCandidates}
+          rearWideCandidates={rearWideCandidates}
         />;
       case 'select':
         return <SelectV2 {...p}

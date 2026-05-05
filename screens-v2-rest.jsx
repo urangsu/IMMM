@@ -5,7 +5,8 @@
 // ═══════════════════════════════════════════════════════════════
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, frameColor, muted, onRequestCamera,
   videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef,
-  cameraZoom = 1, cameraCapabilities = null, cameraSettings = null, applyCameraZoom
+  cameraZoom = 1, cameraCapabilities = null, cameraSettings = null, applyCameraZoom,
+  switchCameraDevice, frontWideCandidates = [], rearWideCandidates = []
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -117,6 +118,20 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       } else {
         sh = vw / aspect; sy = (vh - sh) / 2;
       }
+
+      if (typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA) {
+        console.info('[IMMM capture crop]', {
+          facingMode,
+          viewfinderAspect: aspect,
+          videoWidth: vw,
+          videoHeight: vh,
+          videoAspect: srcAspect,
+          sx, sy, sw, sh,
+          cropRatioW: sw / vw,
+          cropRatioH: sh / vh,
+        });
+      }
+
       ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
       ctx.restore();
 
@@ -522,14 +537,17 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             {Math.max(0, shotCount-idx)} left
           </div>
         </div>
-        {/* Camera zoom buttons — mobile + rear camera only */}
-        {mobile && facingMode === 'environment' && (
+        {mobile && (
           <div style={{ flexShrink:0, display:'flex', gap:6, justifyContent:'center', paddingBottom:4 }}>
             {(() => {
               const canHardwareZoom = cameraCapabilities?.zoom;
               const canPointSix = canHardwareZoom
                 && cameraCapabilities.zoom.min <= 0.6
                 && cameraCapabilities.zoom.max >= 0.6;
+              const shouldShowZoomControls = canHardwareZoom || frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
+              
+              if (!shouldShowZoomControls) return null;
+
               const btnStyle = (active, disabled) => ({
                 padding: '6px 14px', borderRadius:999, border:'none', fontSize:11, fontWeight:700,
                 fontFamily:'"Plus Jakarta Sans",system-ui', cursor: disabled ? 'not-allowed' : 'pointer',
@@ -553,10 +571,17 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               </>);
             })()}
             {window.IMMM_DEBUG_CAMERA && (
-              <div style={{ display:'flex', alignItems:'center', padding:'0 10px', borderRadius:999,
-                background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
-                {cameraSettings?.zoom != null ? `${cameraSettings.zoom}×` : 'default'}
-                {cameraSettings?.width ? ` · ${cameraSettings.width}×${cameraSettings.height}` : ''}
+              <div style={{ display:'flex', alignItems:'center', padding:'4px 10px', borderRadius:999,
+                background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui', gap:4 }}>
+                <span style={{fontWeight:700}}>{facingMode}</span>
+                <span>·</span>
+                <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(1)}×` : '1.0×'}</span>
+                <span>·</span>
+                <span>{cameraSettings?.width ? `${cameraSettings.width}×${cameraSettings.height}` : '0x0'}</span>
+                <span>·</span>
+                <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}-${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
+                {facingMode === 'user' && frontWideCandidates.length > 0 && <span>· wide-front({frontWideCandidates.length})</span>}
+                {facingMode === 'environment' && rearWideCandidates.length > 0 && <span>· wide-rear({rearWideCandidates.length})</span>}
               </div>
             )}
           </div>

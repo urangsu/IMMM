@@ -372,6 +372,49 @@ function checkTask() {
   });
 }
 
+function checkPhaseCCameraZoom() {
+  const rest = readFile('screens-v2-rest.jsx');
+  const main = readFile('main.jsx');
+
+  if (rest) {
+    if (rest.match(/mobile\s*&&\s*facingMode\s*===\s*'environment'\s*&&\s*\(/)) {
+      console.error("❌ FAIL: screens-v2-rest.jsx restricts zoom UI to environment mode");
+      hasErrors = true;
+    }
+    if (!rest.includes('canPointSix')) {
+      console.error("❌ FAIL: screens-v2-rest.jsx missing canPointSix");
+      hasErrors = true;
+    }
+    if (!rest.includes('shouldShowZoomControls')) {
+      console.error("❌ FAIL: screens-v2-rest.jsx missing shouldShowZoomControls");
+      hasErrors = true;
+    }
+    if (rest.includes('scale(0.6)') || rest.includes('scale(0,6)')) {
+      console.error("❌ FAIL: screens-v2-rest.jsx contains prohibited scale(0.6) fake zoom");
+      hasErrors = true;
+    }
+    if (!rest.includes('[IMMM capture crop]')) {
+      console.warn("⚠️ WARN: screens-v2-rest.jsx missing [IMMM capture crop] debug log");
+    }
+  }
+
+  if (main) {
+    if (!main.includes('frontWideCandidates')) {
+      console.warn("⚠️ WARN: main.jsx missing frontWideCandidates");
+    }
+    if (!main.includes('rearWideCandidates')) {
+      console.warn("⚠️ WARN: main.jsx missing rearWideCandidates");
+    }
+    if (!main.includes('switchCameraDevice')) {
+      console.warn("⚠️ WARN: main.jsx missing switchCameraDevice");
+    }
+    if (main.includes('setCameraZoom(1)') && !main.includes('settings.zoom ?? 1')) {
+      console.error("❌ FAIL: main.jsx setCameraZoom(1) must use settings.zoom ?? 1");
+      hasErrors = true;
+    }
+  }
+}
+
 console.log('🔍 Running IMMM COMPREHENSIVE Hardened Sanity Checks...');
 checkWebGL();
 checkVisibleFilters();
@@ -386,6 +429,7 @@ checkCapture();
 checkSetupAndDecoStickerCanvas();
 checkDeco();
 checkTask();
+checkPhaseCCameraZoom();
 
 if (hasErrors) {
   console.error('\n💥 Sanity check failed! DO NOT REMOVE GUARDS. FIX THE CODE.');
