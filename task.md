@@ -501,18 +501,18 @@ Meaning:
 - **Pen width preview/export**: 
 ---
 
-## 🤳 Selfie 0.6× / Wide Camera Support (Phase C)
-
-- [ ] **Camera Device Discovery**: Enumerate all video devices and identify wide candidates (`main.jsx`)
-- [ ] **Hardware Zoom Foundation**: Integration of `switchCameraDevice` and capabilities detection (`main.jsx`)
-- [ ] **Capture Crop Debug**: Log `sx, sy, sw, sh` and `cropRatio` during capture (`screens-v2-rest.jsx`)
-- [ ] **Hardware Zoom UI**: Enable 0.6x/1x buttons in selfie mode if hardware zoom supports it (`screens-v2-rest.jsx`)
-- [ ] **Debug Pill Expansion**: Show zoom range, candidates count, and pointSix status (`screens-v2-rest.jsx`)
-- [ ] **Sanity Guard**: Ensure no CSS `scale(0.6)` and mandatory debug logs/candidate checks (`sanity-check.mjs`)
+## Selfie 0.6× / Wide Camera Support (Phase C)
+- [ ] Camera devices are enumerated after camera permission is granted
+- [ ] frontWideCandidates and rearWideCandidates are stored
+- [ ] Selfie mode does not hide zoom controls solely because facingMode is user
+- [ ] 0.6× appears only when hardware zoom capability supports it
+- [ ] Candidate count is debug-only and does not enable fake 0.6× UI
+- [ ] 1×/default state remains understandable when zoom is unsupported
+- [ ] Debug pill shows facingMode, zoom range, resolution, and candidate count
+- [ ] Capture crop debug shows crop ratio
+- [ ] No CSS fake 0.6× is used
+- [ ] No automatic wide camera device switching is performed
 
 > [!IMPORTANT]
-> CSS `scale(0.6)` fake zoom is strictly prohibited.
-> Always prefer hardware zoom (`applyConstraints`) if available.
->
-> **Status**: Code-side implementation is in progress.
-> **DO NOT mark Phase C complete until real-device behavior is verified.**
+> Code-side implementation does not equal real-device QA.
+> Do not mark this section complete until tested on an actual mobile browser.

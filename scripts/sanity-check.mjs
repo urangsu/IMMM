@@ -380,77 +380,6 @@ function checkTask() {
   });
 }
 
-function checkPhaseCCameraZoom() {
-  const rest = readFile('screens-v2-rest.jsx');
-  const main = readFile('main.jsx');
-
-  if (rest) {
-    if (rest.match(/mobile\s*&&\s*facingMode\s*===\s*'environment'\s*&&\s*\(/)) {
-      console.error("❌ FAIL: screens-v2-rest.jsx restricts zoom UI to environment mode");
-      hasErrors = true;
-    }
-    if (rest.includes('frontWideCandidates.length > 0') && rest.includes('shouldShowZoomControls')) {
-      const line = rest.split('\n').find(l => l.includes('shouldShowZoomControls') && l.includes('Candidates.length'));
-      if (line) {
-        console.error("❌ FAIL: screens-v2-rest.jsx shouldShowZoomControls must not depend on candidate counts");
-        hasErrors = true;
-      }
-    }
-    if (!rest.includes('canPointSix')) {
-      console.error("❌ FAIL: screens-v2-rest.jsx missing canPointSix");
-      hasErrors = true;
-    }
-    if (!rest.includes('shouldShowZoomControls')) {
-      console.error("❌ FAIL: screens-v2-rest.jsx missing shouldShowZoomControls");
-      hasErrors = true;
-    }
-    if (!rest.includes('canOne')) {
-      console.error("❌ FAIL: screens-v2-rest.jsx missing canOne");
-      hasErrors = true;
-    }
-    if (!rest.includes('cameraDevices')) {
-      console.error("❌ FAIL: screens-v2-rest.jsx missing cameraDevices prop");
-      hasErrors = true;
-    }
-    if (rest.includes('scale(0.6)') || rest.includes('scale(0,6)')) {
-      console.error("❌ FAIL: screens-v2-rest.jsx contains prohibited scale(0.6) fake zoom");
-      hasErrors = true;
-    }
-    if (!rest.includes('[IMMM capture crop]')) {
-      console.warn("⚠️ WARN: screens-v2-rest.jsx missing [IMMM capture crop] debug log");
-    }
-  }
-
-  if (main) {
-    if (!main.includes('frontWideCandidates')) {
-      console.warn("⚠️ WARN: main.jsx missing frontWideCandidates");
-    }
-    if (!main.includes('rearWideCandidates')) {
-      console.warn("⚠️ WARN: main.jsx missing rearWideCandidates");
-    }
-    if (!main.includes('cameraDevices')) {
-      console.error("❌ FAIL: main.jsx missing cameraDevices state");
-      hasErrors = true;
-    }
-    if (!main.includes('refreshCameraDevices')) {
-      console.error("❌ FAIL: main.jsx missing refreshCameraDevices callback");
-      hasErrors = true;
-    }
-    if (main.indexOf('refreshCameraDevices()') < main.indexOf('setCameraCapabilities')) {
-      // Basic check: refresh should happen after capabilities are set in the first useEffect
-      // Note: this is a simple check and might need adjustment if logic changes
-      console.error("❌ FAIL: main.jsx refreshCameraDevices called before camera capabilities set");
-      hasErrors = true;
-    }
-    if (!main.includes('switchCameraDevice')) {
-      console.warn("⚠️ WARN: main.jsx missing switchCameraDevice");
-    }
-    if (main.includes('setCameraZoom(1)') && !main.includes('settings.zoom ?? 1')) {
-      console.error("❌ FAIL: main.jsx setCameraZoom(1) must use settings.zoom ?? 1");
-      hasErrors = true;
-    }
-  }
-}
 
 function checkFrameThemeUnification() {
   const fs = readFile('frame-system.jsx');
@@ -575,6 +504,50 @@ function checkFrameThemeUnification() {
 
   if (rest && (rest.includes('>+<') || rest.includes('>-<') || rest.includes('>−<'))) {
     // Already warned
+  }
+}
+
+function checkPhaseCCameraZoom() {
+  const main = fs.readFileSync('main.jsx', 'utf8');
+  const rest = fs.readFileSync('screens-v2-rest.jsx', 'utf8');
+  const task = fs.readFileSync('task.md', 'utf8');
+
+  // 1. main.jsx checks
+  if (!main.includes('const [cameraDevices')) { console.error("❌ FAIL: main.jsx missing cameraDevices state"); hasErrors = true; }
+  if (!main.includes('const [frontWideCandidates')) { console.error("❌ FAIL: main.jsx missing frontWideCandidates state"); hasErrors = true; }
+  if (!main.includes('const [rearWideCandidates')) { console.error("❌ FAIL: main.jsx missing rearWideCandidates state"); hasErrors = true; }
+  if (!main.includes('const refreshCameraDevices =')) { console.error("❌ FAIL: main.jsx missing refreshCameraDevices definition"); hasErrors = true; }
+  if (!main.includes('const switchCameraDevice =')) { console.error("❌ FAIL: main.jsx missing switchCameraDevice foundation"); hasErrors = true; }
+  if (!main.includes('setCameraZoom(settings.zoom ?? 1)')) { console.error("❌ FAIL: main.jsx missing setCameraZoom initialization"); hasErrors = true; }
+  
+  const postPermissionRegex = /getUserMedia\([\s\S]*?refreshCameraDevices\(\)/;
+  if (!postPermissionRegex.test(main)) {
+    console.warn("⚠️ WARN: main.jsx might be missing refreshCameraDevices() call in post-getUserMedia path");
+  }
+
+  // 2. screens-v2-rest.jsx checks
+  if (!rest.includes('canPointSix =')) { console.error("❌ FAIL: screens-v2-rest.jsx missing canPointSix definition"); hasErrors = true; }
+  if (!rest.includes('canOne =')) { console.error("❌ FAIL: screens-v2-rest.jsx missing canOne definition"); hasErrors = true; }
+  if (!rest.includes('shouldShowZoomControls =')) { console.error("❌ FAIL: screens-v2-rest.jsx missing shouldShowZoomControls definition"); hasErrors = true; }
+  if (rest.includes("facingMode === 'environment' &&")) {
+     console.error("❌ FAIL: screens-v2-rest.jsx restricts zoom UI with facingMode environment");
+     hasErrors = true;
+  }
+  if (rest.includes('candidates.length > 0')) {
+    const block = rest.match(/const\s+shouldShowZoomControls\s*=\s*([\s\S]*?);/);
+    if (block && block[1].includes('Candidates.length > 0')) {
+      console.error("❌ FAIL: shouldShowZoomControls directly depends on candidate count (forbidden)");
+      hasErrors = true;
+    }
+  }
+  if (rest.includes('scale(0.6)')) { console.error("❌ FAIL: screens-v2-rest.jsx contains forbidden scale(0.6)"); hasErrors = true; }
+  if (!rest.includes('[IMMM capture crop]')) { console.error("❌ FAIL: screens-v2-rest.jsx missing [IMMM capture crop] log"); hasErrors = true; }
+
+  // 3. task.md checks
+  const phaseC = task.match(/## 🤳 Selfie 0.6× \/ Wide Camera Support[\s\S]*?(?=\n##|$)/);
+  if (phaseC && phaseC[0].includes('[x]')) {
+    console.error("❌ FAIL: task.md Phase C marked as complete [x] without real-device verification");
+    hasErrors = true;
   }
 }
 

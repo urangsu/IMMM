@@ -42,6 +42,23 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
   // Only show stickers assigned to the current frame slot during live capture preview.
   // Extra candidate shots (idx >= slotCount) get no stickers to prevent duplication.
+  React.useEffect(() => {
+    if (window.IMMM_DEBUG_CAMERA && videoRef.current && cameraSettings) {
+      const v = videoRef.current;
+      const vw = v.videoWidth;
+      const vh = v.videoHeight;
+      if (vw && vh) {
+        const aspect = vw / vh;
+        console.info('[IMMM camera] Aspect ratio check:', {
+          videoResolution: `${vw}x${vh}`,
+          videoAspect: aspect.toFixed(4),
+          viewfinderAspect: viewfinderAspect.toFixed(4),
+          isCropped: Math.abs(aspect - viewfinderAspect) > 0.01 ? 'YES' : 'NO'
+        });
+      }
+    }
+  }, [cameraSettings, viewfinderAspect, videoRef]);
+
   const visibleCaptureStickers = typeof getStickersForCapturePreview === 'function'
     ? getStickersForCapturePreview(preStickers, idx, layout)
     : [];
@@ -126,7 +143,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           videoWidth: vw,
           videoHeight: vh,
           videoAspect: srcAspect,
-          sx, sy, sw, sh,
+          sx,
+          sy,
+          sw,
+          sh,
           cropRatioW: sw / vw,
           cropRatioH: sh / vh,
         });
@@ -543,13 +563,28 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               const hasZoomCapability = !!cameraCapabilities?.zoom;
               const zoomMin = cameraCapabilities?.zoom?.min;
               const zoomMax = cameraCapabilities?.zoom?.max;
-              const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
-              const shouldShowZoomControls = mobile && (hasZoomCapability || debugCamera);
+
+              const canPointSix =
+                hasZoomCapability &&
+                zoomMin <= 0.6 &&
+                zoomMax >= 0.6;
+
+              const canOne =
+                hasZoomCapability &&
+                zoomMin <= 1 &&
+                zoomMax >= 1;
+
+              const debugCamera =
+                typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
+
+              const shouldShowZoomControls =
+                mobile && (
+                  hasZoomCapability ||
+                  debugCamera
+                );
               
               if (!shouldShowZoomControls) return null;
 
-              const canPointSix = hasZoomCapability && zoomMin <= 0.6 && zoomMax >= 0.6;
-              const canOne = hasZoomCapability && zoomMin <= 1 && zoomMax >= 1;
               const currentZoom = cameraSettings?.zoom ?? cameraZoom ?? 1;
 
               const btnStyle = (active, disabled) => ({
@@ -560,6 +595,14 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 color: active ? T.bg : disabled ? T.inkSoft : T.ink,
                 opacity: disabled ? 0.45 : 1, transition:'all 0.2s', padding: 0, lineHeight: 1
               });
+
+              if (!hasZoomCapability && !debugCamera) return null;
+              if (!hasZoomCapability && debugCamera) {
+                return (
+                  <button disabled style={btnStyle(false, true)}>기본</button>
+                );
+              }
+
               return (<>
                 <button
                   onClick={() => canPointSix && applyCameraZoom?.(0.6)}
@@ -571,11 +614,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 </button>
                 <button
                   onClick={() => canOne && applyCameraZoom?.(1)}
-                  disabled={!hasZoomCapability}
-                  title={!hasZoomCapability ? '줌 미지원' : '1배율'}
-                  style={btnStyle(Math.abs(currentZoom - 1) < 0.05, !hasZoomCapability)}
+                  disabled={!canOne}
+                  title={!canOne ? '줌 미지원' : '1배율'}
+                  style={btnStyle(Math.abs(currentZoom - 1) < 0.05, !canOne)}
                 >
-                  {!hasZoomCapability ? '기본' : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
               </>);
             })()}
@@ -584,19 +627,17 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui', gap:4, overflowX:'auto' }}>
                 <span style={{fontWeight:700}}>{facingMode}</span>
                 <span>·</span>
-                <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(1)}×` : 'default'}</span>
+                <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(2)}×` : 'default'}</span>
                 <span>·</span>
-                <span>{cameraSettings?.width ? `${cameraSettings.width}×${cameraSettings.height}` : '0x0'}</span>
+                <span>{videoRef.current ? `${videoRef.current.videoWidth}x${videoRef.current.videoHeight}` : '0x0'}</span>
                 <span>·</span>
-                <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}-${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
+                <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}~${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
                 <span>·</span>
                 <span>canPointSix {cameraCapabilities?.zoom && cameraCapabilities.zoom.min <= 0.6 ? 'OK' : 'NO'}</span>
                 <span>·</span>
-                <span>devices {cameraDevices.length}</span>
+                <span>devices: {cameraDevices.length}</span>
                 <span>·</span>
-                <span>frontWide {frontWideCandidates.length}</span>
-                <span>·</span>
-                <span>rearWide {rearWideCandidates.length}</span>
+                <span>candidates: {frontWideCandidates.length}F / {rearWideCandidates.length}R</span>
               </div>
             )}
           </div>

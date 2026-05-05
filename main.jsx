@@ -206,11 +206,12 @@ function App() {
           setCameraSettings(settings);
           setCameraCapabilities(capabilities);
           setCameraZoom(settings.zoom ?? 1);
-          console.info('[IMMM camera] actual settings:', settings);
+
           if (window.IMMM_DEBUG_CAMERA) {
             console.info('[IMMM camera] capabilities:', capabilities);
             console.info('[IMMM camera] constraints:', constraints);
           }
+          // enumerateDevices after permission granted to get labels for wide candidates
           await refreshCameraDevices();
         }
 
@@ -248,7 +249,7 @@ function App() {
       setCameraSettings(track.getSettings?.() || {});
       return true;
     } catch (e) {
-      console.warn('[IMMM camera] zoom apply failed:', e);
+      console.warn('[IMMM camera] zoom apply failed (hardware):', e);
       return false;
     }
   }, []);
