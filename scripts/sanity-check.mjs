@@ -389,6 +389,10 @@ function checkPhaseCCameraZoom() {
       console.error("❌ FAIL: screens-v2-rest.jsx missing shouldShowZoomControls");
       hasErrors = true;
     }
+    if (!rest.includes('cameraDevices')) {
+      console.error("❌ FAIL: screens-v2-rest.jsx missing cameraDevices prop");
+      hasErrors = true;
+    }
     if (rest.includes('scale(0.6)') || rest.includes('scale(0,6)')) {
       console.error("❌ FAIL: screens-v2-rest.jsx contains prohibited scale(0.6) fake zoom");
       hasErrors = true;
@@ -404,6 +408,14 @@ function checkPhaseCCameraZoom() {
     }
     if (!main.includes('rearWideCandidates')) {
       console.warn("⚠️ WARN: main.jsx missing rearWideCandidates");
+    }
+    if (!main.includes('cameraDevices')) {
+      console.error("❌ FAIL: main.jsx missing cameraDevices state");
+      hasErrors = true;
+    }
+    if (!main.includes('refreshCameraDevices')) {
+      console.error("❌ FAIL: main.jsx missing refreshCameraDevices callback");
+      hasErrors = true;
     }
     if (!main.includes('switchCameraDevice')) {
       console.warn("⚠️ WARN: main.jsx missing switchCameraDevice");

@@ -121,30 +121,42 @@ function App() {
   const [cameraSettings, setCameraSettings] = React.useState(null);
   const [frontWideCandidates, setFrontWideCandidates] = React.useState([]);
   const [rearWideCandidates, setRearWideCandidates] = React.useState([]);
+  const [cameraDevices, setCameraDevices] = React.useState([]);
 
-  // Device Enumeration for Wide Candidates
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(d => d.kind === 'videoinput');
-        const isWide = (d) => {
-          const l = d.label.toLowerCase();
-          return l.includes('wide') || l.includes('0.6') || l.includes('ultra');
-        };
-        const front = videoDevices.filter(d => 
-          d.label.toLowerCase().includes('front') || d.label.toLowerCase().includes('selfie') || d.label.toLowerCase().includes('user')
-        );
-        const rear = videoDevices.filter(d => 
-          d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear') || d.label.toLowerCase().includes('environment')
-        );
-        setFrontWideCandidates(front.filter(isWide));
-        setRearWideCandidates(rear.filter(isWide));
-        console.info('[IMMM camera] wide candidates:', { front: front.filter(isWide).length, rear: rear.filter(isWide).length });
-      } catch (e) {
+  const refreshCameraDevices = React.useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const vidInputs = devices.filter(d => d.kind === 'videoinput');
+      setCameraDevices(vidInputs);
+
+      const wideKeywords = ['ultra', 'wide', '0.5', '0.6', '광각', '초광각'];
+      const frontKeywords = ['front', 'user', 'face', 'selfie', '전면', '셀카'];
+      const rearKeywords = ['back', 'rear', 'environment', '후면'];
+      const hasAny = (label, words) => words.some(kw => (label || '').toLowerCase().includes(kw));
+
+      const frontWide = vidInputs.filter(d => {
+        const label = d.label || '';
+        return hasAny(label, wideKeywords) && hasAny(label, frontKeywords);
+      });
+      const rearWide = vidInputs.filter(d => {
+        const label = d.label || '';
+        return hasAny(label, wideKeywords) && hasAny(label, rearKeywords);
+      });
+
+      setFrontWideCandidates(frontWide);
+      setRearWideCandidates(rearWide);
+
+      if (window.IMMM_DEBUG_CAMERA) {
+        console.info('[IMMM camera] devices:', vidInputs);
+        console.info('[IMMM camera] front wide candidates:', frontWide);
+        console.info('[IMMM camera] rear wide candidates:', rearWide);
+      }
+    } catch (e) {
+      if (window.IMMM_DEBUG_CAMERA) {
         console.warn('[IMMM camera] enumerateDevices failed:', e);
       }
-    })();
+    }
   }, []);
 
   // useFilterEngine stays active from the start, warming up shaders
@@ -185,6 +197,7 @@ function App() {
         if (!active) { s.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = s;
         setCamOk(true);
+        await refreshCameraDevices();
         
         const track = s.getVideoTracks()[0];
         if (track) {
@@ -266,6 +279,7 @@ function App() {
       setCameraSettings(settings);
       setCameraCapabilities(capabilities);
       setCameraZoom(settings.zoom ?? 1);
+      await refreshCameraDevices();
       return true;
     } catch (e) {
       console.warn('[IMMM camera] switchCameraDevice failed:', e);
@@ -379,6 +393,7 @@ function App() {
           cameraSettings={cameraSettings}
           applyCameraZoom={applyCameraZoom}
           switchCameraDevice={switchCameraDevice}
+          cameraDevices={cameraDevices}
           frontWideCandidates={frontWideCandidates}
           rearWideCandidates={rearWideCandidates}
         />;

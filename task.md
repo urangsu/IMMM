@@ -501,12 +501,12 @@ Meaning:
 
 ## 🤳 Selfie 0.6× / Wide Camera Support (Phase C)
 
-- [x] **Camera Device Discovery**: Enumerate all video devices and identify wide candidates (`main.jsx`)
-- [x] **Hardware Zoom Foundation**: Integration of `switchCameraDevice` and capabilities detection (`main.jsx`)
-- [x] **Capture Crop Debug**: Log `sx, sy, sw, sh` and `cropRatio` during capture (`screens-v2-rest.jsx`)
-- [x] **Hardware Zoom UI**: Enable 0.6x/1x buttons in selfie mode if hardware zoom supports it (`screens-v2-rest.jsx`)
-- [x] **Debug Pill Expansion**: Show zoom range, candidates count, and pointSix status (`screens-v2-rest.jsx`)
-- [x] **Sanity Guard**: Ensure no CSS `scale(0.6)` and mandatory debug logs/candidate checks (`sanity-check.mjs`)
+- [ ] **Camera Device Discovery**: Enumerate all video devices and identify wide candidates (`main.jsx`)
+- [ ] **Hardware Zoom Foundation**: Integration of `switchCameraDevice` and capabilities detection (`main.jsx`)
+- [ ] **Capture Crop Debug**: Log `sx, sy, sw, sh` and `cropRatio` during capture (`screens-v2-rest.jsx`)
+- [ ] **Hardware Zoom UI**: Enable 0.6x/1x buttons in selfie mode if hardware zoom supports it (`screens-v2-rest.jsx`)
+- [ ] **Debug Pill Expansion**: Show zoom range, candidates count, and pointSix status (`screens-v2-rest.jsx`)
+- [ ] **Sanity Guard**: Ensure no CSS `scale(0.6)` and mandatory debug logs/candidate checks (`sanity-check.mjs`)
 
 > [!IMPORTANT]
 > CSS `scale(0.6)` fake zoom is strictly prohibited.

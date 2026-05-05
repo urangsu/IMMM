@@ -6,7 +6,7 @@
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, frameColor, muted, onRequestCamera,
   videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef,
   cameraZoom = 1, cameraCapabilities = null, cameraSettings = null, applyCameraZoom,
-  switchCameraDevice, frontWideCandidates = [], rearWideCandidates = []
+  switchCameraDevice, cameraDevices = [], frontWideCandidates = [], rearWideCandidates = []
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -540,13 +540,15 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         {mobile && (
           <div style={{ flexShrink:0, display:'flex', gap:6, justifyContent:'center', paddingBottom:4 }}>
             {(() => {
-              const canHardwareZoom = cameraCapabilities?.zoom;
-              const canPointSix = canHardwareZoom
-                && cameraCapabilities.zoom.min <= 0.6
-                && cameraCapabilities.zoom.max >= 0.6;
-              const shouldShowZoomControls = canHardwareZoom || frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
+              const hasZoomCapability = !!cameraCapabilities?.zoom;
+              const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
+              const shouldShowZoomControls = mobile && (hasZoomCapability || debugCamera);
               
               if (!shouldShowZoomControls) return null;
+
+              const canPointSix = hasZoomCapability
+                && cameraCapabilities.zoom.min <= 0.6
+                && cameraCapabilities.zoom.max >= 0.6;
 
               const btnStyle = (active, disabled) => ({
                 padding: '6px 14px', borderRadius:999, border:'none', fontSize:11, fontWeight:700,
@@ -564,9 +566,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 >0.6×</button>
                 <button
                   onClick={() => applyCameraZoom?.(1)}
-                  disabled={!canHardwareZoom}
-                  title={!canHardwareZoom ? '줌 미지원' : '1배율'}
-                  style={btnStyle(Math.abs(cameraZoom - 1) < 0.05, !canHardwareZoom)}
+                  disabled={!hasZoomCapability}
+                  title={!hasZoomCapability ? '줌 미지원' : '1배율'}
+                  style={btnStyle(Math.abs(cameraZoom - 1) < 0.05, !hasZoomCapability)}
                 >1×</button>
               </>);
             })()}
@@ -580,6 +582,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 <span>{cameraSettings?.width ? `${cameraSettings.width}×${cameraSettings.height}` : '0x0'}</span>
                 <span>·</span>
                 <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}-${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
+                <span>·</span>
+                <span>devices({cameraDevices.length})</span>
                 {facingMode === 'user' && frontWideCandidates.length > 0 && <span>· wide-front({frontWideCandidates.length})</span>}
                 {facingMode === 'environment' && rearWideCandidates.length > 0 && <span>· wide-rear({rearWideCandidates.length})</span>}
               </div>
