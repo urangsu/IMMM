@@ -193,9 +193,9 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
   if (sticker.kind === 'preset') {
     const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload.libId) : null;
     try {
-      const drawCatalog = typeof drawCatalogSticker === 'function' ? drawCatalogSticker : (typeof window !== 'undefined' ? window.drawCatalogSticker : null);
-      if (item && typeof drawCatalog === 'function') {
-        drawCatalog(ctx, item, 1);
+      const globalDraw = typeof drawCatalogSticker === 'function' ? drawCatalogSticker : (typeof window !== 'undefined' ? window.drawCatalogSticker : null);
+      if (item && typeof globalDraw === 'function') {
+        globalDraw(ctx, item, 1);
       } else if (item) {
         drawFallbackSticker(ctx, item, 1);
       }
