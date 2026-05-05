@@ -166,22 +166,11 @@ function App() {
           const constraints = track.getConstraints ? track.getConstraints() : {};
           setCameraSettings(settings);
           setCameraCapabilities(capabilities);
-          setCameraZoom(1);
+          setCameraZoom(settings.zoom ?? 1);
           console.info('[IMMM camera] actual settings:', settings);
           if (window.IMMM_DEBUG_CAMERA) {
             console.info('[IMMM camera] capabilities:', capabilities);
             console.info('[IMMM camera] constraints:', constraints);
-          }
-          // Ultrawide device candidate enumeration (debug only)
-          if (window.IMMM_DEBUG_CAMERA && navigator.mediaDevices?.enumerateDevices) {
-            navigator.mediaDevices.enumerateDevices().then(devices => {
-              const vidInputs = devices.filter(d => d.kind === 'videoinput');
-              const uwKeywords = ['ultra', 'wide', 'back', 'rear', '0.5', '0.6', '광각', '초광각'];
-              const candidates = vidInputs.filter(d =>
-                uwKeywords.some(kw => d.label.toLowerCase().includes(kw))
-              );
-              if (candidates.length) console.info('[IMMM camera] ultrawide candidates:', candidates);
-            }).catch(() => {});
           }
         }
 
