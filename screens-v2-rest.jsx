@@ -610,7 +610,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   title={!canPointSix ? '기기/브라우저 미지원' : '0.6배율 (초광각)'}
                   style={btnStyle(Math.abs(currentZoom - 0.6) < 0.05, !canPointSix)}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  0.6×
                 </button>
                 <button
                   onClick={() => canOne && applyCameraZoom?.(1)}
@@ -618,7 +618,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   title={!canOne ? '줌 미지원' : '1배율'}
                   style={btnStyle(Math.abs(currentZoom - 1) < 0.05, !canOne)}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  1×
                 </button>
               </>);
             })()}
@@ -633,7 +633,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 <span>·</span>
                 <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}~${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
                 <span>·</span>
-                <span>canPointSix {cameraCapabilities?.zoom && cameraCapabilities.zoom.min <= 0.6 ? 'OK' : 'NO'}</span>
+                <span>canPointSix {canPointSix ? 'OK' : 'NO'}</span>
                 <span>·</span>
                 <span>devices: {cameraDevices.length}</span>
                 <span>·</span>

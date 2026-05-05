@@ -520,6 +520,11 @@ function checkPhaseCCameraZoom() {
   if (!main.includes('const switchCameraDevice =')) { console.error("❌ FAIL: main.jsx missing switchCameraDevice foundation"); hasErrors = true; }
   if (!main.includes('setCameraZoom(settings.zoom ?? 1)')) { console.error("❌ FAIL: main.jsx missing setCameraZoom initialization"); hasErrors = true; }
   
+  if (!main.match(/switchCameraDevice\s*=\s*React\.useCallback\s*\([\s\S]*?refreshCameraDevices/)) {
+    console.error("❌ FAIL: main.jsx switchCameraDevice dependency array missing refreshCameraDevices");
+    hasErrors = true;
+  }
+
   const postPermissionRegex = /getUserMedia\([\s\S]*?refreshCameraDevices\(\)/;
   if (!postPermissionRegex.test(main)) {
     console.warn("⚠️ WARN: main.jsx might be missing refreshCameraDevices() call in post-getUserMedia path");
@@ -533,18 +538,41 @@ function checkPhaseCCameraZoom() {
      console.error("❌ FAIL: screens-v2-rest.jsx restricts zoom UI with facingMode environment");
      hasErrors = true;
   }
-  if (rest.includes('candidates.length > 0')) {
-    const block = rest.match(/const\s+shouldShowZoomControls\s*=\s*([\s\S]*?);/);
-    if (block && block[1].includes('Candidates.length > 0')) {
-      console.error("❌ FAIL: shouldShowZoomControls directly depends on candidate count (forbidden)");
+  
+  const shouldShowBlock = rest.match(/const\s+shouldShowZoomControls\s*=\s*([\s\S]*?);/);
+  if (shouldShowBlock) {
+    const body = shouldShowBlock[1];
+    if (/frontWideCandidates\.length\s*>\s*0/.test(body) || /rearWideCandidates\.length\s*>\s*0/.test(body)) {
+      console.error("❌ FAIL: shouldShowZoomControls must not depend on wide candidate counts");
       hasErrors = true;
     }
+  }
+
+  if (rest.includes('applyCameraZoom?.(1)') && rest.includes('<svg')) {
+    // Check if 1x button uses SVG instead of text
+    const zoomOneBlock = rest.match(/onClick=\{[\s\S]*?applyCameraZoom\?\.?\(1\)[\s\S]*?>([\s\S]*?)<\/button>/);
+    if (zoomOneBlock && zoomOneBlock[1].includes('<svg')) {
+      console.error("❌ FAIL: screens-v2-rest.jsx 1× zoom button uses SVG instead of text label");
+      hasErrors = true;
+    }
+  }
+  if (!rest.includes('1×')) {
+     console.error("❌ FAIL: screens-v2-rest.jsx missing '1×' text label for zoom buttons");
+     hasErrors = true;
+  }
+  if (!rest.includes('0.6×')) {
+     console.error("❌ FAIL: screens-v2-rest.jsx missing '0.6×' text label for zoom buttons");
+     hasErrors = true;
+  }
+  if (rest.includes('canPointSix ? \'OK\' : \'NO\'') === false && rest.includes('window.IMMM_DEBUG_CAMERA')) {
+     console.error("❌ FAIL: debug pill must use 'canPointSix' variable directly for consistency");
+     hasErrors = true;
   }
   if (rest.includes('scale(0.6)')) { console.error("❌ FAIL: screens-v2-rest.jsx contains forbidden scale(0.6)"); hasErrors = true; }
   if (!rest.includes('[IMMM capture crop]')) { console.error("❌ FAIL: screens-v2-rest.jsx missing [IMMM capture crop] log"); hasErrors = true; }
 
   // 3. task.md checks
-  const phaseC = task.match(/## 🤳 Selfie 0.6× \/ Wide Camera Support[\s\S]*?(?=\n##|$)/);
+  const phaseC = task.match(/## Selfie 0.6× \/ Wide Camera Support[\s\S]*?(?=\n##|$)/);
   if (phaseC && phaseC[0].includes('[x]')) {
     console.error("❌ FAIL: task.md Phase C marked as complete [x] without real-device verification");
     hasErrors = true;

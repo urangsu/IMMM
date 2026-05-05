@@ -286,7 +286,7 @@ function App() {
       console.warn('[IMMM camera] switchCameraDevice failed:', e);
       return false;
     }
-  }, []);
+  }, [refreshCameraDevices]);
 
   React.useEffect(() => {
     const onHash = () => {
