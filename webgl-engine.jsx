@@ -693,7 +693,7 @@ const FILTER_PIPELINES = {
     { shader:'bilateral_h',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } }, // 2nd pass
     { shader:'bilateral_v',  uniforms:{ u_sigmaSpace:3.5, u_sigmaColor:0.10 } },
     { shader:'skin_lift',    uniforms:{ u_strength:0.85 } },
-    // SAFETY: eye warp uniforms zeroed — warpEye removed from shader
+    // SAFETY: eye warp uniforms zeroed — zeroEye removed from shader
     { shader:'purikura',     uniforms:{ u_intensity:0.72 } },
     { shader:'split_tone',   uniforms:{ u_shadowColor:[0.96,0.94,1.03], u_highlightColor:[1.04,1.02,1.02], u_intensity:0.38 } },
   ]},
