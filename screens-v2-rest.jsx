@@ -622,24 +622,63 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 </button>
               </>);
             })()}
-            {window.IMMM_DEBUG_CAMERA && (
-              <div style={{ display:'flex', alignItems:'center', padding:'4px 10px', borderRadius:999,
-                background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui', gap:4, overflowX:'auto' }}>
-                <span style={{fontWeight:700}}>{facingMode}</span>
-                <span>·</span>
-                <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(2)}×` : 'default'}</span>
-                <span>·</span>
-                <span>{videoRef.current ? `${videoRef.current.videoWidth}x${videoRef.current.videoHeight}` : '0x0'}</span>
-                <span>·</span>
-                <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}~${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
-                <span>·</span>
-                <span>canPointSix {canPointSix ? 'OK' : 'NO'}</span>
-                <span>·</span>
-                <span>devices: {cameraDevices.length}</span>
-                <span>·</span>
-                <span>candidates: {frontWideCandidates.length}F / {rearWideCandidates.length}R</span>
-              </div>
-            )}
+            {(() => {
+              const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA === true;
+              const showWidePicker = debugCamera && 
+                typeof switchCameraDevice === 'function' &&
+                (frontWideCandidates.length > 0 || rearWideCandidates.length > 0);
+              
+              if (!showWidePicker) return null;
+
+              const onSwitchWide = async (candidate) => {
+                if (!candidate?.deviceId) return;
+                try {
+                  const ok = await switchCameraDevice(candidate.deviceId);
+                  if (!ok && window.IMMM_DEBUG_CAMERA) {
+                    console.warn('[IMMM camera] wide switch failed', candidate);
+                  }
+                } catch (e) {
+                  console.warn('[IMMM camera] wide switch error', e);
+                }
+              };
+
+              return (
+                <div style={{ display:'flex', flexDirection:'column', gap:4, width:'100%', marginTop: 8 }}>
+                  <div style={{ display:'flex', alignItems:'center', padding:'4px 10px', borderRadius:999,
+                    background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui', gap:4, overflowX:'auto' }}>
+                    <span style={{fontWeight:700}}>{facingMode}</span>
+                    <span>·</span>
+                    <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(2)}×` : 'default'}</span>
+                    <span>·</span>
+                    <span>{videoRef.current ? `${videoRef.current.videoWidth}x${videoRef.current.videoHeight}` : '0x0'}</span>
+                    <span>·</span>
+                    <span>devs: {cameraDevices.length}</span>
+                    <span>·</span>
+                    <span>cands: {frontWideCandidates.length}F / {rearWideCandidates.length}R</span>
+                    <span>·</span>
+                    <span>canPointSix {canPointSix ? 'OK' : 'NO'}</span>
+                  </div>
+                  <div style={{ display:'flex', gap:6, marginTop: 2 }}>
+                    {frontWideCandidates.length > 0 && (
+                      <button 
+                        onClick={() => onSwitchWide(frontWideCandidates[0])}
+                        style={{ padding:'6px 10px', borderRadius:8, border:'1px solid #111', background:'#fff', fontSize:11, color:'#111', fontWeight:700, cursor:'pointer' }}
+                      >
+                        Front Wide
+                      </button>
+                    )}
+                    {rearWideCandidates.length > 0 && (
+                      <button 
+                        onClick={() => onSwitchWide(rearWideCandidates[0])}
+                        style={{ padding:'6px 10px', borderRadius:8, border:'1px solid #111', background:'#fff', fontSize:11, color:'#111', fontWeight:700, cursor:'pointer' }}
+                      >
+                        Rear Wide
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
         {/* Thumbnail strip - mobile only */}

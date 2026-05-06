@@ -99,6 +99,29 @@ function App() {
   const shouldUseWebgl = !forceSafeCameraMode && tweaks.useWebgl;
   const [cameraBox, setCameraBox] = React.useState(null);
 
+  React.useEffect(() => {
+    console.info('[IMMM build]', {
+      version: window.IMMM_APP_VERSION,
+      label: window.IMMM_BUILD_LABEL,
+      stableBaseline: window.IMMM_STABLE_BASELINE,
+    });
+  }, []);
+
+  const BuildPill = () => {
+    const isDebug = window.IMMM_DEBUG_CAMERA === true || window.IMMM_DEBUG_BUILD === true;
+    if (!isDebug) return null;
+    return (
+      <div style={{
+        position: 'fixed', right: 10, bottom: 'calc(var(--sab) + 10px)', zIndex: 9999,
+        padding: '4px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.6)',
+        color: '#fff', fontSize: 10, fontWeight: 600, pointerEvents: 'none',
+        fontFamily: 'monospace', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
+      }}>
+        IMMM {window.IMMM_APP_VERSION?.split('-').pop()} · {window.IMMM_STABLE_BASELINE}
+      </div>
+    );
+  };
+
   // ═══════════════════════════════════════════════════════════════
   // Persistent Background Engine (Pre-warming)
   const videoRef  = React.useRef(null);
@@ -465,6 +488,7 @@ function App() {
       <ScreenTransition id={screen}>
         {renderScreen()}
       </ScreenTransition>
+      <BuildPill />
     </div>
   );
 }

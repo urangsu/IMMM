@@ -516,3 +516,18 @@ Meaning:
 > [!IMPORTANT]
 > Code-side implementation does not equal real-device QA.
 > Do not mark this section complete until tested on an actual mobile browser.
+
+---
+
+## Runtime Version / Deploy Visibility
+- [ ] Runtime build version is visible in debug mode
+- [ ] Console logs current IMMM version and stable baseline
+- [ ] Service worker cache name is versioned to v3
+- [ ] No stale build confusion during deployment checks
+
+## Debug Wide Camera Picker
+- [ ] Wide picker is visible only in IMMM_DEBUG_CAMERA mode
+- [ ] Front Wide button appears only when front candidates exist
+- [ ] Rear Wide button appears only when rear candidates exist
+- [ ] Wide camera never auto-switches
+- [ ] switchCameraDevice is only called by user click

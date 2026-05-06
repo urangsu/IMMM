@@ -227,6 +227,7 @@ function checkAppStability() {
   }
 }
 
+
 function checkFrameSystem() {
   const content = readFile('frame-system.jsx');
   if (!content) return;
@@ -588,7 +589,90 @@ function checkPhaseCCameraZoom() {
   }
 }
 
+function checkRuntimeVersion() {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const main = fs.readFileSync('main.jsx', 'utf8');
+  const sw = fs.readFileSync('sw.js', 'utf8');
+
+  if (!html.includes('IMMM_APP_VERSION = \'2026-05-06-rc1\'')) {
+    console.error("❌ FAIL: index.html missing or incorrect IMMM_APP_VERSION");
+    hasErrors = true;
+  }
+  if (!html.includes('IMMM_BUILD_LABEL = \'rc1-after-frame-theme-stabilization\'')) {
+    console.error("❌ FAIL: index.html missing IMMM_BUILD_LABEL");
+    hasErrors = true;
+  }
+  if (!html.includes('IMMM_STABLE_BASELINE = \'8b5e42c\'')) {
+    console.error("❌ FAIL: index.html missing IMMM_STABLE_BASELINE");
+    hasErrors = true;
+  }
+  if (!main.includes('[IMMM build]') || !main.includes('stableBaseline: window.IMMM_STABLE_BASELINE')) {
+    console.error("❌ FAIL: main.jsx missing or incorrect [IMMM build] console log");
+    hasErrors = true;
+  }
+  if (!main.includes('window.IMMM_DEBUG_CAMERA === true || window.IMMM_DEBUG_BUILD === true')) {
+    console.error("❌ FAIL: main.jsx BuildPill missing correct debug condition");
+    hasErrors = true;
+  }
+  if (!sw.includes('immm-cache-v3-2026-05-06-rc1')) {
+    console.error("❌ FAIL: sw.js missing immm-cache-v3-2026-05-06-rc1");
+    hasErrors = true;
+  }
+  if (sw.includes('immm-cache-v1')) {
+    console.error("❌ FAIL: sw.js contains legacy immm-cache-v1");
+    hasErrors = true;
+  }
+  if (!sw.includes('.respondWith(') || !sw.includes('fetch(')) {
+    console.error("❌ FAIL: sw.js missing network-first logic (safety check)");
+    hasErrors = true;
+  }
+}
+
+function checkWidePickerSafety() {
+  const main = fs.readFileSync('main.jsx', 'utf8');
+  const rest = fs.readFileSync('screens-v2-rest.jsx', 'utf8');
+
+  if (!rest.includes('showWidePicker')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing showWidePicker flag");
+    hasErrors = true;
+  }
+  if (!rest.includes('window.IMMM_DEBUG_CAMERA === true')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx showWidePicker missing IMMM_DEBUG_CAMERA condition");
+    hasErrors = true;
+  }
+  if (!rest.includes('Front Wide') || !rest.includes('Rear Wide')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing Front Wide/Rear Wide buttons");
+    hasErrors = true;
+  }
+
+  // Forbidden: automatic switchCameraDevice call with wide candidate
+  const autoPatterns = [
+    /useEffect\s*\(\s*\(\s*\)\s*=>\s*\{[\s\S]*?switchCameraDevice\(frontWideCandidates/,
+    /useEffect\s*\(\s*\(\s*\)\s*=>\s*\{[\s\S]*?switchCameraDevice\(rearWideCandidates/,
+    /useEffect\s*\(\s*async\s*\(\s*\)\s*=>\s*\{[\s\S]*?switchCameraDevice\(frontWideCandidates/,
+    /useEffect\s*\(\s*async\s*\(\s*\)\s*=>\s*\{[\s\S]*?switchCameraDevice\(rearWideCandidates/
+  ];
+
+  autoPatterns.forEach(p => {
+    if (p.test(main)) {
+      console.error("❌ FAIL: main.jsx contains automatic switch to wide candidates in useEffect");
+      hasErrors = true;
+    }
+    if (p.test(rest)) {
+      console.error("❌ FAIL: screens-v2-rest.jsx contains automatic switch to wide candidates in useEffect");
+      hasErrors = true;
+    }
+  });
+
+  if (/const\s+shouldShowZoomControls\s*=\s*[^;]*?Candidates\.length/.test(rest)) {
+    console.error("❌ FAIL: shouldShowZoomControls depends on candidate count (forbidden)");
+    hasErrors = true;
+  }
+}
+
 console.log('🔍 Running IMMM COMPREHENSIVE Hardened Sanity Checks...');
+checkRuntimeVersion();
+checkWidePickerSafety();
 checkWebGL();
 checkVisibleFilters();
 checkWebglVisiblePipelines();

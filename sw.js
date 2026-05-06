@@ -1,5 +1,5 @@
 // sw.js — Emergency Cache Update for Samsung Internet Stability
-const CACHE_NAME = 'immm-cache-v2-emergency-frames';
+const CACHE_NAME = 'immm-cache-v3-2026-05-06-rc1';
 const ASSETS = [
   './',
   './index.html',
