@@ -134,7 +134,7 @@ function checkEmergencyFaceSafety() {
     }
 
     const prohibitedGlobal = [
-      'IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH', 'warpEye', 'warpToward', 'u_eyeScale', 'u_eyeRadius', 'faceUniforms.u_'
+      'IMMM_ENABLE_EXPERIMENTAL_SKIN_RETOUCH', 'warpEye', 'warpToward', 'u_eyeScale', 'u_eyeRadius', 'faceUniforms.u_', 'useFaceLandmarks', 'useFaceDistortion'
     ];
     prohibitedGlobal.forEach(p => {
       if (webgl.includes(p) && !webgl.includes(`// ${p}`)) {
@@ -420,12 +420,12 @@ function checkFrameThemeUnification() {
   }
 
   // Ensure renderFrameOverlay and renderComposition call getFrameTheme
-  const overlayBlock = fs.match(/function\s+renderFrameOverlay[\s\S]*?\{([\s\S]*?)\}/);
+  const overlayBlock = fs.match(/function\s+renderFrameOverlay[\s\S]*?\{([\s\S]*?)\n\}/);
   if (overlayBlock && !overlayBlock[1].includes('getFrameTheme(')) {
     console.error("❌ FAIL: renderFrameOverlay missing getFrameTheme call");
     hasErrors = true;
   }
-  const compBlock = fs.match(/async\s+function\s+renderComposition[\s\S]*?\{([\s\S]*?)\}/);
+  const compBlock = fs.match(/async\s+function\s+renderComposition[\s\S]*?\{([\s\S]*?)\n\}/);
   if (compBlock && !compBlock[1].includes('getFrameTheme(')) {
     console.error("❌ FAIL: renderComposition missing getFrameTheme call");
     hasErrors = true;
@@ -433,9 +433,14 @@ function checkFrameThemeUnification() {
 
   if (fs.includes('window.getFrameTemplate(') && fs.includes('function getFrameTemplateSafe')) {
     const safeBlock = fs.match(/function\s+getFrameTemplateSafe[\s\S]*?\{([\s\S]*?)\}/);
-    if (safeBlock && safeBlock[1].includes('window.getFrameTemplate(')) {
-       console.error("❌ FAIL: getFrameTemplateSafe calls window.getFrameTemplate instead of local function");
-       hasErrors = true;
+    if (safeBlock) {
+      const body = safeBlock[1];
+      const localIdx = body.indexOf('getFrameTemplate(');
+      const windowIdx = body.indexOf('window.getFrameTemplate(');
+      if (windowIdx !== -1 && (localIdx === -1 || windowIdx < localIdx)) {
+        console.error("❌ FAIL: getFrameTemplateSafe must prefer local getFrameTemplate before window.getFrameTemplate");
+        hasErrors = true;
+      }
     }
   }
 
@@ -467,43 +472,47 @@ function checkFrameThemeUnification() {
     }
   });
 
-  if (deco) {
-    if (!deco.includes('ZoomPlusIcon')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx missing SVG zoom icons (ZoomPlusIcon)");
-      hasErrors = true;
-    }
-    if (!deco.includes('ZoomMinusIcon')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx missing SVG zoom icons (ZoomMinusIcon)");
-      hasErrors = true;
-    }
+  checkDecoZoomButtons(deco);
+}
 
-    // Specific Style Checks for Deco Studio zoomControls
-    const decoZoomBlock = deco.match(/const\s+zoomControls\s*=\s*[\s\S]*?zoomBtnStyle[\s\S]*?<\/div>/);
-    const decoStyleBlock = deco.match(/const\s+zoomBtnStyle\s*=\s*\{([\s\S]*?)\};/);
+function checkDecoZoomButtons(deco) {
+  if (!deco) return;
 
-    if (decoStyleBlock) {
-      const style = decoStyleBlock[1];
-      if (!style.includes('width: 56')) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing width: 56"); hasErrors = true; }
-      if (!style.includes('height: 56')) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing height: 56"); hasErrors = true; }
-      if (!style.includes('padding: 0')) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing padding: 0"); hasErrors = true; }
-      if (!style.includes("display: 'inline-flex'")) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing display: 'inline-flex'"); hasErrors = true; }
-      if (!style.includes("alignItems: 'center'")) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing alignItems: 'center'"); hasErrors = true; }
-      if (!style.includes("justifyContent: 'center'")) { console.error("❌ FAIL: screens-v2-deco.jsx zoomBtnStyle missing justifyContent: 'center'"); hasErrors = true; }
-    } else {
-      console.error("❌ FAIL: screens-v2-deco.jsx missing zoomBtnStyle definition");
-      hasErrors = true;
-    }
+  if (!deco.includes('ZoomPlusIcon')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing ZoomPlusIcon");
+    hasErrors = true;
   }
-  
-  if (setup) {
-    if (!setup.includes('ZoomPlusIcon') || !setup.includes('ZoomMinusIcon')) {
-      console.error("❌ FAIL: screens-v2.jsx missing SVG zoom icons (ZoomPlusIcon/ZoomMinusIcon)");
-      hasErrors = true;
-    }
+  if (!deco.includes('ZoomMinusIcon')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing ZoomMinusIcon");
+    hasErrors = true;
   }
 
-  if (rest && (rest.includes('>+<') || rest.includes('>-<') || rest.includes('>−<'))) {
-    // Already warned
+  // 3. Raw text buttons
+  const rawPatterns = [
+    />\+<\/button>/,
+    />−<\/button>/,
+    />-<\/button>/,
+    />＋<\/button>/
+  ];
+  rawPatterns.forEach(p => {
+    if (p.test(deco)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx contains raw text zoom button matching ${p}`);
+      hasErrors = true;
+    }
+  });
+
+  const styleMatch = deco.match(/const\s+zoomBtnStyle\s*=\s*\{([\s\S]*?)\};/);
+  if (!styleMatch) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing zoomBtnStyle definition");
+    hasErrors = true;
+  } else {
+    const s = styleMatch[1];
+    if (!s.includes('width: 56')) { console.error("❌ FAIL: screens-v2-deco.jsx missing width: 56"); hasErrors = true; }
+    if (!s.includes('height: 56')) { console.error("❌ FAIL: screens-v2-deco.jsx missing height: 56"); hasErrors = true; }
+    if (!s.includes("display: 'inline-flex'")) { console.error("❌ FAIL: screens-v2-deco.jsx missing display: 'inline-flex'"); hasErrors = true; }
+    if (!s.includes("alignItems: 'center'")) { console.error("❌ FAIL: screens-v2-deco.jsx missing alignItems: 'center'"); hasErrors = true; }
+    if (!s.includes("justifyContent: 'center'")) { console.error("❌ FAIL: screens-v2-deco.jsx missing justifyContent: 'center'"); hasErrors = true; }
+    if (!s.includes('padding: 0')) { console.error("❌ FAIL: screens-v2-deco.jsx missing padding: 0"); hasErrors = true; }
   }
 }
 
@@ -592,6 +601,7 @@ checkStickerEngine();
 checkCapture();
 checkSetupAndDecoStickerCanvas();
 checkDeco();
+checkFrameThemeUnification();
 checkTask();
 checkPhaseCCameraZoom();
 
