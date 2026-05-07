@@ -704,14 +704,43 @@ function checkWidePickerSafety() {
 function checkResultUX() {
   const deco = fs.readFileSync('screens-v2-deco.jsx', 'utf8');
 
+  // Hotfix: Prohibit localStorage.clear()
+  if (deco.includes('localStorage.clear()')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx contains prohibited localStorage.clear()");
+    hasErrors = true;
+  }
+
+  // Hotfix: Verify states for used setters
+  const stateSetters = [
+    { setter: 'setDownloading', state: 'useState(false)' },
+    { setter: 'setSaveSheetUrl', state: 'useState(null)' },
+    { setter: 'setQrShare', state: 'useState(null)' },
+    { setter: 'setQrBusy', state: 'useState(false)' }
+  ];
+
+  stateSetters.forEach(({ setter, state }) => {
+    if (deco.includes(setter) && !deco.includes(state)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx uses ${setter} but missing ${state} declaration`);
+      hasErrors = true;
+    }
+  });
+
   if (!deco.includes('getFormattedFilename')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing getFormattedFilename function");
     hasErrors = true;
   }
+  
   if (!deco.includes('IMMM_${YYYY}-${MM}-${DD}_${HH}${mm}.png')) {
     console.error("❌ FAIL: screens-v2-deco.jsx incorrect filename format logic");
     hasErrors = true;
   }
+
+  // Ensure filename always ends with .png
+  if (deco.includes('getFormattedFilename') && !deco.includes('return `IMMM_${YYYY}-${MM}-${DD}_${HH}${mm}.png`;')) {
+    console.error("❌ FAIL: getFormattedFilename must return .png extension");
+    hasErrors = true;
+  }
+
   if (!deco.includes('navigator.share') || !deco.includes('navigator.canShare')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing Web Share API check");
     hasErrors = true;

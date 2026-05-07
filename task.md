@@ -537,8 +537,12 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] switchCameraDevice is only called by user click
 
 ## Result Save / Share UX (Phase 3.7)
-- [x] Filename format: IMMM_YYYY-MM-DD_HHMM.png
-- [x] Web Share API support with download fallback
-- [x] Professional Toast notification system
-- [x] Optimized button layout: Save, Share, Redecorate, Retake
-- [x] PNG format and export quality maintained
+- [x] Code path implemented for formatted PNG filename
+- [x] Code path implemented for Web Share API with download fallback
+- [x] Toast notification system implemented
+- [x] Result buttons added: Save, Share, Redecorate, Retake
+- [ ] Mobile Web Share real-device verified
+- [ ] iOS save fallback verified
+- [ ] Android Chrome share verified
+- [ ] Samsung Internet fallback verified
+- [ ] Retake flow verified without clearing app storage

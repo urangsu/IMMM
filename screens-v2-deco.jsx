@@ -639,6 +639,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const containerRef = React.useRef(null);
   const frameRef = React.useRef(null);
   const captureRef = React.useRef(null);
+  const [autoScale, setAutoScale] = React.useState(mobile ? 1.0 : 1.3);
+  const [downloading, setDownloading] = React.useState(false);
+  const [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
+  const [qrShare, setQrShare] = React.useState(null);
+  const [qrBusy, setQrBusy] = React.useState(false);
   const [showMoreActions, setShowMoreActions] = React.useState(false);
   const [toasts, setToasts] = React.useState([]);
   const autoSavedRef = React.useRef(false);
@@ -886,28 +891,30 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     };
   }, []);
 
+  const triggerDownload = (blob, fname) => {
+    const url = URL.createObjectURL(blob);
+    if (isIOS()) {
+      if (saveSheetUrl) URL.revokeObjectURL(saveSheetUrl);
+      setSaveSheetUrl(url);
+      addToast('이미지를 길게 눌러 저장하세요');
+    } else {
+      const a = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      addToast('저장 완료');
+      if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+  };
+
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
     try {
       const blob = await getExportBlob();
       const fname = getFormattedFilename();
-      const file = new File([blob], fname, { type: 'image/png' });
       await saveResultToGallery(blob, 'local');
-      
-      const url = URL.createObjectURL(blob);
-      if (isIOS()) {
-        if (saveSheetUrl) URL.revokeObjectURL(saveSheetUrl);
-        setSaveSheetUrl(url);
-        addToast('이미지를 길게 눌러 저장하세요');
-      } else {
-        const a = document.createElement('a');
-        a.href = url; a.download = fname;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        addToast('저장 완료');
-        if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 15000);
+      triggerDownload(blob, fname);
     } catch(e) { console.error(e); }
     setDownloading(false);
   };
@@ -928,7 +935,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         });
       } else {
         addToast('공유 미지원 → 저장으로 대체');
-        handleDownload();
+        triggerDownload(blob, fname);
       }
     } catch (e) {
       if (e.name !== 'AbortError') console.error('Share failed:', e);
@@ -1171,7 +1178,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
               Back
             </button>
             <StepDots step={4} T={T} />
-            <button onClick={() => { localStorage.clear(); go('landing'); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 11, fontFamily: 'Pretendard,system-ui', letterSpacing: 0.5 }}>New</button>
+            <button onClick={() => go('landing')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 11, fontFamily: 'Pretendard,system-ui', letterSpacing: 0.5 }}>New</button>
           </div>
         </div>
         {/* Scrollable body */}
@@ -1197,10 +1204,15 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
               <button onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {I.share(20, T.ink)}
               </button>
+              {videoSupported && (
+                <button title="촬영 영상 저장" onClick={handleVideoDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  {videoRecording ? <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>}
+                </button>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button onClick={() => go('deco')} style={{ flex: 1, height: 48, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
-              <button onClick={() => { localStorage.clear(); go('landing'); }} style={{ flex: 1, height: 48, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.inkSoft, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
+              <button onClick={() => go('landing')} style={{ flex: 1, height: 48, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.inkSoft, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
             </div>
           </div>
         </div>
@@ -1213,7 +1225,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       padding: '24px 56px 24px' }}>
       {resultOverlays}
       <TopBar step={4} back={() => go('deco')} T={T} mobile={false} title="Step 5 · Your strip"
-      right={<button onClick={() => {localStorage.clear();go('landing');}} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 12, fontFamily: 'Pretendard,system-ui' }}>New session</button>} />
+      right={<button onClick={() => go('landing')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 12, fontFamily: 'Pretendard,system-ui' }}>New session</button>} />
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <h1 style={{ margin: 0, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 52, fontWeight: 500, letterSpacing: -1.5 }}>
           Your <span style={{ fontFamily: 'Caveat,cursive', color: T.pinkDeep, fontSize: 68 }}>moment</span> is ready.
@@ -1235,9 +1247,17 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         <button onClick={handleShare} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {I.share(24, T.ink)}
         </button>
+        {videoSupported && (
+          <button title="영상 저장" onClick={handleVideoDownload} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {videoRecording ? <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>}
+          </button>
+        )}
+        <button title="QR Share" onClick={handleQrShare} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: qrBusy ? 'rgba(26,26,31,0.06)' : 'transparent', color: T.ink, cursor: qrBusy ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {qrBusy ? <svg width="20" height="20" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2v6h-4v-2h2zM14 18h2v2h-2z"/></svg>}
+        </button>
         <div style={{ width: 1, height: 56, background: T.line, margin: '0 8px' }} />
         <button onClick={() => go('deco')} style={{ padding: '0 24px', height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
-        <button onClick={() => { localStorage.clear(); go('landing'); }} style={{ padding: '0 24px', height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.inkSoft, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
+        <button onClick={() => go('landing')} style={{ padding: '0 24px', height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.inkSoft, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
       </div>
     </div>);
 
