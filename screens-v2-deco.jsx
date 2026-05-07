@@ -639,13 +639,25 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const containerRef = React.useRef(null);
   const frameRef = React.useRef(null);
   const captureRef = React.useRef(null);
-  const [autoScale, setAutoScale] = React.useState(mobile ? 1.0 : 1.3);
-  const [downloading, setDownloading] = React.useState(false);
-  const [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
-  const [qrShare, setQrShare] = React.useState(null);
-  const [qrBusy, setQrBusy] = React.useState(false);
   const [showMoreActions, setShowMoreActions] = React.useState(false);
+  const [toasts, setToasts] = React.useState([]);
   const autoSavedRef = React.useRef(false);
+
+  const addToast = (msg, duration = 2500) => {
+    const id = Date.now();
+    setToasts(p => [...p, { id, msg }]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), duration);
+  };
+
+  const getFormattedFilename = () => {
+    const now = new Date();
+    const YYYY = now.getFullYear();
+    const MM = String(now.getMonth() + 1).padStart(2, '0');
+    const DD = String(now.getDate()).padStart(2, '0');
+    const HH = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `IMMM_${YYYY}-${MM}-${DD}_${HH}${mm}.png`;
+  };
   const exportBlobRef = React.useRef({ key: null, blob: null });
 
   const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -879,29 +891,22 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     setDownloading(true);
     try {
       const blob = await getExportBlob();
-      const fname = `IMMM_${Date.now()}.png`;
+      const fname = getFormattedFilename();
       const file = new File([blob], fname, { type: 'image/png' });
       await saveResultToGallery(blob, 'local');
-      if (isIOS() && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'IMMM · Photobooth',
-          text: '한 장에 담는 순간들.\n나만의 포토부스 IMMM.\nhttps://immm.vercel.app',
-        });
-        setDownloading(false);
-        return;
-      }
+      
       const url = URL.createObjectURL(blob);
       if (isIOS()) {
         if (saveSheetUrl) URL.revokeObjectURL(saveSheetUrl);
         setSaveSheetUrl(url);
-        setDownloading(false);
-        return;
+        addToast('이미지를 길게 눌러 저장하세요');
+      } else {
+        const a = document.createElement('a');
+        a.href = url; a.download = fname;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        addToast('저장 완료');
+        if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
       }
-      const a = document.createElement('a');
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
       setTimeout(() => URL.revokeObjectURL(url), 15000);
     } catch(e) { console.error(e); }
     setDownloading(false);
@@ -910,23 +915,20 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const handleShare = async () => {
     try {
       const blob = await getExportBlob();
-      const file = new File([blob], `IMMM_${Date.now()}.png`, { type: 'image/png' });
+      const fname = getFormattedFilename();
+      const file = new File([blob], fname, { type: 'image/png' });
       await saveResultToGallery(blob, 'local');
+      
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        addToast('공유 준비 완료');
         await navigator.share({
           files: [file],
           title: 'IMMM · Photobooth',
-          text: '한 장에 담는 순간들.\n나만의 포토부스 IMMM.\nhttps://immm.vercel.app',
+          text: '한 장에 담는 순간들. 나만의 포토부스 IMMM.',
         });
       } else {
-        const url = URL.createObjectURL(blob);
-        if (isIOS()) {
-          if (saveSheetUrl) URL.revokeObjectURL(saveSheetUrl);
-          setSaveSheetUrl(url);
-        } else {
-          window.open(url, '_blank');
-          setTimeout(() => URL.revokeObjectURL(url), 10000);
-        }
+        addToast('공유 미지원 → 저장으로 대체');
+        handleDownload();
       }
     } catch (e) {
       if (e.name !== 'AbortError') console.error('Share failed:', e);
@@ -1140,6 +1142,17 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           </div>
         </div>
       )}
+      {/* Toast Overlay */}
+      <div style={{ position: 'fixed', bottom: mobile ? 'calc(var(--sab) + 120px)' : 100, left: '50%', transform: 'translateX(-50%)', zIndex: 100000, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
+        {toasts.map(t => (
+          <div key={t.id} style={{ 
+            padding: '10px 20px', borderRadius: 999, background: 'rgba(0,0,0,0.85)', color: '#fff', fontSize: 13, fontWeight: 600, 
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)', animation: 'popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)' 
+          }}>
+            {t.msg}
+          </div>
+        ))}
+      </div>
     </>
   );
 
@@ -1177,33 +1190,18 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           </div>
           {/* Action buttons */}
           <div style={{ padding: '0 18px', paddingBottom: 'calc(var(--sab) + 24px)' }}>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button title="이미지 저장" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: 'none', background: T.ink, color: T.bg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: downloading ? 0.6 : 1 }}>
-                {downloading ? <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke={T.bg} strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : I.download(20, T.bg)}
-              </button>
-              {videoSupported && (
-              <button title="촬영 영상 저장" onClick={handleVideoDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                {videoRecording ? <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>}
-                {videoRecording && <div style={{position:'absolute',top:-6,right:-6,background:T.pinkDeep,borderRadius:999,width:10,height:10,animation:'pulse 0.8s ease-in-out infinite'}}/>}
-              </button>
-              )}
-              <button title="공유" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 12 }}>
+              <BtnPrimary T={T} size="lg" onClick={handleDownload} style={{ flex: 1, height: 52 }}>
+                {downloading ? 'Exporting...' : 'Save · 저장'}
+              </BtnPrimary>
+              <button onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {I.share(20, T.ink)}
               </button>
-              <button title="펼쳐보기" onClick={() => setShowMoreActions(v => !v)} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: showMoreActions ? 'rgba(26,26,31,0.06)' : 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M5 12h14M5 6h14M5 18h14"/></svg>
-              </button>
             </div>
-            {showMoreActions && (
-              <div style={{ marginTop: 10, display: 'flex', gap: 8, justifyContent: 'center' }}>
-                <button title="Instagram 공유" onClick={handleShare} style={{ width: 42, height: 42, borderRadius: 12, border: `1px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>
-                </button>
-                <button title="QR 공유" onClick={handleQrShare} style={{ width: 42, height: 42, borderRadius: 12, border: `1px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2v6h-4v-2h2zM14 18h2v2h-2z"/></svg>
-                </button>
-              </div>
-            )}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={() => go('deco')} style={{ flex: 1, height: 48, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
+              <button onClick={() => { localStorage.clear(); go('landing'); }} style={{ flex: 1, height: 48, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.inkSoft, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1230,38 +1228,16 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: mobile ? 12 : 16 }}>
-        {/* Download image */}
-        <button title="이미지 저장" onClick={handleDownload} style={{ width: 52, height: 52, borderRadius: 14, border: 'none', background: T.ink, color: T.bg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: downloading ? 0.6 : 1 }}>
-          {downloading ?
-          <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke={T.bg} strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> :
-          I.download(20, T.bg)}
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 24 }}>
+        <BtnPrimary T={T} size="lg" onClick={handleDownload} style={{ width: 220, height: 56 }}>
+          {downloading ? 'Exporting...' : 'Save image · 저장'}
+        </BtnPrimary>
+        <button onClick={handleShare} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {I.share(24, T.ink)}
         </button>
-        {/* Video download — only show when browser supports it */}
-        {videoSupported && (
-        <button title="촬영 영상 저장 (.webm)" onClick={handleVideoDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position:'relative' }}>
-          {videoRecording
-            ? <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg>
-            : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7" /><path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
-          }
-          {videoRecording && <div style={{position:'absolute',top:-6,right:-6,background:T.pinkDeep,borderRadius:999,width:10,height:10,animation:'pulse 0.8s ease-in-out infinite'}}/>}
-        </button>
-        )}
-        {/* Instagram */}
-        <button title="Instagram" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.7" /><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" /></svg>
-        </button>
-        {/* KakaoTalk */}
-        <button title="KakaoTalk" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.7 1.7 5.1 4.3 6.5L5 22l4.6-2.4c.8.1 1.6.2 2.4.2 5.5 0 10-3.6 10-8s-4.5-8-10-8Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
-        </button>
-        {/* More */}
-        <button title="More" onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {I.share(20, T.ink)}
-        </button>
-        <button title="QR Share" onClick={handleQrShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: qrBusy ? 'rgba(26,26,31,0.06)' : 'transparent', color: T.ink, cursor: qrBusy ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {qrBusy ? <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2v6h-4v-2h2zM14 18h2v2h-2z"/></svg>}
-        </button>
+        <div style={{ width: 1, height: 56, background: T.line, margin: '0 8px' }} />
+        <button onClick={() => go('deco')} style={{ padding: '0 24px', height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
+        <button onClick={() => { localStorage.clear(); go('landing'); }} style={{ padding: '0 24px', height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.inkSoft, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
       </div>
     </div>);
 

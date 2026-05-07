@@ -535,3 +535,10 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Rear Wide button appears only when rear candidates exist
 - [ ] Wide camera never auto-switches
 - [ ] switchCameraDevice is only called by user click
+
+## Result Save / Share UX (Phase 3.7)
+- [x] Filename format: IMMM_YYYY-MM-DD_HHMM.png
+- [x] Web Share API support with download fallback
+- [x] Professional Toast notification system
+- [x] Optimized button layout: Save, Share, Redecorate, Retake
+- [x] PNG format and export quality maintained

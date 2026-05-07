@@ -701,6 +701,31 @@ function checkWidePickerSafety() {
   }
 }
 
+function checkResultUX() {
+  const deco = fs.readFileSync('screens-v2-deco.jsx', 'utf8');
+
+  if (!deco.includes('getFormattedFilename')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing getFormattedFilename function");
+    hasErrors = true;
+  }
+  if (!deco.includes('IMMM_${YYYY}-${MM}-${DD}_${HH}${mm}.png')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx incorrect filename format logic");
+    hasErrors = true;
+  }
+  if (!deco.includes('navigator.share') || !deco.includes('navigator.canShare')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing Web Share API check");
+    hasErrors = true;
+  }
+  if (!deco.includes('addToast')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing Toast notification system");
+    hasErrors = true;
+  }
+  if (!deco.includes('Redecorate') || !deco.includes('Retake')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing Redecorate/Retake buttons");
+    hasErrors = true;
+  }
+}
+
 console.log('🔍 Running IMMM COMPREHENSIVE Hardened Sanity Checks...');
 checkRuntimeVersion();
 checkWidePickerSafety();
@@ -719,6 +744,7 @@ checkDeco();
 checkFrameThemeUnification();
 checkTask();
 checkPhaseCCameraZoom();
+checkResultUX();
 
 if (hasErrors) {
   console.error('\n💥 Sanity check failed! DO NOT REMOVE GUARDS. FIX THE CODE.');
