@@ -546,3 +546,14 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Android Chrome share verified
 - [ ] Samsung Internet fallback verified
 - [ ] Retake flow verified without clearing app storage
+
+## Result Save / Share UX (Phase 3.8)
+- [x] Retake routes to setup without clearing storage
+- [x] New session routes to landing without clearing storage
+- [x] Share action has duplicate-click guard
+- [x] Download action releases busy state via finally
+- [x] iOS save URL is not revoked before long-press save
+- [ ] Mobile Web Share real-device verified
+- [ ] iOS long-press save verified
+- [ ] Android Chrome share verified
+- [ ] Samsung Internet download fallback verified

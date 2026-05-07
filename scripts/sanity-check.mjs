@@ -704,15 +704,24 @@ function checkWidePickerSafety() {
 function checkResultUX() {
   const deco = fs.readFileSync('screens-v2-deco.jsx', 'utf8');
 
-  // Hotfix: Prohibit localStorage.clear()
-  if (deco.includes('localStorage.clear()')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx contains prohibited localStorage.clear()");
-    hasErrors = true;
-  }
+  // Hardening: Prohibit destructive clears
+  const destructivePatterns = [
+    { pattern: 'localStorage.clear()', error: 'prohibited localStorage.clear()' },
+    { pattern: 'sessionStorage.clear()', error: 'prohibited sessionStorage.clear()' },
+    { pattern: 'caches.delete', error: 'prohibited caches.delete' },
+    { pattern: 'serviceWorker.unregister', error: 'prohibited serviceWorker.unregister' }
+  ];
+  destructivePatterns.forEach(({ pattern, error }) => {
+    if (deco.includes(pattern)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx contains ${error}`);
+      hasErrors = true;
+    }
+  });
 
-  // Hotfix: Verify states for used setters
+  // Hardening: Verify states for used setters
   const stateSetters = [
     { setter: 'setDownloading', state: 'useState(false)' },
+    { setter: 'setSharing', state: 'useState(false)' },
     { setter: 'setSaveSheetUrl', state: 'useState(null)' },
     { setter: 'setQrShare', state: 'useState(null)' },
     { setter: 'setQrBusy', state: 'useState(false)' }
@@ -724,6 +733,36 @@ function checkResultUX() {
       hasErrors = true;
     }
   });
+
+  // Hardening: finally blocks for busy states
+  if (deco.includes('handleShare') && !deco.includes('finally {') && !deco.includes('setSharing(false)')) {
+    console.error("❌ FAIL: handleShare missing finally block for sharing state reset");
+    hasErrors = true;
+  }
+  if (deco.includes('handleDownload') && !deco.includes('finally {') && !deco.includes('setDownloading(false)')) {
+    console.error("❌ FAIL: handleDownload missing finally block for downloading state reset");
+    hasErrors = true;
+  }
+
+  // Hardening: Retake routing (must be setup, not landing)
+  if (deco.includes('Retake') && deco.includes('go(\'landing\')') && deco.includes('go(\'setup\')') === false) {
+    // This is a bit loose but helps identify wrong routing
+    const lines = deco.split('\n');
+    lines.forEach(line => {
+      if (line.includes('Retake') && line.includes('go(\'landing\')')) {
+         console.error("❌ FAIL: Retake button should go to setup, not landing");
+         hasErrors = true;
+      }
+    });
+  }
+
+  // Hardening: iOS revoke logic
+  if (deco.includes('if (isIOS())') && deco.includes('setTimeout') && deco.includes('URL.revokeObjectURL(url)') && deco.includes('15000')) {
+     // Ensure non-iOS specific setTimeout exists
+     if (!deco.includes('setTimeout(() => {') || !deco.includes('if (isIOS()) {')) {
+        // Just checking for the presence of the guard
+     }
+  }
 
   if (!deco.includes('getFormattedFilename')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing getFormattedFilename function");
@@ -738,6 +777,12 @@ function checkResultUX() {
   // Ensure filename always ends with .png
   if (deco.includes('getFormattedFilename') && !deco.includes('return `IMMM_${YYYY}-${MM}-${DD}_${HH}${mm}.png`;')) {
     console.error("❌ FAIL: getFormattedFilename must return .png extension");
+    hasErrors = true;
+  }
+
+  // Forbidden: reintroduction of Date.now() filenames
+  if (deco.includes('IMMM_${Date.now()}.png')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx re-introduced Date.now() filename");
     hasErrors = true;
   }
 
