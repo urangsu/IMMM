@@ -526,8 +526,8 @@ Meaning:
 - [ ] No stale build confusion during deployment checks
 
 Note:
-To show BuildPill after page load, set window.IMMM_DEBUG_BUILD = true and refresh the page.
-Runtime window flag changes do not automatically trigger React re-render.
+To show BuildPill after page load, set window.IMMM_DEBUG_BUILD = true or window.IMMM_DEBUG_CAMERA = true.
+BuildPill now polls debug flags every 500ms, so no refresh is required.
 
 ## Debug Wide Camera Picker
 - [ ] Wide picker is visible only in IMMM_DEBUG_CAMERA mode
