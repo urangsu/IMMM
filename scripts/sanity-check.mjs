@@ -734,19 +734,47 @@ function checkResultUX() {
     }
   });
 
-  // Hardening: finally blocks for busy states
-  if (deco.includes('handleShare') && !deco.includes('finally {') && !deco.includes('setSharing(false)')) {
-    console.error("❌ FAIL: handleShare missing finally block for sharing state reset");
-    hasErrors = true;
+  // Hardening: finally blocks for busy states (Stricter)
+  if (deco.includes('const handleShare')) {
+    if (!deco.includes('finally {') || !deco.includes('setSharing(false)')) {
+      console.error("❌ FAIL: handleShare must have both finally block AND setSharing(false)");
+      hasErrors = true;
+    }
   }
-  if (deco.includes('handleDownload') && !deco.includes('finally {') && !deco.includes('setDownloading(false)')) {
-    console.error("❌ FAIL: handleDownload missing finally block for downloading state reset");
+  if (deco.includes('const handleDownload')) {
+    if (!deco.includes('finally {') || !deco.includes('setDownloading(false)')) {
+      console.error("❌ FAIL: handleDownload must have both finally block AND setDownloading(false)");
+      hasErrors = true;
+    }
+  }
+
+  // Hardening: triggerDownload and iOS revoke logic (Stricter)
+  if (!deco.includes('const triggerDownload =')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing triggerDownload function");
     hasErrors = true;
+  } else {
+    if (!deco.includes('if (isIOS())') || !deco.includes('return;')) {
+      console.error("❌ FAIL: triggerDownload missing isIOS return; guard");
+      hasErrors = true;
+    }
+    // Check if setTimeout is inside the isIOS block incorrectly
+    const triggerStart = deco.indexOf('const triggerDownload =');
+    const triggerEnd = deco.indexOf('};', triggerStart);
+    const triggerBody = deco.substring(triggerStart, triggerEnd);
+    if (triggerBody.includes('isIOS()') && triggerBody.includes('setTimeout')) {
+       // Logic check: setTimeout should only be after the iOS return;
+       const iosIdx = triggerBody.indexOf('if (isIOS())');
+       const returnIdx = triggerBody.indexOf('return;', iosIdx);
+       const timeoutIdx = triggerBody.indexOf('setTimeout', iosIdx);
+       if (timeoutIdx > 0 && timeoutIdx < returnIdx) {
+         console.error("❌ FAIL: triggerDownload contains setTimeout before iOS return");
+         hasErrors = true;
+       }
+    }
   }
 
   // Hardening: Retake routing (must be setup, not landing)
   if (deco.includes('Retake') && deco.includes('go(\'landing\')') && deco.includes('go(\'setup\')') === false) {
-    // This is a bit loose but helps identify wrong routing
     const lines = deco.split('\n');
     lines.forEach(line => {
       if (line.includes('Retake') && line.includes('go(\'landing\')')) {
@@ -754,14 +782,6 @@ function checkResultUX() {
          hasErrors = true;
       }
     });
-  }
-
-  // Hardening: iOS revoke logic
-  if (deco.includes('if (isIOS())') && deco.includes('setTimeout') && deco.includes('URL.revokeObjectURL(url)') && deco.includes('15000')) {
-     // Ensure non-iOS specific setTimeout exists
-     if (!deco.includes('setTimeout(() => {') || !deco.includes('if (isIOS()) {')) {
-        // Just checking for the presence of the guard
-     }
   }
 
   if (!deco.includes('getFormattedFilename')) {
