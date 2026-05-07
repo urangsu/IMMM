@@ -98,6 +98,7 @@ function App() {
   // shouldUseWebgl: forced OFF on Samsung Internet for emergency safety.
   const shouldUseWebgl = !forceSafeCameraMode && tweaks.useWebgl;
   const [cameraBox, setCameraBox] = React.useState(null);
+  const [debugBuildVisible, setDebugBuildVisible] = React.useState(false);
 
   React.useEffect(() => {
     console.info('[IMMM build]', {
@@ -105,15 +106,23 @@ function App() {
       label: window.IMMM_BUILD_LABEL,
       stableBaseline: window.IMMM_STABLE_BASELINE,
     });
+
+    const tick = () => {
+      setDebugBuildVisible(
+        window.IMMM_DEBUG_CAMERA === true || window.IMMM_DEBUG_BUILD === true
+      );
+    };
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
   }, []);
 
   const BuildPill = () => {
-    const isDebug = window.IMMM_DEBUG_CAMERA === true || window.IMMM_DEBUG_BUILD === true;
-    if (!isDebug) return null;
+    if (!debugBuildVisible) return null;
     return (
       <div style={{
-        position: 'fixed', right: 10, bottom: 'calc(var(--sab) + 10px)', zIndex: 9999,
-        padding: '4px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.6)',
+        position: 'fixed', right: 10, bottom: 'calc(var(--sab) + 10px)', zIndex: 9000,
+        padding: '4px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.45)',
         color: '#fff', fontSize: 10, fontWeight: 600, pointerEvents: 'none',
         fontFamily: 'monospace', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
       }}>

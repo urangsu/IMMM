@@ -632,16 +632,41 @@ function checkWidePickerSafety() {
   const main = fs.readFileSync('main.jsx', 'utf8');
   const rest = fs.readFileSync('screens-v2-rest.jsx', 'utf8');
 
+  if (!rest.includes('const debugCamera =')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing debugCamera variable");
+    hasErrors = true;
+  }
+  if (!rest.includes('const hasWideCandidates =')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing hasWideCandidates variable");
+    hasErrors = true;
+  }
   if (!rest.includes('showWidePicker')) {
     console.error("❌ FAIL: screens-v2-rest.jsx missing showWidePicker flag");
     hasErrors = true;
   }
-  if (!rest.includes('window.IMMM_DEBUG_CAMERA === true')) {
-    console.error("❌ FAIL: screens-v2-rest.jsx showWidePicker missing IMMM_DEBUG_CAMERA condition");
+  
+  // Debug pill must not be dependent on showWidePicker's null check
+  if (rest.includes('{debugCamera && (') === false) {
+    console.error("❌ FAIL: debug pill should be directly dependent on debugCamera, not showWidePicker");
     hasErrors = true;
   }
-  if (!rest.includes('Front Wide') || !rest.includes('Rear Wide')) {
-    console.error("❌ FAIL: screens-v2-rest.jsx missing Front Wide/Rear Wide buttons");
+
+  const diagnosticStrings = [
+    'zoom unsupported',
+    'canPointSix',
+    'cameraDevices.length',
+    'frontWideCandidates.length',
+    'rearWideCandidates.length'
+  ];
+  diagnosticStrings.forEach(s => {
+    if (!rest.includes(s)) {
+      console.error(`❌ FAIL: screens-v2-rest.jsx missing diagnostic string: ${s}`);
+      hasErrors = true;
+    }
+  });
+
+  if (!rest.includes('{showWidePicker && (') || !rest.includes('Front Wide') || !rest.includes('Rear Wide')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx Wide Picker buttons missing showWidePicker guard");
     hasErrors = true;
   }
 
@@ -666,6 +691,12 @@ function checkWidePickerSafety() {
 
   if (/const\s+shouldShowZoomControls\s*=\s*[^;]*?Candidates\.length/.test(rest)) {
     console.error("❌ FAIL: shouldShowZoomControls depends on candidate count (forbidden)");
+    hasErrors = true;
+  }
+
+  // Reactivity check for BuildPill in main.jsx
+  if (!main.includes('debugBuildVisible') || !main.includes('setInterval') || !main.includes('clearInterval')) {
+    console.error("❌ FAIL: main.jsx missing debugBuildVisible state or interval polling for BuildPill reactivity");
     hasErrors = true;
   }
 }

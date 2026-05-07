@@ -525,6 +525,10 @@ Meaning:
 - [ ] Service worker cache name is versioned to v3
 - [ ] No stale build confusion during deployment checks
 
+Note:
+To show BuildPill after page load, set window.IMMM_DEBUG_BUILD = true and refresh the page.
+Runtime window flag changes do not automatically trigger React re-render.
+
 ## Debug Wide Camera Picker
 - [ ] Wide picker is visible only in IMMM_DEBUG_CAMERA mode
 - [ ] Front Wide button appears only when front candidates exist
