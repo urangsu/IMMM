@@ -604,3 +604,19 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Save toast verified after intro
 - [ ] Share toast verified after intro
 - [ ] Samsung Internet intro-to-result flow verified
+
+---
+
+## Result Preview Recovery + Actions Menu QA
+- [x] Result preview no longer stays as blank placeholder (showPrintIntro dep added)
+- [x] More actions button added next to main actions
+- [x] Redecorate moved into More menu
+- [x] Retake moved into More menu (targets 'setup')
+- [x] QR moved into More menu (marked as Preparing)
+- [x] Video action moved into More menu (marked as Beta/experimental)
+- [x] Retake routes to setup without clearing storage
+- [ ] Result preview verified on desktop web
+- [ ] Result preview verified on mobile web
+- [ ] Samsung Internet Result preview verified
+- [ ] QR action verified
+- [ ] Video pipeline verified end-to-end

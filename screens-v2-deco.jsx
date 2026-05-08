@@ -695,7 +695,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       if (renderComp) await renderComp(ctx, data, { scale: 1 });
     };
     draw();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, showPrintIntro]);
 
   const resultFrame = (scale) => (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
@@ -1306,7 +1306,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
             </div>
           </div>
           {/* Action buttons */}
-          <div style={{ padding: '0 18px', paddingBottom: 'calc(var(--sab) + 24px)' }}>
+          <div style={{ padding: '0 18px', paddingBottom: 'calc(var(--sab) + 24px)', position: 'relative' }}>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 12 }}>
               <BtnPrimary T={T} size="lg" onClick={handleDownload} style={{ flex: 1, height: 52, opacity: downloading ? 0.6 : 1 }}>
                 {downloading ? 'Saving...' : 'Save · 저장'}
@@ -1314,15 +1314,24 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
               <button onClick={handleShare} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: sharing ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sharing ? 0.6 : 1 }}>
                 {sharing ? <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : I.share(20, T.ink)}
               </button>
-              {videoSupported && (
-                <button title="촬영 영상 저장" onClick={handleVideoDownload} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                  {videoRecording ? <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>}
-                </button>
+              
+              {/* More / Overflow Toggle */}
+              <button onClick={() => setShowMoreActions(!showMoreActions)} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: showMoreActions ? T.line : 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+              </button>
+
+              {/* More Actions Menu (Mobile Overlay) */}
+              {showMoreActions && (
+                <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', right: 18, width: 160, background: '#fff', borderRadius: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', padding: '6px', zIndex: 10, animation: 'popIn 0.2s ease-out' }}>
+                  <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Redecorate</button>
+                  <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Retake</button>
+                  <div style={{ height: 1, background: T.line, margin: '4px 8px' }} />
+                  <button onClick={handleQrShare} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'not-allowed' }}>QR Share <span style={{fontSize:10, opacity:0.6}}>(Preparing)</span></button>
+                  {videoSupported && (
+                    <button onClick={handleVideoDownload} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>Save Video <span style={{fontSize:10, opacity:0.6}}>(Beta)</span></button>
+                  )}
+                </div>
               )}
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button onClick={() => go('deco')} style={{ flex: 1, height: 48, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (downloading || sharing) ? 0.8 : 1 }}>Redecorate</button>
-              <button onClick={() => go('setup')} style={{ flex: 1, height: 48, borderRadius: 14, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.inkSoft, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (downloading || sharing) ? 0.8 : 1 }}>Retake</button>
             </div>
           </div>
         </div>
@@ -1350,24 +1359,30 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 24 }}>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 24, position: 'relative' }}>
         <BtnPrimary T={T} size="lg" onClick={handleDownload} style={{ width: 220, height: 56, opacity: downloading ? 0.6 : 1 }}>
           {downloading ? 'Saving image...' : 'Save image · 저장'}
         </BtnPrimary>
         <button onClick={handleShare} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, cursor: sharing ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sharing ? 0.6 : 1 }}>
           {sharing ? <svg width="22" height="22" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : I.share(24, T.ink)}
         </button>
-        {videoSupported && (
-          <button title="영상 저장" onClick={handleVideoDownload} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${videoRecording ? T.pinkDeep : T.line}`, background: videoRecording ? 'rgba(217,136,147,0.1)' : 'transparent', color: videoRecording ? T.pinkDeep : T.ink, cursor: videoRecording ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (downloading || sharing) ? 0.8 : 1 }}>
-            {videoRecording ? <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{animation:'spin 0.9s linear infinite'}}/></svg> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>}
-          </button>
-        )}
-        <button title="QR Share" onClick={handleQrShare} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: qrBusy ? 'rgba(26,26,31,0.06)' : 'transparent', color: T.ink, cursor: qrBusy ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (downloading || sharing) ? 0.8 : 1 }}>
-          {qrBusy ? <svg width="20" height="20" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="22 22" style={{ animation: 'spin 0.8s linear infinite' }} /></svg> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2v6h-4v-2h2zM14 18h2v2h-2z"/></svg>}
+        
+        {/* More Toggle (Desktop) */}
+        <button onClick={() => setShowMoreActions(!showMoreActions)} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: showMoreActions ? T.line : 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </button>
-        <div style={{ width: 1, height: 56, background: T.line, margin: '0 8px' }} />
-        <button onClick={() => go('deco')} style={{ padding: '0 24px', height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.ink, fontSize: 15, fontWeight: 700, cursor: 'pointer', opacity: (downloading || sharing) ? 0.8 : 1 }}>Redecorate</button>
-        <button onClick={() => go('setup')} style={{ padding: '0 24px', height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: 'transparent', color: T.inkSoft, fontSize: 15, fontWeight: 700, cursor: 'pointer', opacity: (downloading || sharing) ? 0.8 : 1 }}>Retake</button>
+
+        {showMoreActions && (
+          <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', right: 'calc(50% - 150px)', width: 220, background: '#fff', borderRadius: 18, boxShadow: '0 16px 48px rgba(0,0,0,0.2)', padding: '8px', zIndex: 10, animation: 'popIn 0.2s ease-out' }}>
+            <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
+            <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
+            <div style={{ height: 1, background: T.line, margin: '6px 10px' }} />
+            <button onClick={handleQrShare} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'not-allowed' }}>QR Share <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
+            {videoSupported && (
+              <button onClick={handleVideoDownload} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Save Video <span style={{fontSize:11, opacity:0.6}}>(Beta)</span></button>
+            )}
+          </div>
+        )}
       </div>
     </div>);
 

@@ -877,6 +877,35 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx uses window.matchMedia without typeof check");
     hasErrors = true;
   }
+
+  // Action Menu & More Button checks
+  if (!deco.includes('showMoreActions')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing showMoreActions state");
+    hasErrors = true;
+  }
+  if (!deco.includes('setShowMoreActions(!showMoreActions)')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing More menu toggle button");
+    hasErrors = true;
+  }
+  if (!deco.includes("go('setup')")) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing Retake/Setup navigation");
+    hasErrors = true;
+  }
+  
+  // Storage safety check
+  const forbiddenClears = ['localStorage.clear', 'sessionStorage.clear', 'caches.delete', 'serviceWorker.unregister'];
+  forbiddenClears.forEach(f => {
+    if (deco.includes(f)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx contains prohibited storage/worker cleanup: ${f}`);
+      hasErrors = true;
+    }
+  });
+
+  // Preview blank fix check (showPrintIntro dependency in draw effect)
+  if (!deco.includes('showPrintIntro])')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx draw effect missing showPrintIntro dependency (preview blank risk)");
+    hasErrors = true;
+  }
 }
 
 function checkFramePickerResilience() {
