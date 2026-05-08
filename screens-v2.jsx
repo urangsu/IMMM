@@ -440,6 +440,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
             return null;
           };
 
+          const tpl = resolveFrameTemplate(o.id);
           const canRenderRealThumb = Boolean(WFrameThumb && tpl);
           const pickerThumbScale = mobile ? 0.235 : 0.28;
 

@@ -504,16 +504,14 @@ Meaning:
 ## Selfie 0.6× / Wide Camera Support (Phase C)
 - [x] Camera devices are enumerated after camera permission is granted
 - [x] frontWideCandidates and rearWideCandidates are stored
-- [x] Selfie mode does not hide zoom controls solely because facingMode is user
-- [x] 0.6× appears only when hardware zoom capability supports it
-- [x] Candidate count is debug-only and does not enable fake 0.6× UI
-- [x] 1×/default state remains understandable when zoom is unsupported
-- [x] Debug pill shows facingMode, zoom range, resolution, and candidate count
-- [x] Capture crop debug shows crop ratio
-- [x] No CSS fake 0.6× is used
-- [x] No automatic wide camera device switching is performed
 - [x] toggleWideCamera handles both hardware zoom and device switch fallback
-- [x] Single toggle button (0.6x/1x) used in CaptureV2
+- [x] Single toggle button (0.6×/1×) used in CaptureV2
+- [x] No CSS fake 0.6× is used
+- [x] No automatic wide camera device switching is performed before user action
+- [ ] Galaxy S23+ Samsung Internet 0.6× toggle verified
+- [ ] Galaxy S23+ Chrome 0.6× toggle verified
+- [ ] 1× return path verified after 0.6×
+- [ ] Debug camera pill shows correct device/capability info on real device
 
 > [!IMPORTANT]
 > Code-side implementation does not equal real-device QA.

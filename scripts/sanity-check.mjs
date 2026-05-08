@@ -366,10 +366,19 @@ function checkTask() {
 
   if (task.includes('## Selfie 0.6× / Wide Camera Support (Phase C)')) {
     const section = task.split('## Selfie 0.6× / Wide Camera Support (Phase C)')[1].split('---')[0];
-    if (section.includes('[x]')) {
-      console.error("❌ FAIL: task.md Phase C items must not be checked [x] until real-device QA is done");
-      hasErrors = true;
-    }
+    const forbiddenChecks = [
+      'Galaxy S23+',
+      'Samsung Internet 0.6× toggle verified',
+      'Chrome 0.6× toggle verified',
+      '1× return path verified',
+      'Debug camera pill shows correct device'
+    ];
+    forbiddenChecks.forEach(f => {
+      if (section.includes(`[x] ${f}`)) {
+        console.error(`❌ FAIL: task.md Phase C item "${f}" must not be checked [x] until real-device QA is done`);
+        hasErrors = true;
+      }
+    });
   }
 
   const unverified = ['- [x] Samsung Internet clears old cache after reload', '- [x] Capture → Select → Deco does not throw getFrameTemplate undefined'];
@@ -812,6 +821,17 @@ function checkFramePickerResilience() {
   }
   if (!v2.includes('canRenderRealThumb') && !v2.includes('Boolean(WFrameThumb && tpl)')) {
     console.error("❌ FAIL: screens-v2.jsx missing canRenderRealThumb guard for frame picker");
+    hasErrors = true;
+  }
+  
+  // Declaration order check
+  const tplIdx = v2.indexOf('const tpl = resolveFrameTemplate(o.id)');
+  const thumbIdx = v2.indexOf('const canRenderRealThumb =');
+  if (tplIdx === -1) {
+    console.error("❌ FAIL: screens-v2.jsx missing 'const tpl = resolveFrameTemplate(o.id)'");
+    hasErrors = true;
+  } else if (thumbIdx !== -1 && thumbIdx < tplIdx) {
+    console.error("❌ FAIL: screens-v2.jsx 'canRenderRealThumb' declared before 'tpl'");
     hasErrors = true;
   }
   // Check for sibling overlay (should be ternary/conditional)
