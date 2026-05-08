@@ -457,14 +457,15 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
               }}>
               <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none', display: 'grid', placeItems: 'center' }}>
-                <FramePickerFallback layout={o.id} T={T} size="sm" />
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.28)', zIndex: 2 }}>
-                  {WFrameThumb && tpl && (
+                {WFrameThumb && tpl ? (
+                  <div style={{ transform: 'scale(0.28)' }}>
                     <WFrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
                       logo={false} dateText={false} accent={accent} scale={1}
                       orientation="portrait" frameColor={frameColor} />
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <FramePickerFallback layout={o.id} T={T} size="sm" />
+                )}
                 {tpl?.recommended && <div style={{ position: 'absolute', top: 4, left: 5, zIndex: 5 }}><StoreBadge T={T}>Pick</StoreBadge></div>}
               </div>
             <div style={{ fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>

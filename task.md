@@ -560,7 +560,7 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 
 ## Emergency Samsung Internet Frame Picker QA
 - [x] Frame picker buttons render even when frame template resolver is unavailable
-- [x] CSS fallback frame preview exists
+- [x] CSS fallback frame preview exists (exclusive rendering, no double overlay)
 - [x] WFrameThumb failure does not hide frame choices
 - [ ] Samsung Internet frame picker visible on real device
 - [ ] Samsung Internet can select strip/grid/trip/polaroid
