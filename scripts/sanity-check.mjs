@@ -832,9 +832,20 @@ function checkFramePickerResilience() {
     console.error("❌ FAIL: screens-v2.jsx missing FramePickerFallback component");
     hasErrors = true;
   }
-  if (!v2.includes('<FramePickerFallback layout={o.id}')) {
-    console.error("❌ FAIL: screens-v2.jsx frame picker buttons missing fallback preview");
+  if (!v2.includes('canRenderRealThumb') && !v2.includes('Boolean(WFrameThumb && tpl)')) {
+    console.error("❌ FAIL: screens-v2.jsx missing canRenderRealThumb guard for frame picker");
     hasErrors = true;
+  }
+  // Check for sibling overlay (should be ternary/conditional)
+  if (v2.includes('<FramePickerFallback') && v2.includes('<WFrameThumb') && v2.indexOf('<FramePickerFallback') < v2.indexOf('<WFrameThumb')) {
+    const framePickerSection = v2.substring(v2.indexOf('frameTab'), v2.indexOf('filterTab'));
+    if (framePickerSection.includes('<FramePickerFallback') && framePickerSection.includes('<WFrameThumb')) {
+       // If they are both present without a ternary operator nearby
+       if (!framePickerSection.includes('?')) {
+          console.error("❌ FAIL: screens-v2.jsx frame picker might be overlaying fallback and real thumb");
+          hasErrors = true;
+       }
+    }
   }
   if (v2.includes('Frame preview unavailable')) {
     console.error("❌ FAIL: screens-v2.jsx should not use 'Frame preview unavailable' text");

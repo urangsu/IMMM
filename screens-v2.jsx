@@ -439,15 +439,18 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
             return null;
           };
 
+          const tpl = resolveFrameTemplate(o.id);
+          const canRenderRealThumb = Boolean(WFrameThumb && tpl);
+
           if (typeof window !== 'undefined' && window.IMMM_DEBUG_BUILD) {
             console.warn('[IMMM frame picker]', {
               hasFrameThumb: typeof window.FrameThumb === 'function',
               hasGetFrameTemplateSafe: typeof window.getFrameTemplateSafe === 'function',
               layout: o.id,
+              canRenderRealThumb,
             });
           }
 
-          const tpl = resolveFrameTemplate(o.id);
           return (
             <button key={o.id} onClick={() => setLayout(o.id)}
               style={{
@@ -457,8 +460,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
               }}>
               <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none', display: 'grid', placeItems: 'center' }}>
-                {WFrameThumb && tpl ? (
-                  <div style={{ transform: 'scale(0.28)' }}>
+                {canRenderRealThumb ? (
+                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.28)', zIndex: 2 }}>
                     <WFrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
                       logo={false} dateText={false} accent={accent} scale={1}
                       orientation="portrait" frameColor={frameColor} />
