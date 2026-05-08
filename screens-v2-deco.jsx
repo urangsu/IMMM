@@ -29,6 +29,15 @@ const zoomBtnStyle = {
   boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
 };
 
+const getDecoFitMaxScale = (layout, mobile) => {
+  if (!mobile) return 1.5;
+  if (layout === 'strip') return 0.62;
+  if (layout === 'trip') return 0.72;
+  if (layout === 'grid') return 0.92;
+  if (layout === 'polaroid') return 0.92;
+  return 0.9;
+};
+
 // ═══════════════════════════════════════════════════════════════
 // DECO STUDIO — final edit (filter+frame locked)
 // ═══════════════════════════════════════════════════════════════
@@ -187,7 +196,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const previewContainerRef = React.useRef(null);
   const frameNativeRef = React.useRef(null);
-  const [zoom, setZoom] = React.useState(mobile ? 1.0 : 1.4);
+  const [zoom, setZoom] = React.useState(() => getDecoFitMaxScale(layout, mobile));
 
   React.useEffect(() => {
     const fit = () => {
@@ -197,7 +206,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       const fW = frameNativeRef.current.offsetWidth;
       const fH = frameNativeRef.current.offsetHeight;
       if (!fW || !fH) return;
-      const maxS = mobile ? 1.05 : 1.5;
+      const maxS = getDecoFitMaxScale(layout, mobile);
       const s = Math.min(maxS, cW / fW, cH / fH);
       setZoom(Math.max(0.2, s));
     };
@@ -663,6 +672,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
 
   const compositionCanvasRef = React.useRef(null);
+  const [resultPreviewReady, setResultPreviewReady] = React.useState(false);
+  const [resultPreviewError, setResultPreviewError] = React.useState('');
+  const [resultDrawAttempt, setResultDrawAttempt] = React.useState(0);
 
   React.useEffect(() => {
     const resolveFrameTemplate = (layout) => {
@@ -677,30 +689,88 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     };
     const draw = async () => {
       if (!compositionCanvasRef.current) return;
+      setResultPreviewReady(false);
+      setResultPreviewError('');
+
       const cvs = compositionCanvasRef.current;
       const ctx = cvs.getContext('2d');
       const template = resolveFrameTemplate(layout);
       if (!template) {
-        console.warn('[IMMM] skip draw: frame template unavailable', layout);
+        const msg = `[IMMM] draw failed: template '${layout}' unavailable`;
+        console.warn(msg);
+        setResultPreviewError(msg);
         return;
       }
+      
+      const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+      if (!renderComp) {
+        const msg = '[IMMM] draw failed: renderComposition missing';
+        console.warn(msg);
+        setResultPreviewError(msg);
+        return;
+      }
+
+      if (!shots || shots.length === 0) {
+        const msg = '[IMMM] draw failed: no shots available';
+        console.warn(msg);
+        setResultPreviewError(msg);
+        return;
+      }
+
       cvs.width = template.canvasSize.width;
       cvs.height = template.canvasSize.height;
+      if (cvs.width === 0 || cvs.height === 0) {
+        setResultPreviewError('Canvas dimensions zero');
+        return;
+      }
 
       const data = {
         layout, shots, selected, filter, frameColor,
         stickers, drawStrokes, logo, dateText, accent, orientation
       };
-      const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
-      if (renderComp) await renderComp(ctx, data, { scale: 1 });
+      
+      try {
+        await renderComp(ctx, data, { scale: 1 });
+        setResultPreviewReady(true);
+      } catch (err) {
+        console.error('[IMMM] renderComp error:', err);
+        setResultPreviewError('이미지 생성 중 오류가 발생했습니다');
+      }
     };
     draw();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, showPrintIntro]);
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, showPrintIntro, resultDrawAttempt]);
+
+  React.useEffect(() => {
+    if (!showPrintIntro) {
+      // 2-RAF redraw trigger to ensure canvas is mounted and ready
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => {
+          setResultDrawAttempt(v => v + 1);
+        });
+      });
+      return () => {
+        cancelAnimationFrame(raf1);
+      };
+    }
+  }, [showPrintIntro]);
 
   const resultFrame = (scale) => (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
         <canvas ref={compositionCanvasRef} style={{ width: 180 * (layout==='strip'||layout==='trip'?1:1.2), height: 'auto', display: 'block', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} />
+        
+        {!resultPreviewReady && !resultPreviewError && (
+          <div style={{ position:'absolute', inset:0, background:'rgba(255,255,255,0.8)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:'#777', borderRadius:4 }}>
+            Preparing...
+          </div>
+        )}
+        
+        {resultPreviewError && (
+          <div style={{ position:'absolute', inset:0, background:'rgba(255,255,255,0.9)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:10, borderRadius:4, textAlign:'center' }}>
+            <div style={{ fontSize:11, color:T.pinkDeep, marginBottom:8 }}>{resultPreviewError}</div>
+            <button onClick={() => setResultDrawAttempt(v => v + 1)} style={{ padding:'6px 12px', borderRadius:8, border:'none', background:T.ink, color:T.bg, fontSize:11, fontWeight:700 }}>Retry</button>
+          </div>
+        )}
       </div>
     </div>
   );

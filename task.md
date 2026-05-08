@@ -622,3 +622,19 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result preview verified
 - [ ] QR action verified after implementation
 - [ ] Video pipeline verified end-to-end after implementation
+
+---
+
+## Result Preview Render Recovery + Deco Zoom Fit QA
+- [x] Result preview draw state added
+- [x] Result preview error state added
+- [x] Result preview redraw trigger added after print intro
+- [x] Blank placeholder-only final state removed
+- [x] Retry path added for result preview draw failure
+- [x] Mobile 1×4 Deco initial zoom reduced
+- [x] Layout-specific Deco fit scale added
+- [ ] Result preview verified on desktop web
+- [ ] Result preview verified on mobile web
+- [ ] Samsung Internet Result preview verified
+- [ ] Mobile 1×4 Deco zoom verified without pressing minus
+- [ ] Grid/Polaroid Deco zoom verified

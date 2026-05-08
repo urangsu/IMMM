@@ -922,6 +922,41 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx Video Preparing button missing disabled attribute");
     hasErrors = true;
   }
+
+  // Result Preview Recovery checks
+  const resultStates = ['resultPreviewReady', 'resultPreviewError', 'resultDrawAttempt'];
+  resultStates.forEach(s => {
+    if (!deco.includes(s)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx missing Result preview state: ${s}`);
+      hasErrors = true;
+    }
+  });
+  if (!deco.includes('setResultDrawAttempt(v => v + 1)')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing redraw trigger/retry action");
+    hasErrors = true;
+  }
+  if (!deco.includes('resultDrawAttempt]')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx draw effect missing resultDrawAttempt dependency");
+    hasErrors = true;
+  }
+  if (!deco.includes('requestAnimationFrame') || !deco.includes('!showPrintIntro')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing post-intro redraw trigger");
+    hasErrors = true;
+  }
+
+  // Deco Zoom Fit checks
+  if (!deco.includes('getDecoFitMaxScale')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing getDecoFitMaxScale helper");
+    hasErrors = true;
+  }
+  const scaleMatch = deco.match(/layout === 'strip'.*?return (0\.\d+)/);
+  if (scaleMatch) {
+    const val = parseFloat(scaleMatch[1]);
+    if (val < 0.60 || val > 0.70) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx mobile strip scale ${val} out of range [0.60, 0.70]`);
+      hasErrors = true;
+    }
+  }
 }
 
 function checkFramePickerResilience() {
