@@ -555,14 +555,42 @@ function checkPhaseCCameraZoom() {
      hasErrors = true;
   }
 
-  if (!rest.includes("maxHeight: mobile ? 'min(68vh, 600px)' : 'none'")) {
-    console.error("❌ FAIL: screens-v2-rest.jsx mobile camera preview maxHeight not optimized (should be min(68vh, 600px))");
+  if (!rest.includes("maxHeight: mobile ? 'min(68vh, 620px)' : 'none'")) {
+    console.error("❌ FAIL: screens-v2-rest.jsx mobile camera preview maxHeight not optimized (should be min(68vh, 620px))");
+    hasErrors = true;
+  }
+
+  // Shutter row grouping check
+  const shutterRowMatch = rest.match(/Shutter row[\s\S]*?cameraOverlay/);
+  const shutterRow = shutterRowMatch ? shutterRowMatch[0] : "";
+  
+  if (!shutterRow.includes('toggleAuto') || (!shutterRow.includes('toggleWideCamera') && !shutterRow.includes('onToggle'))) {
+    console.error("❌ FAIL: screens-v2-rest.jsx shutter row missing Auto or 0.6x toggle");
+    hasErrors = true;
+  }
+  if (!shutterRow.includes('timerLen') || !shutterRow.includes('shotCount-idx')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx shutter row missing Timer or Left counter");
     hasErrors = true;
   }
 
   if (!rest.includes("position:'absolute', right:0, display:'flex', gap:6, alignItems:'center'")) {
     console.error("❌ FAIL: screens-v2-rest.jsx right side controls (timer/left) must be grouped on the right");
     hasErrors = true;
+  }
+  
+  if (rest.includes('isWideActive ? \'1×\' : \'0.6×\'') && rest.split('isWideActive ? \'1×\' : \'0.6×\'').length > 2) {
+     console.error("❌ FAIL: screens-v2-rest.jsx has duplicate 0.6x toggle buttons");
+     hasErrors = true;
+  }
+  
+  if (!rest.includes('WideCameraDebugPill') || !rest.includes('DebugWideDevicePicker')) {
+     console.error("❌ FAIL: screens-v2-rest.jsx missing debug camera components");
+     hasErrors = true;
+  }
+
+  if (!rest.includes('{debugCamera && <WideCameraDebugPill />}') || !rest.includes('{showWidePicker && <DebugWideDevicePicker />}')) {
+     console.error("❌ FAIL: screens-v2-rest.jsx debug components missing correct guards");
+     hasErrors = true;
   }
 
   if (rest.includes('scale(0.6)')) {
@@ -622,28 +650,25 @@ function checkWidePickerSafety() {
     console.error("❌ FAIL: screens-v2-rest.jsx missing debugCamera variable");
     hasErrors = true;
   }
-  if (!rest.includes('const hasWideCandidates =')) {
-    console.error("❌ FAIL: screens-v2-rest.jsx missing hasWideCandidates variable");
-    hasErrors = true;
-  }
-  if (!rest.includes('showWidePicker')) {
-    console.error("❌ FAIL: screens-v2-rest.jsx missing showWidePicker flag");
-    hasErrors = true;
-  }
   
-  // Debug pill must not be dependent on showWidePicker's null check
-  if (rest.includes('{debugCamera && (') === false) {
-    console.error("❌ FAIL: debug pill should be directly dependent on debugCamera, not showWidePicker");
-    hasErrors = true;
+  // Debug components check
+  if (!rest.includes('<WideCameraDebugPill />') || !rest.includes('<DebugWideDevicePicker />')) {
+     console.error("❌ FAIL: screens-v2-rest.jsx missing named debug camera components");
+     hasErrors = true;
+  }
+
+  if (!rest.includes('{debugCamera && <WideCameraDebugPill />}') || !rest.includes('{showWidePicker && <DebugWideDevicePicker />}')) {
+     console.error("❌ FAIL: screens-v2-rest.jsx debug components missing correct guards");
+     hasErrors = true;
   }
 
   const diagnosticStrings = [
     'zoom unsupported',
-    'wideCameraActive',
-    'activeCameraDeviceId',
-    'normalCameraDeviceId',
-    'frontWideCandidates.length',
-    'rearWideCandidates.length'
+    'wide: {String(wideCameraActive)}',
+    'activeDev: {String(activeCameraDeviceId).slice(-4)}',
+    'normalDev: {String(normalCameraDeviceId).slice(-4)}',
+    'fWide: {frontWideCandidates.length}',
+    'rWide: {rearWideCandidates.length}'
   ];
   diagnosticStrings.forEach(s => {
     if (!rest.includes(s)) {
@@ -651,11 +676,6 @@ function checkWidePickerSafety() {
       hasErrors = true;
     }
   });
-
-  if (!rest.includes('{showWidePicker && (') || !rest.includes('Front Wide') || !rest.includes('Rear Wide')) {
-    console.error("❌ FAIL: screens-v2-rest.jsx Wide Picker buttons missing showWidePicker guard");
-    hasErrors = true;
-  }
 
   // Forbidden: automatic switchCameraDevice call with wide candidate
   const autoPatterns = [

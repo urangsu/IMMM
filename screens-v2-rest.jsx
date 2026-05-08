@@ -468,8 +468,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             flex: mobile ? '1 1 auto' : 1,
             width: '100%',
             aspectRatio: `${viewfinderAspect}`,
-            maxHeight: mobile ? 'min(68vh, 600px)' : 'none',
-            minHeight: mobile ? 360 : 0,
+            maxHeight: mobile ? 'min(68vh, 620px)' : 'none',
+            minHeight: mobile ? 340 : 0,
             position:'relative',
             borderRadius:24,
             background:'#10233A',
@@ -553,7 +553,14 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 </button>
                 {shouldShowZoomControls && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <button onClick={onToggle} style={{ ...leftBtnStyle, fontWeight: 700, width: 48, justifyContent: 'center' }}>
+                    <button onClick={onToggle} style={{
+                      ...leftBtnStyle,
+                      fontWeight: 700,
+                      width: 48,
+                      justifyContent: 'center',
+                      background: isWideActive ? T.ink : 'rgba(26,26,31,0.06)',
+                      color: isWideActive ? T.bg : T.ink,
+                    }}>
                       {isWideActive ? '1×' : '0.6×'}
                     </button>
                     {debugCamera && zoomToggleError && (
@@ -600,7 +607,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA === true;
               const hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
               const showWidePicker = debugCamera && typeof switchCameraDevice === 'function' && hasWideCandidates;
-              
+
               const onSwitchWide = async (candidate) => {
                 if (!candidate?.deviceId) return;
                 try {
@@ -613,50 +620,56 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 }
               };
 
+              const WideCameraDebugPill = () => (
+                <div style={{
+                  display: 'flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999,
+                  background: 'rgba(0,0,0,0.12)', fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui', gap: 4, overflowX: 'auto'
+                }}>
+                  <span style={{ fontWeight: 700 }}>{facingMode}</span>
+                  <span>·</span>
+                  <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(2)}×` : 'default'}</span>
+                  <span>·</span>
+                  <span>{videoRef.current ? `${videoRef.current.videoWidth}x${videoRef.current.videoHeight}` : '0x0'}</span>
+                  <span>·</span>
+                  <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}~${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
+                  <span>·</span>
+                  <span>wide: {String(wideCameraActive)}</span>
+                  <span>·</span>
+                  <span>activeDev: {String(activeCameraDeviceId).slice(-4)}</span>
+                  <span>·</span>
+                  <span>normalDev: {String(normalCameraDeviceId).slice(-4)}</span>
+                  <span>·</span>
+                  <span>fWide: {frontWideCandidates.length}</span>
+                  <span>·</span>
+                  <span>rWide: {rearWideCandidates.length}</span>
+                </div>
+              );
+
+              const DebugWideDevicePicker = () => (
+                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                  {frontWideCandidates.length > 0 && (
+                    <button
+                      onClick={() => onSwitchWide(frontWideCandidates[0])}
+                      style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #111', background: '#fff', fontSize: 11, color: '#111', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Front Wide
+                    </button>
+                  )}
+                  {rearWideCandidates.length > 0 && (
+                    <button
+                      onClick={() => onSwitchWide(rearWideCandidates[0])}
+                      style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #111', background: '#fff', fontSize: 11, color: '#111', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Rear Wide
+                    </button>
+                  )}
+                </div>
+              );
+
               return (
-                <div style={{ display:'flex', flexDirection:'column', gap:4, width:'100%', marginTop: 8 }}>
-                  {debugCamera && (
-                    <div style={{ display:'flex', alignItems:'center', padding:'4px 10px', borderRadius:999,
-                      background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui', gap:4, overflowX:'auto' }}>
-                      <span style={{ fontWeight: 700 }}>{facingMode}</span>
-                      <span>·</span>
-                      <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(2)}×` : 'default'}</span>
-                      <span>·</span>
-                      <span>{videoRef.current ? `${videoRef.current.videoWidth}x${videoRef.current.videoHeight}` : '0x0'}</span>
-                      <span>·</span>
-                      <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}~${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
-                      <span>·</span>
-                      <span>wide: {String(wideCameraActive)}</span>
-                      <span>·</span>
-                      <span>activeDev: {String(activeCameraDeviceId).slice(-4)}</span>
-                      <span>·</span>
-                      <span>normalDev: {String(normalCameraDeviceId).slice(-4)}</span>
-                      <span>·</span>
-                      <span>fWide: {frontWideCandidates.length}</span>
-                      <span>·</span>
-                      <span>rWide: {rearWideCandidates.length}</span>
-                    </div>
-                  )}
-                  {showWidePicker && (
-                    <div style={{ display:'flex', gap:6, marginTop: 2 }}>
-                      {frontWideCandidates.length > 0 && (
-                        <button 
-                          onClick={() => onSwitchWide(frontWideCandidates[0])}
-                          style={{ padding:'6px 10px', borderRadius:8, border:'1px solid #111', background:'#fff', fontSize:11, color:'#111', fontWeight:700, cursor:'pointer' }}
-                        >
-                          Front Wide
-                        </button>
-                      )}
-                      {rearWideCandidates.length > 0 && (
-                        <button 
-                          onClick={() => onSwitchWide(rearWideCandidates[0])}
-                          style={{ padding:'6px 10px', borderRadius:8, border:'1px solid #111', background:'#fff', fontSize:11, color:'#111', fontWeight:700, cursor:'pointer' }}
-                        >
-                          Rear Wide
-                        </button>
-                      )}
-                    </div>
-                  )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%', marginTop: 8 }}>
+                  {debugCamera && <WideCameraDebugPill />}
+                  {showWidePicker && <DebugWideDevicePicker />}
                 </div>
               );
             })()}

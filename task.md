@@ -501,21 +501,15 @@ Meaning:
 - **Pen width preview/export**: 
 ---
 
-## Selfie 0.6× / Wide Camera Support (Phase C)
-- [x] Camera devices are enumerated after camera permission is granted
-- [x] frontWideCandidates and rearWideCandidates are stored
-- [x] toggleWideCamera handles both hardware zoom and device switch fallback
-- [x] Single toggle button (0.6×/1×) used in CaptureV2
-- [x] No CSS fake 0.6× is used
-- [x] No automatic wide camera device switching is performed before user action
-- [x] 0.6× toggle moved to shutter row (left side)
-- [x] Timer moved to shutter row (right side)
-- [x] Dedicated bottom 0.6× row removed
-- [x] Camera preview maxHeight increased to 68vh
-- [ ] Galaxy S23+ Samsung Internet 0.6× toggle verified
-- [ ] Galaxy S23+ Chrome 0.6× toggle verified
-- [ ] 1× return path verified after 0.6×
-- [ ] Debug camera pill shows correct device/capability info on real device
+## Capture Control Layout QA
+- [x] 0.6× / 1× toggle moved next to Auto
+- [x] Timer moved next to left counter
+- [x] Separate user-facing zoom row removed
+- [x] Mobile camera preview max height increased after row removal
+- [ ] Galaxy S23+ Samsung Internet control layout verified
+- [ ] Galaxy S23+ 0.6× toggle still works after layout move
+- [ ] Timer toggle works next to left counter
+- [ ] Debug camera pill still visible in IMMM_DEBUG_CAMERA mode
 
 > [!IMPORTANT]
 > Code-side implementation does not equal real-device QA.
