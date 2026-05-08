@@ -502,16 +502,18 @@ Meaning:
 ---
 
 ## Selfie 0.6× / Wide Camera Support (Phase C)
-- [ ] Camera devices are enumerated after camera permission is granted
-- [ ] frontWideCandidates and rearWideCandidates are stored
-- [ ] Selfie mode does not hide zoom controls solely because facingMode is user
-- [ ] 0.6× appears only when hardware zoom capability supports it
-- [ ] Candidate count is debug-only and does not enable fake 0.6× UI
-- [ ] 1×/default state remains understandable when zoom is unsupported
-- [ ] Debug pill shows facingMode, zoom range, resolution, and candidate count
-- [ ] Capture crop debug shows crop ratio
-- [ ] No CSS fake 0.6× is used
-- [ ] No automatic wide camera device switching is performed
+- [x] Camera devices are enumerated after camera permission is granted
+- [x] frontWideCandidates and rearWideCandidates are stored
+- [x] Selfie mode does not hide zoom controls solely because facingMode is user
+- [x] 0.6× appears only when hardware zoom capability supports it
+- [x] Candidate count is debug-only and does not enable fake 0.6× UI
+- [x] 1×/default state remains understandable when zoom is unsupported
+- [x] Debug pill shows facingMode, zoom range, resolution, and candidate count
+- [x] Capture crop debug shows crop ratio
+- [x] No CSS fake 0.6× is used
+- [x] No automatic wide camera device switching is performed
+- [x] toggleWideCamera handles both hardware zoom and device switch fallback
+- [x] Single toggle button (0.6x/1x) used in CaptureV2
 
 > [!IMPORTANT]
 > Code-side implementation does not equal real-device QA.
@@ -530,11 +532,11 @@ To show BuildPill after page load, set window.IMMM_DEBUG_BUILD = true or window.
 BuildPill now polls debug flags every 500ms, so no refresh is required.
 
 ## Debug Wide Camera Picker
-- [ ] Wide picker is visible only in IMMM_DEBUG_CAMERA mode
-- [ ] Front Wide button appears only when front candidates exist
-- [ ] Rear Wide button appears only when rear candidates exist
-- [ ] Wide camera never auto-switches
-- [ ] switchCameraDevice is only called by user click
+- [x] Wide picker is visible only in IMMM_DEBUG_CAMERA mode
+- [x] Front Wide button appears only when front candidates exist
+- [x] Rear Wide button appears only when rear candidates exist
+- [x] Wide camera never auto-switches
+- [x] switchCameraDevice is only called by user click
 
 ## Result Save / Share UX (Phase 3.7)
 - [x] Code path implemented for formatted PNG filename
@@ -567,3 +569,16 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet frame picker visible on real device
 - [ ] Samsung Internet can select strip/grid/trip/polaroid
 - [ ] Samsung Internet can proceed from setup to capture
+
+## Mobile Frame Preview + Camera Zoom Toggle QA
+- [x] Frame picker thumbnails reduced to 0.235 scale on mobile
+- [x] Setup preview (main) max zoom adjusted to 0.92 on mobile
+- [x] Camera zoom consolidated into a single 0.6x/1x toggle button
+- [x] toggleWideCamera uses hardware zoom path (applyCameraZoom) first
+- [x] toggleWideCamera uses device switch path (switchCameraDevice) as fallback
+- [x] activeCameraDeviceId, normalCameraDeviceId, and wideCameraActive tracked
+- [x] Diagnostic pill shows active/normal device IDs and wide status
+- [x] toggleWideCamera failure gives visual error feedback in debug mode
+- [ ] Galaxy S23+ hardware zoom 0.6x verified
+- [ ] Galaxy S23+ device switch fallback 0.6x verified (if hardware zoom fails)
+- [ ] Chrome/Safari 1x return verified

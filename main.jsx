@@ -155,6 +155,10 @@ function App() {
   const [rearWideCandidates, setRearWideCandidates] = React.useState([]);
   const [cameraDevices, setCameraDevices] = React.useState([]);
 
+  const [activeCameraDeviceId, setActiveCameraDeviceId] = React.useState(null);
+  const [normalCameraDeviceId, setNormalCameraDeviceId] = React.useState(null);
+  const [wideCameraActive, setWideCameraActive] = React.useState(false);
+
   const refreshCameraDevices = React.useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return;
     try {
@@ -239,6 +243,11 @@ function App() {
           setCameraCapabilities(capabilities);
           setCameraZoom(settings.zoom ?? 1);
 
+          setActiveCameraDeviceId(settings.deviceId || null);
+          if (!wideCameraActive && !normalCameraDeviceId) {
+            setNormalCameraDeviceId(settings.deviceId || null);
+          }
+
           if (window.IMMM_DEBUG_CAMERA) {
             console.info('[IMMM camera] capabilities:', capabilities);
             console.info('[IMMM camera] constraints:', constraints);
@@ -312,13 +321,72 @@ function App() {
       setCameraSettings(settings);
       setCameraCapabilities(capabilities);
       setCameraZoom(settings.zoom ?? 1);
+
+      setActiveCameraDeviceId(settings.deviceId || deviceId);
+      const isWide = [...frontWideCandidates, ...rearWideCandidates].some(d => d.deviceId === deviceId);
+      setWideCameraActive(isWide);
+
       await refreshCameraDevices();
       return true;
     } catch (e) {
       console.warn('[IMMM camera] switchCameraDevice failed:', e);
       return false;
     }
-  }, [refreshCameraDevices]);
+  }, [refreshCameraDevices, frontWideCandidates, rearWideCandidates]);
+
+  const toggleWideCamera = React.useCallback(async () => {
+    const caps = cameraCapabilities || {};
+    const zoom = caps.zoom;
+    const currentZoom = cameraSettings?.zoom ?? cameraZoom ?? 1;
+
+    const isCurrentlyWide =
+      wideCameraActive ||
+      currentZoom <= 0.75;
+
+    // Return to 1x
+    if (isCurrentlyWide) {
+      if (zoom && zoom.min <= 1 && zoom.max >= 1) {
+        await applyCameraZoom(1);
+        setWideCameraActive(false);
+        return true;
+      }
+      if (normalCameraDeviceId) {
+        const ok = await switchCameraDevice(normalCameraDeviceId);
+        if (ok) {
+          setWideCameraActive(false);
+          return true;
+        }
+      }
+      console.warn('[IMMM camera] cannot return to 1x camera');
+      return false;
+    }
+
+    // Go to 0.6x — prioritize hardware zoom
+    if (zoom && zoom.min <= 0.6 && zoom.max >= 0.6) {
+      await applyCameraZoom(0.6);
+      setWideCameraActive(true);
+      return true;
+    }
+
+    // Go to 0.6x — fallback to device switch
+    const candidates = facingMode === 'user' ? frontWideCandidates : rearWideCandidates;
+    const candidate = candidates?.[0];
+    if (candidate?.deviceId) {
+      const ok = await switchCameraDevice(candidate.deviceId);
+      if (ok) {
+        setWideCameraActive(true);
+        return true;
+      }
+    }
+
+    console.warn('[IMMM camera] 0.6x unavailable: no hardware zoom and no wide device candidate', {
+      facingMode, cameraCapabilities, frontWideCandidates, rearWideCandidates,
+    });
+    return false;
+  }, [
+    cameraCapabilities, cameraSettings, cameraZoom, wideCameraActive, normalCameraDeviceId,
+    facingMode, frontWideCandidates, rearWideCandidates, applyCameraZoom, switchCameraDevice
+  ]);
 
   React.useEffect(() => {
     const onHash = () => {
@@ -429,6 +497,10 @@ function App() {
           cameraDevices={cameraDevices}
           frontWideCandidates={frontWideCandidates}
           rearWideCandidates={rearWideCandidates}
+          activeCameraDeviceId={activeCameraDeviceId}
+          normalCameraDeviceId={normalCameraDeviceId}
+          wideCameraActive={wideCameraActive}
+          toggleWideCamera={toggleWideCamera}
         />;
       case 'select':
         return <SelectV2 {...p}

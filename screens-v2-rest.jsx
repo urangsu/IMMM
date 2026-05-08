@@ -6,7 +6,8 @@
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, frameColor, muted, onRequestCamera,
   videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef,
   cameraZoom = 1, cameraCapabilities = null, cameraSettings = null, applyCameraZoom,
-  switchCameraDevice, cameraDevices = [], frontWideCandidates = [], rearWideCandidates = []
+  switchCameraDevice, cameraDevices = [], frontWideCandidates = [], rearWideCandidates = [],
+  activeCameraDeviceId, normalCameraDeviceId, wideCameraActive, toggleWideCamera
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -37,6 +38,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const [flashing, setFlashing]   = React.useState(false);
   const [auto, setAuto]           = React.useState(false);
   const [overlayBox, setOverlayBox] = React.useState(null);
+  const [zoomToggleError, setZoomToggleError] = React.useState('');
   const touchStartY = React.useRef(null);
   const cameraFrameRef = React.useRef(null);
 
@@ -560,74 +562,49 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         {mobile && (
           <div style={{ flexShrink:0, display:'flex', gap:6, justifyContent:'center', paddingBottom:4 }}>
             {(() => {
+              const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
+              const hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
               const hasZoomCapability = !!cameraCapabilities?.zoom;
-              const zoomMin = cameraCapabilities?.zoom?.min;
-              const zoomMax = cameraCapabilities?.zoom?.max;
 
-              const canPointSix =
-                hasZoomCapability &&
-                zoomMin <= 0.6 &&
-                zoomMax >= 0.6;
+              const isWideActive =
+                cameraZoom <= 0.75 ||
+                cameraSettings?.zoom <= 0.75 ||
+                wideCameraActive === true;
 
-              const canOne =
-                hasZoomCapability &&
-                zoomMin <= 1 &&
-                zoomMax >= 1;
-
-              const debugCamera =
-                typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
-
-              const shouldShowZoomControls =
-                mobile && (
-                  hasZoomCapability ||
-                  debugCamera
-                );
-              
+              const shouldShowZoomControls = mobile && (hasZoomCapability || hasWideCandidates || debugCamera);
               if (!shouldShowZoomControls) return null;
 
-              const currentZoom = cameraSettings?.zoom ?? cameraZoom ?? 1;
+              const onToggle = async () => {
+                const ok = await toggleWideCamera?.();
+                if (!ok && debugCamera) {
+                  setZoomToggleError('0.6× unavailable');
+                  setTimeout(() => setZoomToggleError(''), 1800);
+                }
+              };
 
-              const btnStyle = (active, disabled) => ({
+              const btnStyle = {
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 56, height: 42, borderRadius:999, border:'none', fontSize:11, fontWeight:700,
-                fontFamily:'"Plus Jakarta Sans",system-ui', cursor: disabled ? 'not-allowed' : 'pointer',
-                background: active ? T.ink : 'rgba(26,26,31,0.06)',
-                color: active ? T.bg : disabled ? T.inkSoft : T.ink,
-                opacity: disabled ? 0.45 : 1, transition:'all 0.2s', padding: 0, lineHeight: 1
-              });
+                width: 56, height: 42, borderRadius: 999, border: 'none', fontSize: 11, fontWeight: 700,
+                fontFamily: '"Plus Jakarta Sans",system-ui', cursor: 'pointer',
+                background: 'rgba(26,26,31,0.06)', color: T.ink,
+                transition: 'all 0.2s', padding: 0, lineHeight: 1
+              };
 
-              if (!hasZoomCapability && !debugCamera) return null;
-              if (!hasZoomCapability && debugCamera) {
-                return (
-                  <button disabled style={btnStyle(false, true)}>기본</button>
-                );
-              }
-
-              return (<>
-                <button
-                  onClick={() => canPointSix && applyCameraZoom?.(0.6)}
-                  disabled={!canPointSix}
-                  title={!canPointSix ? '기기/브라우저 미지원' : '0.6배율 (초광각)'}
-                  style={btnStyle(Math.abs(currentZoom - 0.6) < 0.05, !canPointSix)}
-                >
-                  0.6×
-                </button>
-                <button
-                  onClick={() => canOne && applyCameraZoom?.(1)}
-                  disabled={!canOne}
-                  title={!canOne ? '줌 미지원' : '1배율'}
-                  style={btnStyle(Math.abs(currentZoom - 1) < 0.05, !canOne)}
-                >
-                  1×
-                </button>
-              </>);
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <button onClick={onToggle} style={btnStyle}>
+                    {isWideActive ? '1×' : '0.6×'}
+                  </button>
+                  {debugCamera && zoomToggleError && (
+                    <div style={{ fontSize: 9, color: '#ff4444', fontWeight: 700, fontFamily: 'monospace' }}>{zoomToggleError}</div>
+                  )}
+                </div>
+              );
             })()}
             {(() => {
               const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA === true;
               const hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
-              const showWidePicker = debugCamera && 
-                typeof switchCameraDevice === 'function' &&
-                hasWideCandidates;
+              const showWidePicker = debugCamera && typeof switchCameraDevice === 'function' && hasWideCandidates;
               
               const onSwitchWide = async (candidate) => {
                 if (!candidate?.deviceId) return;
@@ -646,7 +623,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   {debugCamera && (
                     <div style={{ display:'flex', alignItems:'center', padding:'4px 10px', borderRadius:999,
                       background:'rgba(0,0,0,0.12)', fontSize:10, color:T.inkSoft, fontFamily:'Pretendard,system-ui', gap:4, overflowX:'auto' }}>
-                      <span style={{fontWeight:700}}>{facingMode}</span>
+                      <span style={{ fontWeight: 700 }}>{facingMode}</span>
                       <span>·</span>
                       <span>{cameraSettings?.zoom != null ? `${cameraSettings.zoom.toFixed(2)}×` : 'default'}</span>
                       <span>·</span>
@@ -654,11 +631,15 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                       <span>·</span>
                       <span>{cameraCapabilities?.zoom ? `range ${cameraCapabilities.zoom.min}~${cameraCapabilities.zoom.max}` : 'zoom unsupported'}</span>
                       <span>·</span>
-                      <span>devs: {cameraDevices.length}</span>
+                      <span>wide: {String(wideCameraActive)}</span>
                       <span>·</span>
-                      <span>cands: {frontWideCandidates.length}F / {rearWideCandidates.length}R</span>
+                      <span>activeDev: {String(activeCameraDeviceId).slice(-4)}</span>
                       <span>·</span>
-                      <span>canPointSix {canPointSix ? 'OK' : 'NO'}</span>
+                      <span>normalDev: {String(normalCameraDeviceId).slice(-4)}</span>
+                      <span>·</span>
+                      <span>fWide: {frontWideCandidates.length}</span>
+                      <span>·</span>
+                      <span>rWide: {rearWideCandidates.length}</span>
                     </div>
                   )}
                   {showWidePicker && (

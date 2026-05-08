@@ -82,8 +82,9 @@ function FramePickerFallback({ layout, T, size = 'sm' }) {
   const isTrip = layout === 'trip';
   const slots = isPolaroid ? 1 : isGrid ? 4 : isTrip ? 3 : 4;
 
-  const w = size === 'lg' ? (layout === 'polaroid' || layout === 'grid' ? 180 : 120) : (layout === 'polaroid' || layout === 'grid' ? 60 : 42);
-  const h = size === 'lg' ? (layout === 'polaroid' ? 210 : layout === 'grid' ? 180 : 260) : (layout === 'polaroid' ? 72 : layout === 'grid' ? 60 : 84);
+  const mobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const w = size === 'lg' ? (layout === 'polaroid' || layout === 'grid' ? 180 : 120) : (layout === 'polaroid' || layout === 'grid' ? (mobile ? 56 : 60) : (mobile ? 40 : 42));
+  const h = size === 'lg' ? (layout === 'polaroid' ? 210 : layout === 'grid' ? 180 : 260) : (layout === 'polaroid' ? (mobile ? 68 : 72) : layout === 'grid' ? (mobile ? 56 : 60) : (mobile ? 80 : 84));
 
   return (
     <div style={{
@@ -369,7 +370,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
       const fW = setupFrameRef.current.offsetWidth;
       const fH = setupFrameRef.current.offsetHeight;
       if (!fW || !fH) return;
-      const maxS = mobile ? 1 : 1.4;
+      const maxS = mobile ? 0.92 : 1.4;
       setSetupZoom(Math.max(0.15, Math.min(maxS, cW / fW, cH / fH)));
     };
     // small delay so FrameThumb finishes re-rendering after orientation change
@@ -439,8 +440,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
             return null;
           };
 
-          const tpl = resolveFrameTemplate(o.id);
           const canRenderRealThumb = Boolean(WFrameThumb && tpl);
+          const pickerThumbScale = mobile ? 0.235 : 0.28;
 
           if (typeof window !== 'undefined' && window.IMMM_DEBUG_BUILD) {
             console.warn('[IMMM frame picker]', {
@@ -461,7 +462,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
               }}>
               <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none', display: 'grid', placeItems: 'center' }}>
                 {canRenderRealThumb ? (
-                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.28)', zIndex: 2 }}>
+                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: `translate(-50%, -50%) scale(${pickerThumbScale})`, zIndex: 2 }}>
                     <WFrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
                       logo={false} dateText={false} accent={accent} scale={1}
                       orientation="portrait" frameColor={frameColor} />

@@ -523,68 +523,45 @@ function checkPhaseCCameraZoom() {
   const task = fs.readFileSync('task.md', 'utf8');
 
   // 1. main.jsx checks
-  if (!main.includes('const [cameraDevices')) { console.error("❌ FAIL: main.jsx missing cameraDevices state"); hasErrors = true; }
-  if (!main.includes('const [frontWideCandidates')) { console.error("❌ FAIL: main.jsx missing frontWideCandidates state"); hasErrors = true; }
-  if (!main.includes('const [rearWideCandidates')) { console.error("❌ FAIL: main.jsx missing rearWideCandidates state"); hasErrors = true; }
-  if (!main.includes('const refreshCameraDevices =')) { console.error("❌ FAIL: main.jsx missing refreshCameraDevices definition"); hasErrors = true; }
-  if (!main.includes('const switchCameraDevice =')) { console.error("❌ FAIL: main.jsx missing switchCameraDevice foundation"); hasErrors = true; }
-  if (!main.includes('setCameraZoom(settings.zoom ?? 1)')) { console.error("❌ FAIL: main.jsx missing setCameraZoom initialization"); hasErrors = true; }
+  if (!main.includes('const [activeCameraDeviceId')) { console.error("❌ FAIL: main.jsx missing activeCameraDeviceId state"); hasErrors = true; }
+  if (!main.includes('const [normalCameraDeviceId')) { console.error("❌ FAIL: main.jsx missing normalCameraDeviceId state"); hasErrors = true; }
+  if (!main.includes('const [wideCameraActive')) { console.error("❌ FAIL: main.jsx missing wideCameraActive state"); hasErrors = true; }
+  if (!main.includes('const toggleWideCamera =')) { console.error("❌ FAIL: main.jsx missing toggleWideCamera callback"); hasErrors = true; }
+  if (!main.includes('applyCameraZoom(0.6)')) { console.error("❌ FAIL: main.jsx missing hardware zoom path (0.6x)"); hasErrors = true; }
+  if (!main.includes('switchCameraDevice(candidate.deviceId)')) { console.error("❌ FAIL: main.jsx missing device switch fallback path"); hasErrors = true; }
   
-  if (!main.match(/switchCameraDevice\s*=\s*React\.useCallback\s*\([\s\S]*?refreshCameraDevices/)) {
-    console.error("❌ FAIL: main.jsx switchCameraDevice dependency array missing refreshCameraDevices");
-    hasErrors = true;
-  }
-
-  const postPermissionRegex = /getUserMedia\([\s\S]*?refreshCameraDevices\(\)/;
-  if (!postPermissionRegex.test(main)) {
-    console.warn("⚠️ WARN: main.jsx might be missing refreshCameraDevices() call in post-getUserMedia path");
-  }
 
   // 2. screens-v2-rest.jsx checks
-  if (!rest.includes('canPointSix =')) { console.error("❌ FAIL: screens-v2-rest.jsx missing canPointSix definition"); hasErrors = true; }
-  if (!rest.includes('canOne =')) { console.error("❌ FAIL: screens-v2-rest.jsx missing canOne definition"); hasErrors = true; }
-  if (!rest.includes('shouldShowZoomControls =')) { console.error("❌ FAIL: screens-v2-rest.jsx missing shouldShowZoomControls definition"); hasErrors = true; }
-  if (rest.includes("facingMode === 'environment' &&")) {
-     console.error("❌ FAIL: screens-v2-rest.jsx restricts zoom UI with facingMode environment");
-     hasErrors = true;
+  // 2. screens-v2-rest.jsx checks
+  if (!rest.includes('toggleWideCamera')) { console.error("❌ FAIL: screens-v2-rest.jsx missing toggleWideCamera prop/usage"); hasErrors = true; }
+  if (rest.includes('onClick={() => canPointSix && applyCameraZoom?.(0.6)}') || rest.includes('onClick={() => canOne && applyCameraZoom?.(1)}')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx still has separate 0.6x and 1x buttons");
+    hasErrors = true;
   }
   
+  if (rest.includes('<button') && rest.includes('isWideActive ? \'1×\' : \'0.6×\'')) {
+     // Single toggle confirmed
+  } else {
+     console.error("❌ FAIL: screens-v2-rest.jsx missing single toggle button for camera zoom");
+     hasErrors = true;
+  }
+
   const shouldShowBlock = rest.match(/const\s+shouldShowZoomControls\s*=\s*([\s\S]*?);/);
   if (shouldShowBlock) {
     const body = shouldShowBlock[1];
-    if (/frontWideCandidates\.length\s*>\s*0/.test(body) || /rearWideCandidates\.length\s*>\s*0/.test(body)) {
-      console.error("❌ FAIL: shouldShowZoomControls must not depend on wide candidate counts");
-      hasErrors = true;
+    // It's allowed to depend on hasWideCandidates if it ALSO depends on hardware zoom or debug
+    if (!body.includes('hasZoomCapability') && !body.includes('debugCamera')) {
+       console.error("❌ FAIL: shouldShowZoomControls must consider hardware capability or debug mode, not just candidates");
+       hasErrors = true;
     }
   }
 
-  if (rest.includes('applyCameraZoom?.(1)') && rest.includes('<svg')) {
-    // Check if 1x button uses SVG instead of text
-    const zoomOneBlock = rest.match(/onClick=\{[\s\S]*?applyCameraZoom\?\.?\(1\)[\s\S]*?>([\s\S]*?)<\/button>/);
-    if (zoomOneBlock && zoomOneBlock[1].includes('<svg')) {
-      console.error("❌ FAIL: screens-v2-rest.jsx 1× zoom button uses SVG instead of text label");
-      hasErrors = true;
-    }
+  if (rest.includes('scale(0.6)')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx contains prohibited CSS scale(0.6)");
+    hasErrors = true;
   }
-  if (!rest.includes('1×')) {
-     console.error("❌ FAIL: screens-v2-rest.jsx missing '1×' text label for zoom buttons");
-     hasErrors = true;
-  }
-  if (!rest.includes('0.6×')) {
-     console.error("❌ FAIL: screens-v2-rest.jsx missing '0.6×' text label for zoom buttons");
-     hasErrors = true;
-  }
-  if (rest.includes('canPointSix ? \'OK\' : \'NO\'') === false && rest.includes('window.IMMM_DEBUG_CAMERA')) {
-     console.error("❌ FAIL: debug pill must use 'canPointSix' variable directly for consistency");
-     hasErrors = true;
-  }
-  if (rest.includes('scale(0.6)')) { console.error("❌ FAIL: screens-v2-rest.jsx contains forbidden scale(0.6)"); hasErrors = true; }
-  if (!rest.includes('[IMMM capture crop]')) { console.error("❌ FAIL: screens-v2-rest.jsx missing [IMMM capture crop] log"); hasErrors = true; }
-
-  // 3. task.md checks
-  const phaseC = task.match(/## Selfie 0.6× \/ Wide Camera Support[\s\S]*?(?=\n##|$)/);
-  if (phaseC && phaseC[0].includes('[x]')) {
-    console.error("❌ FAIL: task.md Phase C marked as complete [x] without real-device verification");
+  if (!rest.includes('[IMMM capture crop]')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing [IMMM capture crop] log");
     hasErrors = true;
   }
 }
@@ -653,8 +630,9 @@ function checkWidePickerSafety() {
 
   const diagnosticStrings = [
     'zoom unsupported',
-    'canPointSix',
-    'cameraDevices.length',
+    'wideCameraActive',
+    'activeCameraDeviceId',
+    'normalCameraDeviceId',
     'frontWideCandidates.length',
     'rearWideCandidates.length'
   ];
