@@ -468,8 +468,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             flex: mobile ? '1 1 auto' : 1,
             width: '100%',
             aspectRatio: `${viewfinderAspect}`,
-            maxHeight: mobile ? 'min(62vh, 560px)' : 'none',
-            minHeight: mobile ? 320 : 0,
+            maxHeight: mobile ? 'min(68vh, 600px)' : 'none',
+            minHeight: mobile ? 360 : 0,
             position:'relative',
             borderRadius:24,
             background:'#10233A',
@@ -520,18 +520,68 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           </div>
         </div>
         {/* Shutter row - fixed height, centered */}
-        <div style={{ flexShrink:0, height:78, display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
-          <div style={{ position:'absolute', left:0, display:'flex', gap:6 }}>
-            <button onClick={toggleAuto} style={{
+        <div style={{ flexShrink:0, height:82, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', marginTop: mobile ? 8 : 0 }}>
+          {(() => {
+            const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
+            const hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
+            const hasZoomCapability = !!cameraCapabilities?.zoom;
+            const isWideActive = cameraZoom <= 0.75 || cameraSettings?.zoom <= 0.75 || wideCameraActive === true;
+            const shouldShowZoomControls = mobile && (hasZoomCapability || hasWideCandidates || debugCamera);
+            const onToggle = async () => {
+              const ok = await toggleWideCamera?.();
+              if (!ok && debugCamera) {
+                setZoomToggleError('0.6× unavailable');
+                setTimeout(() => setZoomToggleError(''), 1800);
+              }
+            };
+            const leftBtnStyle = {
               padding:'8px 11px', borderRadius:999, border:'none',
-              background: auto? T.ink : 'rgba(26,26,31,0.06)',
-              color: auto? T.bg : T.ink, fontSize:11, fontWeight:600, cursor:'pointer',
+              background: 'rgba(26,26,31,0.06)', color: T.ink, fontSize:11, fontWeight:600, cursor:'pointer',
               display:'flex', alignItems:'center', gap:6, fontFamily:'"Plus Jakarta Sans",system-ui',
               transition:'all 0.2s',
-            }}>
-              <div style={{ width:6, height:6, borderRadius:999, background: auto? T.pinkDeep : T.inkSoft, transition:'background 0.2s' }}/>
-              Auto
-            </button>
+            };
+
+            return (
+              <div style={{ position:'absolute', left:0, display:'flex', gap:6, alignItems:'center' }}>
+                <button onClick={toggleAuto} style={{
+                  ...leftBtnStyle,
+                  background: auto? T.ink : 'rgba(26,26,31,0.06)',
+                  color: auto? T.bg : T.ink,
+                }}>
+                  <div style={{ width:6, height:6, borderRadius:999, background: auto? T.pinkDeep : T.inkSoft, transition:'background 0.2s' }}/>
+                  Auto
+                </button>
+                {shouldShowZoomControls && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <button onClick={onToggle} style={{ ...leftBtnStyle, fontWeight: 700, width: 48, justifyContent: 'center' }}>
+                      {isWideActive ? '1×' : '0.6×'}
+                    </button>
+                    {debugCamera && zoomToggleError && (
+                      <div style={{ position: 'absolute', top: 38, fontSize: 8, color: '#ff4444', fontWeight: 700, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{zoomToggleError}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          <button onClick={startCountdown} disabled={idx>=shotCount} style={{
+            width:72, height:72, borderRadius:999,
+            border:'none', background: countdown>0? T.pinkDeep : T.ink,
+            cursor: idx>=shotCount? 'default':'pointer', padding:6,
+            boxShadow:'0 10px 30px rgba(217,136,147,0.35)',
+            transition:'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
+            transform: countdown>0? 'scale(0.92)':'scale(1)',
+          }}>
+            <div style={{ width:'100%', height:'100%', borderRadius:999, background:T.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ width:52, height:52, borderRadius:999, background: countdown>0? T.pinkDeep : T.ink, transition:'background 0.2s' }}/>
+            </div>
+          </button>
+
+          <div style={{ position:'absolute', right:0, display:'flex', gap:6, alignItems:'center' }}>
+            <div style={{ padding:'8px 11px', borderRadius:999, background:'rgba(26,26,31,0.06)', fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
+              {Math.max(0, shotCount-idx)} left
+            </div>
             <button onClick={() => setTimerLen(t => t === 3 ? 5 : 3)} style={{
               padding:'8px 11px', borderRadius:999, border:'none',
               background: 'rgba(26,26,31,0.06)',
@@ -543,64 +593,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               {timerLen}s
             </button>
           </div>
-          <button onClick={startCountdown} disabled={idx>=shotCount} style={{
-            width:68, height:68, borderRadius:999,
-            border:'none', background: countdown>0? T.pinkDeep : T.ink,
-            cursor: idx>=shotCount? 'default':'pointer', padding:6,
-            boxShadow:'0 10px 30px rgba(217,136,147,0.35)',
-            transition:'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
-            transform: countdown>0? 'scale(0.92)':'scale(1)',
-          }}>
-            <div style={{ width:'100%', height:'100%', borderRadius:999, background:T.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ width:48, height:48, borderRadius:999, background: countdown>0? T.pinkDeep : T.ink, transition:'background 0.2s' }}/>
-            </div>
-          </button>
-          <div style={{ position:'absolute', right:0, padding:'8px 11px', borderRadius:999, background:'rgba(26,26,31,0.06)', fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
-            {Math.max(0, shotCount-idx)} left
-          </div>
         </div>
         {mobile && (
-          <div style={{ flexShrink:0, display:'flex', gap:6, justifyContent:'center', paddingBottom:4 }}>
-            {(() => {
-              const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
-              const hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
-              const hasZoomCapability = !!cameraCapabilities?.zoom;
-
-              const isWideActive =
-                cameraZoom <= 0.75 ||
-                cameraSettings?.zoom <= 0.75 ||
-                wideCameraActive === true;
-
-              const shouldShowZoomControls = mobile && (hasZoomCapability || hasWideCandidates || debugCamera);
-              if (!shouldShowZoomControls) return null;
-
-              const onToggle = async () => {
-                const ok = await toggleWideCamera?.();
-                if (!ok && debugCamera) {
-                  setZoomToggleError('0.6× unavailable');
-                  setTimeout(() => setZoomToggleError(''), 1800);
-                }
-              };
-
-              const btnStyle = {
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 56, height: 42, borderRadius: 999, border: 'none', fontSize: 11, fontWeight: 700,
-                fontFamily: '"Plus Jakarta Sans",system-ui', cursor: 'pointer',
-                background: 'rgba(26,26,31,0.06)', color: T.ink,
-                transition: 'all 0.2s', padding: 0, lineHeight: 1
-              };
-
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <button onClick={onToggle} style={btnStyle}>
-                    {isWideActive ? '1×' : '0.6×'}
-                  </button>
-                  {debugCamera && zoomToggleError && (
-                    <div style={{ fontSize: 9, color: '#ff4444', fontWeight: 700, fontFamily: 'monospace' }}>{zoomToggleError}</div>
-                  )}
-                </div>
-              );
-            })()}
+          <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:4, justifyContent:'center', paddingBottom:4 }}>
             {(() => {
               const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA === true;
               const hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;

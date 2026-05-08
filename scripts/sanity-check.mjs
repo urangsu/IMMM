@@ -555,14 +555,14 @@ function checkPhaseCCameraZoom() {
      hasErrors = true;
   }
 
-  const shouldShowBlock = rest.match(/const\s+shouldShowZoomControls\s*=\s*([\s\S]*?);/);
-  if (shouldShowBlock) {
-    const body = shouldShowBlock[1];
-    // It's allowed to depend on hasWideCandidates if it ALSO depends on hardware zoom or debug
-    if (!body.includes('hasZoomCapability') && !body.includes('debugCamera')) {
-       console.error("❌ FAIL: shouldShowZoomControls must consider hardware capability or debug mode, not just candidates");
-       hasErrors = true;
-    }
+  if (!rest.includes("maxHeight: mobile ? 'min(68vh, 600px)' : 'none'")) {
+    console.error("❌ FAIL: screens-v2-rest.jsx mobile camera preview maxHeight not optimized (should be min(68vh, 600px))");
+    hasErrors = true;
+  }
+
+  if (!rest.includes("position:'absolute', right:0, display:'flex', gap:6, alignItems:'center'")) {
+    console.error("❌ FAIL: screens-v2-rest.jsx right side controls (timer/left) must be grouped on the right");
+    hasErrors = true;
   }
 
   if (rest.includes('scale(0.6)')) {

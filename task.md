@@ -508,6 +508,10 @@ Meaning:
 - [x] Single toggle button (0.6×/1×) used in CaptureV2
 - [x] No CSS fake 0.6× is used
 - [x] No automatic wide camera device switching is performed before user action
+- [x] 0.6× toggle moved to shutter row (left side)
+- [x] Timer moved to shutter row (right side)
+- [x] Dedicated bottom 0.6× row removed
+- [x] Camera preview maxHeight increased to 68vh
 - [ ] Galaxy S23+ Samsung Internet 0.6× toggle verified
 - [ ] Galaxy S23+ Chrome 0.6× toggle verified
 - [ ] 1× return path verified after 0.6×
