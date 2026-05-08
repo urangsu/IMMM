@@ -76,6 +76,34 @@ function StepDots({ step, total = 5, T }) {
 
 }
 
+function FramePickerFallback({ layout, T, size = 'sm' }) {
+  const isGrid = layout === 'grid';
+  const isPolaroid = layout === 'polaroid';
+  const isTrip = layout === 'trip';
+  const slots = isPolaroid ? 1 : isGrid ? 4 : isTrip ? 3 : 4;
+
+  const w = size === 'lg' ? (layout === 'polaroid' || layout === 'grid' ? 180 : 120) : (layout === 'polaroid' || layout === 'grid' ? 60 : 42);
+  const h = size === 'lg' ? (layout === 'polaroid' ? 210 : layout === 'grid' ? 180 : 260) : (layout === 'polaroid' ? 72 : layout === 'grid' ? 60 : 84);
+
+  return (
+    <div style={{
+      width: w, height: h, background: '#fff', borderRadius: size === 'lg' ? 8 : 4,
+      boxShadow: size === 'lg' ? '0 8px 32px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.08)',
+      padding: size === 'lg' ? 12 : 5, display: 'grid', gap: size === 'lg' ? 6 : 3,
+      gridTemplateColumns: isGrid ? '1fr 1fr' : '1fr',
+      gridTemplateRows: isGrid ? '1fr 1fr' : `repeat(${slots}, 1fr)`,
+      boxSizing: 'border-box'
+    }}>
+      {Array.from({ length: slots }).map((_, i) => (
+        <div key={i} style={{
+          borderRadius: size === 'lg' ? 4 : 2,
+          background: 'linear-gradient(135deg, rgba(26,26,31,0.06), rgba(26,26,31,0.12))'
+        }} />
+      ))}
+    </div>
+  );
+}
+
 // Fade-slide transition wrapper
 function ScreenTransition({ id, children }) {
   const [show, setShow] = uS(false);
@@ -379,8 +407,11 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
             <WFrameThumb key={frameColor} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
               logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} />
           ) : (
-            <div style={{ width: frameW, minHeight: 240, display:'grid', placeItems:'center', color:T.inkSoft, background: 'rgba(0,0,0,0.03)', borderRadius: 8 }}>
-              Frame preview unavailable
+            <div style={{ position: 'relative', display: 'grid', placeItems: 'center' }}>
+              <FramePickerFallback layout={layout} T={T} size="lg" />
+              <div style={{ position: 'absolute', bottom: -30, left: '50%', transform: 'translateX(-50%)', fontSize: 11, color: T.inkSoft, whiteSpace: 'nowrap' }}>
+                Preview loading...
+              </div>
             </div>
           )}
         </StickerCanvas>
@@ -398,38 +429,44 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           { id: 'grid',     en: '2×2 Grid',  ko: '그리드' },
           { id: 'polaroid', en: '1×1',       ko: '폴라로이드' },
         ].map((o) => {
-        const resolveFrameTemplate = (layout) => {
-          if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
-            return window.getFrameTemplateSafe(layout);
+          const resolveFrameTemplate = (layout) => {
+            if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
+              return window.getFrameTemplateSafe(layout);
+            }
+            if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+              return window.getFrameTemplate(layout);
+            }
+            return null;
+          };
+
+          if (typeof window !== 'undefined' && window.IMMM_DEBUG_BUILD) {
+            console.warn('[IMMM frame picker]', {
+              hasFrameThumb: typeof window.FrameThumb === 'function',
+              hasGetFrameTemplateSafe: typeof window.getFrameTemplateSafe === 'function',
+              layout: o.id,
+            });
           }
-          if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
-            return window.getFrameTemplate(layout);
-          }
-          console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
-          return null;
-        };
-        const tpl = resolveFrameTemplate(o.id);
-        if (!tpl) return null;
-        return (
-      <button key={o.id} onClick={() => setLayout(o.id)}
-      style={{
-        padding: '14px 8px 10px', background: layout === o.id ? T.card : 'transparent',
-        border: 'none', borderRadius: 16, cursor: 'pointer',
-        boxShadow: layout === o.id ? '0 1px 4px rgba(0,0,0,0.06), 0 0 0 1.5px rgba(26,26,31,0.9) inset' : '0 0 0 1px rgba(26,26,31,0.08) inset',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
-      }}>
-            <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none' }}>
-              {tpl?.recommended && <div style={{ position: 'absolute', top: 4, left: 5, zIndex: 5 }}><StoreBadge T={T}>Pick</StoreBadge></div>}
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.28)' }}>
-                {WFrameThumb ? (
-                  <WFrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
-                    logo={false} dateText={false} accent={accent} scale={1}
-                    orientation="portrait" frameColor={frameColor} />
-                ) : (
-                  <div style={{ width: 180, height: 240, background: 'rgba(0,0,0,0.05)', borderRadius: 4, display:'grid', placeItems:'center', fontSize: 20 }}>?</div>
-                )}
+
+          const tpl = resolveFrameTemplate(o.id);
+          return (
+            <button key={o.id} onClick={() => setLayout(o.id)}
+              style={{
+                padding: '14px 8px 10px', background: layout === o.id ? T.card : 'transparent',
+                border: 'none', borderRadius: 16, cursor: 'pointer',
+                boxShadow: layout === o.id ? '0 1px 4px rgba(0,0,0,0.06), 0 0 0 1.5px rgba(26,26,31,0.9) inset' : '0 0 0 1px rgba(26,26,31,0.08) inset',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
+              }}>
+              <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none', display: 'grid', placeItems: 'center' }}>
+                <FramePickerFallback layout={o.id} T={T} size="sm" />
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.28)', zIndex: 2 }}>
+                  {WFrameThumb && tpl && (
+                    <WFrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
+                      logo={false} dateText={false} accent={accent} scale={1}
+                      orientation="portrait" frameColor={frameColor} />
+                  )}
+                </div>
+                {tpl?.recommended && <div style={{ position: 'absolute', top: 4, left: 5, zIndex: 5 }}><StoreBadge T={T}>Pick</StoreBadge></div>}
               </div>
-            </div>
             <div style={{ fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
               {o.en}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4, fontFamily: 'Pretendard,system-ui' }}>{o.ko}</span>
             </div>

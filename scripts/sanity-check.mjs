@@ -820,6 +820,32 @@ function checkResultUX() {
   }
 }
 
+function checkFramePickerResilience() {
+  if (!fs.existsSync('screens-v2.jsx')) return;
+  const v2 = fs.readFileSync('screens-v2.jsx', 'utf8');
+
+  if (v2.includes('if (!tpl) return null;')) {
+    console.error("❌ FAIL: screens-v2.jsx contains 'if (!tpl) return null;' which hides frame buttons");
+    hasErrors = true;
+  }
+  if (!v2.includes('function FramePickerFallback')) {
+    console.error("❌ FAIL: screens-v2.jsx missing FramePickerFallback component");
+    hasErrors = true;
+  }
+  if (!v2.includes('<FramePickerFallback layout={o.id}')) {
+    console.error("❌ FAIL: screens-v2.jsx frame picker buttons missing fallback preview");
+    hasErrors = true;
+  }
+  if (v2.includes('Frame preview unavailable')) {
+    console.error("❌ FAIL: screens-v2.jsx should not use 'Frame preview unavailable' text");
+    hasErrors = true;
+  }
+  if (!v2.includes('setLayout(o.id)')) {
+    console.error("❌ FAIL: screens-v2.jsx frame picker buttons missing setLayout call");
+    hasErrors = true;
+  }
+}
+
 console.log('🔍 Running IMMM COMPREHENSIVE Hardened Sanity Checks...');
 checkRuntimeVersion();
 checkWidePickerSafety();
@@ -839,6 +865,7 @@ checkFrameThemeUnification();
 checkTask();
 checkPhaseCCameraZoom();
 checkResultUX();
+checkFramePickerResilience();
 
 if (hasErrors) {
   console.error('\n💥 Sanity check failed! DO NOT REMOVE GUARDS. FIX THE CODE.');
