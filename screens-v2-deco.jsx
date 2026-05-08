@@ -1326,9 +1326,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
                   <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Redecorate</button>
                   <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Retake</button>
                   <div style={{ height: 1, background: T.line, margin: '4px 8px' }} />
-                  <button onClick={handleQrShare} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'not-allowed' }}>QR Share <span style={{fontSize:10, opacity:0.6}}>(Preparing)</span></button>
+                  <button disabled style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'not-allowed', opacity: 0.6 }}>QR Share <span style={{fontSize:10, opacity:0.6}}>(Preparing)</span></button>
                   {videoSupported && (
-                    <button onClick={handleVideoDownload} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>Save Video <span style={{fontSize:10, opacity:0.6}}>(Beta)</span></button>
+                    <button disabled style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'not-allowed', opacity: 0.6 }}>Save Video <span style={{fontSize:10, opacity:0.6}}>(Preparing)</span></button>
                   )}
                 </div>
               )}
@@ -1377,9 +1377,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
             <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
             <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
             <div style={{ height: 1, background: T.line, margin: '6px 10px' }} />
-            <button onClick={handleQrShare} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'not-allowed' }}>QR Share <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
+            <button disabled style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'not-allowed', opacity: 0.6 }}>QR Share <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
             {videoSupported && (
-              <button onClick={handleVideoDownload} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Save Video <span style={{fontSize:11, opacity:0.6}}>(Beta)</span></button>
+              <button disabled style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'not-allowed', opacity: 0.6 }}>Save Video <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
             )}
           </div>
         )}

@@ -906,6 +906,22 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx draw effect missing showPrintIntro dependency (preview blank risk)");
     hasErrors = true;
   }
+
+  // QR/Video disabled checks (for Preparing state)
+  if (deco.includes('(Preparing)') && (deco.includes('onClick={handleQrShare}') || deco.includes('onClick={handleVideoDownload}'))) {
+    console.error("❌ FAIL: screens-v2-deco.jsx contains executable onClick for Preparing actions");
+    hasErrors = true;
+  }
+  const qrPreparingMatch = deco.match(/QR Share.*?Preparing/s);
+  if (qrPreparingMatch && !deco.includes('disabled')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx QR Preparing button missing disabled attribute");
+    hasErrors = true;
+  }
+  const videoPreparingMatch = deco.match(/Save Video.*?Preparing/s);
+  if (videoPreparingMatch && !deco.includes('disabled')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Video Preparing button missing disabled attribute");
+    hasErrors = true;
+  }
 }
 
 function checkFramePickerResilience() {

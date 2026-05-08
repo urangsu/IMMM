@@ -614,9 +614,11 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [x] Retake moved into More menu (targets 'setup')
 - [x] QR moved into More menu (marked as Preparing)
 - [x] Video action moved into More menu (marked as Beta/experimental)
+- [x] QR Preparing action is disabled and non-clickable
+- [x] Video Preparing action is disabled and non-clickable
 - [x] Retake routes to setup without clearing storage
 - [ ] Result preview verified on desktop web
 - [ ] Result preview verified on mobile web
 - [ ] Samsung Internet Result preview verified
-- [ ] QR action verified
-- [ ] Video pipeline verified end-to-end
+- [ ] QR action verified after implementation
+- [ ] Video pipeline verified end-to-end after implementation
