@@ -638,3 +638,16 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result preview verified
 - [ ] Mobile 1×4 Deco zoom verified without pressing minus
 - [ ] Grid/Polaroid Deco zoom verified
+
+---
+
+## Result Preview Recovery (Phase 3.8)
+- [x] Single-source final result asset architecture implemented
+- [x] Result preview uses final asset instead of separate canvas-only path
+- [x] Save and Share reuse the same final asset source
+- [x] Print intro waits for preview asset readiness
+- [x] Print intro speed slowed to ~0.8x feel (duration increased 25%)
+- [ ] Chrome real-device verified
+- [ ] Samsung Internet real-device verified
+- [ ] iPhone Safari verified
+- [ ] Result preview matches saved file exactly

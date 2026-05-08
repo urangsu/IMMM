@@ -594,7 +594,7 @@ function ResultPrintIntro({ T, mobile, layout, resultFrame }) {
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const duration = prefersReducedMotion ? 400 : 1600;
+  const duration = prefersReducedMotion ? 500 : 2000;
 
   return (
     <div style={{
@@ -672,103 +672,67 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
 
   const compositionCanvasRef = React.useRef(null);
-  const [resultPreviewReady, setResultPreviewReady] = React.useState(false);
+  const [resultPreviewSrc, setResultPreviewSrc] = React.useState(null);
+  const [resultPreviewStatus, setResultPreviewStatus] = React.useState('idle'); // idle | building | ready | error
   const [resultPreviewError, setResultPreviewError] = React.useState('');
-  const [resultDrawAttempt, setResultDrawAttempt] = React.useState(0);
 
-  React.useEffect(() => {
-    const resolveFrameTemplate = (layout) => {
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
-        return window.getFrameTemplateSafe(layout);
-      }
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
-        return window.getFrameTemplate(layout);
-      }
-      console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
-      return null;
-    };
-    const draw = async () => {
-      if (!compositionCanvasRef.current) return;
-      setResultPreviewReady(false);
-      setResultPreviewError('');
-
-      const cvs = compositionCanvasRef.current;
-      const ctx = cvs.getContext('2d');
-      const template = resolveFrameTemplate(layout);
-      if (!template) {
-        const msg = `[IMMM] draw failed: template '${layout}' unavailable`;
-        console.warn(msg);
-        setResultPreviewError(msg);
-        return;
-      }
+  const buildFinalResultAsset = async () => {
+    if (resultPreviewStatus === 'building') return;
+    setResultPreviewStatus('building');
+    setResultPreviewError('');
+    try {
+      // 1. Generate high-quality blob using the existing export logic
+      const blob = await captureFrameAsBlob();
+      if (!blob) throw new Error('결과물을 생성하지 못했습니다');
       
-      const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
-      if (!renderComp) {
-        const msg = '[IMMM] draw failed: renderComposition missing';
-        console.warn(msg);
-        setResultPreviewError(msg);
-        return;
-      }
-
-      if (!shots || shots.length === 0) {
-        const msg = '[IMMM] draw failed: no shots available';
-        console.warn(msg);
-        setResultPreviewError(msg);
-        return;
-      }
-
-      cvs.width = template.canvasSize.width;
-      cvs.height = template.canvasSize.height;
-      if (cvs.width === 0 || cvs.height === 0) {
-        setResultPreviewError('Canvas dimensions zero');
-        return;
-      }
-
-      const data = {
-        layout, shots, selected, filter, frameColor,
-        stickers, drawStrokes, logo, dateText, accent, orientation
-      };
+      // 2. Create local URL for preview <img>
+      const url = URL.createObjectURL(blob);
+      setResultPreviewSrc(url);
+      setResultPreviewStatus('ready');
       
-      try {
-        await renderComp(ctx, data, { scale: 1 });
-        setResultPreviewReady(true);
-      } catch (err) {
-        console.error('[IMMM] renderComp error:', err);
-        setResultPreviewError('이미지 생성 중 오류가 발생했습니다');
-      }
-    };
-    draw();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, showPrintIntro, resultDrawAttempt]);
-
-  React.useEffect(() => {
-    if (!showPrintIntro) {
-      // 2-RAF redraw trigger to ensure canvas is mounted and ready
-      const raf1 = requestAnimationFrame(() => {
-        const raf2 = requestAnimationFrame(() => {
-          setResultDrawAttempt(v => v + 1);
-        });
-      });
-      return () => {
-        cancelAnimationFrame(raf1);
-      };
+      // 3. Cache it for save/share to ensure 100% consistency
+      exportBlobRef.current = { key: getExportKey(), blob };
+      
+      // 4. Start intro only after asset is ready
+      setShowPrintIntro(true);
+    } catch (err) {
+      console.error('[IMMM] buildFinalResultAsset error:', err);
+      setResultPreviewStatus('error');
+      setResultPreviewError(err.message || '이미지를 준비하지 못했습니다');
     }
-  }, [showPrintIntro]);
+  };
+
+  React.useEffect(() => {
+    buildFinalResultAsset();
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
+
+  React.useEffect(() => {
+    return () => {
+      if (resultPreviewSrc && resultPreviewSrc.startsWith('blob:')) {
+        try { URL.revokeObjectURL(resultPreviewSrc); } catch(e){}
+      }
+    };
+  }, [resultPreviewSrc]);
 
   const resultFrame = (scale) => (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
-        <canvas ref={compositionCanvasRef} style={{ width: 180 * (layout==='strip'||layout==='trip'?1:1.2), height: 'auto', display: 'block', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} />
+        {resultPreviewSrc ? (
+          <img src={resultPreviewSrc} style={{ width: 180 * (layout==='strip'||layout==='trip'?1:1.2), height: 'auto', display: 'block', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} alt="Result Preview" />
+        ) : (
+          <div style={{ width: 180 * (layout==='strip'||layout==='trip'?1:1.2), aspectRatio: layout==='strip'||layout==='trip'?'1/4':'4/5', background:'rgba(255,255,255,0.1)', borderRadius:4 }} />
+        )}
         
-        {!resultPreviewReady && !resultPreviewError && (
-          <div style={{ position:'absolute', inset:0, background:'rgba(255,255,255,0.8)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:'#777', borderRadius:4 }}>
-            Preparing...
+        {resultPreviewStatus === 'building' && (
+          <div style={{ position:'absolute', inset:0, background:'rgba(255,255,255,0.8)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:'#777', borderRadius:4, zIndex:10 }}>
+            Preparing your strip...
           </div>
         )}
         
-        {resultPreviewError && (
-          <div style={{ position:'absolute', inset:0, background:'rgba(255,255,255,0.9)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:10, borderRadius:4, textAlign:'center' }}>
+        {resultPreviewStatus === 'error' && (
+          <div style={{ position:'absolute', inset:0, background:'rgba(255,255,255,0.9)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:10, borderRadius:4, textAlign:'center', zIndex:10 }}>
             <div style={{ fontSize:11, color:T.pinkDeep, marginBottom:8 }}>{resultPreviewError}</div>
-            <button onClick={() => setResultDrawAttempt(v => v + 1)} style={{ padding:'6px 12px', borderRadius:8, border:'none', background:T.ink, color:T.bg, fontSize:11, fontWeight:700 }}>Retry</button>
+            <button onClick={buildFinalResultAsset} style={{ padding:'6px 12px', borderRadius:8, border:'none', background:T.ink, color:T.bg, fontSize:11, fontWeight:700, cursor:'pointer' }}>Retry</button>
           </div>
         )}
       </div>
@@ -786,18 +750,19 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [qrBusy, setQrBusy] = React.useState(false);
   const [showMoreActions, setShowMoreActions] = React.useState(false);
   const [toasts, setToasts] = React.useState([]);
-  const [showPrintIntro, setShowPrintIntro] = React.useState(true);
+  const [showPrintIntro, setShowPrintIntro] = React.useState(false);
   const autoSavedRef = React.useRef(false);
 
   React.useEffect(() => {
+    if (!showPrintIntro) return;
     const prefersReducedMotion =
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = prefersReducedMotion ? 600 : 1850;
+    const duration = prefersReducedMotion ? 750 : 2300;
     const timer = setTimeout(() => setShowPrintIntro(false), duration);
     return () => clearTimeout(timer);
-  }, []);
+  }, [showPrintIntro]);
 
   React.useEffect(() => {
     return () => {

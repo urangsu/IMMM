@@ -923,24 +923,30 @@ function checkResultUX() {
     hasErrors = true;
   }
 
-  // Result Preview Recovery checks
-  const resultStates = ['resultPreviewReady', 'resultPreviewError', 'resultDrawAttempt'];
+  // Result Preview Recovery checks (Phase 3.8 Single-Source Asset)
+  const resultStates = ['resultPreviewSrc', 'resultPreviewStatus', 'resultPreviewError'];
   resultStates.forEach(s => {
     if (!deco.includes(s)) {
       console.error(`❌ FAIL: screens-v2-deco.jsx missing Result preview state: ${s}`);
       hasErrors = true;
     }
   });
-  if (!deco.includes('setResultDrawAttempt(v => v + 1)')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx missing redraw trigger/retry action");
+  if (!deco.includes('buildFinalResultAsset')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing buildFinalResultAsset helper");
     hasErrors = true;
   }
-  if (!deco.includes('resultDrawAttempt]')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx draw effect missing resultDrawAttempt dependency");
+  if (!deco.includes('<img src={resultPreviewSrc}') && !deco.includes('src={resultPreviewSrc}')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Result preview not using <img> with resultPreviewSrc");
     hasErrors = true;
   }
-  if (!deco.includes('requestAnimationFrame') || !deco.includes('!showPrintIntro')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx missing post-intro redraw trigger");
+  if (!deco.includes('setShowPrintIntro(true)') || !deco.includes('setResultPreviewStatus(\'ready\')')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing intro trigger after asset readiness");
+    hasErrors = true;
+  }
+  
+  // Single Source usage check
+  if (!deco.includes('exportBlobRef.current = { key: getExportKey(), blob }')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing asset caching for Save/Share");
     hasErrors = true;
   }
 
