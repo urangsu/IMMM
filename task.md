@@ -578,3 +578,17 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Galaxy S23+ hardware zoom 0.6x verified
 - [ ] Galaxy S23+ device switch fallback 0.6x verified (if hardware zoom fails)
 - [ ] Chrome/Safari 1x return verified
+
+---
+
+## Result Print Intro (Slot Close-up) QA
+- [x] Slot close-up intro component implemented
+- [x] Whole machine view avoided
+- [x] Photo/frame emerges from top slot
+- [x] Animation completes within 2.0s
+- [x] No mp4/gif/lottie asset added
+- [x] Existing Result action flow preserved
+- [ ] Samsung Internet real-device verified
+- [ ] iPhone Safari verified
+- [ ] Low-end Android no-jank verified
+- [ ] Result screen transition visually verified

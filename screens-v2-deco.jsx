@@ -578,6 +578,72 @@ function chipBtn(T) {return {
   };}
 
 // ═══════════════════════════════════════════════════════════════
+// RESULT PRINT INTRO
+// ═══════════════════════════════════════════════════════════════
+function ResultPrintIntro({ T, mobile, layout, resultFrame }) {
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const duration = prefersReducedMotion ? 400 : 1600;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200000,
+      background: '#F1F1F3', // Soft ivory/light gray
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      animation: 'fadeIn 0.3s ease-out'
+    }}>
+      <style>{`
+        @keyframes immmSlotPhotoEmerge {
+          0% { transform: translateY(-88%); opacity: 0.9; }
+          10% { opacity: 1; }
+          85% { transform: translateY(0); }
+          92% { transform: translateY(-4px); }
+          100% { transform: translateY(0); }
+        }
+        @keyframes immmSlotFadeIn {
+          from { opacity: 0; transform: scale(0.96) translateY(-10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
+      
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        animation: 'immmSlotFadeIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both'
+      }}>
+        {/* Slot Box - Close-up view */}
+        <div style={{
+          width: 280, height: 28, background: '#FFFFFF',
+          borderRadius: '10px 10px 2px 2px',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.06), inset 0 -1px 1px rgba(0,0,0,0.04)',
+          position: 'relative', zIndex: 10
+        }}>
+          <div style={{
+            position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)',
+            width: 230, height: 6, background: '#1A1A1F', borderRadius: 3,
+            boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.6)'
+          }} />
+        </div>
+
+        {/* Emerging Photo */}
+        <div style={{
+          width: 240, height: 480, overflow: 'hidden',
+          position: 'relative', marginTop: -8, zIndex: 5,
+          maskImage: 'linear-gradient(to bottom, black 95%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 95%, transparent 100%)'
+        }}>
+          <div style={{
+            animation: prefersReducedMotion ? 'none' : `immmSlotPhotoEmerge ${duration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards`,
+            transform: prefersReducedMotion ? 'none' : 'translateY(-88%)',
+            display: 'flex', justifyContent: 'center'
+          }}>
+            {resultFrame(0.85)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // RESULT
 // ═══════════════════════════════════════════════════════════════
 function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation, stickers, drawStrokes, logo, dateText, accent, frameColor }) {
@@ -645,9 +711,15 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
   const [qrShare, setQrShare] = React.useState(null);
   const [qrBusy, setQrBusy] = React.useState(false);
-  const [showMoreActions, setShowMoreActions] = React.useState(false);
-  const [toasts, setToasts] = React.useState([]);
+  const [showPrintIntro, setShowPrintIntro] = React.useState(true);
   const autoSavedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = prefersReducedMotion ? 600 : 1850;
+    const timer = setTimeout(() => setShowPrintIntro(false), duration);
+    return () => clearTimeout(timer);
+  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -1188,6 +1260,10 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       </div>
     </>
   );
+
+  if (showPrintIntro) {
+    return <ResultPrintIntro T={T} mobile={mobile} layout={layout} resultFrame={resultFrame} />;
+  }
 
   if (mobile) {
     return (

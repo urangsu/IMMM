@@ -825,6 +825,34 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx missing Redecorate/Retake buttons");
     hasErrors = true;
   }
+
+  // Result Print Intro checks
+  if (!deco.includes('ResultPrintIntro')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing ResultPrintIntro component");
+    hasErrors = true;
+  }
+  if (!deco.includes('showPrintIntro')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing showPrintIntro state");
+    hasErrors = true;
+  }
+  const timerMatch = deco.match(/setTimeout\(\(\)\s*=>\s*setShowPrintIntro\(false\),\s*(.+?)\)/);
+  if (timerMatch) {
+    const timeoutStr = timerMatch[1];
+    if (/^\d+$/.test(timeoutStr)) {
+      const timeout = parseInt(timeoutStr);
+      if (timeout > 2200) {
+        console.error(`❌ FAIL: ResultPrintIntro timeout is too long: ${timeout}ms (max 2200ms)`);
+        hasErrors = true;
+      }
+    }
+  }
+  const forbiddenAssets = ['.mp4', '.gif', 'lottie'];
+  forbiddenAssets.forEach(a => {
+     if (deco.includes(a)) {
+        console.error(`❌ FAIL: screens-v2-deco.jsx contains prohibited asset reference: ${a}`);
+        hasErrors = true;
+     }
+  });
 }
 
 function checkFramePickerResilience() {
