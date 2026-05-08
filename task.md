@@ -592,3 +592,15 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] iPhone Safari verified
 - [ ] Low-end Android no-jank verified
 - [ ] Result screen transition visually verified
+
+---
+
+## Result Print Intro Crash Hotfix QA
+- [x] toasts state restored in ResultV2
+- [x] showMoreActions state restored in ResultV2
+- [x] matchMedia access guarded
+- [x] ResultPrintIntro preserved
+- [ ] Result screen opens without `toasts is not defined`
+- [ ] Save toast verified after intro
+- [ ] Share toast verified after intro
+- [ ] Samsung Internet intro-to-result flow verified

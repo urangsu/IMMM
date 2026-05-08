@@ -853,6 +853,30 @@ function checkResultUX() {
         hasErrors = true;
      }
   });
+
+  // Hotfix checks: restored state
+  if (!deco.includes('const [toasts, setToasts] = React.useState([])')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing toasts state");
+    hasErrors = true;
+  }
+  if (!deco.includes('const [showMoreActions, setShowMoreActions] = React.useState(false)')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing showMoreActions state");
+    hasErrors = true;
+  }
+  if (deco.includes('toasts.map') && !deco.includes('const [toasts,')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx uses toasts.map but missing state");
+    hasErrors = true;
+  }
+  if (deco.includes('setToasts') && !deco.includes('const [toasts,')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx uses setToasts but missing state");
+    hasErrors = true;
+  }
+  
+  // matchMedia guard check
+  if (deco.includes('window.matchMedia') && !deco.includes("typeof window.matchMedia === 'function'")) {
+    console.error("❌ FAIL: screens-v2-deco.jsx uses window.matchMedia without typeof check");
+    hasErrors = true;
+  }
 }
 
 function checkFramePickerResilience() {

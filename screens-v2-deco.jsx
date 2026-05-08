@@ -581,7 +581,10 @@ function chipBtn(T) {return {
 // RESULT PRINT INTRO
 // ═══════════════════════════════════════════════════════════════
 function ResultPrintIntro({ T, mobile, layout, resultFrame }) {
-  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const duration = prefersReducedMotion ? 400 : 1600;
 
   return (
@@ -711,11 +714,16 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
   const [qrShare, setQrShare] = React.useState(null);
   const [qrBusy, setQrBusy] = React.useState(false);
+  const [showMoreActions, setShowMoreActions] = React.useState(false);
+  const [toasts, setToasts] = React.useState([]);
   const [showPrintIntro, setShowPrintIntro] = React.useState(true);
   const autoSavedRef = React.useRef(false);
 
   React.useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = prefersReducedMotion ? 600 : 1850;
     const timer = setTimeout(() => setShowPrintIntro(false), duration);
     return () => clearTimeout(timer);
