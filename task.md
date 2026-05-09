@@ -680,6 +680,23 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 
 ---
 
+## Result Actions Menu Polish (Phase 3.11)
+- [x] Main Result actions simplified to Save / Share / More
+- [x] Redecorate moved into More menu
+- [x] Retake moved into More menu
+- [x] New Session added to More menu
+- [x] QR Share remains disabled as Preparing
+- [x] Save Video remains disabled as Preparing
+- [x] Retake routes to setup
+- [x] New Session routes to landing
+- [x] Storage clear remains prohibited
+- [ ] Desktop Result actions visual QA complete
+- [ ] Mobile Result actions visual QA complete
+- [ ] Samsung Internet More menu QA complete
+- [ ] iOS Safari More menu QA complete
+
+---
+
 ## Result Preview + Deco Strip Fit Tuning (Phase 3.10)
 - [x] Desktop Result strip preview enlarged by ~1.2x
 - [x] Result preview source remains resultPreviewSrc

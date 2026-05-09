@@ -1383,22 +1383,26 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
               </button>
               
               {/* More / Overflow Toggle */}
-              <button onClick={() => setShowMoreActions(!showMoreActions)} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: showMoreActions ? T.line : 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-              </button>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setShowMoreActions(!showMoreActions)} style={{ width: 52, height: 52, borderRadius: 14, border: `1.5px solid ${T.line}`, background: showMoreActions ? T.line : 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 12h.01M12 5h.01M12 19h.01"/></svg>
+                </button>
 
-              {/* More Actions Menu (Mobile Overlay) */}
-              {showMoreActions && (
-                <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', right: 18, width: 160, background: '#fff', borderRadius: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', padding: '6px', zIndex: 10, animation: 'popIn 0.2s ease-out' }}>
-                  <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Redecorate</button>
-                  <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Retake</button>
-                  <div style={{ height: 1, background: T.line, margin: '4px 8px' }} />
-                  <button disabled style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'not-allowed', opacity: 0.6 }}>QR Share <span style={{fontSize:10, opacity:0.6}}>(Preparing)</span></button>
-                  {videoSupported && (
-                    <button disabled style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'not-allowed', opacity: 0.6 }}>Save Video <span style={{fontSize:10, opacity:0.6}}>(Preparing)</span></button>
-                  )}
-                </div>
-              )}
+                {/* More Actions Menu (Mobile Overlay) */}
+                {showMoreActions && (
+                  <>
+                    <div onClick={() => setShowMoreActions(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'transparent' }} />
+                    <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', right: 0, width: 180, background: '#fff', borderRadius: 18, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', padding: '6px', zIndex: 10000, animation: 'popIn 0.2s ease-out' }}>
+                      <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Redecorate</button>
+                      <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Retake</button>
+                      <button onClick={() => { setShowMoreActions(false); go('landing'); }} style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>New Session</button>
+                      <div style={{ height: 1, background: T.line, margin: '4px 8px' }} />
+                      <button disabled style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'not-allowed', opacity: 0.6 }}>QR Share <span style={{fontSize:10, opacity:0.6}}>(Preparing)</span></button>
+                      <button disabled style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 13, fontWeight: 500, cursor: 'not-allowed', opacity: 0.6 }}>Save Video <span style={{fontSize:10, opacity:0.6}}>(Preparing)</span></button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1435,21 +1439,26 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         </button>
         
         {/* More Toggle (Desktop) */}
-        <button onClick={() => setShowMoreActions(!showMoreActions)} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: showMoreActions ? T.line : 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setShowMoreActions(!showMoreActions)} style={{ width: 56, height: 56, borderRadius: 16, border: `1.5px solid ${T.line}`, background: showMoreActions ? T.line : 'transparent', color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 12h.01M12 5h.01M12 19h.01"/></svg>
+          </button>
 
-        {showMoreActions && (
-          <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', right: 'calc(50% - 150px)', width: 220, background: '#fff', borderRadius: 18, boxShadow: '0 16px 48px rgba(0,0,0,0.2)', padding: '8px', zIndex: 10, animation: 'popIn 0.2s ease-out' }}>
-            <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
-            <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
-            <div style={{ height: 1, background: T.line, margin: '6px 10px' }} />
-            <button disabled style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'not-allowed', opacity: 0.6 }}>QR Share <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
-            {videoSupported && (
-              <button disabled style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'not-allowed', opacity: 0.6 }}>Save Video <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
-            )}
-          </div>
-        )}
+          {/* More Actions Menu (Desktop Overlay) */}
+          {showMoreActions && (
+            <>
+              <div onClick={() => setShowMoreActions(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'transparent' }} />
+              <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', right: 0, width: 200, background: '#fff', borderRadius: 20, boxShadow: '0 15px 50px rgba(0,0,0,0.2)', padding: '8px', zIndex: 10000, animation: 'popIn 0.2s ease-out' }}>
+                <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
+                <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
+                <button onClick={() => { setShowMoreActions(false); go('landing'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>New Session</button>
+                <div style={{ height: 1, background: T.line, margin: '6px 10px' }} />
+                <button disabled style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'not-allowed', opacity: 0.6 }}>QR Share <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
+                <button disabled style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'not-allowed', opacity: 0.6 }}>Save Video <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>);
 

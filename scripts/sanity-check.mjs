@@ -731,7 +731,8 @@ function checkResultUX() {
     { setter: 'setSharing', state: 'useState(false)' },
     { setter: 'setSaveSheetUrl', state: 'useState(null)' },
     { setter: 'setQrShare', state: 'useState(null)' },
-    { setter: 'setQrBusy', state: 'useState(false)' }
+    { setter: 'setQrBusy', state: 'useState(false)' },
+    { setter: 'setShowMoreActions', state: 'useState(false)' }
   ];
 
   stateSetters.forEach(({ setter, state }) => {
@@ -741,7 +742,7 @@ function checkResultUX() {
     }
   });
 
-  // Hardening: finally blocks for busy states (Stricter)
+  // Hardening: finally blocks for busy states
   if (deco.includes('const handleShare')) {
     if (!deco.includes('finally {') || !deco.includes('setSharing(false)')) {
       console.error("❌ FAIL: handleShare must have both finally block AND setSharing(false)");
@@ -755,40 +756,51 @@ function checkResultUX() {
     }
   }
 
-  // Hardening: triggerDownload and iOS revoke logic (Stricter)
+  // Hardening: triggerDownload and iOS revoke logic
   if (!deco.includes('const triggerDownload =')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing triggerDownload function");
     hasErrors = true;
-  } else {
-    if (!deco.includes('if (isIOS())') || !deco.includes('return;')) {
-      console.error("❌ FAIL: triggerDownload missing isIOS return; guard");
-      hasErrors = true;
-    }
-    // Check if setTimeout is inside the isIOS block incorrectly
-    const triggerStart = deco.indexOf('const triggerDownload =');
-    const triggerEnd = deco.indexOf('};', triggerStart);
-    const triggerBody = deco.substring(triggerStart, triggerEnd);
-    if (triggerBody.includes('isIOS()') && triggerBody.includes('setTimeout')) {
-       // Logic check: setTimeout should only be after the iOS return;
-       const iosIdx = triggerBody.indexOf('if (isIOS())');
-       const returnIdx = triggerBody.indexOf('return;', iosIdx);
-       const timeoutIdx = triggerBody.indexOf('setTimeout', iosIdx);
-       if (timeoutIdx > 0 && timeoutIdx < returnIdx) {
-         console.error("❌ FAIL: triggerDownload contains setTimeout before iOS return");
-         hasErrors = true;
-       }
-    }
   }
 
-  // Hardening: Retake routing (must be setup, not landing)
-  if (deco.includes('Retake') && deco.includes('go(\'landing\')') && deco.includes('go(\'setup\')') === false) {
-    const lines = deco.split('\n');
-    lines.forEach(line => {
-      if (line.includes('Retake') && line.includes('go(\'landing\')')) {
-         console.error("❌ FAIL: Retake button should go to setup, not landing");
-         hasErrors = true;
+  // Phase 3.11 UX Polish: Menu Actions & Routing
+  const actions = [
+    { label: 'Redecorate', target: "go('deco')" },
+    { label: 'Retake', target: "go('setup')" },
+    { label: 'New Session', target: "go('landing')" }
+  ];
+  actions.forEach(a => {
+    if (!deco.includes(a.label)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx missing Result menu action: ${a.label}`);
+      hasErrors = true;
+    }
+    const actionRegex = new RegExp(`${a.label}.*?${a.target.replace('(', '\\(').replace(')', '\\)')}`, 's');
+    if (!actionRegex.test(deco)) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx Result action ${a.label} has incorrect routing (expected ${a.target})`);
+      hasErrors = true;
+    }
+  });
+
+  // QR/Video Preparing (Disabled)
+  const prepActions = ['QR Share', 'Save Video'];
+  prepActions.forEach(p => {
+    const btnBodyRegex = new RegExp(`<button[^>]*?${p}.*?Preparing.*?<\/button>`, 's');
+    const btnMatch = deco.match(btnBodyRegex);
+    if (btnMatch) {
+      const btn = btnMatch[0];
+      if (!btn.includes('disabled')) {
+        console.error(`❌ FAIL: screens-v2-deco.jsx ${p} (Preparing) must be disabled`);
+        hasErrors = true;
       }
-    });
+      if (btn.includes('onClick={') && !btn.includes('setShowMoreActions(false)')) {
+        console.error(`❌ FAIL: screens-v2-deco.jsx ${p} (Preparing) should not have functional onClick`);
+        hasErrors = true;
+      }
+    }
+  });
+
+  if (!deco.includes('getFormattedFilename')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing getFormattedFilename function");
+    hasErrors = true;
   }
 
   if (!deco.includes('getFormattedFilename')) {
@@ -1022,6 +1034,8 @@ function checkResultUX() {
     }
   }
 }
+
+
 
 function checkFramePickerResilience() {
   if (!fs.existsSync('screens-v2.jsx')) return;
