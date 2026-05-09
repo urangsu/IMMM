@@ -104,6 +104,7 @@ function App() {
     console.info('[IMMM build]', {
       version: window.IMMM_APP_VERSION,
       label: window.IMMM_BUILD_LABEL,
+      commit: window.IMMM_COMMIT,
       stableBaseline: window.IMMM_STABLE_BASELINE,
     });
 
@@ -126,7 +127,8 @@ function App() {
         color: '#fff', fontSize: 10, fontWeight: 600, pointerEvents: 'none',
         fontFamily: 'monospace', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
       }}>
-        IMMM {window.IMMM_APP_VERSION?.split('-').pop()} · {window.IMMM_STABLE_BASELINE}
+        IMMM {window.IMMM_APP_VERSION} · {window.IMMM_COMMIT}
+        <div style={{ fontSize: 8, opacity: 0.8, marginTop: 2 }}>{window.IMMM_BUILD_LABEL}</div>
       </div>
     );
   };

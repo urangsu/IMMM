@@ -735,3 +735,21 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [x] dirty/untracked pgpt files checked
 - [x] sanity-check blocks repo-local pgpt files
 - [ ] Next agent run confirmed without Edited pgpt_daemon.py log
+
+---
+
+## RC Runtime Version + Cache Bust QA (Phase 3.14)
+- [x] IMMM_APP_VERSION updated to 2026-05-09-rc2
+- [x] IMMM_BUILD_LABEL updated to rc2-result-deco-actions-pgpt-stabilized
+- [x] IMMM_COMMIT updated to latest main commit
+- [x] BuildPill reflects runtime version
+- [x] Service worker CACHE_NAME bumped to immm-cache-v4-2026-05-09-rc2
+- [x] Old cache cleanup preserved
+- [x] Network-first code file policy preserved
+- [x] pgpt stray guard preserved
+- [ ] Desktop Chrome sees rc2 build
+- [ ] Samsung Internet sees rc2 build
+- [ ] iOS Safari sees rc2 build
+- [ ] Result preview verified on rc2
+- [ ] Deco 1x4 fit verified on rc2
+- [ ] More menu verified on rc2

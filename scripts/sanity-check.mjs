@@ -608,28 +608,32 @@ function checkRuntimeVersion() {
   const main = fs.readFileSync('main.jsx', 'utf8');
   const sw = fs.readFileSync('sw.js', 'utf8');
 
-  if (!html.includes('IMMM_APP_VERSION = \'2026-05-06-rc1\'')) {
+  if (!html.includes('IMMM_APP_VERSION = \'2026-05-09-rc2\'')) {
     console.error("❌ FAIL: index.html missing or incorrect IMMM_APP_VERSION");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_BUILD_LABEL = \'rc1-after-frame-theme-stabilization\'')) {
+  if (!html.includes('IMMM_BUILD_LABEL = \'rc2-result-deco-actions-pgpt-stabilized\'')) {
     console.error("❌ FAIL: index.html missing IMMM_BUILD_LABEL");
+    hasErrors = true;
+  }
+  if (!html.includes('IMMM_COMMIT = \'91bc1ba\'')) {
+    console.error("❌ FAIL: index.html missing or incorrect IMMM_COMMIT");
     hasErrors = true;
   }
   if (!html.includes('IMMM_STABLE_BASELINE = \'8b5e42c\'')) {
     console.error("❌ FAIL: index.html missing IMMM_STABLE_BASELINE");
     hasErrors = true;
   }
-  if (!main.includes('[IMMM build]') || !main.includes('stableBaseline: window.IMMM_STABLE_BASELINE')) {
-    console.error("❌ FAIL: main.jsx missing or incorrect [IMMM build] console log");
+  if (!main.includes('[IMMM build]') || !main.includes('stableBaseline: window.IMMM_STABLE_BASELINE') || !main.includes('commit: window.IMMM_COMMIT')) {
+    console.error("❌ FAIL: main.jsx missing or incorrect [IMMM build] console log (needs commit and stableBaseline)");
     hasErrors = true;
   }
   if (!main.includes('window.IMMM_DEBUG_CAMERA === true || window.IMMM_DEBUG_BUILD === true')) {
     console.error("❌ FAIL: main.jsx BuildPill missing correct debug condition");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v3-2026-05-06-rc1')) {
-    console.error("❌ FAIL: sw.js missing immm-cache-v3-2026-05-06-rc1");
+  if (!sw.includes('immm-cache-v4-2026-05-09-rc2')) {
+    console.error("❌ FAIL: sw.js missing immm-cache-v4-2026-05-09-rc2");
     hasErrors = true;
   }
   if (sw.includes('immm-cache-v1')) {
