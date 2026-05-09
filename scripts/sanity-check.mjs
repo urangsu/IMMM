@@ -780,6 +780,12 @@ function checkResultUX() {
     }
   });
 
+  // Result More Menu Touch Polish (Phase 3.12)
+  if (!deco.includes('width: 196') || !deco.includes("padding: '14px 16px'")) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Result More menu missing 196px width or 14px padding (touch UX risk)");
+    hasErrors = true;
+  }
+
   // QR/Video Preparing (Disabled)
   const prepActions = ['QR Share', 'Save Video'];
   prepActions.forEach(p => {
@@ -1035,7 +1041,22 @@ function checkResultUX() {
   }
 }
 
-
+function checkStrayFiles() {
+  const strayFiles = ['pgpt.mjs', 'pgpt_daemon.py'];
+  strayFiles.forEach(f => {
+    if (fs.existsSync(f)) {
+      console.error(`❌ FAIL: IMMM workspace contains stray file: ${f}`);
+      hasErrors = true;
+    }
+    try {
+      const gitFiles = execSync('git ls-files', { encoding: 'utf8' });
+      if (gitFiles.includes(f)) {
+        console.error(`❌ FAIL: IMMM workspace git tracks stray file: ${f}`);
+        hasErrors = true;
+      }
+    } catch (e) {}
+  });
+}
 
 function checkFramePickerResilience() {
   if (!fs.existsSync('screens-v2.jsx')) return;
@@ -1105,6 +1126,7 @@ checkTask();
 checkPhaseCCameraZoom();
 checkResultUX();
 checkFramePickerResilience();
+checkStrayFiles();
 
 if (hasErrors) {
   console.error('\n💥 Sanity check failed! DO NOT REMOVE GUARDS. FIX THE CODE.');

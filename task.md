@@ -707,3 +707,20 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Mobile Result visual QA complete
 - [ ] Deco 1x4 strip fit visually verified
 - [ ] Samsung Internet visual QA complete
+
+---
+
+## Result More Menu Touch Polish + Stray File Guard (Phase 3.12)
+- [x] More menu touch target preserved at 44px+
+- [x] More menu width increased to 196px for stability
+- [x] More menu backdrop close preserved
+- [x] Redecorate / Retake / New Session routing preserved
+- [x] QR Share remains disabled as Preparing
+- [x] Save Video remains disabled as Preparing
+- [x] pgpt.mjs checked and excluded via sanity-check
+- [x] pgpt_daemon.py checked and excluded via sanity-check
+- [x] Save/Share/export path untouched
+- [ ] Desktop More menu visual QA complete
+- [ ] Mobile More menu visual QA complete
+- [ ] Samsung Internet More menu QA complete
+- [ ] iOS Safari More menu QA complete
