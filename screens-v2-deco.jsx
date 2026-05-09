@@ -31,8 +31,8 @@ const zoomBtnStyle = {
 
 const getDecoFitMaxScale = (layout, mobile) => {
   if (!mobile) return 1.5;
-  if (layout === 'strip') return 0.62;
-  if (layout === 'trip') return 0.72;
+  if (layout === 'strip') return 0.55;
+  if (layout === 'trip') return 0.68;
   if (layout === 'grid') return 0.92;
   if (layout === 'polaroid') return 0.92;
   return 0.9;
@@ -673,8 +673,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const getResultPreviewFit = (layoutId, isMobile) => {
     const rules = {
-      strip: { maxScale: isMobile ? 1.2 : 1.7, padding: isMobile ? 16 : 40, vRatio: 0.82 },
-      trip: { maxScale: isMobile ? 1.1 : 1.5, padding: isMobile ? 24 : 48, vRatio: 0.78 },
+      strip: { maxScale: isMobile ? 1.2 : 2.04, padding: isMobile ? 16 : 40, vRatio: 0.82 },
+      trip: { maxScale: isMobile ? 1.1 : 1.65, padding: isMobile ? 24 : 48, vRatio: 0.78 },
       grid: { maxScale: isMobile ? 1.0 : 1.3, padding: isMobile ? 32 : 56, vRatio: 0.72 },
       polaroid: { maxScale: isMobile ? 1.0 : 1.25, padding: isMobile ? 40 : 64, vRatio: 0.68 },
       single: { maxScale: isMobile ? 1.0 : 1.25, padding: isMobile ? 40 : 64, vRatio: 0.68 },
@@ -773,14 +773,14 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
         {resultPreviewSrc ? (
           <img src={resultPreviewSrc} style={{ 
-            width: 200 * (layout==='strip'||layout==='trip'?1:1.2), 
+            width: (mobile ? 200 : 240) * (layout==='strip'||layout==='trip'?1:1.2), 
             height: 'auto', 
             display: 'block', 
             boxShadow: '0 30px 70px rgba(0,0,0,0.2)', 
             borderRadius: 4 
           }} alt="Result Preview" />
         ) : (
-          <div style={{ width: 180 * (layout==='strip'||layout==='trip'?1:1.2), aspectRatio: layout==='strip'||layout==='trip'?'1/4':'4/5', background:'rgba(255,255,255,0.1)', borderRadius:4 }} />
+          <div style={{ width: (mobile ? 200 : 240) * (layout==='strip'||layout==='trip'?1:1.2), aspectRatio: layout==='strip'||layout==='trip'?'1/4':'4/5', background:'rgba(255,255,255,0.1)', borderRadius:4 }} />
         )}
         
         {resultPreviewStatus === 'building' && (

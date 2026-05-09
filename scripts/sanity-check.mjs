@@ -979,12 +979,30 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx mobile Result container missing enlarged height");
     hasErrors = true;
   }
+  // Result Preview + Deco Strip Fit Tuning (Phase 3.10)
+  if (!deco.includes('width: (mobile ? 200 : 240)')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Result desktop base width must be 240");
+    hasErrors = true;
+  }
+  if (!deco.includes('strip: { maxScale: isMobile ? 1.2 : 2.04')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx getResultPreviewFit desktop strip maxScale must be 2.04");
+    hasErrors = true;
+  }
+  if (!deco.includes('if (layout === \'strip\') return 0.55;')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx getDecoFitMaxScale mobile strip must be 0.55");
+    hasErrors = true;
+  }
+  if (!deco.includes('if (layout === \'grid\') return 0.92;') || !deco.includes('if (layout === \'polaroid\') return 0.92;')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Deco grid/polaroid fit must be preserved (0.92)");
+    hasErrors = true;
+  }
+
   if (deco.includes('ResultPrintIntro') && (deco.includes('resultFrame=') || deco.includes('resultFrame:'))) {
     console.error("❌ FAIL: screens-v2-deco.jsx ResultPrintIntro still uses resultFrame (DOM risk)");
     hasErrors = true;
   }
   
-  // Single Source usage check (Phase 3.8/3.9)
+  // Single Source usage check (Phase 3.8/3.9/3.10)
   if (!deco.includes('exportBlobRef.current = { key: getExportKey(), blob }')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing asset caching for Save/Share");
     hasErrors = true;
@@ -998,8 +1016,8 @@ function checkResultUX() {
   const scaleMatch = deco.match(/layout === 'strip'.*?return (0\.\d+)/);
   if (scaleMatch) {
     const val = parseFloat(scaleMatch[1]);
-    if (val < 0.60 || val > 0.70) {
-      console.error(`❌ FAIL: screens-v2-deco.jsx mobile strip scale ${val} out of range [0.60, 0.70]`);
+    if (val < 0.50 || val > 0.60) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx mobile strip scale ${val} out of range [0.50, 0.60]`);
       hasErrors = true;
     }
   }

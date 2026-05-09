@@ -677,3 +677,16 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Result preview sizing visually verified on mobile
 - [ ] Samsung Internet visual QA complete
 - [ ] iOS Safari visual QA complete
+
+---
+
+## Result Preview + Deco Strip Fit Tuning (Phase 3.10)
+- [x] Desktop Result strip preview enlarged by ~1.2x
+- [x] Result preview source remains resultPreviewSrc
+- [x] Save/Share/export path untouched
+- [x] Deco Studio 1x4 strip initial fit reduced to minus-3 feel (0.55)
+- [x] Grid/Polaroid fit preserved (0.92)
+- [ ] Desktop Result visual QA complete
+- [ ] Mobile Result visual QA complete
+- [ ] Deco 1x4 strip fit visually verified
+- [ ] Samsung Internet visual QA complete
