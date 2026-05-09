@@ -1,1 +1,7 @@
 .DS_Store
+
+# Block agent stray files
+pgpt.mjs
+pgpt_daemon.py
+pgpt*.mjs
+pgpt*.py

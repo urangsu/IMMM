@@ -1048,14 +1048,20 @@ function checkStrayFiles() {
       console.error(`❌ FAIL: IMMM workspace contains stray file: ${f}`);
       hasErrors = true;
     }
-    try {
-      const gitFiles = execSync('git ls-files', { encoding: 'utf8' });
-      if (gitFiles.includes(f)) {
-        console.error(`❌ FAIL: IMMM workspace git tracks stray file: ${f}`);
-        hasErrors = true;
-      }
-    } catch (e) {}
   });
+
+  try {
+    const gitFiles = execSync('git ls-files', { encoding: 'utf8' });
+    if (gitFiles.includes('pgpt')) {
+      console.error(`❌ FAIL: IMMM workspace git tracks stray pgpt files`);
+      hasErrors = true;
+    }
+    const gitStatus = execSync('git status --porcelain', { encoding: 'utf8' });
+    if (gitStatus.includes('pgpt')) {
+      console.error(`❌ FAIL: IMMM workspace has dirty/untracked pgpt files:\n${gitStatus.split('\n').filter(l => l.includes('pgpt')).join('\n')}`);
+      hasErrors = true;
+    }
+  } catch (e) {}
 }
 
 function checkFramePickerResilience() {

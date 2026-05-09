@@ -695,7 +695,6 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet More menu QA complete
 - [ ] iOS Safari More menu QA complete
 
----
 
 ## Result Preview + Deco Strip Fit Tuning (Phase 3.10)
 - [x] Desktop Result strip preview enlarged by ~1.2x
@@ -724,3 +723,15 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Mobile More menu visual QA complete
 - [ ] Samsung Internet More menu QA complete
 - [ ] iOS Safari More menu QA complete
+
+---
+
+## PGPT Stray File Investigation (Phase 3.13)
+- [x] pgpt.mjs path checked
+- [x] pgpt_daemon.py path checked
+- [x] repo-local pgpt files checked
+- [x] parent-nearby pgpt files checked
+- [x] tracked pgpt files checked
+- [x] dirty/untracked pgpt files checked
+- [x] sanity-check blocks repo-local pgpt files
+- [ ] Next agent run confirmed without Edited pgpt_daemon.py log
