@@ -651,3 +651,29 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet real-device verified
 - [ ] iPhone Safari verified
 - [ ] Result preview matches saved file exactly
+
+---
+
+## Result Final Asset Offscreen Render Hotfix (Phase 3.9)
+- [x] buildFinalResultAsset no longer captures preview DOM
+- [x] renderFinalResultBlob added with offscreen canvas
+- [x] renderComposition used as final preview/save/share source
+- [x] ResultPrintIntro uses previewSrc instead of resultFrame
+- [x] captureRef is not used for final asset generation
+- [ ] Result preview verified on desktop web
+- [ ] Result preview verified on Samsung Internet
+- [ ] Saved file matches Result preview
+- [ ] Share file matches Result preview
+
+---
+
+## Result Preview Sizing Tuning (Phase 3.9)
+- [x] Result preview uses single-source final blob URL
+- [x] Result preview sizing separated from export/render path
+- [x] Result-specific fit helper implemented
+- [x] 1x4 strip preview enlarged for Result screen
+- [x] Local stray pgpt.mjs checked and removed if unrelated
+- [ ] Result preview sizing visually verified on desktop
+- [ ] Result preview sizing visually verified on mobile
+- [ ] Samsung Internet visual QA complete
+- [ ] iOS Safari visual QA complete

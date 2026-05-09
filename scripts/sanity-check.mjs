@@ -923,7 +923,7 @@ function checkResultUX() {
     hasErrors = true;
   }
 
-  // Result Preview Recovery checks (Phase 3.8 Single-Source Asset)
+  // Result Preview Recovery checks (Phase 3.9 Offscreen Render Hotfix)
   const resultStates = ['resultPreviewSrc', 'resultPreviewStatus', 'resultPreviewError'];
   resultStates.forEach(s => {
     if (!deco.includes(s)) {
@@ -931,20 +931,60 @@ function checkResultUX() {
       hasErrors = true;
     }
   });
-  if (!deco.includes('buildFinalResultAsset')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx missing buildFinalResultAsset helper");
+
+  if (!deco.includes('renderFinalResultBlob')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing renderFinalResultBlob offscreen helper");
     hasErrors = true;
   }
+  if (!deco.includes("document.createElement('canvas')") || !deco.includes("toBlob")) {
+    console.error("❌ FAIL: screens-v2-deco.jsx renderFinalResultBlob missing offscreen canvas/toBlob");
+    hasErrors = true;
+  }
+  
+  // Function-level containment checks for DOM capture risk
+  const finalAssetFunctions = ['getFinalResultBlob', 'handleDownload', 'handleShare', 'buildFinalResultAsset'];
+  finalAssetFunctions.forEach(fn => {
+    const fnRegex = new RegExp(`const ${fn} =.*?\\};|function ${fn}\\(.*?\\) \\{.*?\\}`, 's');
+    const match = deco.match(fnRegex);
+    if (match) {
+      const body = match[0];
+      if (body.includes('captureFrameAsBlob')) {
+        console.error(`❌ FAIL: screens-v2-deco.jsx function ${fn} contains captureFrameAsBlob`);
+        hasErrors = true;
+      }
+      if (body.includes('captureRef')) {
+        console.error(`❌ FAIL: screens-v2-deco.jsx function ${fn} contains captureRef`);
+        hasErrors = true;
+      }
+    } else {
+      console.error(`❌ FAIL: screens-v2-deco.jsx missing required function: ${fn}`);
+      hasErrors = true;
+    }
+  });
+
   if (!deco.includes('<img src={resultPreviewSrc}') && !deco.includes('src={resultPreviewSrc}')) {
     console.error("❌ FAIL: screens-v2-deco.jsx Result preview not using <img> with resultPreviewSrc");
     hasErrors = true;
   }
-  if (!deco.includes('setShowPrintIntro(true)') || !deco.includes('setResultPreviewStatus(\'ready\')')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx missing intro trigger after asset readiness");
+  // Result Preview Sizing Tuning (Phase 3.9)
+  if (!deco.includes('getResultPreviewFit')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing getResultPreviewFit helper");
+    hasErrors = true;
+  }
+  if (!deco.includes('compute = () => {') || !deco.includes('const fit = getResultPreviewFit')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx compute function not using getResultPreviewFit");
+    hasErrors = true;
+  }
+  if (!deco.includes('minHeight: \'min(500px, 65vh)\'')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx mobile Result container missing enlarged height");
+    hasErrors = true;
+  }
+  if (deco.includes('ResultPrintIntro') && (deco.includes('resultFrame=') || deco.includes('resultFrame:'))) {
+    console.error("❌ FAIL: screens-v2-deco.jsx ResultPrintIntro still uses resultFrame (DOM risk)");
     hasErrors = true;
   }
   
-  // Single Source usage check
+  // Single Source usage check (Phase 3.8/3.9)
   if (!deco.includes('exportBlobRef.current = { key: getExportKey(), blob }')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing asset caching for Save/Share");
     hasErrors = true;

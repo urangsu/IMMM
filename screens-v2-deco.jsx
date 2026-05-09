@@ -589,7 +589,7 @@ function chipBtn(T) {return {
 // ═══════════════════════════════════════════════════════════════
 // RESULT PRINT INTRO
 // ═══════════════════════════════════════════════════════════════
-function ResultPrintIntro({ T, mobile, layout, resultFrame }) {
+function ResultPrintIntro({ T, mobile, layout, previewSrc }) {
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
@@ -647,7 +647,15 @@ function ResultPrintIntro({ T, mobile, layout, resultFrame }) {
             transform: prefersReducedMotion ? 'none' : 'translateY(-88%)',
             display: 'flex', justifyContent: 'center'
           }}>
-            {resultFrame(0.85)}
+            <img src={previewSrc} style={{ 
+              transform: 'scale(0.85)', 
+              transformOrigin: 'top center', 
+              width: 180 * (layout==='strip'||layout==='trip'?1:1.2), 
+              height: 'auto', 
+              display: 'block',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)', 
+              borderRadius: 4 
+            }} alt="Printing..." />
           </div>
         </div>
       </div>
@@ -662,6 +670,17 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const shotCount = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(layout)
     : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
+
+  const getResultPreviewFit = (layoutId, isMobile) => {
+    const rules = {
+      strip: { maxScale: isMobile ? 1.2 : 1.7, padding: isMobile ? 16 : 40, vRatio: 0.82 },
+      trip: { maxScale: isMobile ? 1.1 : 1.5, padding: isMobile ? 24 : 48, vRatio: 0.78 },
+      grid: { maxScale: isMobile ? 1.0 : 1.3, padding: isMobile ? 32 : 56, vRatio: 0.72 },
+      polaroid: { maxScale: isMobile ? 1.0 : 1.25, padding: isMobile ? 40 : 64, vRatio: 0.68 },
+      single: { maxScale: isMobile ? 1.0 : 1.25, padding: isMobile ? 40 : 64, vRatio: 0.68 },
+    };
+    return rules[layoutId] || rules.grid;
+  };
   const shotsForFrame = shots;
   const freeStickers = stickers.filter((s) => s.frameSlot == null);
   const slottedMap = {};
@@ -676,13 +695,48 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [resultPreviewStatus, setResultPreviewStatus] = React.useState('idle'); // idle | building | ready | error
   const [resultPreviewError, setResultPreviewError] = React.useState('');
 
+  async function renderFinalResultBlob() {
+    const resolveTpl = (l) => {
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
+      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
+      return null;
+    };
+    const template = resolveTpl(layout);
+    if (!template) throw new Error('Frame template unavailable');
+
+    const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+    if (!renderComp) throw new Error('renderComposition function missing');
+
+    if (!shots || shots.length === 0) throw new Error('No shots available');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = template.canvasSize.width;
+    canvas.height = template.canvasSize.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to get context');
+
+    const data = {
+      layout, shots, selected, filter, frameColor,
+      stickers, drawStrokes, logo, dateText, accent, orientation
+    };
+
+    await renderComp(ctx, data, { scale: 1 });
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Canvas toBlob failed'));
+      }, 'image/png', 1);
+    });
+  }
+
   const buildFinalResultAsset = async () => {
     if (resultPreviewStatus === 'building') return;
     setResultPreviewStatus('building');
     setResultPreviewError('');
     try {
-      // 1. Generate high-quality blob using the existing export logic
-      const blob = await captureFrameAsBlob();
+      // 1. Generate high-quality blob using direct offscreen render
+      const blob = await renderFinalResultBlob();
       if (!blob) throw new Error('결과물을 생성하지 못했습니다');
       
       // 2. Create local URL for preview <img>
@@ -715,10 +769,16 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   }, [resultPreviewSrc]);
 
   const resultFrame = (scale) => (
-    <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative' }}>
+    <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative', transition: 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
         {resultPreviewSrc ? (
-          <img src={resultPreviewSrc} style={{ width: 180 * (layout==='strip'||layout==='trip'?1:1.2), height: 'auto', display: 'block', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} alt="Result Preview" />
+          <img src={resultPreviewSrc} style={{ 
+            width: 200 * (layout==='strip'||layout==='trip'?1:1.2), 
+            height: 'auto', 
+            display: 'block', 
+            boxShadow: '0 30px 70px rgba(0,0,0,0.2)', 
+            borderRadius: 4 
+          }} alt="Result Preview" />
         ) : (
           <div style={{ width: 180 * (layout==='strip'||layout==='trip'?1:1.2), aspectRatio: layout==='strip'||layout==='trip'?'1/4':'4/5', background:'rgba(255,255,255,0.1)', borderRadius:4 }} />
         )}
@@ -951,42 +1011,12 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     ctx.restore();
   };
 
-  const captureFrameAsBlob = async () => {
-    // ── Frame Export Quality Policy ──────────────────────────────────────────
-    // Desktop: scale 4.0 (Very High Quality)
-    // Mobile: scale 3.0 (High Quality)
-    // Memory Fallback: scale 2.0 (Standard Quality)
-    // ──────────────────────────────────────────────────────────────────────────
-    const targetScale = mobile ? 3 : 4;
-    
-    const runExport = async (s) => {
-      const engine = window.FrameRenderEngine || (typeof FrameRenderEngine !== 'undefined' ? FrameRenderEngine : null);
-      if (!engine) return null;
-      if (document.fonts) await document.fonts.ready;
-      return engine.renderToBlob({
-        layout, shots, selected, stickers, drawStrokes,
-        logo, dateText, accent, frameColor,
-        scale: s
-      });
-    };
-
-    try {
-      const blob = await runExport(targetScale);
-      if (blob) return blob;
-      throw new Error('Null blob');
-    } catch (e) {
-      console.warn(`[IMMM] Export at scale ${targetScale} failed, falling back to 2.0`, e);
-      return runExport(2);
-    }
-  };
-
-  const getExportBlob = async () => {
+  const getFinalResultBlob = async () => {
     const key = getExportKey();
-    if (exportBlobRef.current.key === key && exportBlobRef.current.blob) {
+    if (exportBlobRef.current?.key === key && exportBlobRef.current?.blob) {
       return exportBlobRef.current.blob;
     }
-    const blob = await captureFrameAsBlob();
-    if (!blob) throw new Error('Export failed');
+    const blob = await renderFinalResultBlob();
     exportBlobRef.current = { key, blob };
     return blob;
   };
@@ -1000,7 +1030,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const blob = await getExportBlob();
+        const blob = await getFinalResultBlob();
         if (!cancelled && blob) {
           await saveResultToGallery(blob, 'local');
           localStorage.setItem(key, '1');
@@ -1041,7 +1071,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     if (downloading) return;
     setDownloading(true);
     try {
-      const blob = await getExportBlob();
+      const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();
       await saveResultToGallery(blob, 'local');
       triggerDownload(blob, fname);
@@ -1057,7 +1087,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     if (sharing) return;
     setSharing(true);
     try {
-      const blob = await getExportBlob();
+      const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();
       const file = new File([blob], fname, { type: 'image/png' });
       await saveResultToGallery(blob, 'local');
@@ -1244,14 +1274,16 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   React.useEffect(() => {
     const compute = () => {
       if (!containerRef.current || !frameRef.current) return;
-      const cW = containerRef.current.clientWidth - 32;
-      const cH = containerRef.current.clientHeight - 32;
+      const fit = getResultPreviewFit(layout, mobile);
+      const cW = containerRef.current.clientWidth - fit.padding;
+      const cH = containerRef.current.clientHeight - fit.padding;
+      
       const fW = frameRef.current.scrollWidth;
       const fH = frameRef.current.scrollHeight;
       if (!fW || !fH) return;
-      const maxS = mobile ? 1.0 : 1.3;
-      const s = Math.min(maxS, cW / fW, cH / fH);
-      setAutoScale(Math.max(0.2, s));
+      
+      const s = Math.min(fit.maxScale, cW / fW, cH / fH);
+      setAutoScale(Math.max(0.1, s));
     };
     compute();
     const ro = new ResizeObserver(compute);
@@ -1305,7 +1337,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   );
 
   if (showPrintIntro) {
-    return <ResultPrintIntro T={T} mobile={mobile} layout={layout} resultFrame={resultFrame} />;
+    return <ResultPrintIntro T={T} mobile={mobile} layout={layout} previewSrc={resultPreviewSrc} />;
   }
 
   if (mobile) {
@@ -1335,7 +1367,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
             <div style={{ marginTop: 4, color: T.inkSoft, fontSize: 13, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.</div>
           </div>
           {/* Frame centered */}
-          <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 18px' }}>
+          <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 18px', minHeight: 'min(500px, 65vh)' }}>
             <div ref={frameRef} style={{ display: 'inline-block', animation: 'polaroidReveal 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }}>
               {resultFrame(1)}
             </div>
