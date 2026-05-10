@@ -1522,6 +1522,27 @@ function checkStickerPreload() {
       console.error("❌ FAIL: drawStickerToCtx missing preload existence check (uploadImages?.has)");
       hasErrors = true;
   }
+
+  const perfRequirements = [
+    'isExportPerfDebugEnabled',
+    'logExportPerf',
+    'nowMs',
+    '[IMMM export perf]',
+    'sticker-preload',
+    'render-total'
+  ];
+
+  perfRequirements.forEach(req => {
+    if (!fsys.includes(req)) {
+      console.error(`❌ FAIL: frame-system.jsx missing export perf requirement: ${req}`);
+      hasErrors = true;
+    }
+  });
+
+  if (!fsys.includes('if (isExportPerfDebugEnabled())') || !fsys.includes('sticker preload failed')) {
+      console.error("❌ FAIL: frame-system.jsx sticker preload failure warning not wrapped in debug check");
+      hasErrors = true;
+  }
 }
 
 checkStrayFiles();

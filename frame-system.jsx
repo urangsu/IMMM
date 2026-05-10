@@ -2,6 +2,12 @@
 
 function revokeBlobUrl(url) { if (typeof url === "string" && url.startsWith("blob:")) { try { URL.revokeObjectURL(url); } catch (e) {} } }
 
+function isExportPerfDebugEnabled() {
+  try { return Boolean(window?.IMMM_DEBUG_PERF || window?.IMMM_DEBUG_BUILD); } catch { return false; }
+}
+function nowMs() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
+function logExportPerf(label, data) { if (isExportPerfDebugEnabled()) console.info?.('[IMMM export perf]', label, data); }
+
 const FRAME_TEMPLATE_ALIASES = {
   strip: '1x4',
   grid: '2x2',
@@ -211,7 +217,9 @@ async function preloadStickerImages(stickers = []) {
       try {
         return [src, await loadImageForCanvas(src)];
       } catch (err) {
-        console.warn?.('[IMMM export] sticker preload failed:', src, err);
+        if (isExportPerfDebugEnabled()) {
+          console.warn?.('[IMMM export] sticker preload failed:', src, err);
+        }
         return [src, null];
       }
     })
@@ -466,9 +474,10 @@ function isStickerValidForLayout(sticker, layout) {
 }
 
 async function renderComposition(ctx, data, options = {}) {
+  const tStart = nowMs();
   const template = getFrameTemplateSafe(data.layout || data.templateType);
   if (!template) {
-    throw new Error('[IMMM] frame template unavailable');
+    throw new Error('[IMMM frame template unavailable]');
   }
   const scale = options.scale || 1;
   const w = template.canvasSize.width * scale;
@@ -481,18 +490,23 @@ async function renderComposition(ctx, data, options = {}) {
   ctx.fillRect(0, 0, w, h);
 
   // 1b. Preload Stickers (parallel)
+  const tPreloadStart = nowMs();
   const stickerAssets = {
     uploadImages: await preloadStickerImages(data.stickers || []),
   };
+  logExportPerf('sticker-preload', { ms: nowMs() - tPreloadStart, count: stickerAssets.uploadImages.size });
 
   // 2. Photo Slots
   const selected = data.selected || [];
   const shots = data.shots || [];
+  const tPhotoStart = nowMs();
   const images = await Promise.all(template.photoSlots.map((_, i) => {
     const shot = shots[selected[i]];
     return loadImageForCanvas(shot?.dataUrl);
   }));
+  logExportPerf('photo-slots', { ms: nowMs() - tPhotoStart, count: images.length });
 
+  const tStickerDrawStart = nowMs();
   for (let i = 0; i < template.photoSlots.length; i++) {
     const slot = template.photoSlots[i];
     const sx = slot.x * scale;
@@ -530,6 +544,8 @@ async function renderComposition(ctx, data, options = {}) {
   for (const s of freeStickers) {
     await drawStickerToCtx(ctx, s, w, h, scale, stickerAssets);
   }
+  logExportPerf('sticker-draw', { ms: nowMs() - tStickerDrawStart });
+  logExportPerf('render-total', { ms: nowMs() - tStart });
 
   // 4. Drawing Strokes
   const drawStrokes = data.drawStrokes || [];

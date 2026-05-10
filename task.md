@@ -1058,3 +1058,26 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Export smoke test with broken upload sticker completed
 - [ ] Export smoke test with 5+ upload stickers completed
 - [ ] Samsung Internet export smoke test completed
+
+## Sticker Export Smoke QA + Perf Timing (Phase 3.38)
+- [x] Export perf debug helper added
+- [x] renderComposition total timing available in debug mode
+- [x] sticker preload timing available in debug mode
+- [x] photo slot timing available in debug mode
+- [x] sticker draw timing available in debug mode
+- [x] preload failure warning limited to debug/perf mode
+- [x] render/export/save/share callers untouched
+- [x] pgpt stray guard preserved
+- [ ] Broken upload sticker export smoke test completed
+- [ ] 5+ upload sticker export timing recorded
+- [ ] Samsung Internet export smoke test completed
+
+QA steps:
+1. Enable `window.IMMM_DEBUG_PERF = true`
+2. Create 1×4 frame
+3. Add 5+ upload stickers
+4. Export/save result
+5. Confirm `[IMMM export perf]` logs show total, preload, photo slots, sticker draw timings
+6. Add one broken/invalid upload sticker if possible
+7. Confirm export still completes
+8. Confirm failed sticker is skipped without breaking the image
