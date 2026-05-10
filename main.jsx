@@ -105,7 +105,9 @@ function App() {
       version: window.IMMM_APP_VERSION,
       label: window.IMMM_BUILD_LABEL,
       commit: window.IMMM_COMMIT,
+      rcBaseline: window.IMMM_RC_BASELINE,
       stableBaseline: window.IMMM_STABLE_BASELINE,
+      cacheName: 'immm-cache-v4-2026-05-09-rc2'
     });
 
     const tick = () => {
@@ -127,7 +129,7 @@ function App() {
         color: '#fff', fontSize: 10, fontWeight: 600, pointerEvents: 'none',
         fontFamily: 'monospace', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
       }}>
-        IMMM {window.IMMM_APP_VERSION} · {window.IMMM_COMMIT}
+        IMMM {window.IMMM_APP_VERSION} · {window.IMMM_RC_BASELINE}
         <div style={{ fontSize: 8, opacity: 0.8, marginTop: 2 }}>{window.IMMM_BUILD_LABEL}</div>
       </div>
     );

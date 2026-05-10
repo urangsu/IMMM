@@ -6,16 +6,16 @@ const { useState, useEffect, useRef, useMemo, useCallback } = React;
 // Design tokens
 // ═══════════════════════════════════════════════════════════════
 const TOKENS = {
-  A: { // Monochrome Editorial (Life Plus inspired)
-    bg: '#FFFFFF',
-    bgAlt: '#F5F5F5',
+  A: { // Warm Ivory (Premium UI Refresh)
+    bg: '#FDFCF8',
+    bgAlt: '#F7F3EA',
     card: '#FFFFFF',
-    ink: '#0A0A0A',
-    inkSoft: '#888888',
-    line: 'rgba(10,10,10,0.1)',
-    pink: '#E8E8E8',
-    pinkDeep: '#0A0A0A',
-    accent: '#0A0A0A',
+    ink: '#111111',
+    inkSoft: '#8B837A',
+    line: '#E8E1D7',
+    softSurface: '#FAF8F3',
+    placeholderFill: '#EFEDEA',
+    accent: '#111111',
   },
   B: { // Monochrome with subtle warm
     bg: '#FAFAF8',

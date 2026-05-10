@@ -753,3 +753,19 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Result preview verified on rc2
 - [ ] Deco 1x4 fit verified on rc2
 - [ ] More menu verified on rc2
+
+---
+
+## Setup Warm Ivory Background + Frame Contrast QA (Phase 3.16)
+- [x] Setup page background changed to #FDFCF8
+- [x] Live preview stage contrast improved
+- [x] Frame picker card border contrast improved
+- [x] Selected frame card contrast preserved
+- [x] Frame options panel contrast improved
+- [x] Frame render/export logic untouched
+- [x] pgpt stray guard preserved
+- [ ] Desktop Chrome visual QA complete
+- [ ] Samsung Internet visual QA complete
+- [ ] iOS Safari visual QA complete
+- [ ] White frame visibility verified
+- [ ] Colored frame visibility verified

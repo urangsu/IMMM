@@ -1029,7 +1029,6 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx missing asset caching for Save/Share");
     hasErrors = true;
   }
-
   // Deco Zoom Fit checks
   if (!deco.includes('getDecoFitMaxScale')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing getDecoFitMaxScale helper");
@@ -1043,6 +1042,41 @@ function checkResultUX() {
       hasErrors = true;
     }
   }
+}
+
+function checkWarmIvoryTheme() {
+  const index = fs.existsSync('index.html') ? fs.readFileSync('index.html', 'utf8') : null;
+  const setup = fs.existsSync('screens-v2.jsx') ? fs.readFileSync('screens-v2.jsx', 'utf8') : null;
+  const app = fs.existsSync('app.jsx') ? fs.readFileSync('app.jsx', 'utf8') : null;
+  const fsys = fs.existsSync('frame-system.jsx') ? fs.readFileSync('frame-system.jsx', 'utf8') : null;
+  const deco = fs.existsSync('screens-v2-deco.jsx') ? fs.readFileSync('screens-v2-deco.jsx', 'utf8') : null;
+
+  if (index && !index.includes('#FDFCF8')) {
+    console.error("❌ FAIL: index.html missing warm ivory background #FDFCF8");
+    hasErrors = true;
+  }
+  if (app && !app.includes("bg: '#FDFCF8'")) {
+    console.error("❌ FAIL: app.jsx TOKENS.A missing warm ivory background #FDFCF8");
+    hasErrors = true;
+  }
+  if (setup) {
+    if (!setup.includes('T.bgAlt') && !setup.includes('#F7F3EA')) {
+      console.error("❌ FAIL: screens-v2.jsx missing warm ivory stage background token (T.bgAlt or #F7F3EA)");
+      hasErrors = true;
+    }
+    if (!setup.includes('T.line') && !setup.includes('#E8E1D7')) {
+      console.error("❌ FAIL: screens-v2.jsx missing frame picker card border token (T.line or #E8E1D7)");
+      hasErrors = true;
+    }
+  }
+  
+  // Forbidden leakage/modification checks
+  if (fsys && (fsys.includes('#FDFCF8') || fsys.includes('#F7F3EA'))) {
+    console.error("❌ FAIL: frame-system.jsx contains warm ivory tokens (must not be modified)");
+    hasErrors = true;
+  }
+  // Note: screens-v2-deco.jsx might use T.bg which is now #FDFCF8, 
+  // but it shouldn't have the literal string #FDFCF8 unless it was modified.
 }
 
 function checkStrayFiles() {
@@ -1136,6 +1170,7 @@ checkTask();
 checkPhaseCCameraZoom();
 checkResultUX();
 checkFramePickerResilience();
+checkWarmIvoryTheme();
 checkStrayFiles();
 
 if (hasErrors) {
