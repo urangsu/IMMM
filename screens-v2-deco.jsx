@@ -697,11 +697,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const getResultDisplayFit = (layoutId, isMobile) => {
     if (layoutId === 'strip') {
       return {
-        minScale: isMobile ? 0.78 : 0.65,
+        minScale: isMobile ? 0.75 : 0.62,
         maxScale: isMobile ? 1.25 : 1.35,
-        targetHeightVh: isMobile ? 54 : 58,
-        maxHeightPx: isMobile ? 620 : 700,
-        minHeightPx: isMobile ? 440 : 520,
+        targetHeightVh: isMobile ? 48 : 52,
+        maxHeightPx: isMobile ? 580 : 640,
+        minHeightPx: isMobile ? 400 : 460,
       };
     }
 
@@ -709,9 +709,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       return {
         minScale: isMobile ? 0.82 : 0.72,
         maxScale: isMobile ? 1.25 : 1.35,
-        targetHeightVh: isMobile ? 50 : 54,
-        maxHeightPx: isMobile ? 580 : 660,
-        minHeightPx: isMobile ? 400 : 480,
+        targetHeightVh: isMobile ? 46 : 50,
+        maxHeightPx: isMobile ? 560 : 620,
+        minHeightPx: isMobile ? 380 : 440,
       };
     }
 
@@ -726,10 +726,10 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const resultStageMinHeight = (() => {
     if (layout === 'strip') {
-      return mobile ? 'clamp(440px, 50vh, 600px)' : 'clamp(520px, 58vh, 700px)';
+      return mobile ? 'clamp(400px, 46vh, 560px)' : 'clamp(460px, 52vh, 640px)';
     }
     if (layout === 'trip') {
-      return mobile ? 'clamp(400px, 46vh, 580px)' : 'clamp(480px, 54vh, 660px)';
+      return mobile ? 'clamp(380px, 44vh, 540px)' : 'clamp(440px, 50vh, 600px)';
     }
     return mobile ? 'clamp(360px, 46vh, 520px)' : 'clamp(460px, 52vh, 660px)';
   })();
@@ -1477,26 +1477,27 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   }
 
   return (
-    <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column',
-      padding: '16px 56px 12px' }}>
+    <div style={{ height: '100%', minHeight: '100dvh', background: T.bg, display: 'grid',
+      gridTemplateRows: 'auto auto minmax(0, 1fr) auto',
+      padding: '10px 56px 8px' }}>
       {resultOverlays}
       <TopBar step={4} back={() => go('deco')} T={T} mobile={false} title="Step 5 · Your strip"
       right={<button onClick={() => go('landing')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 12, fontFamily: 'Pretendard,system-ui' }}>New session</button>} />
-      <div style={{ textAlign: 'center', marginBottom: 12 }}>
-        <h1 style={{ margin: 0, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 44, fontWeight: 500, letterSpacing: -1.2 }}>
-          Your <span style={{ fontFamily: 'Caveat,cursive', color: T.pinkDeep, fontSize: 56 }}>moment</span> is ready.
+      <div style={{ textAlign: 'center', marginBottom: 6 }}>
+        <h1 style={{ margin: 0, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 40, fontWeight: 500, letterSpacing: -1.1 }}>
+          Your <span style={{ fontFamily: 'Caveat,cursive', color: T.pinkDeep, fontSize: 50 }}>moment</span> is ready.
         </h1>
-        <div style={{ marginTop: 2, color: T.inkSoft, fontSize: 14, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.</div>
+        <div style={{ marginTop: 0, color: T.inkSoft, fontSize: 13, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.</div>
       </div>
 
-      <div ref={containerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-        padding: '12px 0', minHeight: resultStageMinHeight }}>
+      <div ref={containerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+        padding: '6px 0', minHeight: resultStageMinHeight }}>
         <div ref={frameRef} style={{ display: 'inline-block', animation: 'popIn 0.55s cubic-bezier(0.34,1.56,0.64,1)' }}>
           {resultFrame(autoScale)}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16, position: 'relative' }}>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 8, position: 'relative' }}>
         <BtnPrimary T={T} size="lg" onClick={handleDownload} style={{ width: 220, height: 56, opacity: downloading ? 0.6 : 1 }}>
           {downloading ? 'Saving image...' : 'Save image · 저장'}
         </BtnPrimary>
