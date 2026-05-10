@@ -622,6 +622,8 @@ const LocalGalleryStore = {
 
 const ShareStore = {
   ttlDays: 7,
+  localUrls: new Map(), // id -> { url, createdAt }
+
   config() {
     return window.IMMM_SUPABASE || {
       url: window.IMMM_SUPABASE_URL,
@@ -633,11 +635,35 @@ const ShareStore = {
     const c = this.config();
     return Boolean(c?.url && c?.anonKey && c?.bucket);
   },
+  clearExpired(maxAgeMs = 600000) { // Default 10 mins for local previews
+    const now = Date.now();
+    for (const [id, info] of this.localUrls.entries()) {
+      if (now - info.createdAt > maxAgeMs) {
+        this.revokeShare(id);
+      }
+    }
+  },
+  revokeShare(id) {
+    const info = this.localUrls.get(id);
+    if (info) {
+      if (info.url && info.url.startsWith('blob:')) {
+        try { URL.revokeObjectURL(info.url); } catch (e) {}
+      }
+      this.localUrls.delete(id);
+    }
+  },
+  clearAllLocalUrls() {
+    for (const id of this.localUrls.keys()) {
+      this.revokeShare(id);
+    }
+  },
   async createShare(blob, metadata = {}) {
+    this.clearExpired(); // Auto-cleanup on every share attempt
     const id = `sh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const expiresAt = Date.now() + this.ttlDays * 86400000;
     if (!this.isConfigured()) {
       const localUrl = URL.createObjectURL(blob);
+      this.localUrls.set(id, { url: localUrl, createdAt: Date.now() });
       return {
         id,
         url: localUrl,

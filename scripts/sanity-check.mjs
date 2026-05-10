@@ -1330,6 +1330,10 @@ function checkStabilityAuditDocumented() {
     console.error("❌ FAIL: task.md missing Babel Standalone Removal Scope (Phase 3.33)");
     hasErrors = true;
   }
+  if (!task.includes('## Blob URL Lifecycle Cleanup (Phase 3.34)')) {
+    console.error("❌ FAIL: task.md missing Blob URL Lifecycle Cleanup (Phase 3.34)");
+    hasErrors = true;
+  }
   if (!task.includes('| Priority | Area | File | Risk | Symptom | Recommendation | Follow-up Commit |')) {
     console.error("❌ FAIL: task.md missing risk table header");
     hasErrors = true;
@@ -1345,6 +1349,45 @@ function checkStabilityAuditDocumented() {
   if (!task.includes('Choose build strategy')) {
     console.error("❌ FAIL: task.md missing 'Choose build strategy' in Phase 3.33");
     hasErrors = true;
+  }
+  if (!task.includes('iOS long-press save URL not revoked immediately')) {
+    console.error("❌ FAIL: task.md missing iOS long-press save URL guard in Phase 3.34");
+    hasErrors = true;
+  }
+}
+
+function checkBlobUrlLifecycle() {
+  const deco = readFile('screens-v2-deco.jsx');
+  const fsys = readFile('frame-system.jsx');
+
+  if (deco) {
+    if (!deco.includes('resultPreviewUrlRef')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx missing resultPreviewUrlRef for blob lifecycle");
+      hasErrors = true;
+    }
+    if (!deco.includes('saveSheetUrlRef')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx missing saveSheetUrlRef for blob lifecycle");
+      hasErrors = true;
+    }
+    if (deco.includes('setTimeout(() => URL.revokeObjectURL(saveSheetUrl),')) {
+       console.error("❌ FAIL: screens-v2-deco.jsx uses immediate timeout for saveSheetUrl (unstable on iOS)");
+       hasErrors = true;
+    }
+    if (!deco.includes('.startsWith(\'blob:\')')) {
+       console.error("❌ FAIL: screens-v2-deco.jsx missing blob: protocol check before revokeObjectURL");
+       hasErrors = true;
+    }
+  }
+
+  if (fsys) {
+    if (!fsys.includes('revokeShare') || !fsys.includes('clearExpired')) {
+      console.error("❌ FAIL: frame-system.jsx missing ShareStore cleanup methods");
+      hasErrors = true;
+    }
+    if (!fsys.includes('localUrls: new Map()')) {
+      console.error("❌ FAIL: frame-system.jsx missing localUrls map for ShareStore lifecycle");
+      hasErrors = true;
+    }
   }
 }
 
@@ -1388,6 +1431,7 @@ checkPhaseCCameraZoom();
 checkResultUX();
 checkFramePickerResilience();
 checkStrayFiles();
+checkBlobUrlLifecycle();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
 

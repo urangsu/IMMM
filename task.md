@@ -965,16 +965,16 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [x] sanity-check maintainability reviewed
 - [x] pgpt stray guard preserved
 - [x] P0 runtime build hotfix scheduled
-- [ ] P1 memory lifecycle fixes scheduled
+- [x] P1 memory lifecycle fixes scheduled
 - [ ] Galaxy S23+ QA report attached
 - [ ] Samsung Internet QA report attached
 
 | Priority | Area | File | Risk | Symptom | Recommendation | Follow-up Commit |
 |---|---|---|---|---|---|---|
-| P0 | Runtime | index.html | React development UMD and Babel standalone used in production path | Slow boot, runtime JSX parsing, CDN failure risk | Create production build path or switch to production UMD as interim hotfix | TBD |
+| P0 | Runtime | index.html | React development UMD and Babel standalone used in production path | Slow boot, runtime JSX parsing, CDN failure risk | Create production build path or switch to production UMD as interim hotfix | 6f93616 |
 | P1 | Service Worker | sw.js | JSX/code files not precached, network-first only | Offline or weak network boot failure | Decide cache strategy for code assets after production build decision | TBD |
-| P1 | Share | frame-system.jsx | local ShareStore objectURL lifecycle unclear | Memory growth after repeated local shares | Add explicit revoke owner/lifecycle | TBD |
-| P1 | Result | screens-v2-deco.jsx | objectURL lifecycle balances iOS long-press save and cleanup | Save sheet image may disappear or memory may accumulate | Centralize preview/save sheet URL ownership | TBD |
+| P1 | Share | frame-system.jsx | local ShareStore objectURL lifecycle unclear | Memory growth after repeated local shares | Add explicit revoke owner/lifecycle | Phase 3.34 |
+| P1 | Result | screens-v2-deco.jsx | objectURL lifecycle balances iOS long-press save and cleanup | Save sheet image may disappear or memory may accumulate | Centralize preview/save sheet URL ownership | Phase 3.34 |
 | P1 | Export | frame-system.jsx | sticker rendering awaits sequentially | Slow export with many stickers | Batch preload sticker assets where safe | TBD |
 | P1 | Camera | main.jsx / screens-v2-rest.jsx | real 0.6× depends on browser capability/device exposure | 0.6× may not change FOV | Complete Galaxy S23+ debug report flow | TBD |
 | P1 | Samsung Internet | screens-v2.jsx | frame thumb/canvas fallback remains critical | blank frame picker if fallback regresses | Keep fallback guard and real-device QA | TBD |
@@ -1006,3 +1006,15 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 
 
 
+## Blob URL Lifecycle Cleanup (Phase 3.34)
+- [x] URL.createObjectURL usage audited
+- [x] Result preview blob URL owner defined
+- [x] Result preview blob URL cleanup added
+- [x] saveSheetUrl cleanup path added
+- [x] iOS long-press save URL not revoked immediately
+- [x] ShareStore local blob URL revoke path added
+- [x] ShareStore expired local URL cleanup added
+- [x] render/export/save/share blob generation untouched
+- [x] pgpt stray guard preserved
+- [ ] iOS Safari long-press save verified
+- [ ] Repeated Save/Share memory behavior verified

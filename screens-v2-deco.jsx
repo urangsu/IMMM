@@ -793,6 +793,12 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       
       // 2. Create local URL for preview <img>
       const url = URL.createObjectURL(blob);
+      
+      // Explicit Owner Cleanup: Revoke previous preview URL before setting new one
+      if (resultPreviewUrlRef.current && resultPreviewUrlRef.current.startsWith('blob:')) {
+        try { URL.revokeObjectURL(resultPreviewUrlRef.current); } catch(e){}
+      }
+      resultPreviewUrlRef.current = url;
       setResultPreviewSrc(url);
       setResultPreviewStatus('ready');
       
@@ -812,13 +818,19 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     buildFinalResultAsset();
   }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
 
+  // Consolidated Cleanup: ResultV2 unmount cleanup for preview and save sheet
   React.useEffect(() => {
     return () => {
-      if (resultPreviewSrc && resultPreviewSrc.startsWith('blob:')) {
-        try { URL.revokeObjectURL(resultPreviewSrc); } catch(e){}
+      if (resultPreviewUrlRef.current && resultPreviewUrlRef.current.startsWith('blob:')) {
+        try { URL.revokeObjectURL(resultPreviewUrlRef.current); } catch(e){}
+        resultPreviewUrlRef.current = null;
+      }
+      if (saveSheetUrlRef.current && saveSheetUrlRef.current.startsWith('blob:')) {
+        try { URL.revokeObjectURL(saveSheetUrlRef.current); } catch(e){}
+        saveSheetUrlRef.current = null;
       }
     };
-  }, [resultPreviewSrc]);
+  }, []);
 
   const resultFrame = (scale) => (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative', transition: 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
@@ -858,12 +870,22 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [downloading, setDownloading] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
   const [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
+  const resultPreviewUrlRef = React.useRef(null);
+  const saveSheetUrlRef = React.useRef(null);
   const [qrShare, setQrShare] = React.useState(null);
   const [qrBusy, setQrBusy] = React.useState(false);
   const [showMoreActions, setShowMoreActions] = React.useState(false);
   const [toasts, setToasts] = React.useState([]);
   const [showPrintIntro, setShowPrintIntro] = React.useState(false);
   const autoSavedRef = React.useRef(false);
+
+  const revokeSaveSheetUrl = () => {
+    if (saveSheetUrlRef.current && saveSheetUrlRef.current.startsWith('blob:')) {
+      try { URL.revokeObjectURL(saveSheetUrlRef.current); } catch(e){}
+      saveSheetUrlRef.current = null;
+      setSaveSheetUrl(null);
+    }
+  };
 
   React.useEffect(() => {
     if (!showPrintIntro) return;
@@ -876,13 +898,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     return () => clearTimeout(timer);
   }, [showPrintIntro]);
 
-  React.useEffect(() => {
-    return () => {
-      if (saveSheetUrl) {
-        try { URL.revokeObjectURL(saveSheetUrl); } catch(e){}
-      }
-    };
-  }, [saveSheetUrl]);
+
 
   const addToast = (msg, duration = 2500) => {
     const id = Date.now();
@@ -1100,9 +1116,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const triggerDownload = (blob, fname) => {
     const url = URL.createObjectURL(blob);
     if (isIOS()) {
-      if (saveSheetUrl) {
-        try { URL.revokeObjectURL(saveSheetUrl); } catch(e){}
+      // Explicit Owner Cleanup for iOS save sheet
+      if (saveSheetUrlRef.current && saveSheetUrlRef.current.startsWith('blob:')) {
+        try { URL.revokeObjectURL(saveSheetUrlRef.current); } catch(e){}
       }
+      saveSheetUrlRef.current = url;
       setSaveSheetUrl(url);
       addToast('이미지를 길게 눌러 저장하세요');
       return;
@@ -1360,13 +1378,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const resultOverlays = (
     <>
       {saveSheetUrl && (
-        <div onClick={() => { URL.revokeObjectURL(saveSheetUrl); setSaveSheetUrl(null); }}
+        <div onClick={revokeSaveSheetUrl}
           style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(10,10,10,0.82)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width:'min(92vw,420px)', background:'#fff', borderRadius:20, padding:18, textAlign:'center', boxShadow:'0 24px 80px rgba(0,0,0,0.35)' }}>
             <img src={saveSheetUrl} style={{ width:'100%', maxHeight:'60vh', objectFit:'contain', borderRadius:12, background:'#f4f4f4' }} />
             <div style={{ marginTop:14, fontSize:15, fontWeight:800, color:'#111', fontFamily:'Pretendard,system-ui' }}>이미지를 길게 눌러 저장하세요</div>
             <div style={{ marginTop:5, fontSize:12, color:'#777', lineHeight:1.4, fontFamily:'Pretendard,system-ui' }}>iPhone Safari/PWA에서는 다운로드 버튼보다 공유 또는 길게 눌러 저장이 안정적입니다.</div>
-            <button onClick={() => { URL.revokeObjectURL(saveSheetUrl); setSaveSheetUrl(null); }} style={{ marginTop:14, width:'100%', padding:'13px 16px', borderRadius:12, border:'none', background:'#111', color:'#fff', fontWeight:800, cursor:'pointer' }}>Close</button>
+            <button onClick={revokeSaveSheetUrl} style={{ marginTop:14, width:'100%', padding:'13px 16px', borderRadius:12, border:'none', background:'#111', color:'#fff', fontWeight:800, cursor:'pointer' }}>Close</button>
           </div>
         </div>
       )}
