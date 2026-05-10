@@ -1403,6 +1403,17 @@ function checkBlobUrlLifecycle() {
        console.error("❌ FAIL: frame-system.jsx missing revokeBlobUrl helper");
        hasErrors = true;
     }
+    // Verify helper usage
+    const lines = fsys.split('\n');
+    let inHelper = false;
+    lines.forEach((l, i) => {
+      if (l.includes('function revokeBlobUrl')) inHelper = true;
+      if (!inHelper && l.includes('URL.revokeObjectURL')) {
+        console.error(`❌ FAIL: frame-system.jsx:L${i+1} manual URL.revokeObjectURL call detected`);
+        hasErrors = true;
+      }
+      if (inHelper && l.includes('}')) inHelper = false;
+    });
   }
 }
 

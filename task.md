@@ -1016,7 +1016,10 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [x] Centralized revokeBlobUrl safety helper implemented
 - [x] ShareStore local blob URL revoke path added
 - [x] ShareStore expired local URL cleanup added
+- [x] frame-system manual revoke guard added
+- [x] download cleanup touched separately from blob generation
 - [x] render/export/save/share blob generation untouched
 - [x] pgpt stray guard preserved
+- [ ] common blob URL helper consolidation scoped
 - [ ] iOS Safari long-press save verified
 - [ ] Repeated Save/Share memory behavior verified
