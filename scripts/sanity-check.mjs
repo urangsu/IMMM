@@ -1092,6 +1092,43 @@ function checkResultUX() {
   }
 }
 
+function checkCameraCapabilityHarden() {
+  const main = fs.readFileSync('main.jsx', 'utf8');
+  const rest = fs.readFileSync('screens-v2-rest.jsx', 'utf8');
+
+  // Phase 3.27 Hardware Zoom Verification
+  if (!main.includes('applyCameraZoom') || !main.includes('getSettings()')) {
+    console.error("❌ FAIL: main.jsx missing applyCameraZoom or settings verification");
+    hasErrors = true;
+  }
+  if (!main.includes('requestAnimationFrame') && !main.includes('setTimeout')) {
+    console.warn("⚠️ WARN: main.jsx might be missing verification delay in applyCameraZoom");
+  }
+
+  // Phase 3.27 Device Switch Verification
+  if (!main.includes('switchCameraDevice') || !main.includes('deviceId !== beforeDeviceId')) {
+    console.error("❌ FAIL: main.jsx missing switchCameraDevice success verification");
+    hasErrors = true;
+  }
+
+  // Forbidden Fake Wide
+  const forbidden = [
+    'scale(0.6)', 'transform: \'scale(0.6)\'', 'drawImage(.*0.6.*)', 'ctx.scale(0.6)'
+  ];
+  forbidden.forEach(pat => {
+    if (new RegExp(pat).test(main) || new RegExp(pat).test(rest)) {
+      console.error(`❌ FAIL: Forbidden fake wide implementation found: ${pat}`);
+      hasErrors = true;
+    }
+  });
+
+  // Debug Reason/Path Tracking
+  if (!main.includes('lastWideToggleReason') || !rest.includes('lastWideTogglePath')) {
+    console.error("❌ FAIL: Camera toggle diagnostics missing in main/rest");
+    hasErrors = true;
+  }
+}
+
 function checkCleanCottonTheme() {
   const index = fs.existsSync('index.html') ? fs.readFileSync('index.html', 'utf8') : null;
   const setup = fs.existsSync('screens-v2.jsx') ? fs.readFileSync('screens-v2.jsx', 'utf8') : null;
@@ -1225,6 +1262,8 @@ checkEmergencyFaceSafety();
 checkEmergencyFrameGlobals();
 checkEmergencyServiceWorker();
 checkAppStability();
+checkCameraCapabilityHarden();
+checkCleanCottonTheme();
 checkFrameSystem();
 checkStickerEngine();
 checkCapture();
@@ -1235,7 +1274,6 @@ checkTask();
 checkPhaseCCameraZoom();
 checkResultUX();
 checkFramePickerResilience();
-checkCleanCottonTheme();
 checkStrayFiles();
 
 if (hasErrors) {

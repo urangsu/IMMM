@@ -7,7 +7,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef,
   cameraZoom = 1, cameraCapabilities = null, cameraSettings = null, applyCameraZoom,
   switchCameraDevice, cameraDevices = [], frontWideCandidates = [], rearWideCandidates = [],
-  activeCameraDeviceId, normalCameraDeviceId, wideCameraActive, toggleWideCamera
+  activeCameraDeviceId, normalCameraDeviceId, wideCameraActive, toggleWideCamera,
+  lastWideToggleReason = '', lastWideTogglePath = ''
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -638,6 +639,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   <span>activeDev: {String(activeCameraDeviceId).slice(-4)}</span>
                   <span>·</span>
                   <span>normalDev: {String(normalCameraDeviceId).slice(-4)}</span>
+                  <span>·</span>
+                  <span style={{ color: lastWideToggleReason ? '#ff4444' : T.inkSoft }}>reason: {lastWideToggleReason || 'none'}</span>
+                  <span>·</span>
+                  <span style={{ fontWeight: 700 }}>path: {lastWideTogglePath || 'none'}</span>
                   <span>·</span>
                   <span>fWide: {frontWideCandidates.length}</span>
                   <span>·</span>

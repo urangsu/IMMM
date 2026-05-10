@@ -856,6 +856,20 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result strip visual QA complete
 - [ ] Save output matches preview
 
+## Camera 0.6× Toggle Capability Verification (Phase 3.27)
+- [x] Camera capability snapshot helper added
+- [x] Hardware zoom success verified by settings.zoom before/after
+- [x] Device switch success verified by settings.deviceId before/after
+- [x] Wide toggle failure reason exposed in debug mode
+- [x] Fake CSS scale / crop wide implementation forbidden
+- [x] Debug pill shows zoom/device path diagnostics
+- [x] Result layout/export paths untouched
+- [x] pgpt stray guard preserved
+- [ ] Galaxy S23+ Chrome hardware zoom verified
+- [ ] Galaxy S23+ Chrome wide device switch verified
+- [ ] Galaxy S23+ Samsung Internet capability verified
+- [ ] 0.6× unavailable message verified
+
 ## Result Compact Preview Stack + Larger Frame (Phase 3.26)
 - [x] Correct IMMM repo path verified
 - [x] Preview row changed from 1fr to content-bound row (auto/auto/auto/auto)
