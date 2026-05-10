@@ -794,23 +794,30 @@ function checkResultUX() {
     hasErrors = true;
   }
 
-  // QR/Video Preparing (Disabled)
-  const prepActions = ['QR Share', 'Save Video'];
-  prepActions.forEach(p => {
-    const btnBodyRegex = new RegExp(`<button[^>]*?${p}.*?Preparing.*?<\/button>`, 's');
-    const btnMatch = deco.match(btnBodyRegex);
-    if (btnMatch) {
-      const btn = btnMatch[0];
-      if (!btn.includes('disabled')) {
-        console.error(`❌ FAIL: screens-v2-deco.jsx ${p} (Preparing) must be disabled`);
-        hasErrors = true;
-      }
-      if (btn.includes('onClick={') && !btn.includes('setShowMoreActions(false)')) {
-        console.error(`❌ FAIL: screens-v2-deco.jsx ${p} (Preparing) should not have functional onClick`);
-        hasErrors = true;
-      }
+  // QR/Video Preparing (Disabled) (Hardened)
+  const qrPrepButton = deco.match(/<button[\s\S]*?QR Share[\s\S]*?Preparing[\s\S]*?<\/button>/);
+  if (!qrPrepButton || !qrPrepButton[0].includes('disabled')) {
+    console.error("❌ FAIL: QR Share (Preparing) must be disabled");
+    hasErrors = true;
+  }
+
+  const videoPrepButton = deco.match(/<button[\s\S]*?Save Video[\s\S]*?Preparing[\s\S]*?<\/button>/);
+  if (!videoPrepButton || !videoPrepButton[0].includes('disabled')) {
+    console.error("❌ FAIL: Save Video (Preparing) must be disabled");
+    hasErrors = true;
+  }
+
+  if (deco.includes('onClick={handleQrShare}') || deco.includes('onClick={handleVideoDownload}')) {
+    // Check if these are connected to buttons that say Preparing
+    if (qrPrepButton && qrPrepButton[0].includes('onClick={handleQrShare}')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx QR Share (Preparing) has functional onClick");
+      hasErrors = true;
     }
-  });
+    if (videoPrepButton && videoPrepButton[0].includes('onClick={handleVideoDownload}')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx Save Video (Preparing) has functional onClick");
+      hasErrors = true;
+    }
+  }
 
   if (!deco.includes('getFormattedFilename')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing getFormattedFilename function");
@@ -905,29 +912,6 @@ function checkResultUX() {
   if (!deco.includes('setShowMoreActions(false)') || !deco.includes('setShowMoreActions(!showMoreActions)')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing More menu toggle/close logic");
     hasErrors = true;
-  }
-
-  // QR/Video Preparing (Disabled) (Restored)
-  const preparingActions = ['QR Share', 'Save Video'];
-  preparingActions.forEach(p => {
-    if (!deco.includes(p) || !deco.includes('Preparing')) {
-      console.error(`❌ FAIL: screens-v2-deco.jsx missing ${p} (Preparing) text`);
-      hasErrors = true;
-    }
-  });
-
-  if (deco.includes('onClick={handleQrShare}') || deco.includes('onClick={handleVideoDownload}')) {
-    // Check if these are connected to buttons that say Preparing
-    const qrPrepMatch = deco.match(/<button[^>]*?QR Share.*?Preparing.*?<\/button>/s);
-    if (qrPrepMatch && qrPrepMatch[0].includes('onClick={handleQrShare}')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx QR Share (Preparing) has functional onClick");
-      hasErrors = true;
-    }
-    const videoPrepMatch = deco.match(/<button[^>]*?Save Video.*?Preparing.*?<\/button>/s);
-    if (videoPrepMatch && videoPrepMatch[0].includes('onClick={handleVideoDownload}')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx Save Video (Preparing) has functional onClick");
-      hasErrors = true;
-    }
   }
 
   // Storage safety check
