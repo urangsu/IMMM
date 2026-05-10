@@ -1035,3 +1035,13 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [x] pgpt stray guard preserved
 - [ ] Export time measured with 5+ upload stickers
 - [ ] Mobile Samsung Internet export verified
+
+## Sticker Preload Scope Hotfix (Phase 3.36)
+- [x] collectUploadStickerSources hoisted to top-level scope
+- [x] preloadStickerImages kept in top-level scope
+- [x] drawFallbackSticker contains no nested preload helpers
+- [x] Sticker preload sanity-check now validates helper order
+- [x] render/export/save/share callers untouched
+- [x] pgpt stray guard preserved
+- [ ] Export smoke test with upload sticker completed
+- [ ] Samsung Internet export smoke test completed

@@ -1460,9 +1460,38 @@ function checkStickerPreload() {
   const fsys = readFile('frame-system.jsx');
   if (!fsys) return;
 
+  const order = [
+    'function drawFallbackSticker',
+    'function collectUploadStickerSources',
+    'async function preloadStickerImages',
+    'async function drawStickerToCtx'
+  ];
+
+  let lastIndex = -1;
+  order.forEach(fn => {
+    const idx = fsys.indexOf(fn);
+    if (idx === -1) {
+      console.error(`❌ FAIL: frame-system.jsx missing ${fn}`);
+      hasErrors = true;
+    } else if (idx < lastIndex) {
+      console.error(`❌ FAIL: frame-system.jsx helper order incorrect: ${fn} appears before its predecessor`);
+      hasErrors = true;
+    }
+    lastIndex = idx;
+  });
+
+  // Nesting check: ensure no helpers are defined inside drawFallbackSticker
+  const startIdx = fsys.indexOf('function drawFallbackSticker');
+  const endIdx = fsys.indexOf('function collectUploadStickerSources');
+  if (startIdx !== -1 && endIdx !== -1) {
+    const body = fsys.slice(startIdx, endIdx);
+    if (body.includes('async function') || body.includes('function collectUploadStickerSources')) {
+       console.error("❌ FAIL: frame-system.jsx has nested helpers inside drawFallbackSticker (missing closing brace?)");
+       hasErrors = true;
+    }
+  }
+
   const requirements = [
-    'collectUploadStickerSources',
-    'preloadStickerImages',
     'uploadImages',
     'Promise.all',
     'drawStickerToCtx(ctx, local, sw, sh, scale, stickerAssets)',

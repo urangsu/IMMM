@@ -192,6 +192,8 @@ function drawFallbackSticker(ctx, item, scalePx = 1) {
   ctx.textBaseline = 'middle';
   ctx.fillText(label, 0, 0);
   ctx.restore();
+}
+
 function collectUploadStickerSources(stickers = []) {
   const sources = new Set();
   for (const s of stickers || []) {
