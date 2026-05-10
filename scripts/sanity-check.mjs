@@ -1373,10 +1373,21 @@ function checkBlobUrlLifecycle() {
        console.error("❌ FAIL: screens-v2-deco.jsx uses immediate timeout for saveSheetUrl (unstable on iOS)");
        hasErrors = true;
     }
-    if (!deco.includes('.startsWith(\'blob:\')')) {
-       console.error("❌ FAIL: screens-v2-deco.jsx missing blob: protocol check before revokeObjectURL");
+    if (!deco.includes('function revokeBlobUrl(url)')) {
+       console.error("❌ FAIL: screens-v2-deco.jsx missing revokeBlobUrl helper");
        hasErrors = true;
     }
+    // Verify helper usage
+    const lines = deco.split('\n');
+    let inHelper = false;
+    lines.forEach((l, i) => {
+      if (l.includes('function revokeBlobUrl')) inHelper = true;
+      if (!inHelper && l.includes('URL.revokeObjectURL')) {
+        console.error(`❌ FAIL: screens-v2-deco.jsx:L${i+1} manual URL.revokeObjectURL call detected`);
+        hasErrors = true;
+      }
+      if (inHelper && l.includes('}')) inHelper = false;
+    });
   }
 
   if (fsys) {
@@ -1387,6 +1398,10 @@ function checkBlobUrlLifecycle() {
     if (!fsys.includes('localUrls: new Map()')) {
       console.error("❌ FAIL: frame-system.jsx missing localUrls map for ShareStore lifecycle");
       hasErrors = true;
+    }
+    if (!fsys.includes('function revokeBlobUrl(url)')) {
+       console.error("❌ FAIL: frame-system.jsx missing revokeBlobUrl helper");
+       hasErrors = true;
     }
   }
 }

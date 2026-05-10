@@ -1,5 +1,7 @@
 // frame-system.jsx — frame templates, unified canvas renderer, local gallery, QR/share adapters
 
+function revokeBlobUrl(url) { if (typeof url === "string" && url.startsWith("blob:")) { try { URL.revokeObjectURL(url); } catch (e) {} } }
+
 const FRAME_TEMPLATE_ALIASES = {
   strip: '1x4',
   grid: '2x2',
@@ -646,9 +648,7 @@ const ShareStore = {
   revokeShare(id) {
     const info = this.localUrls.get(id);
     if (info) {
-      if (info.url && info.url.startsWith('blob:')) {
-        try { URL.revokeObjectURL(info.url); } catch (e) {}
-      }
+      revokeBlobUrl(info.url);
       this.localUrls.delete(id);
     }
   },

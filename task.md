@@ -1008,10 +1008,12 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 
 ## Blob URL Lifecycle Cleanup (Phase 3.34)
 - [x] URL.createObjectURL usage audited
-- [x] Result preview blob URL owner defined
-- [x] Result preview blob URL cleanup added
-- [x] saveSheetUrl cleanup path added
+- [x] Result preview blob URL owner defined (Ref-based)
+- [x] Result preview blob URL cleanup added (revokeBlobUrl)
+- [x] saveSheetUrl cleanup path added (Ref-based)
 - [x] iOS long-press save URL not revoked immediately
+- [x] Strict owner separation: Preview / SaveSheet / ShareStore create separate URLs
+- [x] Centralized revokeBlobUrl safety helper implemented
 - [x] ShareStore local blob URL revoke path added
 - [x] ShareStore expired local URL cleanup added
 - [x] render/export/save/share blob generation untouched

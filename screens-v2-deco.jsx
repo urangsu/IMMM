@@ -12,6 +12,15 @@ const ZoomPlusIcon = () => (
   </svg>
 );
 
+/**
+ * Safety helper to revoke blob URLs without touching remote or non-blob URLs
+ */
+function revokeBlobUrl(url) {
+  if (typeof url === 'string' && url.startsWith('blob:')) {
+    try { URL.revokeObjectURL(url); } catch (e) {}
+  }
+}
+
 const zoomBtnStyle = {
   width: 56,
   height: 56,
@@ -795,9 +804,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       const url = URL.createObjectURL(blob);
       
       // Explicit Owner Cleanup: Revoke previous preview URL before setting new one
-      if (resultPreviewUrlRef.current && resultPreviewUrlRef.current.startsWith('blob:')) {
-        try { URL.revokeObjectURL(resultPreviewUrlRef.current); } catch(e){}
-      }
+      revokeBlobUrl(resultPreviewUrlRef.current);
+      
       resultPreviewUrlRef.current = url;
       setResultPreviewSrc(url);
       setResultPreviewStatus('ready');
@@ -821,14 +829,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   // Consolidated Cleanup: ResultV2 unmount cleanup for preview and save sheet
   React.useEffect(() => {
     return () => {
-      if (resultPreviewUrlRef.current && resultPreviewUrlRef.current.startsWith('blob:')) {
-        try { URL.revokeObjectURL(resultPreviewUrlRef.current); } catch(e){}
-        resultPreviewUrlRef.current = null;
-      }
-      if (saveSheetUrlRef.current && saveSheetUrlRef.current.startsWith('blob:')) {
-        try { URL.revokeObjectURL(saveSheetUrlRef.current); } catch(e){}
-        saveSheetUrlRef.current = null;
-      }
+      revokeBlobUrl(resultPreviewUrlRef.current);
+      resultPreviewUrlRef.current = null;
+      
+      revokeBlobUrl(saveSheetUrlRef.current);
+      saveSheetUrlRef.current = null;
     };
   }, []);
 
@@ -880,11 +885,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const autoSavedRef = React.useRef(false);
 
   const revokeSaveSheetUrl = () => {
-    if (saveSheetUrlRef.current && saveSheetUrlRef.current.startsWith('blob:')) {
-      try { URL.revokeObjectURL(saveSheetUrlRef.current); } catch(e){}
-      saveSheetUrlRef.current = null;
-      setSaveSheetUrl(null);
-    }
+    revokeBlobUrl(saveSheetUrlRef.current);
+    saveSheetUrlRef.current = null;
+    setSaveSheetUrl(null);
   };
 
   React.useEffect(() => {
@@ -1117,9 +1120,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     const url = URL.createObjectURL(blob);
     if (isIOS()) {
       // Explicit Owner Cleanup for iOS save sheet
-      if (saveSheetUrlRef.current && saveSheetUrlRef.current.startsWith('blob:')) {
-        try { URL.revokeObjectURL(saveSheetUrlRef.current); } catch(e){}
-      }
+      revokeBlobUrl(saveSheetUrlRef.current);
+      
       saveSheetUrlRef.current = url;
       setSaveSheetUrl(url);
       addToast('이미지를 길게 눌러 저장하세요');
@@ -1133,7 +1135,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     if (typeof confetti !== 'undefined') confetti({ particleCount:90, spread:65, origin:{y:0.55}, colors:['#D98893','#F4C4C8','#FDE8EA','#fff','#FAD4D8'] });
     
     setTimeout(() => {
-      try { URL.revokeObjectURL(url); } catch(e){}
+      revokeBlobUrl(url);
     }, 15000);
   };
 
@@ -1253,7 +1255,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       const a = document.createElement('a');
       a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setTimeout(() => revokeBlobUrl(url), 30000);
       setVideoRecording(false);
     };
 
