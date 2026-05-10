@@ -953,3 +953,30 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Desktop Result action QA complete
 - [ ] Samsung Internet Result action QA complete
 
+
+## Full App Bottleneck & Risk Audit (Phase 3.31)
+- [x] Runtime boot/cache risks reviewed
+- [x] Camera capture and 0.6× flow reviewed
+- [x] Frame picker Samsung Internet risks reviewed
+- [x] Deco Studio fit/export risks reviewed
+- [x] Result intro/preview/save/share risks reviewed
+- [x] Blob/media lifecycle risks reviewed
+- [x] Mobile browser compatibility risks reviewed
+- [x] sanity-check maintainability reviewed
+- [x] pgpt stray guard preserved
+- [ ] P0 runtime build hotfix completed
+- [ ] P1 memory lifecycle fixes scheduled
+- [ ] Galaxy S23+ QA report attached
+- [ ] Samsung Internet QA report attached
+
+| Priority | Area | File | Risk | Symptom | Recommendation | Follow-up Commit |
+|---|---|---|---|---|---|---|
+| P0 | Runtime | index.html | React development UMD and Babel standalone used in production path | Slow boot, runtime JSX parsing, CDN failure risk | Create production build path or switch to production UMD as interim hotfix | TBD |
+| P1 | Service Worker | sw.js | JSX/code files not precached, network-first only | Offline or weak network boot failure | Decide cache strategy for code assets after production build decision | TBD |
+| P1 | Share | frame-system.jsx | local ShareStore objectURL lifecycle unclear | Memory growth after repeated local shares | Add explicit revoke owner/lifecycle | TBD |
+| P1 | Result | screens-v2-deco.jsx | objectURL lifecycle balances iOS long-press save and cleanup | Save sheet image may disappear or memory may accumulate | Centralize preview/save sheet URL ownership | TBD |
+| P1 | Export | frame-system.jsx | sticker rendering awaits sequentially | Slow export with many stickers | Batch preload sticker assets where safe | TBD |
+| P1 | Camera | main.jsx / screens-v2-rest.jsx | real 0.6× depends on browser capability/device exposure | 0.6× may not change FOV | Complete Galaxy S23+ debug report flow | TBD |
+| P1 | Samsung Internet | screens-v2.jsx | frame thumb/canvas fallback remains critical | blank frame picker if fallback regresses | Keep fallback guard and real-device QA | TBD |
+| P2 | sanity-check | scripts/sanity-check.mjs | string-based guards are brittle | false positives during refactor | Split smoke/audit checks later | TBD |
+

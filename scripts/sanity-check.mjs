@@ -1315,6 +1315,27 @@ function checkFramePickerResilience() {
   }
 }
 
+function checkStabilityAuditDocumented() {
+  if (!fs.existsSync('task.md')) return;
+  const task = fs.readFileSync('task.md', 'utf8');
+  if (!task.includes('## Full App Bottleneck & Risk Audit (Phase 3.31)')) {
+    console.error("❌ FAIL: task.md missing finalized stability audit section (Phase 3.31)");
+    hasErrors = true;
+  }
+}
+
+function checkReactProductionMode() {
+  if (!fs.existsSync('index.html')) return;
+  const index = fs.readFileSync('index.html', 'utf8');
+  if (index.includes('react.development.js') || index.includes('react-dom.development.js')) {
+    console.warn("⚠️ WARN: index.html is using React development build (P0 Risk)");
+    // Not failing yet to allow audit-only commit, but signaling the risk.
+  }
+  if (index.includes('@babel/standalone')) {
+    console.warn("⚠️ WARN: index.html is using Babel standalone runtime (P0 Risk)");
+  }
+}
+
 console.log('🔍 Running IMMM COMPREHENSIVE Hardened Sanity Checks...');
 checkRuntimeVersion();
 checkWidePickerSafety();
@@ -1339,6 +1360,9 @@ checkPhaseCCameraZoom();
 checkResultUX();
 checkFramePickerResilience();
 checkStrayFiles();
+checkStabilityAuditDocumented();
+checkReactProductionMode();
+
 
 if (hasErrors) {
   console.error('\n💥 Sanity check failed! DO NOT REMOVE GUARDS. FIX THE CODE.');
