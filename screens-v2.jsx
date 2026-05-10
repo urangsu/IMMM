@@ -459,7 +459,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
               style={{
                 padding: '14px 8px 10px', background: layout === o.id ? T.card : '#FFFFFF',
                 border: 'none', borderRadius: 16, cursor: 'pointer',
-                boxShadow: layout === o.id ? `0 1px 4px rgba(0,0,0,0.06), 0 0 0 2px ${T.ink} inset` : `0 0 0 1px ${T.line} inset`, // #E8E1D7 frameCardBorder
+                boxShadow: layout === o.id ? `0 1px 4px rgba(0,0,0,0.06), 0 0 0 2px ${T.ink} inset` : `0 0 0 1px ${T.line} inset`, // #E5E2DA frameCardBorder
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
               }}>
               <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none', display: 'grid', placeItems: 'center' }}>
@@ -791,7 +791,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
       <div style={{ padding: '24px 48px', display: 'flex', flexDirection: 'column' }}>
         <TopBar step={0} back={() => go('landing')} T={T} title={editMode ? '편집하기 · Upload & Edit' : 'Step 1 · Setup the booth'}
         right={<BtnPrimary T={T} size="md" onClick={() => go(editMode ? 'deco' : 'capture')} disabled={editMode && uploadedCount < 4}>{editMode ? '편집 시작' : 'Continue · 다음'} {!editMode && I.arrowR(14, T.bg)}</BtnPrimary>} />
-        <div style={{ flex: 1, background: T.bgAlt, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', border: `1px solid ${T.line}`, boxShadow: '0 8px 32px rgba(0,0,0,0.04)' }}> {/* #F7F3EA stageBackground, #E8E1D7 frameCardBorder */}
+        <div style={{ flex: 1, background: T.bgAlt, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', border: `1px solid ${T.line}`, boxShadow: '0 8px 32px rgba(0,0,0,0.04)' }}> {/* #F8F8F5 stageBackground, #E5E2DA frameCardBorder */}
           {preview}
           <div style={{ position: 'absolute', bottom: 16, left: 18, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1.5 }}>
             LIVE PREVIEW · drag companions to place them

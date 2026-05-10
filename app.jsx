@@ -6,14 +6,14 @@ const { useState, useEffect, useRef, useMemo, useCallback } = React;
 // Design tokens
 // ═══════════════════════════════════════════════════════════════
 const TOKENS = {
-  A: { // Warm Ivory (Premium UI Refresh)
-    bg: '#FDFCF8',
-    bgAlt: '#F7F3EA',
+  A: { // Clean Cotton (Premium UI Refresh)
+    bg: '#FCFCFA',
+    bgAlt: '#F8F8F5',
     card: '#FFFFFF',
     ink: '#111111',
     inkSoft: '#8B837A',
-    line: '#E8E1D7',
-    softSurface: '#FAF8F3',
+    line: '#E5E2DA',
+    softSurface: '#FAFAF7',
     placeholderFill: '#EFEDEA',
     accent: '#111111',
   },

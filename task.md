@@ -769,3 +769,18 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] iOS Safari visual QA complete
 - [ ] White frame visibility verified
 - [ ] Colored frame visibility verified
+
+## Setup Clean Cotton Background QA (Phase 3.17)
+- [x] Setup page background changed from #FDFCF8 to #FCFCFA
+- [x] Warm yellow cast reduced
+- [x] Frame picker card contrast preserved
+- [x] Selected frame card contrast preserved
+- [x] Frame color palette preserved
+- [x] Actual frame render colors untouched
+- [x] frame-system.jsx untouched
+- [x] pgpt stray guard preserved
+- [ ] Desktop Chrome visual QA complete
+- [ ] Samsung Internet visual QA complete
+- [ ] iOS Safari visual QA complete
+- [ ] White frame visibility verified
+- [ ] Colored frame visibility verified

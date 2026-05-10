@@ -1044,39 +1044,56 @@ function checkResultUX() {
   }
 }
 
-function checkWarmIvoryTheme() {
+function checkCleanCottonTheme() {
   const index = fs.existsSync('index.html') ? fs.readFileSync('index.html', 'utf8') : null;
   const setup = fs.existsSync('screens-v2.jsx') ? fs.readFileSync('screens-v2.jsx', 'utf8') : null;
   const app = fs.existsSync('app.jsx') ? fs.readFileSync('app.jsx', 'utf8') : null;
   const fsys = fs.existsSync('frame-system.jsx') ? fs.readFileSync('frame-system.jsx', 'utf8') : null;
-  const deco = fs.existsSync('screens-v2-deco.jsx') ? fs.readFileSync('screens-v2-deco.jsx', 'utf8') : null;
 
-  if (index && !index.includes('#FDFCF8')) {
-    console.error("❌ FAIL: index.html missing warm ivory background #FDFCF8");
+  if (index && !index.includes('#FCFCFA')) {
+    console.error("❌ FAIL: index.html missing clean cotton background #FCFCFA");
     hasErrors = true;
   }
-  if (app && !app.includes("bg: '#FDFCF8'")) {
-    console.error("❌ FAIL: app.jsx TOKENS.A missing warm ivory background #FDFCF8");
+  if (app && !app.includes("bg: '#FCFCFA'")) {
+    console.error("❌ FAIL: app.jsx TOKENS.A missing clean cotton background #FCFCFA");
     hasErrors = true;
   }
   if (setup) {
-    if (!setup.includes('T.bgAlt') && !setup.includes('#F7F3EA')) {
-      console.error("❌ FAIL: screens-v2.jsx missing warm ivory stage background token (T.bgAlt or #F7F3EA)");
+    if (!setup.includes('T.bgAlt') && !setup.includes('#F8F8F5')) {
+      console.error("❌ FAIL: screens-v2.jsx missing clean cotton stage background token (T.bgAlt or #F8F8F5)");
       hasErrors = true;
     }
-    if (!setup.includes('T.line') && !setup.includes('#E8E1D7')) {
-      console.error("❌ FAIL: screens-v2.jsx missing frame picker card border token (T.line or #E8E1D7)");
+    if (!setup.includes('T.line') && !setup.includes('#E5E2DA')) {
+      console.error("❌ FAIL: screens-v2.jsx missing frame picker card border token (T.line or #E5E2DA)");
       hasErrors = true;
+    }
+    if (setup.includes('#FDFCF8')) {
+      // Check if it's in a comment or active code. The prompt says remove it from Setup background.
+      const lines = setup.split('\n');
+      lines.forEach((line, i) => {
+        if (line.includes('#FDFCF8') && !line.trim().startsWith('//')) {
+           console.warn(`⚠️ WARN: screens-v2.jsx:L${i+1} still contains #FDFCF8. Ensure it is not active background.`);
+        }
+      });
     }
   }
   
   // Forbidden leakage/modification checks
-  if (fsys && (fsys.includes('#FDFCF8') || fsys.includes('#F7F3EA'))) {
-    console.error("❌ FAIL: frame-system.jsx contains warm ivory tokens (must not be modified)");
+  if (fsys && (fsys.includes('#FCFCFA') || fsys.includes('#F8F8F5'))) {
+    console.error("❌ FAIL: frame-system.jsx contains clean cotton tokens (must not be modified)");
     hasErrors = true;
   }
-  // Note: screens-v2-deco.jsx might use T.bg which is now #FDFCF8, 
-  // but it shouldn't have the literal string #FDFCF8 unless it was modified.
+
+  // Palette preservation check (defined in screens-v2.jsx UI)
+  if (setup) {
+    const palette = ['#F1C0C5', '#A6C8DE', '#E6C8BE', '#A2352B'];
+    palette.forEach(c => {
+      if (!setup.toLowerCase().includes(c.toLowerCase())) {
+        console.error(`❌ FAIL: screens-v2.jsx missing original palette color: ${c}`);
+        hasErrors = true;
+      }
+    });
+  }
 }
 
 function checkStrayFiles() {
@@ -1170,7 +1187,7 @@ checkTask();
 checkPhaseCCameraZoom();
 checkResultUX();
 checkFramePickerResilience();
-checkWarmIvoryTheme();
+checkCleanCottonTheme();
 checkStrayFiles();
 
 if (hasErrors) {
