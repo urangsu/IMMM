@@ -1456,8 +1456,36 @@ checkTask();
 checkPhaseCCameraZoom();
 checkResultUX();
 checkFramePickerResilience();
+function checkStickerPreload() {
+  const fsys = readFile('frame-system.jsx');
+  if (!fsys) return;
+
+  const requirements = [
+    'collectUploadStickerSources',
+    'preloadStickerImages',
+    'uploadImages',
+    'Promise.all',
+    'drawStickerToCtx(ctx, local, sw, sh, scale, stickerAssets)',
+    'drawStickerToCtx(ctx, s, w, h, scale, stickerAssets)',
+    'assets?.uploadImages?.get'
+  ];
+
+  requirements.forEach(req => {
+    if (!fsys.includes(req)) {
+      console.error(`❌ FAIL: frame-system.jsx missing sticker preload requirement: ${req}`);
+      hasErrors = true;
+    }
+  });
+
+  if (!fsys.includes('preloadStickerImages(data.stickers || [])')) {
+      console.error("❌ FAIL: renderComposition missing preloadStickerImages call");
+      hasErrors = true;
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
+checkStickerPreload();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
 

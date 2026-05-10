@@ -975,7 +975,7 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 | P1 | Service Worker | sw.js | JSX/code files not precached, network-first only | Offline or weak network boot failure | Decide cache strategy for code assets after production build decision | TBD |
 | P1 | Share | frame-system.jsx | local ShareStore objectURL lifecycle unclear | Memory growth after repeated local shares | Add explicit revoke owner/lifecycle | Phase 3.34 |
 | P1 | Result | screens-v2-deco.jsx | objectURL lifecycle balances iOS long-press save and cleanup | Save sheet image may disappear or memory may accumulate | Centralize preview/save sheet URL ownership | Phase 3.34 |
-| P1 | Export | frame-system.jsx | sticker rendering awaits sequentially | Slow export with many stickers | Batch preload sticker assets where safe | TBD |
+| P1 | Export | frame-system.jsx | sticker rendering awaits sequentially | Slow export with many stickers | Batch preload sticker assets where safe | Phase 3.35 |
 | P1 | Camera | main.jsx / screens-v2-rest.jsx | real 0.6× depends on browser capability/device exposure | 0.6× may not change FOV | Complete Galaxy S23+ debug report flow | TBD |
 | P1 | Samsung Internet | screens-v2.jsx | frame thumb/canvas fallback remains critical | blank frame picker if fallback regresses | Keep fallback guard and real-device QA | TBD |
 | P2 | sanity-check | scripts/sanity-check.mjs | string-based guards are brittle | false positives during refactor | Split smoke/audit checks later | TBD |
@@ -1023,3 +1023,15 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] common blob URL helper consolidation scoped
 - [ ] iOS Safari long-press save verified
 - [ ] Repeated Save/Share memory behavior verified
+
+## Sticker Export Asset Preload (Phase 3.35)
+- [x] Upload sticker sources collected and deduplicated
+- [x] Upload sticker images preloaded with Promise.all
+- [x] drawStickerToCtx accepts preloaded assets
+- [x] Sticker drawing order preserved
+- [x] Fallback load path preserved
+- [x] render/export/save/share callers untouched
+- [x] Blob URL lifecycle guards preserved
+- [x] pgpt stray guard preserved
+- [ ] Export time measured with 5+ upload stickers
+- [ ] Mobile Samsung Internet export verified

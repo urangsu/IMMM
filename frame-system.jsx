@@ -192,9 +192,25 @@ function drawFallbackSticker(ctx, item, scalePx = 1) {
   ctx.textBaseline = 'middle';
   ctx.fillText(label, 0, 0);
   ctx.restore();
+function collectUploadStickerSources(stickers = []) {
+  const sources = new Set();
+  for (const s of stickers || []) {
+    if (s?.kind === 'upload' && s?.payload?.dataUrl) {
+      sources.add(s.payload.dataUrl);
+    }
+  }
+  return Array.from(sources);
 }
 
-async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
+async function preloadStickerImages(stickers = []) {
+  const sources = collectUploadStickerSources(stickers);
+  const entries = await Promise.all(
+    sources.map(async (src) => [src, await loadImageForCanvas(src)])
+  );
+  return new Map(entries);
+}
+
+async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets = {}) {
   if (!sticker) return;
   ctx.save();
   const cx = (sticker.x / 100) * baseW;
@@ -238,7 +254,8 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1) {
       if (item) drawFallbackSticker(ctx, item, 1);
     }
   } else if (sticker.kind === 'upload') {
-    const img = await loadImageForCanvas(sticker.payload.dataUrl);
+    const preloaded = assets?.uploadImages?.get(sticker.payload.dataUrl);
+    const img = preloaded !== undefined ? preloaded : await loadImageForCanvas(sticker.payload.dataUrl);
     if (img) {
       const w = 120;
       const h = w / (img.width / img.height || 1);
@@ -452,6 +469,11 @@ async function renderComposition(ctx, data, options = {}) {
   ctx.fillStyle = theme.frameBg;
   ctx.fillRect(0, 0, w, h);
 
+  // 1b. Preload Stickers (parallel)
+  const stickerAssets = {
+    uploadImages: await preloadStickerImages(data.stickers || []),
+  };
+
   // 2. Photo Slots
   const selected = data.selected || [];
   const shots = data.shots || [];
@@ -485,7 +507,7 @@ async function renderComposition(ctx, data, options = {}) {
       const local = { ...s, x: s.slotX ?? 50, y: s.slotY ?? 50 };
       ctx.save();
       ctx.translate(sx, sy);
-      await drawStickerToCtx(ctx, local, sw, sh, scale);
+      await drawStickerToCtx(ctx, local, sw, sh, scale, stickerAssets);
       ctx.restore();
     }
     ctx.restore();
@@ -495,7 +517,7 @@ async function renderComposition(ctx, data, options = {}) {
   const freeStickers = (data.stickers || []).filter((st) =>
     st.frameSlot == null && isStickerValidForLayout(st, data.layout || data.templateType));
   for (const s of freeStickers) {
-    await drawStickerToCtx(ctx, s, w, h, scale);
+    await drawStickerToCtx(ctx, s, w, h, scale, stickerAssets);
   }
 
   // 4. Drawing Strokes
