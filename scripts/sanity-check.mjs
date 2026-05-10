@@ -1318,12 +1318,32 @@ function checkFramePickerResilience() {
 function checkStabilityAuditDocumented() {
   if (!fs.existsSync('task.md')) return;
   const task = fs.readFileSync('task.md', 'utf8');
+  if (!task.includes('## Full App Bottleneck & Risk Audit (Phase 3.31)')) {
+    console.error("❌ FAIL: task.md missing finalized stability audit section (Phase 3.31)");
+    hasErrors = true;
+  }
   if (!task.includes('## Runtime Production UMD Hotfix (Phase 3.32)')) {
     console.error("❌ FAIL: task.md missing finalized stability audit section (Phase 3.32)");
     hasErrors = true;
   }
-  if (!task.includes('- [ ] Babel standalone removed via production build pipeline')) {
+  if (!task.includes('## Babel Standalone Removal Scope (Phase 3.33)')) {
+    console.error("❌ FAIL: task.md missing Babel Standalone Removal Scope (Phase 3.33)");
+    hasErrors = true;
+  }
+  if (!task.includes('| Priority | Area | File | Risk | Symptom | Recommendation | Follow-up Commit |')) {
+    console.error("❌ FAIL: task.md missing risk table header");
+    hasErrors = true;
+  }
+  if (!task.includes('React UMD switched from development to production')) {
+    console.error("❌ FAIL: task.md missing React production UMD confirmation in Phase 3.32");
+    hasErrors = true;
+  }
+  if (!task.includes('Babel standalone removed via production build pipeline')) {
     console.error("❌ FAIL: task.md missing Babel removal goal in Phase 3.32");
+    hasErrors = true;
+  }
+  if (!task.includes('Choose build strategy')) {
+    console.error("❌ FAIL: task.md missing 'Choose build strategy' in Phase 3.33");
     hasErrors = true;
   }
 }
