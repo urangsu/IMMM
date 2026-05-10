@@ -106,7 +106,7 @@ function App() {
       label: window.IMMM_BUILD_LABEL,
       rcBaseline: window.IMMM_RC_BASELINE,
       stableBaseline: window.IMMM_STABLE_BASELINE,
-      cacheName: 'immm-cache-v5-2026-05-10-rc2.1'
+      cacheName: 'immm-cache-v6-2026-05-10-rc2.2'
     });
 
     const tick = () => {

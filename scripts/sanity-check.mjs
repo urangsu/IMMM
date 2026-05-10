@@ -608,11 +608,11 @@ function checkRuntimeVersion() {
   const main = fs.readFileSync('main.jsx', 'utf8');
   const sw = fs.readFileSync('sw.js', 'utf8');
 
-  if (!html.includes('IMMM_APP_VERSION = \'2026-05-10-rc2.1\'')) {
+  if (!html.includes('IMMM_APP_VERSION = \'2026-05-10-rc2.2\'')) {
     console.error("❌ FAIL: index.html missing or incorrect IMMM_APP_VERSION");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_BUILD_LABEL = \'rc2.1-clean-cotton-metadata-stabilized\'')) {
+  if (!html.includes('IMMM_BUILD_LABEL = \'rc2.2-react-production-umd\'')) {
     console.error("❌ FAIL: index.html missing IMMM_BUILD_LABEL");
     hasErrors = true;
   }
@@ -620,7 +620,7 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: index.html contains misleading IMMM_COMMIT = '91bc1ba'");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_RC_BASELINE = \'59117ac\'')) {
+  if (!html.includes('IMMM_RC_BASELINE = \'ca3df30\'')) {
     console.error("❌ FAIL: index.html missing or incorrect IMMM_RC_BASELINE");
     hasErrors = true;
   }
@@ -636,8 +636,8 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v5-2026-05-10-rc2.1')) {
-    console.error("❌ FAIL: sw.js missing immm-cache-v5-2026-05-10-rc2.1");
+  if (!sw.includes('immm-cache-v6-2026-05-10-rc2.2')) {
+    console.error("❌ FAIL: sw.js missing immm-cache-v6-2026-05-10-rc2.2");
     hasErrors = true;
   }
   if (sw.includes('immm-cache-v1') || sw.includes('immm-cache-v4')) {
@@ -1318,8 +1318,12 @@ function checkFramePickerResilience() {
 function checkStabilityAuditDocumented() {
   if (!fs.existsSync('task.md')) return;
   const task = fs.readFileSync('task.md', 'utf8');
-  if (!task.includes('## Full App Bottleneck & Risk Audit (Phase 3.31)')) {
-    console.error("❌ FAIL: task.md missing finalized stability audit section (Phase 3.31)");
+  if (!task.includes('## Runtime Production UMD Hotfix (Phase 3.32)')) {
+    console.error("❌ FAIL: task.md missing finalized stability audit section (Phase 3.32)");
+    hasErrors = true;
+  }
+  if (!task.includes('- [ ] Babel standalone removed via production build pipeline')) {
+    console.error("❌ FAIL: task.md missing Babel removal goal in Phase 3.32");
     hasErrors = true;
   }
 }
@@ -1328,8 +1332,12 @@ function checkReactProductionMode() {
   if (!fs.existsSync('index.html')) return;
   const index = fs.readFileSync('index.html', 'utf8');
   if (index.includes('react.development.js') || index.includes('react-dom.development.js')) {
-    console.warn("⚠️ WARN: index.html is using React development build (P0 Risk)");
-    // Not failing yet to allow audit-only commit, but signaling the risk.
+    console.error("❌ FAIL: index.html is using React development build (P0 Risk)");
+    hasErrors = true;
+  }
+  if (!index.includes('react.production.min.js') || !index.includes('react-dom.production.min.js')) {
+    console.error("❌ FAIL: index.html missing React production build");
+    hasErrors = true;
   }
   if (index.includes('@babel/standalone')) {
     console.warn("⚠️ WARN: index.html is using Babel standalone runtime (P0 Risk)");

@@ -954,20 +954,16 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result action QA complete
 
 
-## Full App Bottleneck & Risk Audit (Phase 3.31)
-- [x] Runtime boot/cache risks reviewed
-- [x] Camera capture and 0.6× flow reviewed
-- [x] Frame picker Samsung Internet risks reviewed
-- [x] Deco Studio fit/export risks reviewed
-- [x] Result intro/preview/save/share risks reviewed
-- [x] Blob/media lifecycle risks reviewed
-- [x] Mobile browser compatibility risks reviewed
-- [x] sanity-check maintainability reviewed
-- [x] pgpt stray guard preserved
-- [ ] P0 runtime build hotfix completed
-- [ ] P1 memory lifecycle fixes scheduled
-- [ ] Galaxy S23+ QA report attached
-- [ ] Samsung Internet QA report attached
+## Runtime Production UMD Hotfix (Phase 3.32)
+- [x] React UMD switched from development to production
+- [x] ReactDOM UMD switched from development to production
+- [x] SRI integrity updated or safely removed
+- [x] Service worker cache bumped
+- [x] Runtime metadata bumped
+- [x] Babel standalone intentionally retained for next build-pipeline phase
+- [ ] Babel standalone removed via production build pipeline
+- [ ] Vite/Next/static build migration scoped
+- [ ] Mobile cold boot measured after deployment
 
 | Priority | Area | File | Risk | Symptom | Recommendation | Follow-up Commit |
 |---|---|---|---|---|---|---|
@@ -979,4 +975,5 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 | P1 | Camera | main.jsx / screens-v2-rest.jsx | real 0.6× depends on browser capability/device exposure | 0.6× may not change FOV | Complete Galaxy S23+ debug report flow | TBD |
 | P1 | Samsung Internet | screens-v2.jsx | frame thumb/canvas fallback remains critical | blank frame picker if fallback regresses | Keep fallback guard and real-device QA | TBD |
 | P2 | sanity-check | scripts/sanity-check.mjs | string-based guards are brittle | false positives during refactor | Split smoke/audit checks later | TBD |
+
 
