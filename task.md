@@ -828,3 +828,17 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result preview visual QA complete
 - [ ] Save output matches preview
 
+## Result UX Guard Restoration Follow-up (Phase 3.21)
+- [x] getFormattedFilename guard restored
+- [x] Toast state guard restored
+- [x] showMoreActions state guard restored
+- [x] More menu item guard restored
+- [x] Redecorate / Retake / New Session routing guard restored
+- [x] QR/Video Preparing disabled guard restored
+- [x] Final asset offscreen guard preserved
+- [x] Result preview sizing preserved
+- [x] pgpt stray guard preserved
+- [ ] Desktop Result action QA complete
+- [ ] Samsung Internet Result action QA complete
+- [ ] Save output matches preview
+

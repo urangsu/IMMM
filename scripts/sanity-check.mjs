@@ -880,11 +880,54 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx missing showMoreActions state");
     hasErrors = true;
   }
-  
-  // matchMedia guard check
-  if (deco.includes('window.matchMedia') && !deco.includes("typeof window.matchMedia === 'function'")) {
-    console.error("❌ FAIL: screens-v2-deco.jsx uses window.matchMedia without typeof check");
+  if (deco.includes('toasts.map') && !deco.includes('const [toasts,')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx uses toasts.map but missing state");
     hasErrors = true;
+  }
+  if (deco.includes('setToasts') && !deco.includes('const [toasts,')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx uses setToasts but missing state");
+    hasErrors = true;
+  }
+  if (deco.includes('showMoreActions') && !deco.includes('const [showMoreActions,')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx uses showMoreActions but missing state");
+    hasErrors = true;
+  }
+  
+  // Phase 3.11 UX Polish: Menu Actions & Routing (Restored)
+  if (!deco.includes('Redecorate') || !deco.includes('Retake') || !deco.includes('New Session')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing Result menu action labels");
+    hasErrors = true;
+  }
+  if (!deco.includes("go('deco')") || !deco.includes("go('setup')") || !deco.includes("go('landing')")) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing Result routing targets");
+    hasErrors = true;
+  }
+  if (!deco.includes('setShowMoreActions(false)') || !deco.includes('setShowMoreActions(!showMoreActions)')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing More menu toggle/close logic");
+    hasErrors = true;
+  }
+
+  // QR/Video Preparing (Disabled) (Restored)
+  const preparingActions = ['QR Share', 'Save Video'];
+  preparingActions.forEach(p => {
+    if (!deco.includes(p) || !deco.includes('Preparing')) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx missing ${p} (Preparing) text`);
+      hasErrors = true;
+    }
+  });
+
+  if (deco.includes('onClick={handleQrShare}') || deco.includes('onClick={handleVideoDownload}')) {
+    // Check if these are connected to buttons that say Preparing
+    const qrPrepMatch = deco.match(/<button[^>]*?QR Share.*?Preparing.*?<\/button>/s);
+    if (qrPrepMatch && qrPrepMatch[0].includes('onClick={handleQrShare}')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx QR Share (Preparing) has functional onClick");
+      hasErrors = true;
+    }
+    const videoPrepMatch = deco.match(/<button[^>]*?Save Video.*?Preparing.*?<\/button>/s);
+    if (videoPrepMatch && videoPrepMatch[0].includes('onClick={handleVideoDownload}')) {
+      console.error("❌ FAIL: screens-v2-deco.jsx Save Video (Preparing) has functional onClick");
+      hasErrors = true;
+    }
   }
 
   // Storage safety check
@@ -895,6 +938,12 @@ function checkResultUX() {
       hasErrors = true;
     }
   });
+
+  // matchMedia guard check
+  if (deco.includes('window.matchMedia') && !deco.includes("typeof window.matchMedia === 'function'")) {
+    console.error("❌ FAIL: screens-v2-deco.jsx uses window.matchMedia without typeof check");
+    hasErrors = true;
+  }
 
   // Preview blank fix check (showPrintIntro dependency in draw effect)
   if (!deco.includes('showPrintIntro])')) {
