@@ -856,6 +856,20 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result strip visual QA complete
 - [ ] Save output matches preview
 
+## Result Vertical Layout Compression + Action Visibility (Phase 3.24)
+- [x] Top title/subtitle spacing reduced
+- [x] Result stage height reduced from over-expanded strip setting
+- [x] Strip targetHeightVh lowered for desktop
+- [x] Bottom Save / Share / More row preserved
+- [x] Bottom action row designed to remain visible on first screen
+- [x] resultPreviewSrc source preserved
+- [x] Save/Share/export path untouched
+- [x] Result UX sanity guards preserved
+- [x] pgpt stray guard preserved
+- [ ] Mac Chrome first-screen action row visual QA complete
+- [ ] Samsung Internet Result layout QA complete
+- [ ] Save output matches preview
+
 ## Result UX Guard Final Patch (Phase 3.22)
 - [x] getFormattedFilename existence guard added
 - [x] QR Share Preparing disabled attribute guard added

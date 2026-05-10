@@ -697,21 +697,21 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const getResultDisplayFit = (layoutId, isMobile) => {
     if (layoutId === 'strip') {
       return {
-        minScale: isMobile ? 0.78 : 0.72,
+        minScale: isMobile ? 0.78 : 0.65,
         maxScale: isMobile ? 1.25 : 1.35,
-        targetHeightVh: isMobile ? 62 : 74,
-        maxHeightPx: isMobile ? 700 : 860,
-        minHeightPx: isMobile ? 560 : 680,
+        targetHeightVh: isMobile ? 54 : 58,
+        maxHeightPx: isMobile ? 620 : 700,
+        minHeightPx: isMobile ? 440 : 520,
       };
     }
 
     if (layoutId === 'trip') {
       return {
-        minScale: isMobile ? 0.82 : 0.78,
+        minScale: isMobile ? 0.82 : 0.72,
         maxScale: isMobile ? 1.25 : 1.35,
-        targetHeightVh: isMobile ? 58 : 68,
-        maxHeightPx: isMobile ? 660 : 800,
-        minHeightPx: isMobile ? 520 : 620,
+        targetHeightVh: isMobile ? 50 : 54,
+        maxHeightPx: isMobile ? 580 : 660,
+        minHeightPx: isMobile ? 400 : 480,
       };
     }
 
@@ -726,10 +726,10 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const resultStageMinHeight = (() => {
     if (layout === 'strip') {
-      return mobile ? 'clamp(560px, 62vh, 700px)' : 'clamp(680px, 74vh, 860px)';
+      return mobile ? 'clamp(440px, 50vh, 600px)' : 'clamp(520px, 58vh, 700px)';
     }
     if (layout === 'trip') {
-      return mobile ? 'clamp(520px, 58vh, 660px)' : 'clamp(620px, 68vh, 800px)';
+      return mobile ? 'clamp(400px, 46vh, 580px)' : 'clamp(480px, 54vh, 660px)';
     }
     return mobile ? 'clamp(360px, 46vh, 520px)' : 'clamp(460px, 52vh, 660px)';
   })();
@@ -1478,15 +1478,15 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   return (
     <div style={{ height: '100%', background: T.bg, display: 'flex', flexDirection: 'column',
-      padding: '24px 56px 24px' }}>
+      padding: '16px 56px 12px' }}>
       {resultOverlays}
       <TopBar step={4} back={() => go('deco')} T={T} mobile={false} title="Step 5 · Your strip"
       right={<button onClick={() => go('landing')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 12, fontFamily: 'Pretendard,system-ui' }}>New session</button>} />
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <h1 style={{ margin: 0, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 52, fontWeight: 500, letterSpacing: -1.5 }}>
-          Your <span style={{ fontFamily: 'Caveat,cursive', color: T.pinkDeep, fontSize: 68 }}>moment</span> is ready.
+      <div style={{ textAlign: 'center', marginBottom: 12 }}>
+        <h1 style={{ margin: 0, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 44, fontWeight: 500, letterSpacing: -1.2 }}>
+          Your <span style={{ fontFamily: 'Caveat,cursive', color: T.pinkDeep, fontSize: 56 }}>moment</span> is ready.
         </h1>
-        <div style={{ marginTop: 4, color: T.inkSoft, fontSize: 15, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.</div>
+        <div style={{ marginTop: 2, color: T.inkSoft, fontSize: 14, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.</div>
       </div>
 
       <div ref={containerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
@@ -1496,7 +1496,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 24, position: 'relative' }}>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16, position: 'relative' }}>
         <BtnPrimary T={T} size="lg" onClick={handleDownload} style={{ width: 220, height: 56, opacity: downloading ? 0.6 : 1 }}>
           {downloading ? 'Saving image...' : 'Save image · 저장'}
         </BtnPrimary>

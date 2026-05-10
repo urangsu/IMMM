@@ -43,7 +43,7 @@ function checkVisibleFilters() {
     console.error(`❌ FAIL: filters.jsx VISIBLE_FILTER_KEYS must be exactly 6 (current: ${keys.length})`);
     hasErrors = true;
   }
-  
+
   keys.forEach(k => {
     if (!approved.includes(k)) {
       console.error(`❌ FAIL: filters.jsx exposes non-approved visible filter: ${k}`);
@@ -80,8 +80,8 @@ function checkWebglVisiblePipelines() {
 
   const approvedFilters = ['original', 'porcelain', 'smooth', 'blush', 'grain', 'bw'];
   const prohibitedShaders = [
-    'skin_retouch', 'purikura', 'glam', 'aurora', 
-    'classic_neg', 'kodak_portra', 'ilford_hp5', 
+    'skin_retouch', 'purikura', 'glam', 'aurora',
+    'classic_neg', 'kodak_portra', 'ilford_hp5',
     'y2k', 'dream', 'glitter', 'chromatic_ab', 'vignette'
   ];
 
@@ -140,21 +140,21 @@ function checkEmergencyFaceSafety() {
       if (webgl.includes(p) && !webgl.includes(`// ${p}`)) {
         const reg = new RegExp(`^\\s*[^\\/\\n]*\\b${p.replace('.', '\\.')}\\b`, 'm');
         if (reg.test(webgl)) {
-           console.error(`❌ FAIL: webgl-engine.jsx contains prohibited keyword: ${p}`);
-           hasErrors = true;
+          console.error(`❌ FAIL: webgl-engine.jsx contains prohibited keyword: ${p}`);
+          hasErrors = true;
         }
       }
     });
   }
 
   if (rest) {
-    const softening = rest.match(/const\s+applyFaceZoneSoftening\s*=\s*.*\{([\s\S]*?)\}/) || 
-                      rest.match(/function\s+applyFaceZoneSoftening[\s\S]*?\{([\s\S]*?)\}/);
+    const softening = rest.match(/const\s+applyFaceZoneSoftening\s*=\s*.*\{([\s\S]*?)\}/) ||
+      rest.match(/function\s+applyFaceZoneSoftening[\s\S]*?\{([\s\S]*?)\}/);
     if (softening) {
       const body = softening[1].trim();
       if (body !== '' && body !== 'return;' && !body.includes('//')) {
-         console.error('❌ FAIL: screens-v2-rest.jsx applyFaceZoneSoftening is not a no-op');
-         hasErrors = true;
+        console.error('❌ FAIL: screens-v2-rest.jsx applyFaceZoneSoftening is not a no-op');
+        hasErrors = true;
       }
     }
   }
@@ -184,12 +184,12 @@ function checkEmergencyFrameGlobals() {
       hasErrors = true;
     }
     if (frameSystem.includes('async function renderComposition') && !frameSystem.includes('getFrameTemplateSafe')) {
-       console.error('❌ FAIL: frame-system.jsx renderComposition missing getFrameTemplateSafe usage');
-       hasErrors = true;
+      console.error('❌ FAIL: frame-system.jsx renderComposition missing getFrameTemplateSafe usage');
+      hasErrors = true;
     }
     if (frameSystem.includes('async function renderFrameToCanvas') && !frameSystem.includes('getFrameTemplateSafe')) {
-       console.error('❌ FAIL: frame-system.jsx renderFrameToCanvas missing getFrameTemplateSafe usage');
-       hasErrors = true;
+      console.error('❌ FAIL: frame-system.jsx renderFrameToCanvas missing getFrameTemplateSafe usage');
+      hasErrors = true;
     }
   }
   for (const f of files) {
@@ -210,7 +210,7 @@ function checkEmergencyServiceWorker() {
     hasErrors = true;
   }
   if (!sw.toLowerCase().includes('network-first')) {
-     console.warn('⚠️ WARN: sw.js should explicitly mention network-first strategy for stability');
+    console.warn('⚠️ WARN: sw.js should explicitly mention network-first strategy for stability');
   }
   // Actual network-first pattern check
   if (!sw.includes('fetch(e.request).catch(() => caches.match(e.request))')) {
@@ -417,11 +417,11 @@ function checkFrameThemeUnification() {
   }
 
   if (fs.includes('template.theme?.dotColor') && fs.includes('renderFrameOverlay')) {
-     const overlayBlock = fs.match(/function\s+renderFrameOverlay[\s\S]*?\{([\s\S]*?)\}/);
-     if (overlayBlock && overlayBlock[1].includes('template.theme?.dotColor')) {
-        console.error("❌ FAIL: renderFrameOverlay uses legacy template.theme?.dotColor");
-        hasErrors = true;
-     }
+    const overlayBlock = fs.match(/function\s+renderFrameOverlay[\s\S]*?\{([\s\S]*?)\}/);
+    if (overlayBlock && overlayBlock[1].includes('template.theme?.dotColor')) {
+      console.error("❌ FAIL: renderFrameOverlay uses legacy template.theme?.dotColor");
+      hasErrors = true;
+    }
   }
 
   if (!fs.includes('getFrameTheme(')) {
@@ -538,7 +538,7 @@ function checkPhaseCCameraZoom() {
   if (!main.includes('const toggleWideCamera =')) { console.error("❌ FAIL: main.jsx missing toggleWideCamera callback"); hasErrors = true; }
   if (!main.includes('applyCameraZoom(0.6)')) { console.error("❌ FAIL: main.jsx missing hardware zoom path (0.6x)"); hasErrors = true; }
   if (!main.includes('switchCameraDevice(candidate.deviceId)')) { console.error("❌ FAIL: main.jsx missing device switch fallback path"); hasErrors = true; }
-  
+
 
   // 2. screens-v2-rest.jsx checks
   // 2. screens-v2-rest.jsx checks
@@ -547,12 +547,12 @@ function checkPhaseCCameraZoom() {
     console.error("❌ FAIL: screens-v2-rest.jsx still has separate 0.6x and 1x buttons");
     hasErrors = true;
   }
-  
+
   if (rest.includes('<button') && rest.includes('isWideActive ? \'1×\' : \'0.6×\'')) {
-     // Single toggle confirmed
+    // Single toggle confirmed
   } else {
-     console.error("❌ FAIL: screens-v2-rest.jsx missing single toggle button for camera zoom");
-     hasErrors = true;
+    console.error("❌ FAIL: screens-v2-rest.jsx missing single toggle button for camera zoom");
+    hasErrors = true;
   }
 
   if (!rest.includes("maxHeight: mobile ? 'min(68vh, 620px)' : 'none'")) {
@@ -563,7 +563,7 @@ function checkPhaseCCameraZoom() {
   // Shutter row grouping check
   const shutterRowMatch = rest.match(/Shutter row[\s\S]*?cameraOverlay/);
   const shutterRow = shutterRowMatch ? shutterRowMatch[0] : "";
-  
+
   if (!shutterRow.includes('toggleAuto') || (!shutterRow.includes('toggleWideCamera') && !shutterRow.includes('onToggle'))) {
     console.error("❌ FAIL: screens-v2-rest.jsx shutter row missing Auto or 0.6x toggle");
     hasErrors = true;
@@ -577,20 +577,20 @@ function checkPhaseCCameraZoom() {
     console.error("❌ FAIL: screens-v2-rest.jsx right side controls (timer/left) must be grouped on the right");
     hasErrors = true;
   }
-  
+
   if (rest.includes('isWideActive ? \'1×\' : \'0.6×\'') && rest.split('isWideActive ? \'1×\' : \'0.6×\'').length > 2) {
-     console.error("❌ FAIL: screens-v2-rest.jsx has duplicate 0.6x toggle buttons");
-     hasErrors = true;
+    console.error("❌ FAIL: screens-v2-rest.jsx has duplicate 0.6x toggle buttons");
+    hasErrors = true;
   }
-  
+
   if (!rest.includes('WideCameraDebugPill') || !rest.includes('DebugWideDevicePicker')) {
-     console.error("❌ FAIL: screens-v2-rest.jsx missing debug camera components");
-     hasErrors = true;
+    console.error("❌ FAIL: screens-v2-rest.jsx missing debug camera components");
+    hasErrors = true;
   }
 
   if (!rest.includes('{debugCamera && <WideCameraDebugPill />}') || !rest.includes('{showWidePicker && <DebugWideDevicePicker />}')) {
-     console.error("❌ FAIL: screens-v2-rest.jsx debug components missing correct guards");
-     hasErrors = true;
+    console.error("❌ FAIL: screens-v2-rest.jsx debug components missing correct guards");
+    hasErrors = true;
   }
 
   if (rest.includes('scale(0.6)')) {
@@ -658,16 +658,16 @@ function checkWidePickerSafety() {
     console.error("❌ FAIL: screens-v2-rest.jsx missing debugCamera variable");
     hasErrors = true;
   }
-  
+
   // Debug components check
   if (!rest.includes('<WideCameraDebugPill />') || !rest.includes('<DebugWideDevicePicker />')) {
-     console.error("❌ FAIL: screens-v2-rest.jsx missing named debug camera components");
-     hasErrors = true;
+    console.error("❌ FAIL: screens-v2-rest.jsx missing named debug camera components");
+    hasErrors = true;
   }
 
   if (!rest.includes('{debugCamera && <WideCameraDebugPill />}') || !rest.includes('{showWidePicker && <DebugWideDevicePicker />}')) {
-     console.error("❌ FAIL: screens-v2-rest.jsx debug components missing correct guards");
-     hasErrors = true;
+    console.error("❌ FAIL: screens-v2-rest.jsx debug components missing correct guards");
+    hasErrors = true;
   }
 
   const diagnosticStrings = [
@@ -870,12 +870,12 @@ function checkResultUX() {
       }
     }
   }
-  const forbiddenAssets = ['.gif', 'lottie']; 
+  const forbiddenAssets = ['.gif', 'lottie'];
   forbiddenAssets.forEach(a => {
-     if (deco.includes(a) && !deco.includes('handleVideoDownload')) {
-        console.error(`❌ FAIL: screens-v2-deco.jsx contains prohibited asset reference: ${a}`);
-        hasErrors = true;
-     }
+    if (deco.includes(a) && !deco.includes('handleVideoDownload')) {
+      console.error(`❌ FAIL: screens-v2-deco.jsx contains prohibited asset reference: ${a}`);
+      hasErrors = true;
+    }
   });
 
   // Hotfix checks: restored state
@@ -899,7 +899,7 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx uses showMoreActions but missing state");
     hasErrors = true;
   }
-  
+
   // Phase 3.11 UX Polish: Menu Actions & Routing (Restored)
   if (!deco.includes('Redecorate') || !deco.includes('Retake') || !deco.includes('New Session')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing Result menu action labels");
@@ -948,7 +948,7 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx missing renderFinalResultBlob offscreen helper");
     hasErrors = true;
   }
-  
+
   // Function-level containment checks for DOM capture risk
   const finalAssetFunctions = ['getFinalResultBlob', 'handleDownload', 'handleShare', 'buildFinalResultAsset', 'renderFinalResultBlob'];
   finalAssetFunctions.forEach(fn => {
@@ -958,10 +958,10 @@ function checkResultUX() {
       hasErrors = true;
       return;
     }
-    
+
     // Extract function body to check strictly
     const startIdx = deco.indexOf(fn);
-    const body = deco.substring(startIdx, startIdx + 2500); 
+    const body = deco.substring(startIdx, startIdx + 2500);
 
     if (fn === 'renderFinalResultBlob') {
       if (!body.includes("document.createElement('canvas')") || !body.includes('toBlob') || !body.includes('renderComposition')) {
@@ -969,17 +969,17 @@ function checkResultUX() {
         hasErrors = true;
       }
     } else if (fn === 'getFinalResultBlob') {
-       if (!body.includes('renderFinalResultBlob')) {
-         console.error("❌ FAIL: getFinalResultBlob must use renderFinalResultBlob");
-         hasErrors = true;
-       }
+      if (!body.includes('renderFinalResultBlob')) {
+        console.error("❌ FAIL: getFinalResultBlob must use renderFinalResultBlob");
+        hasErrors = true;
+      }
     }
 
     if (body.includes('captureFrameAsBlob')) {
       console.error(`❌ FAIL: screens-v2-deco.jsx function ${fn} contains captureFrameAsBlob`);
       hasErrors = true;
     }
-    
+
     if (fn !== 'buildFinalResultAsset' && body.includes('captureRef')) {
       console.error(`❌ FAIL: screens-v2-deco.jsx function ${fn} contains captureRef`);
       hasErrors = true;
@@ -1025,7 +1025,7 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx ResultPrintIntro still uses resultFrame (DOM risk)");
     hasErrors = true;
   }
-  
+
   // Single Source usage check (Phase 3.8/3.9/3.10)
   if (!deco.includes('exportBlobRef.current = { key: getExportKey(), blob }')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing asset caching for Save/Share");
@@ -1036,7 +1036,7 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx missing getDecoFitMaxScale helper");
     hasErrors = true;
   }
-  
+
   if (deco.includes('minHeight: mobile ? \'clamp')) {
     if (!deco.includes('660px')) {
       console.error("❌ FAIL: screens-v2-deco.jsx Result preview container missing enlarged clamp height (660px)");
@@ -1044,7 +1044,7 @@ function checkResultUX() {
     }
   }
 
-  // Result Final Display Sizing (Phase 3.23)
+  // Result Final Display Sizing (Phase 3.23/3.24)
   if (!deco.includes('getResultDisplayFit')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing getResultDisplayFit helper");
     hasErrors = true;
@@ -1054,19 +1054,19 @@ function checkResultUX() {
     hasErrors = true;
   }
   
-  // Validate strip specific rules in getResultDisplayFit
-  if (!deco.includes('minScale: isMobile ? 0.78 : 0.72')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip minScale rules");
+  // Validate strip specific rules in getResultDisplayFit (Updated for Phase 3.24)
+  if (!deco.includes('minScale: isMobile ? 0.78 : 0.65')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip minScale rules (expected 0.65 for desktop)");
     hasErrors = true;
   }
-  if (!deco.includes('targetHeightVh: isMobile ? 62 : 74')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip targetHeightVh rules");
+  if (!deco.includes('targetHeightVh: isMobile ? 54 : 58')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip targetHeightVh rules (expected 58 for desktop)");
     hasErrors = true;
   }
 
-  // Validate container height rules
-  if (!deco.includes('clamp(680px, 74vh, 860px)')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx resultStageMinHeight missing desktop strip clamp height");
+  // Validate container height rules (Updated for Phase 3.24)
+  if (!deco.includes('clamp(520px, 58vh, 700px)')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx resultStageMinHeight missing desktop strip clamp height (expected 700px max)");
     hasErrors = true;
   }
 }
@@ -1099,12 +1099,12 @@ function checkCleanCottonTheme() {
       const lines = setup.split('\n');
       lines.forEach((line, i) => {
         if (line.includes('#FDFCF8') && !line.trim().startsWith('//')) {
-           console.warn(`⚠️ WARN: screens-v2.jsx:L${i+1} still contains #FDFCF8. Ensure it is not active background.`);
+          console.warn(`⚠️ WARN: screens-v2.jsx:L${i + 1} still contains #FDFCF8. Ensure it is not active background.`);
         }
       });
     }
   }
-  
+
   // Forbidden leakage/modification checks
   if (fsys && (fsys.includes('#FCFCFA') || fsys.includes('#F8F8F5'))) {
     console.error("❌ FAIL: frame-system.jsx contains clean cotton tokens (must not be modified)");
@@ -1143,7 +1143,7 @@ function checkStrayFiles() {
       console.error(`❌ FAIL: IMMM workspace has dirty/untracked pgpt files:\n${gitStatus.split('\n').filter(l => l.includes('pgpt')).join('\n')}`);
       hasErrors = true;
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function checkFramePickerResilience() {
@@ -1162,7 +1162,7 @@ function checkFramePickerResilience() {
     console.error("❌ FAIL: screens-v2.jsx missing canRenderRealThumb guard for frame picker");
     hasErrors = true;
   }
-  
+
   // Declaration order check
   const tplIdx = v2.indexOf('const tpl = resolveFrameTemplate(o.id)');
   const thumbIdx = v2.indexOf('const canRenderRealThumb =');
@@ -1177,11 +1177,11 @@ function checkFramePickerResilience() {
   if (v2.includes('<FramePickerFallback') && v2.includes('<WFrameThumb') && v2.indexOf('<FramePickerFallback') < v2.indexOf('<WFrameThumb')) {
     const framePickerSection = v2.substring(v2.indexOf('frameTab'), v2.indexOf('filterTab'));
     if (framePickerSection.includes('<FramePickerFallback') && framePickerSection.includes('<WFrameThumb')) {
-       // If they are both present without a ternary operator nearby
-       if (!framePickerSection.includes('?')) {
-          console.error("❌ FAIL: screens-v2.jsx frame picker might be overlaying fallback and real thumb");
-          hasErrors = true;
-       }
+      // If they are both present without a ternary operator nearby
+      if (!framePickerSection.includes('?')) {
+        console.error("❌ FAIL: screens-v2.jsx frame picker might be overlaying fallback and real thumb");
+        hasErrors = true;
+      }
     }
   }
   if (v2.includes('Frame preview unavailable')) {
