@@ -801,3 +801,18 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Setup Clean Cotton verified on rc2.1
 - [ ] Result preview verified on rc2.1
 - [ ] Deco 1x4 fit verified on rc2.1
+
+## Result Preview Size Final Tuning (Phase 3.19)
+- [x] Desktop strip result preview enlarged beyond 240px base (now 340px)
+- [x] Layout-specific result preview base width helper added
+- [x] Result preview fit uses viewport height target
+- [x] Result preview source remains resultPreviewSrc
+- [x] Save/Share/export path untouched
+- [x] ResultPrintIntro remains previewSrc-based
+- [x] pgpt stray guard preserved
+- [ ] Desktop Chrome Result preview visual QA complete
+- [ ] Samsung Internet Result preview visual QA complete
+- [ ] iOS Safari Result preview visual QA complete
+- [ ] Strip preview no longer appears tiny
+- [ ] Save output matches preview
+

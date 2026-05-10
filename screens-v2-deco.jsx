@@ -637,7 +637,7 @@ function ResultPrintIntro({ T, mobile, layout, previewSrc }) {
 
         {/* Emerging Photo */}
         <div style={{
-          width: 240, height: 480, overflow: 'hidden',
+          width: mobile ? 260 : 320, height: 480, overflow: 'hidden',
           position: 'relative', marginTop: -8, zIndex: 5,
           maskImage: 'linear-gradient(to bottom, black 95%, transparent 100%)',
           WebkitMaskImage: 'linear-gradient(to bottom, black 95%, transparent 100%)'
@@ -650,7 +650,7 @@ function ResultPrintIntro({ T, mobile, layout, previewSrc }) {
             <img src={previewSrc} style={{ 
               transform: 'scale(0.85)', 
               transformOrigin: 'top center', 
-              width: 180 * (layout==='strip'||layout==='trip'?1:1.2), 
+              width: (mobile ? 200 : 240) * (layout==='strip'||layout==='trip'?1.35:1.2), 
               height: 'auto', 
               display: 'block',
               boxShadow: '0 20px 50px rgba(0,0,0,0.15)', 
@@ -671,13 +671,25 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     ? getShotCountForLayout(layout)
     : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
 
+  const getResultPreviewBaseWidth = (layoutId, isMobile) => {
+    if (isMobile) {
+      if (layoutId === 'strip') return 230;
+      if (layoutId === 'trip') return 240;
+      return 280;
+    }
+    if (layoutId === 'strip') return 340;
+    if (layoutId === 'trip') return 360;
+    if (layoutId === 'grid') return 420;
+    if (layoutId === 'polaroid') return 360;
+    return 360;
+  };
+
   const getResultPreviewFit = (layoutId, isMobile) => {
     const rules = {
-      strip: { maxScale: isMobile ? 1.2 : 2.04, padding: isMobile ? 16 : 40, vRatio: 0.82 },
-      trip: { maxScale: isMobile ? 1.1 : 1.65, padding: isMobile ? 24 : 48, vRatio: 0.78 },
-      grid: { maxScale: isMobile ? 1.0 : 1.3, padding: isMobile ? 32 : 56, vRatio: 0.72 },
-      polaroid: { maxScale: isMobile ? 1.0 : 1.25, padding: isMobile ? 40 : 64, vRatio: 0.68 },
-      single: { maxScale: isMobile ? 1.0 : 1.25, padding: isMobile ? 40 : 64, vRatio: 0.68 },
+      strip: { maxScale: isMobile ? 1.45 : 2.6, targetHeightVh: isMobile ? 44 : 52, maxHeightPx: isMobile ? 520 : 620, padding: isMobile ? 12 : 24 },
+      trip: { maxScale: isMobile ? 1.35 : 2.25, targetHeightVh: isMobile ? 42 : 50, maxHeightPx: isMobile ? 500 : 600, padding: isMobile ? 12 : 24 },
+      grid: { maxScale: isMobile ? 1.1 : 1.55, targetHeightVh: isMobile ? 38 : 44, maxHeightPx: isMobile ? 420 : 500, padding: isMobile ? 14 : 28 },
+      polaroid: { maxScale: isMobile ? 1.05 : 1.45, targetHeightVh: isMobile ? 36 : 42, maxHeightPx: isMobile ? 400 : 480, padding: isMobile ? 14 : 28 },
     };
     return rules[layoutId] || rules.grid;
   };
@@ -773,14 +785,14 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       <div ref={captureRef} style={{ position: 'relative', display: 'inline-block' }}>
         {resultPreviewSrc ? (
           <img src={resultPreviewSrc} style={{ 
-            width: (mobile ? 200 : 240) * (layout==='strip'||layout==='trip'?1:1.2), 
+            width: getResultPreviewBaseWidth(layout, mobile), 
             height: 'auto', 
             display: 'block', 
             boxShadow: '0 30px 70px rgba(0,0,0,0.2)', 
             borderRadius: 4 
           }} alt="Result Preview" />
         ) : (
-          <div style={{ width: (mobile ? 200 : 240) * (layout==='strip'||layout==='trip'?1:1.2), aspectRatio: layout==='strip'||layout==='trip'?'1/4':'4/5', background:'rgba(255,255,255,0.1)', borderRadius:4 }} />
+          <div style={{ width: getResultPreviewBaseWidth(layout, mobile), aspectRatio: layout==='strip'||layout==='trip'?'1/4':'4/5', background:'rgba(255,255,255,0.1)', borderRadius:4 }} />
         )}
         
         {resultPreviewStatus === 'building' && (
@@ -1282,7 +1294,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       const fH = frameRef.current.scrollHeight;
       if (!fW || !fH) return;
       
-      const s = Math.min(fit.maxScale, cW / fW, cH / fH);
+      // Consider target height if available
+      const vhTarget = (window.innerHeight * (fit.targetHeightVh || 40)) / 100;
+      const targetScale = fit.maxHeightPx ? Math.min(fit.maxScale, fit.maxHeightPx / fH) : fit.maxScale;
+      
+      const s = Math.min(targetScale, cW / fW, cH / fH, vhTarget / fH);
       setAutoScale(Math.max(0.1, s));
     };
     compute();
@@ -1367,7 +1383,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
             <div style={{ marginTop: 4, color: T.inkSoft, fontSize: 13, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.</div>
           </div>
           {/* Frame centered */}
-          <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 18px', minHeight: 'min(500px, 65vh)' }}>
+          <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 18px', minHeight: mobile ? 'clamp(360px, 46vh, 520px)' : 'clamp(460px, 52vh, 660px)' }}>
             <div ref={frameRef} style={{ display: 'inline-block', animation: 'polaroidReveal 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }}>
               {resultFrame(1)}
             </div>
@@ -1424,7 +1440,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       </div>
 
       <div ref={containerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-        padding: '12px 0' }}>
+        padding: '12px 0', minHeight: mobile ? 'clamp(360px, 46vh, 520px)' : 'clamp(460px, 52vh, 660px)' }}>
         <div ref={frameRef} style={{ display: 'inline-block', animation: 'popIn 0.55s cubic-bezier(0.34,1.56,0.64,1)' }}>
           {resultFrame(autoScale)}
         </div>
