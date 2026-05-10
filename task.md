@@ -1088,10 +1088,10 @@ QA steps:
 - [x] Build strategy options compared (Vite vs. esbuild vs. Babel CLI)
 - [x] Chosen low-risk migration strategy documented (Babel CLI Precompile)
 - [x] Rollback path documented (Keep legacy index.html)
-- [x] Phase 3.40 implementation plan drafted
-- [x] React production UMD status preserved
-- [x] Babel standalone risk remains tracked
-- [x] pgpt stray guard preserved
+- [x] scripts-glob build command corrected
+- [x] Explicit ordered JSX build manifest documented
+- [x] Glob order risk documented
+- [x] `index.precompiled.html` first-step strategy documented
 - [ ] Minimal precompile implementation complete (Phase 3.40)
 - [ ] @babel/standalone removed from runtime
 - [ ] Mobile cold boot benchmark completed
@@ -1128,8 +1128,24 @@ QA steps:
 *   **Strategy**: Use `@babel/cli` to transform `.jsx` to `.js` offline. `index.html` will simply link to `.js` files instead of `.jsx`.
 *   **Rollback Path**: Retain the original `index.html` as `index.babel.html` or keep a git revert path to restore `@babel/standalone`.
 
+### Build Manifest Strategy
+- Do not use glob order for JSX precompile (e.g., `*.jsx`).
+- Maintain an explicit ordered file list matching `index.html` script order to ensure global dependency availability.
+- Build output must preserve one-to-one filenames:
+  - `app.jsx` -> `dist/app.js`
+  - `filters.jsx` -> `dist/filters.js`
+  - `webgl-engine.jsx` -> `dist/webgl-engine.js`
+  - `mediapipe-face.jsx` -> `dist/mediapipe-face.js`
+  - `sticker-engine.jsx` -> `dist/sticker-engine.js`
+  - `frame-system.jsx` -> `dist/frame-system.js`
+  - `screens-v2.jsx` -> `dist/screens-v2.js`
+  - `screens-v2-rest.jsx` -> `dist/screens-v2-rest.js`
+  - `screens-v2-deco.jsx` -> `dist/screens-v2-deco.js`
+  - `main.jsx` -> `dist/main.js`
+
 ### Phase 3.40 Implementation Plan (Draft)
 1.  Add `package.json` with `@babel/core`, `@babel/cli`, `@babel/preset-react`.
-2.  Add `npm run build` script: `babel scripts/*.jsx --out-dir dist/`.
-3.  Create `index.prod.html` or update `index.html` via script to swap `type="text/babel"` and `.jsx` extensions.
+2.  Add `npm run build` script with explicit order:
+    `babel app.jsx filters.jsx webgl-engine.jsx mediapipe-face.jsx sticker-engine.jsx frame-system.jsx screens-v2.jsx screens-v2-rest.jsx screens-v2-deco.jsx main.jsx --out-dir dist`
+3.  Create `index.precompiled.html` first to verify the dist boot without replacing `index.html`.
 4.  Verify PWA/Service Worker still caches the new `.js` assets correctly.

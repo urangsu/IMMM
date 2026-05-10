@@ -1555,8 +1555,12 @@ function checkBabelMigrationPlan() {
     'Global / API Dependency Map',
     'Build Strategy Selection',
     'Babel CLI Precompile',
-    'Phase 3.40 Implementation Plan',
-    'Rollback Path'
+    'Build Manifest Strategy',
+    'Do not use glob order',
+    'index.precompiled.html',
+    'babel app.jsx filters.jsx webgl-engine.jsx',
+    '`app.jsx` -> `dist/app.js`',
+    '`main.jsx` -> `dist/main.js`'
   ];
 
   requirements.forEach(req => {
@@ -1566,9 +1570,24 @@ function checkBabelMigrationPlan() {
     }
   });
 
+  if (task.includes('babel scripts/*.jsx')) {
+      console.error("❌ FAIL: task.md contains incorrect build command 'babel scripts/*.jsx'");
+      hasErrors = true;
+  }
+
   const index = readFile('index.html');
   if (index && index.includes('@babel/standalone')) {
     console.warn("⚠️ WARN: @babel/standalone still present in index.html (P0 Risk tracked in Phase 3.39)");
+  }
+
+  if (fs.existsSync('package.json')) {
+      console.error("❌ FAIL: package.json should not be created in Phase 3.39 (Planning only)");
+      hasErrors = true;
+  }
+
+  if (fs.existsSync('dist')) {
+      console.error("❌ FAIL: dist/ folder should not be created in Phase 3.39 (Planning only)");
+      hasErrors = true;
   }
 }
 
