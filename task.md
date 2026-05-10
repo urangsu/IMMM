@@ -784,3 +784,20 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] iOS Safari visual QA complete
 - [ ] White frame visibility verified
 - [ ] Colored frame visibility verified
+
+## RC2.1 Metadata + Cache Alignment (Phase 3.18)
+- [x] IMMM_APP_VERSION updated to 2026-05-10-rc2.1
+- [x] IMMM_BUILD_LABEL updated to rc2.1-clean-cotton-metadata-stabilized
+- [x] IMMM_RC_BASELINE added as 59117ac
+- [x] Misleading IMMM_COMMIT 91bc1ba removed
+- [x] BuildPill displays RC baseline
+- [x] Boot log displays rcBaseline and cacheName
+- [x] Service worker CACHE_NAME bumped to immm-cache-v5-2026-05-10-rc2.1
+- [x] Clean Cotton tokens preserved
+- [x] pgpt stray guard preserved
+- [ ] Desktop Chrome sees rc2.1 build
+- [ ] Samsung Internet sees rc2.1 build
+- [ ] iOS Safari sees rc2.1 build
+- [ ] Setup Clean Cotton verified on rc2.1
+- [ ] Result preview verified on rc2.1
+- [ ] Deco 1x4 fit verified on rc2.1

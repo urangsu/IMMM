@@ -104,10 +104,9 @@ function App() {
     console.info('[IMMM build]', {
       version: window.IMMM_APP_VERSION,
       label: window.IMMM_BUILD_LABEL,
-      commit: window.IMMM_COMMIT,
       rcBaseline: window.IMMM_RC_BASELINE,
       stableBaseline: window.IMMM_STABLE_BASELINE,
-      cacheName: 'immm-cache-v4-2026-05-09-rc2'
+      cacheName: 'immm-cache-v5-2026-05-10-rc2.1'
     });
 
     const tick = () => {

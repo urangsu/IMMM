@@ -608,36 +608,40 @@ function checkRuntimeVersion() {
   const main = fs.readFileSync('main.jsx', 'utf8');
   const sw = fs.readFileSync('sw.js', 'utf8');
 
-  if (!html.includes('IMMM_APP_VERSION = \'2026-05-09-rc2\'')) {
+  if (!html.includes('IMMM_APP_VERSION = \'2026-05-10-rc2.1\'')) {
     console.error("❌ FAIL: index.html missing or incorrect IMMM_APP_VERSION");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_BUILD_LABEL = \'rc2-result-deco-actions-pgpt-stabilized\'')) {
+  if (!html.includes('IMMM_BUILD_LABEL = \'rc2.1-clean-cotton-metadata-stabilized\'')) {
     console.error("❌ FAIL: index.html missing IMMM_BUILD_LABEL");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_COMMIT = \'91bc1ba\'')) {
-    console.error("❌ FAIL: index.html missing or incorrect IMMM_COMMIT");
+  if (html.includes('IMMM_COMMIT = \'91bc1ba\'')) {
+    console.error("❌ FAIL: index.html contains misleading IMMM_COMMIT = '91bc1ba'");
+    hasErrors = true;
+  }
+  if (!html.includes('IMMM_RC_BASELINE = \'59117ac\'')) {
+    console.error("❌ FAIL: index.html missing or incorrect IMMM_RC_BASELINE");
     hasErrors = true;
   }
   if (!html.includes('IMMM_STABLE_BASELINE = \'8b5e42c\'')) {
     console.error("❌ FAIL: index.html missing IMMM_STABLE_BASELINE");
     hasErrors = true;
   }
-  if (!main.includes('[IMMM build]') || !main.includes('stableBaseline: window.IMMM_STABLE_BASELINE') || !main.includes('commit: window.IMMM_COMMIT')) {
-    console.error("❌ FAIL: main.jsx missing or incorrect [IMMM build] console log (needs commit and stableBaseline)");
+  if (!main.includes('[IMMM build]') || !main.includes('rcBaseline: window.IMMM_RC_BASELINE') || !main.includes('cacheName:')) {
+    console.error("❌ FAIL: main.jsx missing or incorrect [IMMM build] console log");
     hasErrors = true;
   }
-  if (!main.includes('window.IMMM_DEBUG_CAMERA === true || window.IMMM_DEBUG_BUILD === true')) {
-    console.error("❌ FAIL: main.jsx BuildPill missing correct debug condition");
+  if (!main.includes('window.IMMM_RC_BASELINE')) {
+    console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v4-2026-05-09-rc2')) {
-    console.error("❌ FAIL: sw.js missing immm-cache-v4-2026-05-09-rc2");
+  if (!sw.includes('immm-cache-v5-2026-05-10-rc2.1')) {
+    console.error("❌ FAIL: sw.js missing immm-cache-v5-2026-05-10-rc2.1");
     hasErrors = true;
   }
-  if (sw.includes('immm-cache-v1')) {
-    console.error("❌ FAIL: sw.js contains legacy immm-cache-v1");
+  if (sw.includes('immm-cache-v1') || sw.includes('immm-cache-v4')) {
+    console.error("❌ FAIL: sw.js contains legacy cache name");
     hasErrors = true;
   }
   if (!sw.includes('.respondWith(') || !sw.includes('fetch(')) {
