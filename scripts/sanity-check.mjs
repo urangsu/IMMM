@@ -1148,6 +1148,50 @@ function checkCameraCapabilityHarden() {
   }
 }
 
+function checkCameraDiagnosticFinal() {
+  const main = fs.readFileSync('main.jsx', 'utf8');
+  const rest = fs.readFileSync('screens-v2-rest.jsx', 'utf8');
+
+  // Phase 3.29 onDebugSwitchCameraDevice
+  if (!main.includes('onDebugSwitchCameraDevice') || !rest.includes('onDebugSwitchCameraDevice')) {
+    console.error("❌ FAIL: main/rest missing onDebugSwitchCameraDevice helper");
+    hasErrors = true;
+  }
+
+  // Phase 3.29 switch verification hardening
+  if (main.includes('settings.label')) {
+     console.error("❌ FAIL: main.jsx still uses unreliable settings.label for verification");
+     hasErrors = true;
+  }
+  if (!main.includes('unverified-device-switch')) {
+     console.error("❌ FAIL: main.jsx missing unverified-device-switch reason for hidden deviceIds");
+     hasErrors = true;
+  }
+
+  // Phase 3.29 merged reasons
+  if (!main.includes('hardware:') || !main.includes('device:')) {
+     console.error("❌ FAIL: main.jsx missing merged hardware/device failure reasons");
+     hasErrors = true;
+  }
+
+  // Phase 3.29 cameraToggleBusy
+  if (!rest.includes('disabled={cameraToggleBusy}') || !rest.includes('cameraToggleBusy ? \'...\'')) {
+     console.error("❌ FAIL: screens-v2-rest.jsx missing busy state visual feedback on buttons");
+     hasErrors = true;
+  }
+
+  // Phase 3.29 debug picker logic
+  if (rest.includes('onClick={() => switchCameraDevice?.(d.deviceId)}')) {
+     console.error("❌ FAIL: DebugWideDevicePicker calling switchCameraDevice directly (should use onDebugSwitchCameraDevice)");
+     hasErrors = true;
+  }
+  
+  if (!rest.includes('groupId')) {
+     console.error("❌ FAIL: DebugWideDevicePicker missing groupId display");
+     hasErrors = true;
+  }
+}
+
 function checkCleanCottonTheme() {
   const index = fs.existsSync('index.html') ? fs.readFileSync('index.html', 'utf8') : null;
   const setup = fs.existsSync('screens-v2.jsx') ? fs.readFileSync('screens-v2.jsx', 'utf8') : null;
@@ -1282,6 +1326,7 @@ checkEmergencyFrameGlobals();
 checkEmergencyServiceWorker();
 checkAppStability();
 checkCameraCapabilityHarden();
+checkCameraDiagnosticFinal();
 checkCleanCottonTheme();
 checkFrameSystem();
 checkStickerEngine();

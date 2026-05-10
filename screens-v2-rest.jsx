@@ -8,6 +8,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   cameraZoom = 1, cameraCapabilities = null, cameraSettings = null, applyCameraZoom,
   switchCameraDevice, cameraDevices = [], frontWideCandidates = [], rearWideCandidates = [],
   activeCameraDeviceId, normalCameraDeviceId, wideCameraActive, toggleWideCamera,
+  cameraToggleBusy = false, onDebugSwitchCameraDevice = null,
   lastWideToggleReason = '', lastWideTogglePath = ''
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
@@ -529,6 +530,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             const isWideActive = cameraZoom <= 0.75 || cameraSettings?.zoom <= 0.75 || wideCameraActive === true;
             const shouldShowZoomControls = mobile && (hasZoomCapability || hasWideCandidates || debugCamera);
             const onToggle = async () => {
+              if (cameraToggleBusy) return;
               const ok = await toggleWideCamera?.();
               if (!ok && debugCamera) {
                 setZoomToggleError('0.6× unavailable');
@@ -554,15 +556,17 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 </button>
                 {shouldShowZoomControls && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <button onClick={onToggle} style={{
+                    <button onClick={onToggle} disabled={cameraToggleBusy} style={{
                       ...leftBtnStyle,
                       fontWeight: 700,
                       width: 48,
                       justifyContent: 'center',
                       background: isWideActive ? T.ink : 'rgba(26,26,31,0.06)',
                       color: isWideActive ? T.bg : T.ink,
+                      opacity: cameraToggleBusy ? 0.6 : 1,
+                      cursor: cameraToggleBusy ? 'not-allowed' : 'pointer',
                     }}>
-                      {isWideActive ? '1×' : '0.6×'}
+                      {cameraToggleBusy ? '...' : (isWideActive ? '1×' : '0.6×')}
                     </button>
                     {debugCamera && zoomToggleError && (
                       <div style={{ position: 'absolute', top: 38, fontSize: 8, color: '#ff4444', fontWeight: 700, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{zoomToggleError}</div>
@@ -651,22 +655,32 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               );
 
               const DebugWideDevicePicker = () => (
-                <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap', maxHeight: 120, overflowY: 'auto', padding: 4, background: 'rgba(0,0,0,0.05)', borderRadius: 8 }}>
+                <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap', maxHeight: 150, overflowY: 'auto', padding: 8, background: 'rgba(0,0,0,0.08)', borderRadius: 12 }}>
                   {cameraDevices.map((d, i) => {
                     const isActive = activeCameraDeviceId === d.deviceId;
                     const isWide = [...frontWideCandidates, ...rearWideCandidates].some(w => w.deviceId === d.deviceId);
+                    const label = d.label || 'Unnamed Camera';
                     return (
                       <button
                         key={d.deviceId || i}
-                        onClick={() => switchCameraDevice?.(d.deviceId)}
+                        disabled={cameraToggleBusy}
+                        onClick={() => onDebugSwitchCameraDevice?.(d.deviceId)}
                         style={{
-                          padding: '6px 10px', borderRadius: 8, border: isActive ? `2px solid ${T.ink}` : '1px solid #ccc',
+                          padding: '8px 12px', borderRadius: 10, border: isActive ? `2px solid ${T.ink}` : '1px solid #ccc',
                           background: isActive ? T.ink : '#fff', color: isActive ? T.bg : '#111',
-                          fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center'
+                          fontSize: 10, fontWeight: 700, cursor: cameraToggleBusy ? 'not-allowed' : 'pointer',
+                          display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 100, flex: '1 0 100px',
+                          opacity: cameraToggleBusy && !isActive ? 0.5 : 1, transition: 'all 0.2s'
                         }}
                       >
-                        <span style={{ fontSize: 9, opacity: 0.7 }}>{d.label || `Camera ${i}`}</span>
-                        <span>{String(d.deviceId).slice(-4)} {isWide ? ' (W)' : ''}</span>
+                        <div style={{ fontSize: 9, opacity: 0.7, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          #{i} {label}
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                          <span>dev:{String(d.deviceId).slice(-4)}</span>
+                          {d.groupId && <span>grp:{String(d.groupId).slice(-4)}</span>}
+                          {isWide && <span style={{ color: isActive ? T.bg : '#007AFF' }}>[WIDE]</span>}
+                        </div>
                       </button>
                     );
                   })}

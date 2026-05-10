@@ -414,15 +414,17 @@ function App() {
       
       const snapAfter = getCameraDebugSnapshot('switch-end');
       
-      // Success verification: deviceId changed or is the target
-      if (settings.deviceId === deviceId || (beforeDeviceId && settings.deviceId !== beforeDeviceId)) {
+      const deviceIdMatches = settings.deviceId === deviceId || (beforeDeviceId && settings.deviceId !== beforeDeviceId);
+      if (deviceIdMatches) {
         await refreshCameraDevices();
         return { ok: true, path: 'device-switch', reason: 'success', snapBefore, snapAfter };
       } else {
-        // If deviceId is hidden, we might need to check label or resolution, but for now we trust deviceId if it matches target
-        if (settings.label && settings.label !== snapBefore.trackLabel) {
+        const labelChanged = snapAfter.trackLabel && snapAfter.trackLabel !== snapBefore.trackLabel;
+        const resolutionChanged = snapAfter.width !== snapBefore.width || snapAfter.height !== snapBefore.height;
+        
+        if (labelChanged || resolutionChanged) {
            await refreshCameraDevices();
-           return { ok: true, path: 'device-switch', reason: 'success-by-label', snapBefore, snapAfter };
+           return { ok: true, path: 'device-switch', reason: 'unverified-device-switch', snapBefore, snapAfter };
         }
         return { ok: false, path: 'device-switch', reason: 'device-not-switched', snapBefore, snapAfter };
       }
@@ -431,6 +433,25 @@ function App() {
       return { ok: false, path: 'device-switch', reason: `switch-failed(${e.name})`, snapBefore };
     }
   }, [refreshCameraDevices, frontWideCandidates, rearWideCandidates, cameraSettings?.deviceId, getCameraDebugSnapshot]);
+
+  const onDebugSwitchCameraDevice = React.useCallback(async (deviceId) => {
+    if (cameraToggleBusy) return { ok: false, path: 'manual-device-switch', reason: 'busy' };
+    setCameraToggleBusy(true);
+    let result = { ok: false, path: 'manual-device-switch', reason: 'unknown' };
+
+    try {
+      const res = await switchCameraDevice(deviceId);
+      result = { ...res, path: res.ok ? 'manual-device-switch' : 'manual-device-switch-failed' };
+      return result;
+    } finally {
+      setLastWideToggleReason(result.reason || 'unknown');
+      setLastWideTogglePath(result.path || 'manual-device-switch');
+      setCameraToggleBusy(false);
+      if (window.IMMM_DEBUG_CAMERA) {
+        console.info('[IMMM camera] manual device switch result:', result);
+      }
+    }
+  }, [cameraToggleBusy, switchCameraDevice]);
 
   const toggleWideCamera = React.useCallback(async () => {
     if (cameraToggleBusy) return false;
@@ -452,10 +473,10 @@ function App() {
             setWideCameraActive(false);
             result = { ...devRes, path: 'device-return' };
           } else {
-            result = { ...devRes, path: 'failed-return' };
+            result = { ok: false, path: 'failed-return', reason: `hardware:${hwRes.reason};device:${devRes.reason}` };
           }
         } else {
-          result = { ...hwRes, path: 'failed-return', reason: hwRes.reason || 'no-normal-dev' };
+          result = { ok: false, path: 'failed-return', reason: `hardware:${hwRes.reason};device:no-normal-dev` };
         }
       } else {
         // Path 2: Go to 0.6x (Hardware first)
@@ -473,10 +494,10 @@ function App() {
               setWideCameraActive(true);
               result = { ...devRes, path: 'device-switch' };
             } else {
-              result = { ...devRes, path: 'failed-wide' };
+              result = { ok: false, path: 'failed-wide', reason: `hardware:${hwRes.reason};device:${devRes.reason}` };
             }
           } else {
-            result = { ...hwRes, path: 'failed-wide', reason: 'no-candidates' };
+            result = { ok: false, path: 'failed-wide', reason: `hardware:${hwRes.reason};device:no-candidates` };
           }
         }
       }
@@ -606,9 +627,11 @@ function App() {
           activeCameraDeviceId={activeCameraDeviceId}
           normalCameraDeviceId={normalCameraDeviceId}
           wideCameraActive={wideCameraActive}
+          cameraToggleBusy={cameraToggleBusy}
           lastWideToggleReason={lastWideToggleReason}
           lastWideTogglePath={lastWideTogglePath}
           toggleWideCamera={toggleWideCamera}
+          onDebugSwitchCameraDevice={onDebugSwitchCameraDevice}
         />;
       case 'select':
         return <SelectV2 {...p}

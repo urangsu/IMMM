@@ -856,6 +856,21 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result strip visual QA complete
 - [ ] Save output matches preview
 
+## Camera Manual Device Diagnostics Finalization (Phase 3.29)
+- [x] Debug picker routes through manual switch result handler
+- [x] Manual device switch result updates reason/path
+- [x] settings.label removed from switch verification
+- [x] track.label/snapshot evidence used for diagnostics
+- [x] Hardware and device failure reasons preserved together
+- [x] cameraToggleBusy wired to 0.6× button and debug picker
+- [x] All camera device rows show label/device/group/active/wide hints
+- [x] Fake CSS/crop wide implementation forbidden
+- [x] Result layout/export paths untouched
+- [x] pgpt stray guard preserved
+- [ ] Galaxy S23+ Chrome manual camera device scan complete
+- [ ] Galaxy S23+ Samsung Internet manual camera device scan complete
+- [ ] Real 0.6× route confirmed or ruled out
+
 ## Camera 0.6× Real Capability Diagnostic Patch (Phase 3.28)
 - [x] getCameraDebugSnapshot helper actually added
 - [x] Hardware zoom false-positive success removed
