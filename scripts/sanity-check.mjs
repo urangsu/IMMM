@@ -1043,6 +1043,32 @@ function checkResultUX() {
       hasErrors = true;
     }
   }
+
+  // Result Final Display Sizing (Phase 3.23)
+  if (!deco.includes('getResultDisplayFit')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing getResultDisplayFit helper");
+    hasErrors = true;
+  }
+  if (!deco.includes('resultStageMinHeight')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing resultStageMinHeight helper");
+    hasErrors = true;
+  }
+  
+  // Validate strip specific rules in getResultDisplayFit
+  if (!deco.includes('minScale: isMobile ? 0.78 : 0.72')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip minScale rules");
+    hasErrors = true;
+  }
+  if (!deco.includes('targetHeightVh: isMobile ? 62 : 74')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip targetHeightVh rules");
+    hasErrors = true;
+  }
+
+  // Validate container height rules
+  if (!deco.includes('clamp(680px, 74vh, 860px)')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx resultStageMinHeight missing desktop strip clamp height");
+    hasErrors = true;
+  }
 }
 
 function checkCleanCottonTheme() {

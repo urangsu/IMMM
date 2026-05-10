@@ -693,6 +693,46 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     };
     return rules[layoutId] || rules.grid;
   };
+
+  const getResultDisplayFit = (layoutId, isMobile) => {
+    if (layoutId === 'strip') {
+      return {
+        minScale: isMobile ? 0.78 : 0.72,
+        maxScale: isMobile ? 1.25 : 1.35,
+        targetHeightVh: isMobile ? 62 : 74,
+        maxHeightPx: isMobile ? 700 : 860,
+        minHeightPx: isMobile ? 560 : 680,
+      };
+    }
+
+    if (layoutId === 'trip') {
+      return {
+        minScale: isMobile ? 0.82 : 0.78,
+        maxScale: isMobile ? 1.25 : 1.35,
+        targetHeightVh: isMobile ? 58 : 68,
+        maxHeightPx: isMobile ? 660 : 800,
+        minHeightPx: isMobile ? 520 : 620,
+      };
+    }
+
+    return {
+      minScale: isMobile ? 0.8 : 0.8,
+      maxScale: isMobile ? 1.1 : 1.2,
+      targetHeightVh: isMobile ? 44 : 52,
+      maxHeightPx: isMobile ? 520 : 620,
+      minHeightPx: isMobile ? 360 : 440,
+    };
+  };
+
+  const resultStageMinHeight = (() => {
+    if (layout === 'strip') {
+      return mobile ? 'clamp(560px, 62vh, 700px)' : 'clamp(680px, 74vh, 860px)';
+    }
+    if (layout === 'trip') {
+      return mobile ? 'clamp(520px, 58vh, 660px)' : 'clamp(620px, 68vh, 800px)';
+    }
+    return mobile ? 'clamp(360px, 46vh, 520px)' : 'clamp(460px, 52vh, 660px)';
+  })();
   const shotsForFrame = shots;
   const freeStickers = stickers.filter((s) => s.frameSlot == null);
   const slottedMap = {};
@@ -1298,8 +1338,18 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       const vhTarget = (window.innerHeight * (fit.targetHeightVh || 40)) / 100;
       const targetScale = fit.maxHeightPx ? Math.min(fit.maxScale, fit.maxHeightPx / fH) : fit.maxScale;
       
-      const s = Math.min(targetScale, cW / fW, cH / fH, vhTarget / fH);
-      setAutoScale(Math.max(0.1, s));
+      const rawScale = Math.min(targetScale, cW / fW, cH / fH, vhTarget / fH);
+      const fitRule = getResultDisplayFit(layout, mobile);
+      
+      let nextScale = rawScale;
+      if (layout === 'strip' || layout === 'trip') {
+        const safeMaxByWidth = cW / fW;
+        const safeMaxByHeight = cH / fH;
+        const safeMax = Math.min(fitRule.maxScale, safeMaxByWidth, safeMaxByHeight);
+        nextScale = Math.max(rawScale, Math.min(fitRule.minScale, safeMax));
+      }
+      
+      setAutoScale(Math.max(0.1, nextScale));
     };
     compute();
     const ro = new ResizeObserver(compute);
@@ -1383,7 +1433,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
             <div style={{ marginTop: 4, color: T.inkSoft, fontSize: 13, fontFamily: 'Pretendard,system-ui' }}>Download it, share it, make it Mine.</div>
           </div>
           {/* Frame centered */}
-          <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 18px', minHeight: mobile ? 'clamp(360px, 46vh, 520px)' : 'clamp(460px, 52vh, 660px)' }}>
+          <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 18px', minHeight: resultStageMinHeight }}>
             <div ref={frameRef} style={{ display: 'inline-block', animation: 'polaroidReveal 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }}>
               {resultFrame(1)}
             </div>
@@ -1440,7 +1490,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       </div>
 
       <div ref={containerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-        padding: '12px 0', minHeight: mobile ? 'clamp(360px, 46vh, 520px)' : 'clamp(460px, 52vh, 660px)' }}>
+        padding: '12px 0', minHeight: resultStageMinHeight }}>
         <div ref={frameRef} style={{ display: 'inline-block', animation: 'popIn 0.55s cubic-bezier(0.34,1.56,0.64,1)' }}>
           {resultFrame(autoScale)}
         </div>

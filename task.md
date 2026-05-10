@@ -842,6 +842,20 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result action QA complete
 - [ ] Save output matches preview
 
+## Result Final Display Scale Fix (Phase 3.23)
+- [x] Result Print Intro size left intact
+- [x] Final Result strip autoScale over-shrink fixed
+- [x] Final Result display fit helper added
+- [x] Strip final display minScale added
+- [x] Strip final container height enlarged
+- [x] resultPreviewSrc source preserved
+- [x] Save/Share/export path untouched
+- [x] Result UX sanity guards preserved
+- [x] pgpt stray guard preserved
+- [ ] Mac Chrome Result strip visual QA complete
+- [ ] Samsung Internet Result strip visual QA complete
+- [ ] Save output matches preview
+
 ## Result UX Guard Final Patch (Phase 3.22)
 - [x] getFormattedFilename existence guard added
 - [x] QR Share Preparing disabled attribute guard added
