@@ -1044,40 +1044,50 @@ function checkResultUX() {
     }
   }
 
-  // Result Final Display Sizing (Phase 3.23/3.24/3.25)
+  // Result Final Display Sizing (Phase 3.23 - 3.26)
   if (!deco.includes('getResultDisplayFit')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing getResultDisplayFit helper");
     hasErrors = true;
   }
-  if (!deco.includes('resultStageMinHeight')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx missing resultStageMinHeight helper");
+  if (!deco.includes('resultStageHeight')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing resultStageHeight helper");
     hasErrors = true;
   }
   
-  // Phase 3.25 Row Budget Grid Layout Check
-  if (!deco.includes('gridTemplateRows: \'auto auto minmax(0, 1fr) auto\'')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx Result desktop root missing row-budget grid template");
+  // Phase 3.26 Row Budget Grid Layout Check (Content-bound)
+  if (!deco.includes('gridTemplateRows: \'auto auto auto auto\'') || !deco.includes('alignContent: \'start\'')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Result desktop root missing content-bound grid template");
     hasErrors = true;
   }
 
-  // Validate strip specific rules in getResultDisplayFit (Updated for Phase 3.25)
-  if (!deco.includes('minScale: isMobile ? 0.75 : 0.62')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip minScale rules (expected 0.62 for desktop)");
+  // Validate strip specific rules in getResultDisplayFit (Updated for Phase 3.26)
+  if (!deco.includes('minScale: isMobile ? 0.76 : 0.70')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip minScale rules (expected 0.70 for desktop)");
     hasErrors = true;
   }
-  if (!deco.includes('targetHeightVh: isMobile ? 48 : 52')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip targetHeightVh rules (expected 52 for desktop)");
-    hasErrors = true;
-  }
-
-  // Validate container height rules (Updated for Phase 3.25)
-  if (!deco.includes('clamp(460px, 52vh, 640px)')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx resultStageMinHeight missing desktop strip clamp height (expected 640px max)");
+  if (!deco.includes('targetHeightVh: isMobile ? 52 : 58')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx getResultDisplayFit missing strip targetHeightVh rules (expected 58 for desktop)");
     hasErrors = true;
   }
 
-  if (!deco.includes('marginTop: 8')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx Result action row marginTop too large (expected 8)");
+  // Validate container height rules (Updated for Phase 3.26)
+  if (!deco.includes('clamp(520px, 58vh, 700px)')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx resultStageHeight missing desktop strip clamp height (expected 700px max)");
+    hasErrors = true;
+  }
+
+  if (!deco.includes('marginTop: 4')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Result action row marginTop too large (expected 4)");
+    hasErrors = true;
+  }
+
+  if (!deco.includes('marginBottom: 2')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Result title block marginBottom too large (expected 2)");
+    hasErrors = true;
+  }
+
+  if (!deco.includes('padding: 0, height: resultStageHeight')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Result preview container missing zero padding or height binding");
     hasErrors = true;
   }
 }

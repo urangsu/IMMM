@@ -856,6 +856,21 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result strip visual QA complete
 - [ ] Save output matches preview
 
+## Result Compact Preview Stack + Larger Frame (Phase 3.26)
+- [x] Correct IMMM repo path verified
+- [x] Preview row changed from 1fr to content-bound row (auto/auto/auto/auto)
+- [x] Title-to-preview gap reduced (marginBottom 2)
+- [x] Preview-to-action gap reduced (marginTop 4, padding 0)
+- [x] Strip frame display scale increased (targetHeightVh 58, minScale 0.70)
+- [x] Bottom Save / Share / More row preserved
+- [x] resultPreviewSrc source preserved
+- [x] Save/Share/export path untouched
+- [x] Result UX sanity guards preserved
+- [x] pgpt stray guard preserved
+- [ ] Mac Chrome first-screen visual QA complete
+- [ ] Samsung Internet Result layout QA complete
+- [ ] Save output matches preview
+
 ## Result Row Budget Layout + Action Visibility (Phase 3.25)
 - [x] Correct IMMM repo path verified
 - [x] Result root converted to row-budget grid layout

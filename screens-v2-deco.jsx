@@ -686,8 +686,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const getResultPreviewFit = (layoutId, isMobile) => {
     const rules = {
-      strip: { maxScale: isMobile ? 1.45 : 2.6, targetHeightVh: isMobile ? 44 : 52, maxHeightPx: isMobile ? 520 : 620, padding: isMobile ? 12 : 24 },
-      trip: { maxScale: isMobile ? 1.35 : 2.25, targetHeightVh: isMobile ? 42 : 50, maxHeightPx: isMobile ? 500 : 600, padding: isMobile ? 12 : 24 },
+      strip: { maxScale: isMobile ? 1.6 : 2.8, targetHeightVh: isMobile ? 50 : 58, maxHeightPx: isMobile ? 600 : 700, padding: isMobile ? 12 : 24 },
+      trip: { maxScale: isMobile ? 1.5 : 2.4, targetHeightVh: isMobile ? 48 : 56, maxHeightPx: isMobile ? 580 : 680, padding: isMobile ? 12 : 24 },
       grid: { maxScale: isMobile ? 1.1 : 1.55, targetHeightVh: isMobile ? 38 : 44, maxHeightPx: isMobile ? 420 : 500, padding: isMobile ? 14 : 28 },
       polaroid: { maxScale: isMobile ? 1.05 : 1.45, targetHeightVh: isMobile ? 36 : 42, maxHeightPx: isMobile ? 400 : 480, padding: isMobile ? 14 : 28 },
     };
@@ -697,11 +697,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const getResultDisplayFit = (layoutId, isMobile) => {
     if (layoutId === 'strip') {
       return {
-        minScale: isMobile ? 0.75 : 0.62,
-        maxScale: isMobile ? 1.25 : 1.35,
-        targetHeightVh: isMobile ? 48 : 52,
-        maxHeightPx: isMobile ? 580 : 640,
-        minHeightPx: isMobile ? 400 : 460,
+        minScale: isMobile ? 0.76 : 0.70,
+        maxScale: isMobile ? 1.35 : 1.45,
+        targetHeightVh: isMobile ? 52 : 58,
+        maxHeightPx: isMobile ? 620 : 700,
+        minHeightPx: isMobile ? 420 : 520,
       };
     }
 
@@ -709,9 +709,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       return {
         minScale: isMobile ? 0.82 : 0.72,
         maxScale: isMobile ? 1.25 : 1.35,
-        targetHeightVh: isMobile ? 46 : 50,
-        maxHeightPx: isMobile ? 560 : 620,
-        minHeightPx: isMobile ? 380 : 440,
+        targetHeightVh: isMobile ? 48 : 56,
+        maxHeightPx: isMobile ? 600 : 680,
+        minHeightPx: isMobile ? 400 : 480,
       };
     }
 
@@ -724,14 +724,14 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     };
   };
 
-  const resultStageMinHeight = (() => {
+  const resultStageHeight = (() => {
     if (layout === 'strip') {
-      return mobile ? 'clamp(400px, 46vh, 560px)' : 'clamp(460px, 52vh, 640px)';
+      return mobile ? 'clamp(420px, 52vh, 600px)' : 'clamp(520px, 58vh, 700px)';
     }
     if (layout === 'trip') {
-      return mobile ? 'clamp(380px, 44vh, 540px)' : 'clamp(440px, 50vh, 600px)';
+      return mobile ? 'clamp(400px, 48vh, 560px)' : 'clamp(500px, 54vh, 660px)';
     }
-    return mobile ? 'clamp(360px, 46vh, 520px)' : 'clamp(460px, 52vh, 660px)';
+    return mobile ? 'clamp(360px, 44vh, 500px)' : 'clamp(440px, 48vh, 600px)';
   })();
   const shotsForFrame = shots;
   const freeStickers = stickers.filter((s) => s.frameSlot == null);
@@ -1478,12 +1478,12 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   return (
     <div style={{ height: '100%', minHeight: '100dvh', background: T.bg, display: 'grid',
-      gridTemplateRows: 'auto auto minmax(0, 1fr) auto',
-      padding: '10px 56px 8px' }}>
+      gridTemplateRows: 'auto auto auto auto', alignContent: 'start', rowGap: 0,
+      padding: '8px 56px 6px' }}>
       {resultOverlays}
       <TopBar step={4} back={() => go('deco')} T={T} mobile={false} title="Step 5 · Your strip"
       right={<button onClick={() => go('landing')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.inkSoft, fontSize: 12, fontFamily: 'Pretendard,system-ui' }}>New session</button>} />
-      <div style={{ textAlign: 'center', marginBottom: 6 }}>
+      <div style={{ textAlign: 'center', marginBottom: 2 }}>
         <h1 style={{ margin: 0, fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 40, fontWeight: 500, letterSpacing: -1.1 }}>
           Your <span style={{ fontFamily: 'Caveat,cursive', color: T.pinkDeep, fontSize: 50 }}>moment</span> is ready.
         </h1>
@@ -1491,13 +1491,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       </div>
 
       <div ref={containerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-        padding: '6px 0', minHeight: resultStageMinHeight }}>
+        padding: 0, height: resultStageHeight }}>
         <div ref={frameRef} style={{ display: 'inline-block', animation: 'popIn 0.55s cubic-bezier(0.34,1.56,0.64,1)' }}>
           {resultFrame(autoScale)}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 8, position: 'relative' }}>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 4, position: 'relative' }}>
         <BtnPrimary T={T} size="lg" onClick={handleDownload} style={{ width: 220, height: 56, opacity: downloading ? 0.6 : 1 }}>
           {downloading ? 'Saving image...' : 'Save image · 저장'}
         </BtnPrimary>
