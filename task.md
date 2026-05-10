@@ -1045,3 +1045,16 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [x] pgpt stray guard preserved
 - [ ] Export smoke test with upload sticker completed
 - [ ] Samsung Internet export smoke test completed
+
+## Sticker Preload Failure Isolation (Phase 3.37)
+- [x] preloadStickerImages catches per-sticker load failures
+- [x] Promise.all retained without whole-export rejection
+- [x] Failed upload sticker source maps to null
+- [x] drawStickerToCtx distinguishes missing preload from failed preload
+- [x] Failed upload sticker does not retry indefinitely
+- [x] Sticker drawing order preserved
+- [x] render/export/save/share callers untouched
+- [x] pgpt stray guard preserved
+- [ ] Export smoke test with broken upload sticker completed
+- [ ] Export smoke test with 5+ upload stickers completed
+- [ ] Samsung Internet export smoke test completed

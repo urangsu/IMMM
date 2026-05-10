@@ -207,7 +207,14 @@ function collectUploadStickerSources(stickers = []) {
 async function preloadStickerImages(stickers = []) {
   const sources = collectUploadStickerSources(stickers);
   const entries = await Promise.all(
-    sources.map(async (src) => [src, await loadImageForCanvas(src)])
+    sources.map(async (src) => {
+      try {
+        return [src, await loadImageForCanvas(src)];
+      } catch (err) {
+        console.warn?.('[IMMM export] sticker preload failed:', src, err);
+        return [src, null];
+      }
+    })
   );
   return new Map(entries);
 }
@@ -256,8 +263,10 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets 
       if (item) drawFallbackSticker(ctx, item, 1);
     }
   } else if (sticker.kind === 'upload') {
-    const preloaded = assets?.uploadImages?.get(sticker.payload.dataUrl);
-    const img = preloaded !== undefined ? preloaded : await loadImageForCanvas(sticker.payload.dataUrl);
+    const src = sticker.payload.dataUrl;
+    const hasPreload = assets?.uploadImages?.has?.(src);
+    const preloaded = hasPreload ? assets.uploadImages.get(src) : undefined;
+    const img = hasPreload ? preloaded : await loadImageForCanvas(src);
     if (img) {
       const w = 120;
       const h = w / (img.width / img.height || 1);

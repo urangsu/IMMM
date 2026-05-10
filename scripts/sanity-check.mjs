@@ -1492,11 +1492,13 @@ function checkStickerPreload() {
   }
 
   const requirements = [
+    'collectUploadStickerSources',
+    'preloadStickerImages',
     'uploadImages',
     'Promise.all',
     'drawStickerToCtx(ctx, local, sw, sh, scale, stickerAssets)',
     'drawStickerToCtx(ctx, s, w, h, scale, stickerAssets)',
-    'assets?.uploadImages?.get'
+    'assets.uploadImages.get'
   ];
 
   requirements.forEach(req => {
@@ -1508,6 +1510,16 @@ function checkStickerPreload() {
 
   if (!fsys.includes('preloadStickerImages(data.stickers || [])')) {
       console.error("❌ FAIL: renderComposition missing preloadStickerImages call");
+      hasErrors = true;
+  }
+
+  if (!fsys.includes('catch (err)') || !fsys.includes('return [src, null]')) {
+      console.error("❌ FAIL: preloadStickerImages missing failure isolation (try-catch or null return)");
+      hasErrors = true;
+  }
+
+  if (!fsys.includes('uploadImages?.has')) {
+      console.error("❌ FAIL: drawStickerToCtx missing preload existence check (uploadImages?.has)");
       hasErrors = true;
   }
 }
