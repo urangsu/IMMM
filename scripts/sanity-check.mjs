@@ -1096,18 +1096,37 @@ function checkCameraCapabilityHarden() {
   const main = fs.readFileSync('main.jsx', 'utf8');
   const rest = fs.readFileSync('screens-v2-rest.jsx', 'utf8');
 
-  // Phase 3.27 Hardware Zoom Verification
-  if (!main.includes('applyCameraZoom') || !main.includes('getSettings()')) {
-    console.error("❌ FAIL: main.jsx missing applyCameraZoom or settings verification");
+  // Phase 3.28 Strict Diagnostics
+  if (!main.includes('function getCameraDebugSnapshot') && !main.includes('getCameraDebugSnapshot = React.useCallback')) {
+    console.error("❌ FAIL: main.jsx missing getCameraDebugSnapshot helper");
     hasErrors = true;
   }
-  if (!main.includes('requestAnimationFrame') && !main.includes('setTimeout')) {
-    console.warn("⚠️ WARN: main.jsx might be missing verification delay in applyCameraZoom");
+
+  // Phase 3.28 Hardware Zoom Verification (Strict)
+  if (!main.includes('applyCameraZoom') || !main.includes('reason:') || !main.includes('ok:')) {
+    console.error("❌ FAIL: main.jsx missing applyCameraZoom result object return (ok/path/reason)");
+    hasErrors = true;
+  }
+  
+  if (main.includes('afterZoom === undefined') && main.includes('return true')) {
+     // Check if undefined is still treated as success
+     const lines = main.split('\n');
+     const undefLine = lines.findIndex(l => l.includes('afterZoom === undefined'));
+     if (undefLine !== -1 && (lines[undefLine+1].includes('return true') || lines[undefLine+2].includes('return true'))) {
+        console.error("❌ FAIL: main.jsx treats undefined afterZoom as success (false positive)");
+        hasErrors = true;
+     }
   }
 
-  // Phase 3.27 Device Switch Verification
-  if (!main.includes('switchCameraDevice') || !main.includes('deviceId !== beforeDeviceId')) {
-    console.error("❌ FAIL: main.jsx missing switchCameraDevice success verification");
+  // Phase 3.28 Device Switch Verification (Strict)
+  if (!main.includes('switchCameraDevice') || !main.includes('reason:')) {
+    console.error("❌ FAIL: main.jsx missing switchCameraDevice result object return");
+    hasErrors = true;
+  }
+
+  // Phase 3.28 Debug Manual Picker
+  if (!rest.includes('DebugWideDevicePicker') || !rest.includes('cameraDevices.map')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing manual DebugWideDevicePicker");
     hasErrors = true;
   }
 

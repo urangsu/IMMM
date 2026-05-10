@@ -607,7 +607,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             {(() => {
               const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA === true;
               const hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
-              const showWidePicker = debugCamera && typeof switchCameraDevice === 'function' && hasWideCandidates;
+              const showWidePicker = debugCamera;
 
               const onSwitchWide = async (candidate) => {
                 if (!candidate?.deviceId) return;
@@ -651,23 +651,25 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               );
 
               const DebugWideDevicePicker = () => (
-                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                  {frontWideCandidates.length > 0 && (
-                    <button
-                      onClick={() => onSwitchWide(frontWideCandidates[0])}
-                      style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #111', background: '#fff', fontSize: 11, color: '#111', fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Front Wide
-                    </button>
-                  )}
-                  {rearWideCandidates.length > 0 && (
-                    <button
-                      onClick={() => onSwitchWide(rearWideCandidates[0])}
-                      style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #111', background: '#fff', fontSize: 11, color: '#111', fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Rear Wide
-                    </button>
-                  )}
+                <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap', maxHeight: 120, overflowY: 'auto', padding: 4, background: 'rgba(0,0,0,0.05)', borderRadius: 8 }}>
+                  {cameraDevices.map((d, i) => {
+                    const isActive = activeCameraDeviceId === d.deviceId;
+                    const isWide = [...frontWideCandidates, ...rearWideCandidates].some(w => w.deviceId === d.deviceId);
+                    return (
+                      <button
+                        key={d.deviceId || i}
+                        onClick={() => switchCameraDevice?.(d.deviceId)}
+                        style={{
+                          padding: '6px 10px', borderRadius: 8, border: isActive ? `2px solid ${T.ink}` : '1px solid #ccc',
+                          background: isActive ? T.ink : '#fff', color: isActive ? T.bg : '#111',
+                          fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center'
+                        }}
+                      >
+                        <span style={{ fontSize: 9, opacity: 0.7 }}>{d.label || `Camera ${i}`}</span>
+                        <span>{String(d.deviceId).slice(-4)} {isWide ? ' (W)' : ''}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               );
 

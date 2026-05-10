@@ -163,6 +163,38 @@ function App() {
   const [wideCameraActive, setWideCameraActive] = React.useState(false);
   const [lastWideToggleReason, setLastWideToggleReason] = React.useState('');
   const [lastWideTogglePath, setLastWideTogglePath] = React.useState('');
+  const [cameraToggleBusy, setCameraToggleBusy] = React.useState(false);
+
+  const getCameraDebugSnapshot = React.useCallback((label, extra = {}) => {
+    const track = streamRef.current?.getVideoTracks?.()[0] || null;
+    const settings = track?.getSettings?.() || {};
+    const capabilities = typeof track?.getCapabilities === 'function' ? track.getCapabilities() : {};
+    const constraints = typeof track?.getConstraints === 'function' ? track.getConstraints() : {};
+
+    return {
+      label,
+      trackLabel: track?.label || '',
+      readyState: track?.readyState || 'none',
+      deviceId: settings.deviceId || '',
+      facingMode: settings.facingMode || '',
+      width: settings.width || null,
+      height: settings.height || null,
+      aspectRatio: settings.aspectRatio || null,
+      zoom: settings.zoom,
+      zoomCap: capabilities.zoom
+        ? {
+            min: capabilities.zoom.min,
+            max: capabilities.zoom.max,
+            step: capabilities.zoom.step,
+          }
+        : null,
+      constraintZoom: constraints.zoom,
+      activeCameraDeviceId,
+      normalCameraDeviceId,
+      wideCameraActive,
+      ...extra,
+    };
+  }, [activeCameraDeviceId, normalCameraDeviceId, wideCameraActive]);
 
   const refreshCameraDevices = React.useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return;
@@ -303,120 +335,163 @@ function App() {
 
   const applyCameraZoom = React.useCallback(async (zoom) => {
     const track = streamRef.current?.getVideoTracks?.()[0];
-    if (!track) { setLastWideToggleReason('no-track'); return false; }
+    const snapBefore = getCameraDebugSnapshot('zoom-start');
+    
+    if (!track) {
+      return { ok: false, path: 'hardware-zoom', reason: 'no-track', snapBefore };
+    }
     
     const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
-    if (!caps.zoom) { setLastWideToggleReason('no-zoom-capability'); return false; }
+    if (!caps.zoom) {
+      return { ok: false, path: 'hardware-zoom', reason: 'no-zoom-capability', snapBefore };
+    }
     
     const min = caps.zoom.min ?? 1;
     const max = caps.zoom.max ?? 1;
     const step = caps.zoom.step ?? 0.01;
     
     if (zoom < min || zoom > max) {
-      setLastWideToggleReason(`zoom-out-of-range(${zoom.toFixed(1)} not in ${min}-${max})`);
-      return false;
+      return { ok: false, path: 'hardware-zoom', reason: `zoom-out-of-range(${zoom.toFixed(2)} not in ${min}-${max})`, snapBefore };
     }
 
     try {
-      const beforeZoom = track.getSettings?.().zoom;
       await track.applyConstraints({ advanced: [{ zoom }] });
       
       // Verification
       await new Promise(r => requestAnimationFrame(r));
       const afterSettings = track.getSettings?.() || {};
       const afterZoom = afterSettings.zoom;
+      const snapAfter = getCameraDebugSnapshot('zoom-end');
       
       if (afterZoom === undefined) {
-        // Some browsers don't expose zoom in settings even if it works
-        setCameraZoom(zoom);
-        setCameraSettings(afterSettings);
-        return true;
+        // Strictly false if we cannot verify the change
+        return { ok: false, path: 'hardware-zoom', reason: 'zoom-settings-unavailable', snapBefore, snapAfter };
       }
 
       const diff = Math.abs(afterZoom - zoom);
       if (diff <= (step * 2 + 0.05)) {
         setCameraZoom(afterZoom);
         setCameraSettings(afterSettings);
-        return true;
+        return { ok: true, path: 'hardware-zoom', reason: 'success', beforeZoom: snapBefore.zoom, afterZoom, snapBefore, snapAfter };
       } else {
-        setLastWideToggleReason(`zoom-unchanged(requested ${zoom.toFixed(2)}, got ${afterZoom.toFixed(2)})`);
-        return false;
+        return { ok: false, path: 'hardware-zoom', reason: `zoom-unchanged(requested ${zoom.toFixed(2)}, got ${afterZoom.toFixed(2)})`, snapBefore, snapAfter };
       }
     } catch (e) {
-      setLastWideToggleReason(`zoom-error(${e.name})`);
-      return false;
+      console.warn('[IMMM camera] zoom apply failed:', e);
+      return { ok: false, path: 'hardware-zoom', reason: `zoom-error(${e.name})`, snapBefore };
     }
-  }, []);
+  }, [getCameraDebugSnapshot]);
 
   const switchCameraDevice = React.useCallback(async (deviceId) => {
-    if (!deviceId) { setLastWideToggleReason('no-target-device'); return false; }
+    if (!deviceId) return { ok: false, path: 'device-switch', reason: 'no-target-device' };
+    const snapBefore = getCameraDebugSnapshot('switch-start', { targetDeviceId: deviceId });
     const beforeDeviceId = cameraSettings?.deviceId;
+    
     try {
       const next = await navigator.mediaDevices.getUserMedia({
         video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false,
       });
+      
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = next;
       if (videoRef.current) {
         videoRef.current.srcObject = next;
         await videoRef.current.play().catch(() => {});
       }
+      
       const track = next.getVideoTracks()[0];
       const settings = track.getSettings?.() || {};
-      const capabilities = track.getCapabilities?.() || {};
+      const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+      
       setCameraSettings(settings);
       setCameraCapabilities(capabilities);
       setCameraZoom(settings.zoom ?? 1);
       setActiveCameraDeviceId(settings.deviceId || deviceId);
+      
       const isWide = [...frontWideCandidates, ...rearWideCandidates].some(d => d.deviceId === (settings.deviceId || deviceId));
       setWideCameraActive(isWide);
-      if (settings.deviceId === deviceId || settings.deviceId !== beforeDeviceId) {
+      
+      const snapAfter = getCameraDebugSnapshot('switch-end');
+      
+      // Success verification: deviceId changed or is the target
+      if (settings.deviceId === deviceId || (beforeDeviceId && settings.deviceId !== beforeDeviceId)) {
         await refreshCameraDevices();
-        return true;
+        return { ok: true, path: 'device-switch', reason: 'success', snapBefore, snapAfter };
+      } else {
+        // If deviceId is hidden, we might need to check label or resolution, but for now we trust deviceId if it matches target
+        if (settings.label && settings.label !== snapBefore.trackLabel) {
+           await refreshCameraDevices();
+           return { ok: true, path: 'device-switch', reason: 'success-by-label', snapBefore, snapAfter };
+        }
+        return { ok: false, path: 'device-switch', reason: 'device-not-switched', snapBefore, snapAfter };
       }
-      setLastWideToggleReason('device-not-switched');
-      return false;
     } catch (e) {
-      setLastWideToggleReason(`switch-failed(${e.name})`);
-      return false;
+      console.warn('[IMMM camera] switchCameraDevice failed:', e);
+      return { ok: false, path: 'device-switch', reason: `switch-failed(${e.name})`, snapBefore };
     }
-  }, [refreshCameraDevices, frontWideCandidates, rearWideCandidates, cameraSettings?.deviceId]);
+  }, [refreshCameraDevices, frontWideCandidates, rearWideCandidates, cameraSettings?.deviceId, getCameraDebugSnapshot]);
 
   const toggleWideCamera = React.useCallback(async () => {
-    setLastWideToggleReason('');
-    setLastWideTogglePath('hardware');
+    if (cameraToggleBusy) return false;
+    setCameraToggleBusy(true);
+    
+    let result = { ok: false, path: 'init', reason: 'starting' };
     const isCurrentlyWide = wideCameraActive || (cameraSettings?.zoom != null && cameraSettings.zoom <= 0.75);
 
-    if (isCurrentlyWide) {
-      const hwOk = await applyCameraZoom(1);
-      if (hwOk) { setWideCameraActive(false); setLastWideTogglePath('hardware-return'); return true; }
-      if (normalCameraDeviceId) {
-        setLastWideTogglePath('device-return');
-        const devOk = await switchCameraDevice(normalCameraDeviceId);
-        if (devOk) { setWideCameraActive(false); return true; }
+    try {
+      // Path 1: Return to 1x
+      if (isCurrentlyWide) {
+        const hwRes = await applyCameraZoom(1);
+        if (hwRes.ok) {
+          setWideCameraActive(false);
+          result = { ...hwRes, path: 'hardware-return' };
+        } else if (normalCameraDeviceId) {
+          const devRes = await switchCameraDevice(normalCameraDeviceId);
+          if (devRes.ok) {
+            setWideCameraActive(false);
+            result = { ...devRes, path: 'device-return' };
+          } else {
+            result = { ...devRes, path: 'failed-return' };
+          }
+        } else {
+          result = { ...hwRes, path: 'failed-return', reason: hwRes.reason || 'no-normal-dev' };
+        }
+      } else {
+        // Path 2: Go to 0.6x (Hardware first)
+        const hwRes = await applyCameraZoom(0.6);
+        if (hwRes.ok) {
+          setWideCameraActive(true);
+          result = { ...hwRes, path: 'hardware-zoom' };
+        } else {
+          // Path 3: Go to 0.6x (Device switch fallback)
+          const candidates = facingMode === 'user' ? frontWideCandidates : rearWideCandidates;
+          const candidate = candidates?.[0];
+          if (candidate?.deviceId) {
+            const devRes = await switchCameraDevice(candidate.deviceId);
+            if (devRes.ok) {
+              setWideCameraActive(true);
+              result = { ...devRes, path: 'device-switch' };
+            } else {
+              result = { ...devRes, path: 'failed-wide' };
+            }
+          } else {
+            result = { ...hwRes, path: 'failed-wide', reason: 'no-candidates' };
+          }
+        }
       }
-      setLastWideTogglePath('failed-return');
-      return false;
+    } finally {
+      setLastWideToggleReason(result.reason || 'unknown');
+      setLastWideTogglePath(result.path || 'none');
+      setCameraToggleBusy(false);
+      if (window.IMMM_DEBUG_CAMERA) {
+        console.info('[IMMM camera] toggleWideCamera result:', result);
+      }
     }
-
-    const hwOk = await applyCameraZoom(0.6);
-    if (hwOk) { setWideCameraActive(true); setLastWideTogglePath('hardware-zoom'); return true; }
-
-    setLastWideTogglePath('device-switch');
-    const candidates = facingMode === 'user' ? frontWideCandidates : rearWideCandidates;
-    const candidate = candidates?.[0];
-    if (candidate?.deviceId) {
-      const devOk = await switchCameraDevice(candidate.deviceId);
-      if (devOk) { setWideCameraActive(true); return true; }
-    }
-
-    setLastWideTogglePath('failed-wide');
-    if (!lastWideToggleReason) setLastWideToggleReason('0.6x-unavailable');
-    return false;
+    return result.ok;
   }, [
-    cameraSettings?.zoom, wideCameraActive, normalCameraDeviceId,
-    facingMode, frontWideCandidates, rearWideCandidates, applyCameraZoom, switchCameraDevice, lastWideToggleReason
+    cameraSettings, wideCameraActive, normalCameraDeviceId,
+    facingMode, frontWideCandidates, rearWideCandidates, applyCameraZoom, switchCameraDevice, cameraToggleBusy
   ]);
 
   React.useEffect(() => {

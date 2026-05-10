@@ -856,6 +856,21 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Samsung Internet Result strip visual QA complete
 - [ ] Save output matches preview
 
+## Camera 0.6× Real Capability Diagnostic Patch (Phase 3.28)
+- [x] getCameraDebugSnapshot helper actually added
+- [x] Hardware zoom false-positive success removed
+- [x] applyCameraZoom returns verified result object
+- [x] switchCameraDevice returns verified result object
+- [x] lastWideToggleReason stale state dependency removed
+- [x] Debug device picker exposes all videoinput devices
+- [x] 0.6× unavailable feedback preserved
+- [x] Fake CSS/crop wide implementation forbidden
+- [x] Result layout/export paths untouched
+- [x] pgpt stray guard preserved
+- [ ] Galaxy S23+ Chrome all-device picker verified
+- [ ] Galaxy S23+ Samsung Internet all-device picker verified
+- [ ] Real 0.6× route confirmed or ruled out
+
 ## Camera 0.6× Toggle Capability Verification (Phase 3.27)
 - [x] Camera capability snapshot helper added
 - [x] Hardware zoom success verified by settings.zoom before/after
