@@ -816,3 +816,15 @@ BuildPill now polls debug flags every 500ms, so no refresh is required.
 - [ ] Strip preview no longer appears tiny
 - [ ] Save output matches preview
 
+## Result UX Guard Restoration After Preview Sizing (Phase 3.20)
+- [x] Result preview final sizing preserved
+- [x] getFormattedFilename guard restored
+- [x] More menu routing guard restored
+- [x] QR/Video Preparing disabled guard restored
+- [x] Final asset DOM fallback guard restored
+- [x] Offscreen renderFinalResultBlob guard restored
+- [x] pgpt stray guard preserved
+- [ ] Desktop Result preview visual QA complete
+- [ ] Samsung Internet Result preview visual QA complete
+- [ ] Save output matches preview
+

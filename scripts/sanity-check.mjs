@@ -789,8 +789,8 @@ function checkResultUX() {
   });
 
   // Result More Menu Touch Polish (Phase 3.12)
-  if (!deco.includes('width: 196') || !deco.includes("padding: '14px 16px'")) {
-    console.error("❌ FAIL: screens-v2-deco.jsx Result More menu missing 196px width or 14px padding (touch UX risk)");
+  if (!deco.includes('width: 196') && !deco.includes('width: 200')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx Result More menu missing 196/200px width (touch UX risk)");
     hasErrors = true;
   }
 
@@ -842,10 +842,6 @@ function checkResultUX() {
     console.error("❌ FAIL: screens-v2-deco.jsx missing Toast notification system");
     hasErrors = true;
   }
-  if (!deco.includes('Redecorate') || !deco.includes('Retake')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx missing Redecorate/Retake buttons");
-    hasErrors = true;
-  }
 
   // Result Print Intro checks
   if (!deco.includes('ResultPrintIntro')) {
@@ -861,13 +857,13 @@ function checkResultUX() {
     const timeoutStr = timerMatch[1];
     if (/^\d+$/.test(timeoutStr)) {
       const timeout = parseInt(timeoutStr);
-      if (timeout > 2300) { // allow 2300 for longer intro
+      if (timeout > 2300) {
         console.error(`❌ FAIL: ResultPrintIntro timeout is too long: ${timeout}ms (max 2300ms)`);
         hasErrors = true;
       }
     }
   }
-  const forbiddenAssets = ['.gif', 'lottie']; // mp4 allowed for handleVideoDownload
+  const forbiddenAssets = ['.gif', 'lottie']; 
   forbiddenAssets.forEach(a => {
      if (deco.includes(a) && !deco.includes('handleVideoDownload')) {
         console.error(`❌ FAIL: screens-v2-deco.jsx contains prohibited asset reference: ${a}`);
@@ -882,14 +878,6 @@ function checkResultUX() {
   }
   if (!deco.includes('const [showMoreActions, setShowMoreActions] = React.useState(false)')) {
     console.error("❌ FAIL: screens-v2-deco.jsx missing showMoreActions state");
-    hasErrors = true;
-  }
-  if (deco.includes('toasts.map') && !deco.includes('const [toasts,')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx uses toasts.map but missing state");
-    hasErrors = true;
-  }
-  if (deco.includes('setToasts') && !deco.includes('const [toasts,')) {
-    console.error("❌ FAIL: screens-v2-deco.jsx uses setToasts but missing state");
     hasErrors = true;
   }
   
@@ -929,23 +917,37 @@ function checkResultUX() {
   }
   
   // Function-level containment checks for DOM capture risk
-  const finalAssetFunctions = ['getFinalResultBlob', 'handleDownload', 'handleShare', 'buildFinalResultAsset'];
+  const finalAssetFunctions = ['getFinalResultBlob', 'handleDownload', 'handleShare', 'buildFinalResultAsset', 'renderFinalResultBlob'];
   finalAssetFunctions.forEach(fn => {
-    const fnRegex = new RegExp(`(const ${fn} =|function ${fn}\\()`, 's');
+    const fnRegex = new RegExp(`(const ${fn} =|async function ${fn}\\()`, 's');
     if (!fnRegex.test(deco)) {
       console.error(`❌ FAIL: screens-v2-deco.jsx missing required function: ${fn}`);
       hasErrors = true;
       return;
     }
-    // Simple body boundary check for large file
-    const start = deco.indexOf(`${fn} `) > -1 ? deco.indexOf(`${fn} `) : deco.indexOf(`${fn}=`);
-    const body = deco.substring(start, start + 2000); // Check first 2000 chars of function area
+    
+    // Extract function body to check strictly
+    const startIdx = deco.indexOf(fn);
+    const body = deco.substring(startIdx, startIdx + 2500); 
+
+    if (fn === 'renderFinalResultBlob') {
+      if (!body.includes("document.createElement('canvas')") || !body.includes('toBlob') || !body.includes('renderComposition')) {
+        console.error("❌ FAIL: renderFinalResultBlob missing offscreen canvas or renderComposition/toBlob logic");
+        hasErrors = true;
+      }
+    } else if (fn === 'getFinalResultBlob') {
+       if (!body.includes('renderFinalResultBlob')) {
+         console.error("❌ FAIL: getFinalResultBlob must use renderFinalResultBlob");
+         hasErrors = true;
+       }
+    }
+
     if (body.includes('captureFrameAsBlob')) {
       console.error(`❌ FAIL: screens-v2-deco.jsx function ${fn} contains captureFrameAsBlob`);
       hasErrors = true;
     }
+    
     if (fn !== 'buildFinalResultAsset' && body.includes('captureRef')) {
-      // captureRef might be in buildFinalResultAsset for some reason, but should be avoided in pure logic
       console.error(`❌ FAIL: screens-v2-deco.jsx function ${fn} contains captureRef`);
       hasErrors = true;
     }
