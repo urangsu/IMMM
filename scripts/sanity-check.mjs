@@ -1545,9 +1545,37 @@ function checkStickerPreload() {
   }
 }
 
+function checkBabelMigrationPlan() {
+  const task = readFile('task.md');
+  if (!task) return;
+
+  const requirements = [
+    'Babel Standalone Removal Build Plan',
+    'Script Inventory',
+    'Global / API Dependency Map',
+    'Build Strategy Selection',
+    'Babel CLI Precompile',
+    'Phase 3.40 Implementation Plan',
+    'Rollback Path'
+  ];
+
+  requirements.forEach(req => {
+    if (!task.includes(req)) {
+      console.error(`❌ FAIL: task.md missing Babel migration plan requirement: ${req}`);
+      hasErrors = true;
+    }
+  });
+
+  const index = readFile('index.html');
+  if (index && index.includes('@babel/standalone')) {
+    console.warn("⚠️ WARN: @babel/standalone still present in index.html (P0 Risk tracked in Phase 3.39)");
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
+checkBabelMigrationPlan();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
 

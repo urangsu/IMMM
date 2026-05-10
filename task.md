@@ -1081,3 +1081,55 @@ QA steps:
 6. Add one broken/invalid upload sticker if possible
 7. Confirm export still completes
 8. Confirm failed sticker is skipped without breaking the image
+
+## Babel Standalone Removal Build Plan (Phase 3.39)
+- [x] Current `type="text/babel"` script order inventoried
+- [x] Global window dependency map documented
+- [x] Build strategy options compared (Vite vs. esbuild vs. Babel CLI)
+- [x] Chosen low-risk migration strategy documented (Babel CLI Precompile)
+- [x] Rollback path documented (Keep legacy index.html)
+- [x] Phase 3.40 implementation plan drafted
+- [x] React production UMD status preserved
+- [x] Babel standalone risk remains tracked
+- [x] pgpt stray guard preserved
+- [ ] Minimal precompile implementation complete (Phase 3.40)
+- [ ] @babel/standalone removed from runtime
+- [ ] Mobile cold boot benchmark completed
+
+### Script Inventory (index.html order)
+
+| Order | Script | Provides | Consumes | Notes |
+|---|---|---|---|---|
+| 1 | `app.jsx` | `window.IMMM_THEME`, `getShotCount` | React | Shared tokens/UI constants |
+| 2 | `filters.jsx` | CSS filter definitions | None | Pure SVG/CSS filter logic |
+| 3 | `webgl-engine.jsx` | `window.FrameRenderEngine` | `window.twgl` | WebGL processing pipe |
+| 4 | `mediapipe-face.jsx` | Face landmarks adapter | `MediaPipeFaceLandmarker` | Face tracking interface |
+| 5 | `sticker-engine.jsx` | `window.getLayoutSlotCount` | `app.jsx` | Sticker interaction logic |
+| 6 | `frame-system.jsx` | `window.renderComposition` | `filters`, `stickers`, `QRCode` | Core rendering & stores |
+| 7 | `screens-v2.jsx` | `Setup` / `Landing` screens | `frame-system` | App UI modules (A) |
+| 8 | `screens-v2-rest.jsx` | `Capture` flow | `frame-system` | App UI modules (B) |
+| 9 | `screens-v2-deco.jsx` | `Deco` / `Result` flow | `frame-system` | App UI modules (C) |
+| 10 | `main.jsx` | App Orchestration | All modules | Entry point & Router |
+
+### Global / API Dependency Map
+
+| Global / API | Producer | Consumer | Migration Risk | Notes |
+|---|---|---|---|---|
+| `window.React` / `ReactDOM` | index.html (UMD) | All scripts | Low | Stay as UMD for now |
+| `window.renderComposition` | `frame-system.jsx` | `deco`, `main` | High | Core export path |
+| `window.FrameRenderEngine` | `webgl-engine.jsx` | `deco`, `main` | Medium | WebGL availability check |
+| `window.IMMM_APP_VERSION` | index.html (Meta) | `main` | Low | Hardcoded in index.html |
+| `window.QRCode` | index.html (UMD) | `frame-system` | Low | Third-party lib |
+| `window.twgl` | index.html (UMD) | `webgl-engine` | Low | Third-party lib |
+
+### Build Strategy Selection: **Babel CLI Precompile (1-to-1)**
+
+*   **Why**: The app is heavily coupled via global `window` objects and script load order. Vite or esbuild bundling would require a massive refactoring to ESM (`import`/`export`) which risks breaking the entire rendering/export pipeline.
+*   **Strategy**: Use `@babel/cli` to transform `.jsx` to `.js` offline. `index.html` will simply link to `.js` files instead of `.jsx`.
+*   **Rollback Path**: Retain the original `index.html` as `index.babel.html` or keep a git revert path to restore `@babel/standalone`.
+
+### Phase 3.40 Implementation Plan (Draft)
+1.  Add `package.json` with `@babel/core`, `@babel/cli`, `@babel/preset-react`.
+2.  Add `npm run build` script: `babel scripts/*.jsx --out-dir dist/`.
+3.  Create `index.prod.html` or update `index.html` via script to swap `type="text/babel"` and `.jsx` extensions.
+4.  Verify PWA/Service Worker still caches the new `.js` assets correctly.
