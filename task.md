@@ -230,8 +230,8 @@ QA steps (Reference):
 - [x] Legacy `index.html` preserved for rollback
 - [x] Runtime app entry not switched yet
 - [x] pgpt stray guard preserved
-- [ ] `index.precompiled.html` local browser smoke test complete
-- [ ] Samsung Internet precompiled smoke test complete
+- [x] `index.precompiled.html` local browser smoke test complete
+- [x] Samsung Internet precompiled smoke test complete
 - [ ] Main `index.html` migration approved
 
 ### Phase 3.40 Hotfix Notes
@@ -240,6 +240,49 @@ QA steps (Reference):
 - [x] `index.precompiled.html` no longer contains `@babel/standalone` even in comments
 - [x] Build script fails on import/export output
 - [x] Legacy `index.html` remains unchanged
+
+---
+
+## Precompiled Entry Smoke Test (Phase 3.45)
+- [x] Desktop Chrome precompiled boot verified
+- [x] Desktop Chrome full flow verified
+- [x] Capture camera preview verified
+- [x] Result preview verified
+- [x] Save button verified
+- [x] Galaxy S23+ Chrome precompiled boot verified
+- [x] Galaxy S23+ Samsung Internet precompiled boot verified
+- [x] No boot error overlay
+- [x] No missing frame globals
+- [x] No React render crash
+- [x] Legacy index.html preserved
+- [x] Main entry switch not performed
+
+### Desktop Chrome Result
+- URL: http://localhost:4173/index.precompiled.html
+- boot: Success
+- setup: Success
+- capture: Success
+- select: Success
+- deco: Success
+- result: Success
+- save: Success
+- console issue: None
+
+### Galaxy S23+ Chrome Result
+- URL: http://192.168.x.x:4173/index.precompiled.html
+- boot: Success
+- capture: Success
+- camera permission: Success
+- zoom rail: Displayed and Functional
+- issue: None
+
+### Samsung Internet Result
+- URL: http://192.168.x.x:4173/index.precompiled.html
+- boot: Success
+- capture: Success
+- camera permission: Success
+- zoom rail: Displayed and Functional
+- issue: None
 
 ---
 
