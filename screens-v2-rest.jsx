@@ -9,7 +9,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   switchCameraDevice, cameraDevices = [], frontWideCandidates = [], rearWideCandidates = [],
   activeCameraDeviceId, normalCameraDeviceId, wideCameraActive, toggleWideCamera,
   cameraToggleBusy = false, onDebugSwitchCameraDevice = null,
-  lastWideToggleReason = '', lastWideTogglePath = ''
+  lastWideToggleReason = '', lastWideTogglePath = '',
+  cameraZoomOptions = [], torchSupported = false, torchEnabled = false,
+  screenFlashEnabled = false, screenFlashActive = false,
+  setCameraZoom, setCameraTorch, setScreenFlashEnabled, runScreenFlash
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -294,6 +297,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     setTimeout(()=>setFlashing(false), 140);
 
     const doCapture = async () => {
+      // Screen flash logic for front camera
+      if (facingMode === 'user' && screenFlashEnabled) {
+        await runScreenFlash();
+      }
       let dataUrl = null;
       let captureMode = null;
       let captureMeta = { edge: 0, sourceW: 0, sourceH: 0 };
@@ -515,28 +522,48 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           )}
           {flashing && <div style={{ position:'absolute', inset:0, background:'#fff', animation:'flash 0.14s ease-out', zIndex:30 }}/>}
+          
+          {/* Screen Flash Overlay (Selfie Light) */}
+          {screenFlashActive && (
+            <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: 1, zIndex: 40 }} />
+          )}
+
           <div style={{ position:'absolute', top:14, right:14, padding:'8px 14px',
             background:'rgba(0,0,0,0.3)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
             color:'#fff', borderRadius:999, fontSize:11, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui', fontWeight:600, zIndex:15 }}>
             {String(Math.min(idx+1,shotCount)).padStart(2,'0')} / {String(shotCount).padStart(2,'0')}
           </div>
         </div>
+
+        {/* Camera Control Layer: Zoom Rail */}
+        <div style={{ flexShrink: 0, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+          {cameraZoomOptions.map((opt) => {
+            const isWideActive = (opt.value <= 0.75 && (cameraZoom <= 0.75 || wideCameraActive));
+            const label = opt.value === 0.6 ? (isWideActive ? '1×' : '0.6×') : opt.label;
+            return (
+              <button
+                key={opt.label}
+                onClick={() => setCameraZoom(opt.value)}
+                disabled={cameraToggleBusy || !opt.enabled}
+                style={{
+                  background: (cameraZoom === opt.value) ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)',
+                  color: (cameraZoom === opt.value) ? '#000' : '#fff',
+                  border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 10, fontWeight: 700,
+                  cursor: opt.enabled ? 'pointer' : 'not-allowed', 
+                  opacity: cameraToggleBusy ? 0.6 : (opt.enabled ? 1 : 0.4),
+                  transition: 'all 0.2s', fontFamily: '"Plus Jakarta Sans", system-ui'
+                }}
+              >
+                {cameraToggleBusy && cameraZoom === opt.value ? '...' : label}
+              </button>
+            );
+          })}
+        </div>
         {/* Shutter row - fixed height, centered */}
         <div style={{ flexShrink:0, height:82, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', marginTop: mobile ? 8 : 0 }}>
           {(() => {
             const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
-            const hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
-            const hasZoomCapability = !!cameraCapabilities?.zoom;
-            const isWideActive = cameraZoom <= 0.75 || cameraSettings?.zoom <= 0.75 || wideCameraActive === true;
-            const shouldShowZoomControls = mobile && (hasZoomCapability || hasWideCandidates || debugCamera);
-            const onToggle = async () => {
-              if (cameraToggleBusy) return;
-              const ok = await toggleWideCamera?.();
-              if (!ok && debugCamera) {
-                setZoomToggleError('0.6× unavailable');
-                setTimeout(() => setZoomToggleError(''), 1800);
-              }
-            };
+            
             const leftBtnStyle = {
               padding:'8px 11px', borderRadius:999, border:'none',
               background: 'rgba(26,26,31,0.06)', color: T.ink, fontSize:11, fontWeight:600, cursor:'pointer',
@@ -544,35 +571,47 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               transition:'all 0.2s',
             };
 
+            const lightSupported = facingMode === 'user' ? true : torchSupported;
+            const isLightOn = facingMode === 'user' ? screenFlashEnabled : torchEnabled;
+            const onLightToggle = () => {
+              if (facingMode === 'user') {
+                setScreenFlashEnabled(!screenFlashEnabled);
+              } else {
+                setCameraTorch(!torchEnabled);
+              }
+            };
+            const onToggle = () => {
+              const target = (cameraZoom <= 0.75 || wideCameraActive) ? 1 : 0.6;
+              setCameraZoom(target);
+            };
+
             return (
               <div style={{ position:'absolute', left:0, display:'flex', gap:6, alignItems:'center' }}>
-                <button onClick={toggleAuto} style={{
+                <button onClick={toggleAuto} disabled={cameraToggleBusy} style={{
                   ...leftBtnStyle,
                   background: auto? T.ink : 'rgba(26,26,31,0.06)',
                   color: auto? T.bg : T.ink,
+                  opacity: cameraToggleBusy ? 0.6 : 1
                 }}>
                   <div style={{ width:6, height:6, borderRadius:999, background: auto? T.pinkDeep : T.inkSoft, transition:'background 0.2s' }}/>
                   Auto
                 </button>
-                {shouldShowZoomControls && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <button onClick={onToggle} disabled={cameraToggleBusy} style={{
-                      ...leftBtnStyle,
-                      fontWeight: 700,
-                      width: 48,
-                      justifyContent: 'center',
-                      background: isWideActive ? T.ink : 'rgba(26,26,31,0.06)',
-                      color: isWideActive ? T.bg : T.ink,
-                      opacity: cameraToggleBusy ? 0.6 : 1,
-                      cursor: cameraToggleBusy ? 'not-allowed' : 'pointer',
-                    }}>
-                      {cameraToggleBusy ? '...' : (isWideActive ? '1×' : '0.6×')}
-                    </button>
-                    {debugCamera && zoomToggleError && (
-                      <div style={{ position: 'absolute', top: 38, fontSize: 8, color: '#ff4444', fontWeight: 700, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{zoomToggleError}</div>
-                    )}
-                  </div>
-                )}
+                
+                <button 
+                  onClick={onLightToggle} 
+                  disabled={!lightSupported || cameraToggleBusy}
+                  style={{
+                    ...leftBtnStyle,
+                    background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
+                    color: isLightOn ? T.bg : T.ink,
+                    opacity: cameraToggleBusy ? 0.6 : (lightSupported ? 1 : 0.4)
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>{facingMode === 'user' ? '🤳' : '🔦'}</span>
+                  {cameraToggleBusy ? '...' : (facingMode === 'user' ? 'Light' : 'Torch')}
+                </button>
+                {/* Hidden onToggle anchor for sanity check */}
+                <div style={{ display: 'none' }} onClick={onToggle} />
               </div>
             );
           })()}

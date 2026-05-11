@@ -1149,3 +1149,16 @@ QA steps:
     `babel app.jsx filters.jsx webgl-engine.jsx mediapipe-face.jsx sticker-engine.jsx frame-system.jsx screens-v2.jsx screens-v2-rest.jsx screens-v2-deco.jsx main.jsx --out-dir dist`
 3.  Create `index.precompiled.html` first to verify the dist boot without replacing `index.html`.
 4.  Verify PWA/Service Worker still caches the new `.js` assets correctly.
+
+## Camera Control Architecture (Phase 3.41)
+- [x] Web Camera Adapter interface defined
+- [x] Zoom options modeled by capability/source
+- [x] Rear torch capability detection planned
+- [x] Front screen flash fallback planned
+- [x] UI separated from camera control implementation
+- [x] Native adapter boundary documented
+- [ ] Native optical zoom adapter implemented
+- [ ] Native torch adapter implemented
+- [ ] Native exposure control implemented
+- [ ] Native camera permission flow implemented
+- [ ] App shell selected: Capacitor / React Native / Swift/Kotlin

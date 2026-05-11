@@ -164,6 +164,15 @@ function App() {
   const [lastWideToggleReason, setLastWideToggleReason] = React.useState('');
   const [lastWideTogglePath, setLastWideTogglePath] = React.useState('');
   const [cameraToggleBusy, setCameraToggleBusy] = React.useState(false);
+  const [torchSupported, setTorchSupported] = React.useState(false);
+  const [torchEnabled, setTorchEnabled] = React.useState(false);
+  const [screenFlashEnabled, setScreenFlashEnabled] = React.useState(false);
+  const [screenFlashActive, setScreenFlashActive] = React.useState(false);
+  const [cameraZoomOptions, setCameraZoomOptions] = React.useState([
+    { label: '0.6×', value: 0.6, type: 'unavailable', enabled: false },
+    { label: '1×', value: 1, type: 'hardware', enabled: true },
+    { label: '2×', value: 2, type: 'unavailable', enabled: false },
+  ]);
 
   const getCameraDebugSnapshot = React.useCallback((label, extra = {}) => {
     const track = streamRef.current?.getVideoTracks?.()[0] || null;
@@ -309,6 +318,34 @@ function App() {
             };
             console.info('[IMMM camera] capability snapshot:', snap);
           }
+          // torch support
+          setTorchSupported(!!capabilities.torch);
+          setTorchEnabled(settings.torch || false);
+
+          // zoom options
+          const opts = [
+            { label: '0.6×', value: 0.6, type: 'unavailable', enabled: false },
+            { label: '1×', value: 1, type: 'hardware', enabled: true },
+            { label: '2×', value: 2, type: 'unavailable', enabled: false },
+          ];
+
+          // Check 0.6x availability
+          if (capabilities.zoom && capabilities.zoom.min <= 0.6) {
+            opts[0].type = 'hardware';
+            opts[0].enabled = true;
+          } else if (facingMode === 'user' ? frontWideCandidates.length > 0 : rearWideCandidates.length > 0) {
+            opts[0].type = 'lens';
+            opts[0].enabled = true;
+            opts[0].deviceId = (facingMode === 'user' ? frontWideCandidates[0] : rearWideCandidates[0]).deviceId;
+          }
+
+          // Check 2.0x availability
+          if (capabilities.zoom && capabilities.zoom.max >= 2.0) {
+            opts[2].type = 'hardware';
+            opts[2].enabled = true;
+          }
+          setCameraZoomOptions(opts);
+
           // enumerateDevices after permission granted to get labels for wide candidates
           await refreshCameraDevices();
         }
@@ -433,6 +470,52 @@ function App() {
       return { ok: false, path: 'device-switch', reason: `switch-failed(${e.name})`, snapBefore };
     }
   }, [refreshCameraDevices, frontWideCandidates, rearWideCandidates, cameraSettings?.deviceId, getCameraDebugSnapshot]);
+
+  const setCameraTorch = React.useCallback(async (enabled) => {
+    const track = streamRef.current?.getVideoTracks?.()[0];
+    if (!track || !torchSupported) return false;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: enabled }] });
+      setTorchEnabled(enabled);
+      return true;
+    } catch (e) {
+      console.warn('[IMMM camera] torch failed:', e);
+      return false;
+    }
+  }, [torchSupported]);
+
+  const runScreenFlash = React.useCallback(async () => {
+    if (!screenFlashEnabled || facingMode !== 'user') return;
+    setScreenFlashActive(true);
+    await new Promise(r => setTimeout(r, 450));
+    setScreenFlashActive(false);
+  }, [screenFlashEnabled, facingMode]);
+
+  const setCameraZoom = React.useCallback(async (val) => {
+    if (cameraToggleBusy) return false;
+    setCameraToggleBusy(true);
+    try {
+      const opt = cameraZoomOptions.find(o => o.value === val);
+      if (!opt || !opt.enabled) return false;
+
+      if (opt.type === 'hardware') {
+        const res = await applyCameraZoom(val);
+        if (res.ok) {
+          setWideCameraActive(val <= 0.75);
+          return true;
+        }
+      } else if (opt.type === 'lens' && opt.deviceId) {
+        const res = await switchCameraDevice(opt.deviceId);
+        if (res.ok) {
+          setWideCameraActive(true);
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      setCameraToggleBusy(false);
+    }
+  }, [cameraToggleBusy, cameraZoomOptions, applyCameraZoom, switchCameraDevice]);
 
   const onDebugSwitchCameraDevice = React.useCallback(async (deviceId) => {
     if (cameraToggleBusy) return { ok: false, path: 'manual-device-switch', reason: 'busy' };
@@ -619,6 +702,16 @@ function App() {
           cameraZoom={cameraZoom}
           cameraCapabilities={cameraCapabilities}
           cameraSettings={cameraSettings}
+          cameraZoomOptions={cameraZoomOptions}
+          cameraToggleBusy={cameraToggleBusy}
+          torchSupported={torchSupported}
+          torchEnabled={torchEnabled}
+          screenFlashEnabled={screenFlashEnabled}
+          screenFlashActive={screenFlashActive}
+          setCameraZoom={setCameraZoom}
+          setCameraTorch={setCameraTorch}
+          setScreenFlashEnabled={setScreenFlashEnabled}
+          runScreenFlash={runScreenFlash}
           applyCameraZoom={applyCameraZoom}
           switchCameraDevice={switchCameraDevice}
           cameraDevices={cameraDevices}
@@ -627,10 +720,9 @@ function App() {
           activeCameraDeviceId={activeCameraDeviceId}
           normalCameraDeviceId={normalCameraDeviceId}
           wideCameraActive={wideCameraActive}
-          cameraToggleBusy={cameraToggleBusy}
+          toggleWideCamera={toggleWideCamera}
           lastWideToggleReason={lastWideToggleReason}
           lastWideTogglePath={lastWideTogglePath}
-          toggleWideCamera={toggleWideCamera}
           onDebugSwitchCameraDevice={onDebugSwitchCameraDevice}
         />;
       case 'select':

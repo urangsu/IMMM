@@ -1591,10 +1591,47 @@ function checkBabelMigrationPlan() {
   }
 }
 
+function checkCameraArchitecture() {
+  const main = readFile('main.jsx');
+  const rest = readFile('screens-v2-rest.jsx');
+  if (!main || !rest) return;
+
+  const adapterHelpers = ['setCameraZoom', 'setCameraTorch', 'runScreenFlash'];
+  adapterHelpers.forEach(h => {
+    if (!main.includes(h)) {
+      console.error(`❌ FAIL: main.jsx missing camera control adapter helper: ${h}`);
+      hasErrors = true;
+    }
+  });
+
+  if (!main.includes('cameraZoomOptions') || !main.includes('type: \'hardware\'')) {
+    console.error("❌ FAIL: main.jsx missing capability-based zoom option model");
+    hasErrors = true;
+  }
+
+  if (!rest.includes('screenFlashActive') && !rest.includes('screenFlashEnabled')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing screen flash light simulation");
+    hasErrors = true;
+  }
+
+  // FAKE ZOOM GUARDS
+  if (main.includes('scale(0.6') || rest.includes('scale(0.6') || rest.includes('transform: \'scale(0.6\'')) {
+    console.error("❌ FAIL: Prohibited fake 0.6x CSS scale detected");
+    hasErrors = true;
+  }
+
+  const task = readFile('task.md');
+  if (task && !task.includes('Camera Control Architecture (Phase 3.41)')) {
+    console.error("❌ FAIL: task.md missing Phase 3.41 Camera Architecture roadmap");
+    hasErrors = true;
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
 checkBabelMigrationPlan();
+checkCameraArchitecture();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
 
