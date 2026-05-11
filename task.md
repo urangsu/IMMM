@@ -352,6 +352,21 @@ QA steps (Reference):
 
 ---
 
+## Capture Light Control UI Polish (Phase 3.48)
+- [x] Current light icon audited
+- [x] Low-quality emoji/icon removed (🔦, 🤳)
+- [x] Custom 2D SoftLightGlyph added
+- [x] Front camera label uses Selfie Light
+- [x] Rear camera label uses Light
+- [x] Light button accessibility label added
+- [x] Torch/screen flash behavior preserved
+- [x] Camera zoom/prewarm behavior preserved
+- [x] Result/Export untouched
+- [ ] Mobile visual QA completed
+- [ ] Samsung Internet visual QA completed
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안

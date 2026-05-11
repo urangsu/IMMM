@@ -1720,6 +1720,26 @@ function checkCameraArchitecture() {
     hasErrors = true;
   }
 
+  // Phase 3.48 UI Polish
+  if (!rest.includes('function SoftLightGlyph()')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing SoftLightGlyph component");
+    hasErrors = true;
+  }
+  if (rest.includes('💡') || rest.includes('🔦') || rest.includes('🤳')) {
+     // Use regex to check if they are in the Light button specifically if needed, 
+     // but general grep is safer for "removal of crude icons".
+     console.error("❌ FAIL: screens-v2-rest.jsx still contains crude emojis in Capture UI");
+     hasErrors = true;
+  }
+  if (!rest.includes('Selfie Light')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing 'Selfie Light' label for front camera");
+    hasErrors = true;
+  }
+  if (!rest.includes('aria-label') || !rest.includes('Turn on selfie light')) {
+    console.error("❌ FAIL: screens-v2-rest.jsx missing accessibility aria-labels for Light control");
+    hasErrors = true;
+  }
+
   // FAKE ZOOM GUARDS
   if (main.includes('scale(0.6') || rest.includes('scale(0.6') || rest.includes('transform: \'scale(0.6\'')) {
     console.error("❌ FAIL: Prohibited fake 0.6x CSS scale detected");

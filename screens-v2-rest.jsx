@@ -3,6 +3,22 @@
 // ═══════════════════════════════════════════════════════════════
 // CAPTURE — 6 shots
 // ═══════════════════════════════════════════════════════════════
+
+function SoftLightGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false" style={{ display: 'block' }}>
+      <circle cx="8" cy="8" r="2.2" fill="currentColor" opacity="0.95" />
+      <path
+        d="M8 1.8V4M8 12v2.2M14.2 8H12M4 8H1.8M12.4 3.6L10.9 5.1M5.1 10.9L3.6 12.4M12.4 12.4L10.9 10.9M5.1 5.1L3.6 3.6"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        opacity="0.92"
+      />
+    </svg>
+  );
+}
+
 function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers, logo, dateText, accent, frameColor, muted, onRequestCamera,
   videoRef, canvasRef, engineRef, webglOk, firstFrame, camOk, facingMode, setFacingMode, onCameraFrameChange, faceDataRef,
   cameraZoom = 1, cameraCapabilities = null, cameraSettings = null, applyCameraZoom,
@@ -605,6 +621,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 <button 
                   onClick={onLightToggle} 
                   disabled={!lightSupported || cameraToggleBusy}
+                  aria-label={facingMode === 'user' ? (screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light') : (torchEnabled ? 'Turn off light' : 'Turn on light')}
+                  title={facingMode === 'user' ? 'Selfie screen light' : 'Camera light'}
                   style={{
                     ...leftBtnStyle,
                     background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
@@ -612,8 +630,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                     opacity: cameraToggleBusy ? 0.6 : (lightSupported ? 1 : 0.4)
                   }}
                 >
-                  <span style={{ fontSize: 14 }}>{facingMode === 'user' ? '🤳' : '🔦'}</span>
-                  {cameraToggleBusy ? '...' : (facingMode === 'user' ? 'Light' : 'Torch')}
+                  <SoftLightGlyph />
+                  {cameraToggleBusy ? '...' : (facingMode === 'user' ? (mobile ? 'Light' : 'Selfie Light') : 'Light')}
                 </button>
                 {/* Hidden onToggle anchor for sanity check */}
                 <div style={{ display: 'none' }} onClick={onToggle} />
