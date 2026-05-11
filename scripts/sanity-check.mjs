@@ -1579,14 +1579,39 @@ function checkBabelMigrationPlan() {
     console.warn("⚠️ WARN: @babel/standalone still present in index.html (P0 Risk tracked in Phase 3.39)");
   }
 
-  if (fs.existsSync('package.json')) {
-      console.error("❌ FAIL: package.json should not be created in Phase 3.39 (Planning only)");
+  // Phase 3.40 Artifact Checks
+  const precompiled = readFile('index.precompiled.html');
+  if (precompiled) {
+    if (precompiled.includes('@babel/standalone') && !precompiled.includes('removed')) {
+      console.error('❌ FAIL: index.precompiled.html still contains @babel/standalone');
       hasErrors = true;
+    }
+    if (precompiled.includes('type="text/babel"')) {
+      console.error('❌ FAIL: index.precompiled.html still contains type="text/babel"');
+      hasErrors = true;
+    }
+    if (!precompiled.includes('dist/main.js')) {
+      console.error('❌ FAIL: index.precompiled.html missing dist/main.js entry');
+      hasErrors = true;
+    }
+  } else {
+    console.warn('⚠️ WARN: index.precompiled.html not found (Phase 3.40 incomplete)');
   }
 
-  if (fs.existsSync('dist')) {
-      console.error("❌ FAIL: dist/ folder should not be created in Phase 3.39 (Planning only)");
-      hasErrors = true;
+  if (index && index.includes('dist/') && !index.includes('<!--')) {
+       console.error('❌ FAIL: index.html should not reference dist/ files during Phase 3.40 (Rollback safety)');
+       hasErrors = true;
+  }
+
+  const packageJson = readFile('package.json');
+  if (packageJson) {
+    if (!packageJson.includes('build:precompile')) {
+       console.error('❌ FAIL: package.json missing build:precompile script');
+       hasErrors = true;
+    }
+  } else {
+    console.error('❌ FAIL: package.json missing (Phase 3.40 requirement)');
+    hasErrors = true;
   }
 }
 

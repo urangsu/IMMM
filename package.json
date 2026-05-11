@@ -1,0 +1,14 @@
+{
+  "name": "immm-photobooth",
+  "version": "2.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:precompile": "node scripts/build-precompile.mjs"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.24.1",
+    "@babel/core": "^7.24.1",
+    "@babel/preset-react": "^7.24.1"
+  }
+}

@@ -218,6 +218,24 @@ QA steps (Reference):
 
 ---
 
+## Minimal Babel Precompile Implementation (Phase 3.40)
+- [x] package.json added
+- [x] Babel CLI devDependencies added
+- [x] Explicit JSX build manifest implemented
+- [x] `npm run build:precompile` added
+- [x] `dist/*.js` generated from root JSX files
+- [x] `index.precompiled.html` generated
+- [x] `index.precompiled.html` has no `@babel/standalone`
+- [x] `index.precompiled.html` has no `type="text/babel"`
+- [x] Legacy `index.html` preserved for rollback
+- [x] Runtime app entry not switched yet
+- [x] pgpt stray guard preserved
+- [ ] `index.precompiled.html` local browser smoke test complete
+- [ ] Samsung Internet precompiled smoke test complete
+- [ ] Main `index.html` migration approved
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안

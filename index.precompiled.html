@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>IMMM · Photobooth</title>
+<meta name="description" content="나와 그리고 우리의 순간. 나만의 포토부스.">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Caveat:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+
+<style>
+  :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #FCFCFA;
+    font-family: 'Plus Jakarta Sans', Pretendard, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overscroll-behavior: none;
+  }
+  /* App uses position:fixed — #root just needs to exist */
+  #root { display: block; }
+  button { font-family: inherit; touch-action: manipulation; }
+  button:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+  #boot-error {
+    position: fixed; inset: 0; z-index: 99999; display: none;
+    padding: 24px; background: #fff; color: #111;
+    font-family: Pretendard, system-ui, sans-serif;
+  }
+  #boot-error strong { display: block; margin-bottom: 8px; font-size: 18px; }
+  #boot-error pre {
+    white-space: pre-wrap; word-break: break-word;
+    padding: 12px; border-radius: 8px; background: #f4f4f4;
+    font-size: 12px; line-height: 1.45;
+  }
+
+  @keyframes pulse         { 0%,100%{transform:scale(1);opacity:0.35} 50%{transform:scale(1.08);opacity:0.15} }
+  @keyframes flash         { 0%{opacity:1} 100%{opacity:0} }
+  @keyframes popIn         { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+  @keyframes countPop      { 0%{transform:scale(1.6);opacity:0} 30%{opacity:1} 100%{transform:scale(0.9);opacity:0.3} }
+  @keyframes spin          { to { transform: rotate(360deg); } }
+  @keyframes polaroidReveal {
+    0%   { transform:scale(0.88) rotate(-2.5deg); opacity:0; }
+    40%  { transform:scale(1.04) rotate(1.2deg);  opacity:1; }
+    65%  { transform:scale(0.98) rotate(-0.6deg); }
+    80%  { transform:scale(1.01) rotate(0.3deg);  }
+    100% { transform:scale(1.0)  rotate(0deg);    opacity:1; }
+  }
+</style>
+
+<script>
+  window.IMMM_APP_VERSION = '2026-05-10-rc2.2';
+  window.IMMM_BUILD_LABEL = 'rc2.2-react-production-umd';
+  window.IMMM_RC_BASELINE = 'ca3df30';
+  window.IMMM_STABLE_BASELINE = '8b5e42c';
+  window.IMMM_COMMIT = window.IMMM_RC_BASELINE; // Alias for backward compatibility
+  
+  (function() {
+    var isSamsungInternet = /SamsungBrowser/i.test(navigator.userAgent);
+    var VERSION_KEY = 'immm.app.version';
+    var MIGRATION_KEY = 'immm.sw.frameHotfixApplied';
+    var currentVersion = window.IMMM_APP_VERSION;
+
+    // 1. One-time emergency cleanup for Samsung Internet
+    if (isSamsungInternet && localStorage.getItem(MIGRATION_KEY) !== '1') {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          return Promise.all(regs.map(function(r) { return r.unregister(); }));
+        }).then(function() {
+          localStorage.setItem(MIGRATION_KEY, '1');
+          location.reload();
+        }).catch(function() {
+          localStorage.setItem(MIGRATION_KEY, '1');
+        });
+      } else {
+        localStorage.setItem(MIGRATION_KEY, '1');
+      }
+    }
+
+    // 2. General version-based update check
+    if (localStorage.getItem(VERSION_KEY) !== currentVersion) {
+      localStorage.setItem(VERSION_KEY, currentVersion);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(r) { r.update(); });
+        });
+      }
+    }
+  })();
+
+  window.__showBootError = function(message, source, line, col, error) {
+    var box = document.getElementById('boot-error');
+    if (!box) return;
+    var detail = message || 'Unknown error';
+    if (source) detail += '\n' + source + ':' + (line || 0) + ':' + (col || 0);
+    if (error && error.stack) detail += '\n\n' + error.stack;
+    box.style.display = 'block';
+    box.innerHTML = '<strong>IMMM 앱을 불러오지 못했어요.</strong><div>브라우저 호환성 또는 스크립트 오류가 발생했습니다.</div><pre></pre>';
+    box.querySelector('pre').textContent = detail;
+  };
+  window.addEventListener('error', function(e) {
+    window.__showBootError(e.message, e.filename, e.lineno, e.colno, e.error);
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    window.__showBootError((e.reason && (e.reason.stack || e.reason.message)) || String(e.reason || 'Unhandled promise rejection'));
+  });
+</script>
+
+<!-- React 18 -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"
+        crossorigin="anonymous"
+        integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"
+        crossorigin="anonymous"
+        integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1"></script>
+
+<!-- Babel standalone (JSX → JS in-browser) -->
+<!-- @babel/standalone removed for precompiled mode -->
+
+<!-- html2canvas — frame PNG export -->
+<script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<!-- TWGL.js — lightweight WebGL helper -->
+<script src="https://twgljs.org/dist/4.x/twgl-full.min.js"></script>
+
+<!-- canvas-confetti — result screen download celebration -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+<!-- QRCode — client-side QR generation for share links -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+
+<!-- MediaPipe Tasks Vision — expose as globals for JSX scripts -->
+<script type="module">
+  try {
+    const { FaceLandmarker, FilesetResolver } =
+      await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
+    window.MediaPipeFaceLandmarker  = FaceLandmarker;
+    window.MediaPipeFilesetResolver = FilesetResolver;
+    window.dispatchEvent(new Event('mediapipe-ready'));
+  } catch (e) {
+    console.warn('[IMMM] MediaPipe load failed:', e.message);
+  }
+</script>
+</head>
+<body>
+<div id="boot-error"></div>
+<div id="root"></div>
+
+<!-- Shared globals: design tokens, icons, sticker assets -->
+<script src="./dist/app.js"></script>
+<!-- CSS filter definitions -->
+<script src="./dist/filters.js"></script>
+<!-- WebGL pipeline (TWGL + face warp + blush) -->
+<script src="./dist/webgl-engine.js"></script>
+<!-- MediaPipe face landmark detection -->
+<script src="./dist/mediapipe-face.js"></script>
+<!-- Sticker drag/scale/rotate canvas -->
+<script src="./dist/sticker-engine.js"></script>
+<!-- Frame templates + unified renderer + local/QR stores -->
+<script src="./dist/frame-system.js"></script>
+<!-- Landing + Setup screens + shared UI primitives -->
+<script src="./dist/screens-v2.js"></script>
+<!-- Capture + Select screens -->
+<script src="./dist/screens-v2-rest.js"></script>
+<!-- Deco Studio + Result screens -->
+<script src="./dist/screens-v2-deco.js"></script>
+<!-- App entry point -->
+<script src="./dist/main.js"></script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('./sw.js').catch(function(e) {
+        console.warn('[IMMM] service worker registration failed:', e.message);
+      });
+    });
+  }
+</script>
+</body>
+</html>
