@@ -318,6 +318,40 @@ QA steps (Reference):
 
 ---
 
+## Precompiled Full Flow Smoke Result (Phase 3.47)
+- [x] Desktop Chrome landing actually verified
+- [x] Desktop Chrome setup actually verified
+- [ ] Desktop Chrome capture actually verified
+- [ ] Desktop Chrome select actually verified
+- [ ] Desktop Chrome deco actually verified
+- [ ] Desktop Chrome result actually verified
+- [ ] Desktop Chrome save actually verified
+- [x] No boot error overlay
+- [x] No global redeclare error
+- [x] Legacy index.html preserved
+- [x] Main entry switch not performed
+
+### Desktop Chrome Actual Result
+- date: 2026-05-11
+- URL: http://localhost:4175/index.precompiled.html
+- browser: Chrome (Desktop)
+- layout tested: 1x4 Strip
+- landing: ✅ Success
+- setup: ✅ Success
+- capture: Pending
+- camera permission: Pending
+- camera preview: Pending
+- zoom rail: Pending
+- shots: 0
+- select: Pending
+- deco: Pending
+- result: Pending
+- save: Pending
+- console errors: None (at landing/setup)
+- issue: Camera flow pending environment capacity
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안
