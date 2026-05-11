@@ -538,23 +538,24 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         {/* Camera Control Layer: Zoom Rail */}
         <div style={{ flexShrink: 0, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 12 }}>
           {cameraZoomOptions.map((opt) => {
-            const isWideActive = (opt.value <= 0.75 && (cameraZoom <= 0.75 || wideCameraActive));
-            const label = opt.value === 0.6 ? (isWideActive ? '1×' : '0.6×') : opt.label;
+            const isActive = (opt.value === 0.6) ? wideCameraActive : (cameraZoom === opt.value && !wideCameraActive);
             return (
               <button
                 key={opt.label}
+                title={window.IMMM_DEBUG_CAMERA ? `reason: ${opt.reason || 'none'}, type: ${opt.type}` : undefined}
                 onClick={() => setCameraZoom(opt.value)}
                 disabled={cameraToggleBusy || !opt.enabled}
                 style={{
-                  background: (cameraZoom === opt.value) ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)',
-                  color: (cameraZoom === opt.value) ? '#000' : '#fff',
-                  border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 10, fontWeight: 700,
+                  background: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)',
+                  color: isActive ? '#000' : '#fff',
+                  border: isActive ? `1.5px solid ${T.pink}` : 'none',
+                  borderRadius: 999, padding: '6px 12px', fontSize: 10, fontWeight: 700,
                   cursor: opt.enabled ? 'pointer' : 'not-allowed', 
-                  opacity: cameraToggleBusy ? 0.6 : (opt.enabled ? 1 : 0.4),
+                  opacity: cameraToggleBusy ? 0.6 : (opt.enabled ? 1 : 0.25),
                   transition: 'all 0.2s', fontFamily: '"Plus Jakarta Sans", system-ui'
                 }}
               >
-                {cameraToggleBusy && cameraZoom === opt.value ? '...' : label}
+                {cameraToggleBusy && cameraZoom === opt.value ? '...' : opt.label}
               </button>
             );
           })}

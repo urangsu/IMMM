@@ -48,6 +48,42 @@ class AppErrorBoundary extends React.Component {
   }
 })();
 
+// MARK: - Camera Model Helpers
+
+function deriveCameraZoomOptions({
+  cameraCapabilities,
+  facingMode,
+  frontWideCandidates,
+  rearWideCandidates
+}) {
+  const options = [
+    { label: '0.6×', value: 0.6, type: 'unavailable', enabled: false, reason: 'not-detected' },
+    { label: '1×', value: 1, type: 'hardware', enabled: true, reason: 'default' },
+    { label: '2×', value: 2, type: 'unavailable', enabled: false, reason: 'not-supported' },
+  ];
+
+  const zoomCap = cameraCapabilities?.zoom;
+  const candidates = facingMode === 'user' ? frontWideCandidates : rearWideCandidates;
+
+  if (zoomCap && zoomCap.min <= 0.6) {
+    options[0] = { ...options[0], type: 'hardware', enabled: true, reason: 'hardware-zoom' };
+  } else if (candidates?.[0]?.deviceId) {
+    options[0] = { ...options[0], type: 'lens', enabled: true, reason: 'wide-device', deviceId: candidates[0].deviceId };
+  }
+
+  if (zoomCap && zoomCap.max >= 2) {
+    options[2] = { ...options[2], type: 'hardware', enabled: true, reason: 'hardware-zoom' };
+  }
+
+  return options;
+}
+
+function getCaptureShotCountForLayout(layout) {
+  if (layout === 'polaroid') return 3;
+  if (layout === 'trip') return 5;
+  return 6;
+}
+
 function App() {
   const [tweaks, setTweaks] = React.useState({
     variant: 'A',
@@ -168,11 +204,16 @@ function App() {
   const [torchEnabled, setTorchEnabled] = React.useState(false);
   const [screenFlashEnabled, setScreenFlashEnabled] = React.useState(false);
   const [screenFlashActive, setScreenFlashActive] = React.useState(false);
-  const [cameraZoomOptions, setCameraZoomOptions] = React.useState([
-    { label: '0.6×', value: 0.6, type: 'unavailable', enabled: false },
-    { label: '1×', value: 1, type: 'hardware', enabled: true },
-    { label: '2×', value: 2, type: 'unavailable', enabled: false },
-  ]);
+  
+  const cameraZoomOptions = React.useMemo(
+    () => deriveCameraZoomOptions({
+      cameraCapabilities,
+      facingMode,
+      frontWideCandidates,
+      rearWideCandidates,
+    }),
+    [cameraCapabilities, facingMode, frontWideCandidates, rearWideCandidates]
+  );
 
   const getCameraDebugSnapshot = React.useCallback((label, extra = {}) => {
     const track = streamRef.current?.getVideoTracks?.()[0] || null;
@@ -322,29 +363,7 @@ function App() {
           setTorchSupported(!!capabilities.torch);
           setTorchEnabled(settings.torch || false);
 
-          // zoom options
-          const opts = [
-            { label: '0.6×', value: 0.6, type: 'unavailable', enabled: false },
-            { label: '1×', value: 1, type: 'hardware', enabled: true },
-            { label: '2×', value: 2, type: 'unavailable', enabled: false },
-          ];
-
-          // Check 0.6x availability
-          if (capabilities.zoom && capabilities.zoom.min <= 0.6) {
-            opts[0].type = 'hardware';
-            opts[0].enabled = true;
-          } else if (facingMode === 'user' ? frontWideCandidates.length > 0 : rearWideCandidates.length > 0) {
-            opts[0].type = 'lens';
-            opts[0].enabled = true;
-            opts[0].deviceId = (facingMode === 'user' ? frontWideCandidates[0] : rearWideCandidates[0]).deviceId;
-          }
-
-          // Check 2.0x availability
-          if (capabilities.zoom && capabilities.zoom.max >= 2.0) {
-            opts[2].type = 'hardware';
-            opts[2].enabled = true;
-          }
-          setCameraZoomOptions(opts);
+          setTorchEnabled(settings.torch || false);
 
           // enumerateDevices after permission granted to get labels for wide candidates
           await refreshCameraDevices();
@@ -625,7 +644,7 @@ function App() {
     // Reset shots + selected when starting a fresh capture session.
     // This prevents previous roll's shots leaking into SelectV2 on re-capture.
     if (s === 'capture') {
-      const newShotCount = tweaks.layout === 'polaroid' ? 1 : 6;
+      const newShotCount = getCaptureShotCountForLayout(tweaks.layout);
       setShots(Array(newShotCount).fill(null));
       setSelected([]);
     }
@@ -636,7 +655,7 @@ function App() {
   const frameShotCount = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(tweaks.layout)
     : (tweaks.layout === 'polaroid' ? 1 : tweaks.layout === 'trip' ? 3 : 4);
-  const captureShotCount = tweaks.layout === 'polaroid' ? 1 : 6;
+  const captureShotCount = getCaptureShotCountForLayout(tweaks.layout);
 
   // Dummy-fill shots when jumping deep without capturing
   const needsDummy = ['select', 'deco', 'result'].includes(screen) && shots.every(s => !s);

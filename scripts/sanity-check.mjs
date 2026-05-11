@@ -541,17 +541,16 @@ function checkPhaseCCameraZoom() {
 
 
   // 2. screens-v2-rest.jsx checks
-  // 2. screens-v2-rest.jsx checks
   if (!rest.includes('toggleWideCamera')) { console.error("❌ FAIL: screens-v2-rest.jsx missing toggleWideCamera prop/usage"); hasErrors = true; }
-  if (rest.includes('onClick={() => canPointSix && applyCameraZoom?.(0.6)}') || rest.includes('onClick={() => canOne && applyCameraZoom?.(1)}')) {
-    console.error("❌ FAIL: screens-v2-rest.jsx still has separate 0.6x and 1x buttons");
-    hasErrors = true;
-  }
-
-  if (rest.includes('<button') && rest.includes('isWideActive ? \'1×\' : \'0.6×\'')) {
-    // Single toggle confirmed
+  
+  if (rest.includes('cameraZoomOptions.map')) {
+    // Zoom rail architecture confirmed
+    if (!rest.includes('opt.label') || !rest.includes('setCameraZoom(opt.value)')) {
+       console.error("❌ FAIL: screens-v2-rest.jsx zoom rail mapping is incomplete");
+       hasErrors = true;
+    }
   } else {
-    console.error("❌ FAIL: screens-v2-rest.jsx missing single toggle button for camera zoom");
+    console.error("❌ FAIL: screens-v2-rest.jsx missing zoom rail (cameraZoomOptions.map)");
     hasErrors = true;
   }
 
@@ -1627,11 +1626,61 @@ function checkCameraArchitecture() {
   }
 }
 
+function checkCameraModelAndBestCut() {
+  const main = readFile('main.jsx');
+  const task = readFile('task.md');
+
+  if (main) {
+    if (!main.includes('function deriveCameraZoomOptions')) {
+      console.error('❌ FAIL: main.jsx missing deriveCameraZoomOptions helper');
+      hasErrors = true;
+    }
+    if (!main.includes('cameraZoomOptions = React.useMemo')) {
+      console.error('❌ FAIL: main.jsx cameraZoomOptions must be a derived useMemo model');
+      hasErrors = true;
+    }
+    if (main.includes('setCameraZoomOptions')) {
+      console.error('❌ FAIL: main.jsx contains prohibited setCameraZoomOptions state setter');
+      hasErrors = true;
+    }
+    if (!main.includes('function getCaptureShotCountForLayout')) {
+      console.error('❌ FAIL: main.jsx missing getCaptureShotCountForLayout helper');
+      hasErrors = true;
+    }
+    // Polaroid Best Cut: 3 shots instead of 1
+    if (main.match(/layout\s*===\s*'polaroid'\s*\?\s*1\s*:\s*6/) && main.includes('captureShotCount')) {
+      console.error('❌ FAIL: main.jsx polaroid captureShotCount must be 3 (Best Cut contract)');
+      hasErrors = true;
+    }
+    // Camera Prewarm Check (Persistent getUserMedia)
+    if (!main.includes('navigator.mediaDevices.getUserMedia') || !main.includes('streamRef.current = s')) {
+      console.error('❌ FAIL: main.jsx missing persistent camera prewarm (getUserMedia on mount)');
+      hasErrors = true;
+    }
+  }
+
+  if (task) {
+    const requiredSections = [
+      'Best Cut Capture Contract',
+      'Future Edit Capabilities',
+      'Prewarm Policy',
+      '카메라 Prewarm 제거 금지'
+    ];
+    requiredSections.forEach(s => {
+      if (!task.includes(s)) {
+        console.error(`❌ FAIL: task.md missing required section: ${s}`);
+        hasErrors = true;
+      }
+    });
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
 checkBabelMigrationPlan();
 checkCameraArchitecture();
+checkCameraModelAndBestCut();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
 
