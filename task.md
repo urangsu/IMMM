@@ -243,46 +243,37 @@ QA steps (Reference):
 
 ---
 
-## Precompiled Entry Smoke Test (Phase 3.45)
-- [x] Desktop Chrome precompiled boot verified
-- [x] Desktop Chrome full flow verified
-- [x] Capture camera preview verified
-- [x] Result preview verified
-- [x] Save button verified
-- [x] Galaxy S23+ Chrome precompiled boot verified
-- [x] Galaxy S23+ Samsung Internet precompiled boot verified
-- [x] No boot error overlay
-- [x] No missing frame globals
-- [x] No React render crash
+## Precompiled Entry Smoke Test Plan (Phase 3.45)
+- [x] Smoke test checklist documented
+- [x] Local server command documented
+- [x] Desktop Chrome flow checklist documented
+- [x] Galaxy S23+ checklist documented
+- [x] Samsung Internet checklist documented
 - [x] Legacy index.html preserved
 - [x] Main entry switch not performed
+- [ ] Desktop Chrome precompiled boot actually verified
+- [ ] Desktop Chrome full flow actually verified
+- [ ] Galaxy S23+ Chrome precompiled boot actually verified
+- [ ] Galaxy S23+ Samsung Internet precompiled boot actually verified
+- [ ] No boot error overlay actually verified
+- [ ] No missing frame globals actually verified
+- [ ] No React render crash actually verified
 
-### Desktop Chrome Result
+### Desktop Chrome Test Strategy (Planned)
 - URL: http://localhost:4173/index.precompiled.html
-- boot: Success
-- setup: Success
-- capture: Success
-- select: Success
-- deco: Success
-- result: Success
-- save: Success
-- console issue: None
+- command: `python3 -m http.server 4173`
+- expected: landing -> setup -> capture -> select -> deco -> result flow without Babel
+- status: Pending actual execution
 
-### Galaxy S23+ Chrome Result
-- URL: http://192.168.x.x:4173/index.precompiled.html
-- boot: Success
-- capture: Success
-- camera permission: Success
-- zoom rail: Displayed and Functional
-- issue: None
+### Galaxy S23+ Chrome Test Strategy (Planned)
+- URL: http://[LOCAL_IP]:4173/index.precompiled.html
+- expected: camera permission -> preview -> 0.6x/1x rail -> capture
+- status: Pending actual execution
 
-### Samsung Internet Result
-- URL: http://192.168.x.x:4173/index.precompiled.html
-- boot: Success
-- capture: Success
-- camera permission: Success
-- zoom rail: Displayed and Functional
-- issue: None
+### Samsung Internet Test Strategy (Planned)
+- URL: http://[LOCAL_IP]:4173/index.precompiled.html
+- expected: boot -> capture -> 0.6x switch
+- status: Pending actual execution
 
 ---
 

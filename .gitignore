@@ -5,3 +5,5 @@ pgpt.mjs
 pgpt_daemon.py
 pgpt*.mjs
 pgpt*.py
+
+node_modules/

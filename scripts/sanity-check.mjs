@@ -1629,6 +1629,33 @@ function checkBabelMigrationPlan() {
       hasErrors = true;
     }
   }
+
+  // Workspace Hygiene & QA Truth Checks
+  const gitignore = readFile('.gitignore');
+  if (gitignore) {
+    if (!gitignore.includes('node_modules/')) {
+      console.error('❌ FAIL: .gitignore missing node_modules/');
+      hasErrors = true;
+    }
+    if (gitignore.includes('dist/')) {
+      console.error('❌ FAIL: .gitignore should NOT contain dist/ (tracked in Phase 3.40)');
+      hasErrors = true;
+    }
+  }
+
+  const taskForQA = readFile('task.md');
+  if (taskForQA) {
+    if (taskForQA.includes('## Precompiled Entry Smoke Test (Phase 3.45)')) {
+      console.error('❌ FAIL: Phase 3.45 in task.md must be labeled as "Plan" until actually verified');
+      hasErrors = true;
+    }
+    // Check for premature "Success" in Phase 3.45 area
+    const phase345Section = taskForQA.split('## Precompiled Entry Smoke Test')[1]?.split('---')[0] || '';
+    if (phase345Section.includes('boot: Success') || phase345Section.includes('capture: Success')) {
+      console.error('❌ FAIL: task.md contains premature "Success" reports in Phase 3.45');
+      hasErrors = true;
+    }
+  }
 }
 
 function checkCameraArchitecture() {
