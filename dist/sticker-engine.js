@@ -1,12 +1,12 @@
 // sticker-engine.jsx — Draggable, scalable, rotatable sticker canvas with z-index control
 
-const {
+var {
   useState: useSE,
   useEffect: useEE,
   useRef: useRR,
   useCallback: useCB
 } = React;
-const SlottedStickersCtx = React.createContext({});
+var SlottedStickersCtx = React.createContext({});
 
 // ─────────────────────────────────────────────────────────────
 // Data model
@@ -17,7 +17,7 @@ const SlottedStickersCtx = React.createContext({});
 //   draw.payload   = { svgPath, color, stroke }
 // ─────────────────────────────────────────────────────────────
 
-const STICKER_CATALOG = {
+var STICKER_CATALOG = {
   minimal: {
     id: 'minimal',
     name: 'Minimal',
@@ -219,8 +219,8 @@ if (typeof window !== 'undefined') {
   window.getVisibleStickerItems = getVisibleStickerItems;
 }
 function getStickerByLibId(libId) {
-  for (const pack of Object.values(STICKER_CATALOG)) {
-    const f = pack.items.find(i => i.id === libId);
+  for (var pack of Object.values(STICKER_CATALOG)) {
+    var f = pack.items.find(i => i.id === libId);
     if (f) return f;
   }
   return null;
@@ -244,7 +244,7 @@ function renderLibSticker(item, scale = 1) {
     h: (item.h || 60) * scale
   });
   if (item.type === 'mini') {
-    const charMap = {
+    var charMap = {
       heart: '♥',
       star: '★',
       sparkle: '✦',
@@ -253,7 +253,7 @@ function renderLibSticker(item, scale = 1) {
       smile: '☺',
       ribbon: '🎀'
     };
-    const ch = charMap[item.kind] || '●';
+    var ch = charMap[item.kind] || '●';
     return /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 28 * scale,
@@ -292,7 +292,7 @@ function renderLibSticker(item, scale = 1) {
 }
 function renderStickerInstance(s, scaleMul = 1) {
   if (s.kind === 'preset') {
-    const item = getStickerByLibId(s.payload.libId);
+    var item = getStickerByLibId(s.payload.libId);
     return renderLibSticker(item, scaleMul);
   }
   if (s.kind === 'upload') {
@@ -320,13 +320,13 @@ function renderStickerInstance(s, scaleMul = 1) {
     }, s.payload.text);
   }
   if (s.kind === 'setlog') {
-    const {
+    var {
       time,
       caption,
       theme
     } = s.payload;
-    const fg = theme === 'white' ? '#fff' : '#000';
-    const shadow = theme === 'white' ? '0 1px 5px rgba(0,0,0,0.38)' : '0 1px 3px rgba(255,255,255,0.55)';
+    var fg = theme === 'white' ? '#fff' : '#000';
+    var shadow = theme === 'white' ? '0 1px 5px rgba(0,0,0,0.38)' : '0 1px 3px rgba(255,255,255,0.55)';
     return /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '2px 4px',
@@ -371,7 +371,7 @@ function getLayoutSlotCount(layout) {
   return 4;
 }
 function getCaptureSlotIndex(captureIndex, layout) {
-  const slotCount = getLayoutSlotCount(layout);
+  var slotCount = getLayoutSlotCount(layout);
   if (captureIndex == null) return null;
   if (captureIndex < 0) return null;
   if (captureIndex >= slotCount) return null;
@@ -383,7 +383,7 @@ function getCaptureSlotIndex(captureIndex, layout) {
 // Slot stickers only show when captureIndex matches their slot.
 // Extra candidate shots (captureIndex >= slotCount) always return [].
 function getStickersForCapturePreview(preStickers, captureIndex, layout) {
-  const slotIndex = getCaptureSlotIndex(captureIndex, layout);
+  var slotIndex = getCaptureSlotIndex(captureIndex, layout);
   if (slotIndex == null) return [];
   return (preStickers || []).filter(s => {
     if (s.frameSlot == null) return false;
@@ -413,8 +413,8 @@ function getCatalogStickerBaseSize(item) {
     };
   }
   if (item.type === 'text') {
-    const fs = item.size || 32;
-    const text = item.text || '';
+    var fs = item.size || 32;
+    var text = item.text || '';
     return {
       w: Math.max(44, Math.min(180, text.length * fs * 0.58)),
       h: Math.max(34, fs * 1.25)
@@ -443,7 +443,7 @@ function getStickerHitboxSize(sticker) {
     h: 64
   };
   if (sticker.kind === 'preset') {
-    const item = getStickerByLibId(sticker.payload?.libId);
+    var item = getStickerByLibId(sticker.payload?.libId);
     return getCatalogStickerBaseSize(item);
   }
   if (sticker.kind === 'upload') {
@@ -453,8 +453,8 @@ function getStickerHitboxSize(sticker) {
     };
   }
   if (sticker.kind === 'text') {
-    const size = sticker.payload?.size || 32;
-    const text = sticker.payload?.text || '';
+    var size = sticker.payload?.size || 32;
+    var text = sticker.payload?.text || '';
     return {
       w: Math.max(44, Math.min(220, text.length * size * 0.58)),
       h: Math.max(34, size * 1.25)
@@ -477,7 +477,7 @@ function getStickerVisualBounds(sticker) {
     h: 64
   };
   if (sticker.kind === 'preset') {
-    const item = getStickerByLibId(sticker.payload?.libId);
+    var item = getStickerByLibId(sticker.payload?.libId);
     return getCatalogStickerBaseSize(item);
   }
   if (sticker.kind === 'upload') return {
@@ -485,8 +485,8 @@ function getStickerVisualBounds(sticker) {
     h: 120
   };
   if (sticker.kind === 'text') {
-    const size = sticker.payload?.size || 32;
-    const text = sticker.payload?.text || '';
+    var size = sticker.payload?.size || 32;
+    var text = sticker.payload?.text || '';
     return {
       w: Math.max(44, Math.min(220, text.length * size * 0.58)),
       h: Math.max(34, size * 1.25)
@@ -502,9 +502,9 @@ function getStickerVisualBounds(sticker) {
   };
 }
 function getInteractionBounds(sticker, mode, decoScale, canvasW) {
-  const raw = mode === 'deco-overlay' ? getStickerVisualBounds(sticker) : getStickerHitboxSize(sticker);
-  let visualW;
-  let visualH;
+  var raw = mode === 'deco-overlay' ? getStickerVisualBounds(sticker) : getStickerHitboxSize(sticker);
+  var visualW;
+  var visualH;
   if (sticker.sizeNorm && canvasW) {
     visualW = sticker.sizeNorm * canvasW;
     visualH = visualW * (raw.h / raw.w);
@@ -524,11 +524,11 @@ function getInteractionBounds(sticker, mode, decoScale, canvasW) {
 }
 function getStickerNormScale(sticker, canvasW) {
   if (!sticker.sizeNorm || !canvasW) return 1;
-  const baseBounds = getStickerVisualBounds({
+  var baseBounds = getStickerVisualBounds({
     ...sticker,
     sizeNorm: null
   });
-  const targetW = sticker.sizeNorm * canvasW;
+  var targetW = sticker.sizeNorm * canvasW;
   return targetW / baseBounds.w;
 }
 
@@ -551,18 +551,18 @@ function StickerCanvas({
   },
   canvasW = null
 }) {
-  const canvasRef = useRR(null);
-  const [dragState, setDragState] = useSE(null);
-  const [snapMode, setSnapMode] = useSE(false);
-  const [slotClips, setSlotClips] = useSE({}); // slotIndex -> {top,right,bottom,left} in % of canvas
+  var canvasRef = useRR(null);
+  var [dragState, setDragState] = useSE(null);
+  var [snapMode, setSnapMode] = useSE(false);
+  var [slotClips, setSlotClips] = useSE({}); // slotIndex -> {top,right,bottom,left} in % of canvas
 
-  const measureSlots = useCB(() => {
+  var measureSlots = useCB(() => {
     if (!canvasRef.current) return;
-    const cRect = canvasRef.current.getBoundingClientRect();
-    const clips = {};
+    var cRect = canvasRef.current.getBoundingClientRect();
+    var clips = {};
     canvasRef.current.querySelectorAll('[data-frame-slot]').forEach(el => {
-      const i = parseInt(el.dataset.frameSlot);
-      const r = el.getBoundingClientRect();
+      var i = parseInt(el.dataset.frameSlot);
+      var r = el.getBoundingClientRect();
       clips[i] = {
         top: (r.top - cRect.top) / cRect.height * 100,
         left: (r.left - cRect.left) / cRect.width * 100,
@@ -579,17 +579,17 @@ function StickerCanvas({
   }, []);
   useEE(() => {
     measureSlots();
-    const ro = new ResizeObserver(measureSlots);
+    var ro = new ResizeObserver(measureSlots);
     if (canvasRef.current) ro.observe(canvasRef.current);
     return () => ro.disconnect();
   }, [measureSlots]);
-  const snapToSlot = (slotEl, slotIndex) => {
+  var snapToSlot = (slotEl, slotIndex) => {
     if (!canvasRef.current) return;
     measureSlots();
-    const cRect = canvasRef.current.getBoundingClientRect();
-    const sRect = slotEl.getBoundingClientRect();
-    const cx = (sRect.left - cRect.left + sRect.width / 2) / cRect.width * 100;
-    const cy = (sRect.top - cRect.top + sRect.height / 2) / cRect.height * 100;
+    var cRect = canvasRef.current.getBoundingClientRect();
+    var sRect = slotEl.getBoundingClientRect();
+    var cx = (sRect.left - cRect.left + sRect.width / 2) / cRect.width * 100;
+    var cy = (sRect.top - cRect.top + sRect.height / 2) / cRect.height * 100;
     setStickers(prev => prev.map(s => s.id === selectedId ? {
       ...s,
       x: cx,
@@ -600,21 +600,21 @@ function StickerCanvas({
     } : s));
     setSnapMode(false);
   };
-  const unSnap = id => {
+  var unSnap = id => {
     setStickers(prev => prev.map(s => s.id === id ? {
       ...s,
       frameSlot: undefined
     } : s));
   };
-  const getSlotOverlays = () => {
+  var getSlotOverlays = () => {
     if (!canvasRef.current) return [];
     return Array.from(canvasRef.current.querySelectorAll('[data-frame-slot]'));
   };
-  const onPointerDown = (e, s, mode = 'move') => {
+  var onPointerDown = (e, s, mode = 'move') => {
     e.stopPropagation();
-    const rect = canvasRef.current.getBoundingClientRect();
+    var rect = canvasRef.current.getBoundingClientRect();
     setSelectedId(s.id);
-    const startX = e.clientX,
+    var startX = e.clientX,
       startY = e.clientY;
     setDragState({
       id: s.id,
@@ -634,17 +634,17 @@ function StickerCanvas({
   };
   useEE(() => {
     if (!dragState) return;
-    const onMove = e => {
-      const dx = e.clientX - dragState.startX;
-      const dy = e.clientY - dragState.startY;
+    var onMove = e => {
+      var dx = e.clientX - dragState.startX;
+      var dy = e.clientY - dragState.startY;
       setStickers(prev => prev.map(s => {
         if (s.id !== dragState.id) return s;
         if (dragState.mode === 'move') {
-          let nx = dragState.initX + dx / dragState.rectW * 100;
-          let ny = dragState.initY + dy / dragState.rectH * 100;
-          let extra = {};
+          var nx = dragState.initX + dx / dragState.rectW * 100;
+          var ny = dragState.initY + dy / dragState.rectH * 100;
+          var extra = {};
           if (s.frameSlot != null && dragState.slotBounds) {
-            const b = dragState.slotBounds;
+            var b = dragState.slotBounds;
             nx = Math.max(b.minX, Math.min(b.maxX, nx));
             ny = Math.max(b.minY, Math.min(b.maxY, ny));
             extra.slotX = (nx - b.minX) / (b.maxX - b.minX) * 100;
@@ -659,18 +659,18 @@ function StickerCanvas({
         }
         if (dragState.mode === 'scale-rotate') {
           // distance from center controls scale; angle controls rotation
-          const cx = dragState.centerX,
+          var cx = dragState.centerX,
             cy = dragState.centerY;
-          const initVx = dragState.startX - cx,
+          var initVx = dragState.startX - cx,
             initVy = dragState.startY - cy;
-          const curVx = e.clientX - cx,
+          var curVx = e.clientX - cx,
             curVy = e.clientY - cy;
-          const initDist = Math.hypot(initVx, initVy) || 1;
-          const curDist = Math.hypot(curVx, curVy) || 1;
-          const initAng = Math.atan2(initVy, initVx);
-          const curAng = Math.atan2(curVy, curVx);
-          const newScale = Math.max(0.25, Math.min(4, dragState.initScale * (curDist / initDist)));
-          const newRot = dragState.initRot + (curAng - initAng) * 180 / Math.PI;
+          var initDist = Math.hypot(initVx, initVy) || 1;
+          var curDist = Math.hypot(curVx, curVy) || 1;
+          var initAng = Math.atan2(initVy, initVx);
+          var curAng = Math.atan2(curVy, curVx);
+          var newScale = Math.max(0.25, Math.min(4, dragState.initScale * (curDist / initDist)));
+          var newRot = dragState.initRot + (curAng - initAng) * 180 / Math.PI;
           return {
             ...s,
             scale: newScale,
@@ -680,7 +680,7 @@ function StickerCanvas({
         return s;
       }));
     };
-    const onUp = () => setDragState(null);
+    var onUp = () => setDragState(null);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     return () => {
@@ -688,16 +688,16 @@ function StickerCanvas({
       window.removeEventListener('pointerup', onUp);
     };
   }, [dragState, setStickers]);
-  const sortedStickers = [...stickers].sort((a, b) => (a.z || 0) - (b.z || 0));
-  const slottedMap = {};
+  var sortedStickers = [...stickers].sort((a, b) => (a.z || 0) - (b.z || 0));
+  var slottedMap = {};
   sortedStickers.filter(s => s.frameSlot != null).forEach(s => {
     if (!slottedMap[s.frameSlot]) slottedMap[s.frameSlot] = [];
     slottedMap[s.frameSlot].push(s);
   });
-  const renderStickerControls = (s, isSel) => {
+  var renderStickerControls = (s, isSel) => {
     if (!isSel) return null;
-    const invScale = 1 / Math.max(0.25, Math.min(4, s.scale || 1));
-    const tr = `scale(${invScale})`;
+    var invScale = 1 / Math.max(0.25, Math.min(4, s.scale || 1));
+    var tr = `scale(${invScale})`;
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       onPointerDown: e => onPointerDown(e, s, 'scale-rotate'),
       style: {
@@ -857,8 +857,8 @@ function StickerCanvas({
       strokeLinecap: "round"
     }))));
   };
-  const renderStickerVisual = (s, visualScale, opacity = 1) => {
-    const raw = getStickerVisualBounds(s);
+  var renderStickerVisual = (s, visualScale, opacity = 1) => {
+    var raw = getStickerVisualBounds(s);
     return /*#__PURE__*/React.createElement("div", {
       style: {
         width: raw.w,
@@ -889,16 +889,16 @@ function StickerCanvas({
       ...style
     }
   }, children, snapMode && (() => {
-    const slots = getSlotOverlays();
-    const cRect = canvasRef.current?.getBoundingClientRect();
+    var slots = getSlotOverlays();
+    var cRect = canvasRef.current?.getBoundingClientRect();
     if (!cRect) return null;
-    const cssScale = cRect.width / (canvasRef.current.offsetWidth || 1);
+    var cssScale = cRect.width / (canvasRef.current.offsetWidth || 1);
     return slots.map((el, i) => {
-      const sRect = el.getBoundingClientRect();
-      const left = (sRect.left - cRect.left) / cssScale;
-      const top = (sRect.top - cRect.top) / cssScale;
-      const w = sRect.width / cssScale;
-      const h = sRect.height / cssScale;
+      var sRect = el.getBoundingClientRect();
+      var left = (sRect.left - cRect.left) / cssScale;
+      var top = (sRect.top - cRect.top) / cssScale;
+      var w = sRect.width / cssScale;
+      var h = sRect.height / cssScale;
       return /*#__PURE__*/React.createElement("div", {
         key: i,
         onPointerDown: e => {
@@ -944,12 +944,12 @@ function StickerCanvas({
       }))));
     });
   })(), sortedStickers.filter(s => s.frameSlot == null).map(s => {
-    const isSel = s.id === selectedId;
-    const visualScale = getStickerNormScale(s, canvasW);
-    const userScale = s.scale || 1;
-    const hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
-    const outlineW = hitbox.visualW || hitbox.w;
-    const outlineH = hitbox.visualH || hitbox.h;
+    var isSel = s.id === selectedId;
+    var visualScale = getStickerNormScale(s, canvasW);
+    var userScale = s.scale || 1;
+    var hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
+    var outlineW = hitbox.visualW || hitbox.w;
+    var outlineH = hitbox.visualH || hitbox.h;
     if (mode === 'deco-overlay' && window.IMMM_DEBUG_STICKER) {
       console.debug('[IMMM deco sticker]', {
         id: s.id,
@@ -1006,12 +1006,12 @@ function StickerCanvas({
       }
     }, renderStickerVisual(s, visualScale, hideVisuals ? 0 : 1), renderStickerControls(s, isSel))));
   }), sortedStickers.filter(s => s.frameSlot != null).map(s => {
-    const isSel = s.id === selectedId;
-    const visualScale = getStickerNormScale(s, canvasW);
-    const userScale = s.scale || 1;
-    const hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
-    const outlineW = hitbox.visualW || hitbox.w;
-    const outlineH = hitbox.visualH || hitbox.h;
+    var isSel = s.id === selectedId;
+    var visualScale = getStickerNormScale(s, canvasW);
+    var userScale = s.scale || 1;
+    var hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
+    var outlineW = hitbox.visualW || hitbox.w;
+    var outlineH = hitbox.visualH || hitbox.h;
     return /*#__PURE__*/React.createElement(React.Fragment, {
       key: s.id
     }, /*#__PURE__*/React.createElement("div", {
@@ -1074,8 +1074,8 @@ function getDefaultStickerSizeNorm(item) {
 
 // Helpers for creating stickers
 function makeSticker(kind, payload, opts = {}) {
-  let defaultScale = 1;
-  let defaultSizeNorm = null;
+  var defaultScale = 1;
+  var defaultSizeNorm = null;
 
   // Hoist legacy payload.sizeNorm if present
   if (payload && payload.sizeNorm !== undefined) {
@@ -1083,7 +1083,7 @@ function makeSticker(kind, payload, opts = {}) {
     // Don't mutate payload to avoid side effects, but it will be overridden by logic using sticker.sizeNorm
   }
   if (kind === 'preset') {
-    const item = getStickerByLibId(payload.libId);
+    var item = getStickerByLibId(payload.libId);
     if (item) {
       if (item.type === 'burst' || item.type === 'cloud') defaultScale = 0.9;
       defaultSizeNorm = getDefaultStickerSizeNorm(item);
@@ -1102,14 +1102,14 @@ function makeSticker(kind, payload, opts = {}) {
   };
 }
 function bringForward(stickers, id) {
-  const maxZ = Math.max(0, ...stickers.map(s => s.z || 0));
+  var maxZ = Math.max(0, ...stickers.map(s => s.z || 0));
   return stickers.map(s => s.id === id ? {
     ...s,
     z: maxZ + 1
   } : s);
 }
 function sendBackward(stickers, id) {
-  const minZ = Math.min(0, ...stickers.map(s => s.z || 0));
+  var minZ = Math.min(0, ...stickers.map(s => s.z || 0));
   return stickers.map(s => s.id === id ? {
     ...s,
     z: minZ - 1
@@ -1122,17 +1122,17 @@ function drawCatalogSticker(ctx, item, scalePx = 1) {
   ctx.save();
   if (item.type === 'immm-logo') {
     ctx.fillStyle = item.fill || '#111';
-    const fs = 22 * scalePx;
+    var fs = 22 * scalePx;
     ctx.font = `800 ${fs}px "Plus Jakarta Sans", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     // letter spacing approximation: draw each char spaced
-    const text = 'IMMM';
-    const spacing = fs * 0.16;
-    const totalW = ctx.measureText(text).width + spacing * (text.length - 1);
-    let x = -totalW / 2;
-    for (const ch of text) {
-      const cw = ctx.measureText(ch).width;
+    var text = 'IMMM';
+    var spacing = fs * 0.16;
+    var totalW = ctx.measureText(text).width + spacing * (text.length - 1);
+    var x = -totalW / 2;
+    for (var ch of text) {
+      var cw = ctx.measureText(ch).width;
       ctx.fillText(ch, x + cw / 2, 0);
       x += cw + spacing;
     }
@@ -1147,7 +1147,7 @@ function drawCatalogSticker(ctx, item, scalePx = 1) {
     ctx.font = `700 ${32 * scalePx}px "Plus Jakarta Sans", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const charMap = {
+    var charMap = {
       'heart': '♥',
       'star': '★',
       'sparkle': '✦',

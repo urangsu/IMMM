@@ -1,6 +1,6 @@
 // screens-v2.jsx — Redesigned screens per v2 brief
 
-const {
+var {
   useState: uS,
   useEffect: uE,
   useRef: uR,
@@ -18,12 +18,12 @@ function BtnPrimary({
   size = 'md',
   disabled
 }) {
-  const pads = {
+  var pads = {
     sm: '10px 20px',
     md: '14px 28px',
     lg: '18px 36px'
   };
-  const fss = {
+  var fss = {
     sm: 12,
     md: 13,
     lg: 14
@@ -61,12 +61,12 @@ function BtnGhost({
   T,
   size = 'md'
 }) {
-  const pads = {
+  var pads = {
     sm: '8px 16px',
     md: '12px 24px',
     lg: '16px 28px'
   };
-  const fss = {
+  var fss = {
     sm: 11,
     md: 13,
     lg: 14
@@ -168,13 +168,13 @@ function FramePickerFallback({
   T,
   size = 'sm'
 }) {
-  const isGrid = layout === 'grid';
-  const isPolaroid = layout === 'polaroid';
-  const isTrip = layout === 'trip';
-  const slots = isPolaroid ? 1 : isGrid ? 4 : isTrip ? 3 : 4;
-  const mobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const w = size === 'lg' ? layout === 'polaroid' || layout === 'grid' ? 180 : 120 : layout === 'polaroid' || layout === 'grid' ? mobile ? 56 : 60 : mobile ? 40 : 42;
-  const h = size === 'lg' ? layout === 'polaroid' ? 210 : layout === 'grid' ? 180 : 260 : layout === 'polaroid' ? mobile ? 68 : 72 : layout === 'grid' ? mobile ? 56 : 60 : mobile ? 80 : 84;
+  var isGrid = layout === 'grid';
+  var isPolaroid = layout === 'polaroid';
+  var isTrip = layout === 'trip';
+  var slots = isPolaroid ? 1 : isGrid ? 4 : isTrip ? 3 : 4;
+  var mobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  var w = size === 'lg' ? layout === 'polaroid' || layout === 'grid' ? 180 : 120 : layout === 'polaroid' || layout === 'grid' ? mobile ? 56 : 60 : mobile ? 40 : 42;
+  var h = size === 'lg' ? layout === 'polaroid' ? 210 : layout === 'grid' ? 180 : 260 : layout === 'polaroid' ? mobile ? 68 : 72 : layout === 'grid' ? mobile ? 56 : 60 : mobile ? 80 : 84;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       width: w,
@@ -206,9 +206,9 @@ function ScreenTransition({
   id,
   children
 }) {
-  const [show, setShow] = uS(false);
+  var [show, setShow] = uS(false);
   uE(() => {
-    const t = setTimeout(() => setShow(true), 10);
+    var t = setTimeout(() => setShow(true), 10);
     return () => clearTimeout(t);
   }, [id]);
   return /*#__PURE__*/React.createElement("div", {
@@ -301,7 +301,7 @@ function TopBar({
 // ═══════════════════════════════════════════════════════════════
 // 1. LANDING — Life Plus aesthetic
 // ═══════════════════════════════════════════════════════════════
-const I18N = {
+var I18N = {
   ko: {
     mobileSub: '나만의 포토부스 IMMM',
     desc1: '한 장에 담는 순간들.',
@@ -338,10 +338,10 @@ function LandingV2({
   lang = 'ko',
   setLang
 }) {
-  const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
-  const t = I18N[lang] || I18N.ko;
-  const toggleLang = () => setLang(l => l === 'ko' ? 'en' : l === 'en' ? 'jp' : 'ko');
-  const logoMark = (size = 48) => /*#__PURE__*/React.createElement("svg", {
+  var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
+  var t = I18N[lang] || I18N.ko;
+  var toggleLang = () => setLang(l => l === 'ko' ? 'en' : l === 'en' ? 'jp' : 'ko');
+  var logoMark = (size = 48) => /*#__PURE__*/React.createElement("svg", {
     width: size * 1.4,
     height: size,
     viewBox: "0 0 70 50"
@@ -660,7 +660,7 @@ function LandingV2({
 // ═══════════════════════════════════════════════════════════════
 // 2. SETUP — Frame + Filter + Pre-stickers
 // ═══════════════════════════════════════════════════════════════
-const ZoomMinusIcon = () => /*#__PURE__*/React.createElement("svg", {
+var ZoomMinusIcon = () => /*#__PURE__*/React.createElement("svg", {
   width: "18",
   height: "18",
   viewBox: "0 0 18 18",
@@ -671,7 +671,7 @@ const ZoomMinusIcon = () => /*#__PURE__*/React.createElement("svg", {
   strokeWidth: "2.4",
   strokeLinecap: "round"
 }));
-const ZoomPlusIcon = () => /*#__PURE__*/React.createElement("svg", {
+var ZoomPlusIcon = () => /*#__PURE__*/React.createElement("svg", {
   width: "18",
   height: "18",
   viewBox: "0 0 18 18",
@@ -682,7 +682,7 @@ const ZoomPlusIcon = () => /*#__PURE__*/React.createElement("svg", {
   strokeWidth: "2.4",
   strokeLinecap: "round"
 }));
-const zoomBtnStyle = {
+var zoomBtnStyle = {
   width: 56,
   height: 56,
   borderRadius: 999,
@@ -728,58 +728,58 @@ function SetupScreen({
   setUseWebgl,
   tweaks
 }) {
-  const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
-  const [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
-  const [selStId, setSelStId] = uS(null);
-  const [expandedPacks, setExpandedPacks] = uS({});
-  const fileRef = uR(null);
-  const addPreset = libId => {
-    const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
-    const sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
+  var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
+  var [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
+  var [selStId, setSelStId] = uS(null);
+  var [expandedPacks, setExpandedPacks] = uS({});
+  var fileRef = uR(null);
+  var addPreset = libId => {
+    var item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
+    var sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
     setPreStickers(prev => [...prev, makeSticker('preset', {
       libId
     }, {
       sizeNorm
     })]);
   };
-  const addUpload = dataUrl => {
+  var addUpload = dataUrl => {
     setPreStickers(prev => [...prev, makeSticker('upload', {
       dataUrl
     }, {
       scale: 0.6
     })]);
   };
-  const onFile = e => {
-    const f = e.target.files?.[0];
+  var onFile = e => {
+    var f = e.target.files?.[0];
     if (!f) return;
-    const rd = new FileReader();
+    var rd = new FileReader();
     rd.onload = () => addUpload(rd.result);
     rd.readAsDataURL(f);
   };
-  const shotsPreview = Array.from({
+  var shotsPreview = Array.from({
     length: 4
   }, () => ({
     filter: 'original',
     dataUrl: null
   }));
-  const setupContainerRef = React.useRef(null);
-  const setupFrameRef = React.useRef(null);
-  const [setupZoom, setSetupZoom] = React.useState(mobile ? 1 : 1.4);
+  var setupContainerRef = React.useRef(null);
+  var setupFrameRef = React.useRef(null);
+  var [setupZoom, setSetupZoom] = React.useState(mobile ? 1 : 1.4);
   React.useEffect(() => {
-    const fit = () => {
+    var fit = () => {
       if (!setupContainerRef.current || !setupFrameRef.current) return;
-      const cW = setupContainerRef.current.clientWidth - 32;
-      const cH = setupContainerRef.current.clientHeight - 32;
-      const fW = setupFrameRef.current.offsetWidth;
-      const fH = setupFrameRef.current.offsetHeight;
+      var cW = setupContainerRef.current.clientWidth - 32;
+      var cH = setupContainerRef.current.clientHeight - 32;
+      var fW = setupFrameRef.current.offsetWidth;
+      var fH = setupFrameRef.current.offsetHeight;
       if (!fW || !fH) return;
-      const maxS = mobile ? 0.92 : 1.4;
+      var maxS = mobile ? 0.92 : 1.4;
       setSetupZoom(Math.max(0.15, Math.min(maxS, cW / fW, cH / fH)));
     };
     // small delay so FrameThumb finishes re-rendering after orientation change
-    const tid = setTimeout(fit, 40);
+    var tid = setTimeout(fit, 40);
     fit();
-    const ro = new ResizeObserver(fit);
+    var ro = new ResizeObserver(fit);
     if (setupContainerRef.current) ro.observe(setupContainerRef.current);
     if (setupFrameRef.current) ro.observe(setupFrameRef.current);
     return () => {
@@ -789,10 +789,10 @@ function SetupScreen({
   }, [layout, mobile, orientation]);
 
   // Preview surface (interactive, shows frame + companion stickers)
-  const zoomIn = () => setSetupZoom(z => Math.min(3, +(z + 0.15).toFixed(2)));
-  const zoomOut = () => setSetupZoom(z => Math.max(0.15, +(z - 0.15).toFixed(2)));
-  const frameW = layout === 'polaroid' ? 200 : orientation === 'landscape' && layout === 'strip' ? 360 : orientation === 'landscape' && layout === 'trip' ? 280 : layout === 'grid' ? 220 : 160;
-  const preview = /*#__PURE__*/React.createElement("div", {
+  var zoomIn = () => setSetupZoom(z => Math.min(3, +(z + 0.15).toFixed(2)));
+  var zoomOut = () => setSetupZoom(z => Math.max(0.15, +(z - 0.15).toFixed(2)));
+  var frameW = layout === 'polaroid' ? 200 : orientation === 'landscape' && layout === 'strip' ? 360 : orientation === 'landscape' && layout === 'trip' ? 280 : layout === 'grid' ? 220 : 160;
+  var preview = /*#__PURE__*/React.createElement("div", {
     ref: setupContainerRef,
     style: {
       overflow: 'hidden',
@@ -859,7 +859,7 @@ function SetupScreen({
       whiteSpace: 'nowrap'
     }
   }, "Preview loading...")))));
-  const frameTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
+  var frameTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
     T: T
   }, "Choose your frame \xB7 \uD504\uB808\uC784 \uC120\uD0DD"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -886,7 +886,7 @@ function SetupScreen({
     en: '1×1',
     ko: '폴라로이드'
   }].map(o => {
-    const resolveFrameTemplate = layout => {
+    var resolveFrameTemplate = layout => {
       if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
         return window.getFrameTemplateSafe(layout);
       }
@@ -895,9 +895,9 @@ function SetupScreen({
       }
       return null;
     };
-    const tpl = resolveFrameTemplate(o.id);
-    const canRenderRealThumb = Boolean(WFrameThumb && tpl);
-    const pickerThumbScale = mobile ? 0.235 : 0.28;
+    var tpl = resolveFrameTemplate(o.id);
+    var canRenderRealThumb = Boolean(WFrameThumb && tpl);
+    var pickerThumbScale = mobile ? 0.235 : 0.28;
     if (typeof window !== 'undefined' && window.IMMM_DEBUG_BUILD) {
       console.warn('[IMMM frame picker]', {
         hasFrameThumb: typeof window.FrameThumb === 'function',
@@ -1224,7 +1224,7 @@ function SetupScreen({
       whiteSpace: 'nowrap'
     }
   }, c.name))))))));
-  const filterTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
+  var filterTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
     T: T
   }, "Choose a filter \xB7 \uD544\uD130 \uC120\uD0DD"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1356,7 +1356,7 @@ function SetupScreen({
     T: T,
     tone: "light"
   }, "Pro")))))));
-  const companionsTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  var companionsTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -1494,22 +1494,22 @@ function SetupScreen({
       overflow: 'hidden'
     }
   }, "+", pack.items.length - 5)))));
-  const photoFileRefs = [uR(null), uR(null), uR(null), uR(null)];
-  const maxUploadCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
-  const onPhotoUpload = async (idx, e) => {
-    const files = Array.from(e.target.files || []);
+  var photoFileRefs = [uR(null), uR(null), uR(null), uR(null)];
+  var maxUploadCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
+  var onPhotoUpload = async (idx, e) => {
+    var files = Array.from(e.target.files || []);
     if (!files.length) return;
-    for (let i = 0; i < files.length; i++) {
-      const targetIdx = idx + i;
-      if (targetIdx >= maxUploadCount) break;
-      const f = files[i];
-      const dataUrl = await new Promise(res => {
-        const rd = new FileReader();
+    var _loop = async function () {
+      var targetIdx = idx + i;
+      if (targetIdx >= maxUploadCount) return 1; // break
+      var f = files[i];
+      var dataUrl = await new Promise(res => {
+        var rd = new FileReader();
         rd.onload = () => res(rd.result);
         rd.readAsDataURL(f);
       });
       setShots(prev => {
-        const n = [...prev];
+        var n = [...prev];
         while (n.length <= targetIdx) n.push(null);
         n[targetIdx] = {
           dataUrl,
@@ -1520,9 +1520,12 @@ function SetupScreen({
         };
         return n;
       });
+    };
+    for (var i = 0; i < files.length; i++) {
+      if (await _loop()) break;
     }
   };
-  const photosTab = editMode ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
+  var photosTab = editMode ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
     T: T
   }, "\uC0AC\uC9C4 \uBD88\uB7EC\uC624\uAE30 \xB7 Upload Photos"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1532,7 +1535,7 @@ function SetupScreen({
       gap: 8
     }
   }, [0, 1, 2, 3].map(i => {
-    const s = shots?.[i];
+    var s = shots?.[i];
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       onClick: () => photoFileRefs[i].current?.click(),
@@ -1617,9 +1620,9 @@ function SetupScreen({
       textAlign: 'center'
     }
   }, "4\uCEF7\uC744 \uBAA8\uB450 \uC5C5\uB85C\uB4DC\uD558\uBA74 \uD3B8\uC9D1\uC73C\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4")) : null;
-  const uploadedCount = editMode ? [0, 1, 2, 3].filter(i => shots?.[i]?.dataUrl).length : 0;
-  const tabContent = tab === 'photos' ? photosTab : tab === 'frame' ? frameTab : tab === 'filter' ? filterTab : companionsTab;
-  const tabBar = /*#__PURE__*/React.createElement("div", {
+  var uploadedCount = editMode ? [0, 1, 2, 3].filter(i => shots?.[i]?.dataUrl).length : 0;
+  var tabContent = tab === 'photos' ? photosTab : tab === 'frame' ? frameTab : tab === 'filter' ? filterTab : companionsTab;
+  var tabBar = /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 0,
@@ -1794,9 +1797,9 @@ function SetupScreen({
     }
   }, tabContent)));
 }
-const Kicker = Kick;
-const PrimaryBtn = BtnPrimary;
-const GhostBtn = BtnGhost;
+var Kicker = Kick;
+var PrimaryBtn = BtnPrimary;
+var GhostBtn = BtnGhost;
 Object.assign(window, {
   LandingV2,
   SetupScreen,

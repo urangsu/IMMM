@@ -59,7 +59,7 @@ class AppErrorBoundary extends React.Component {
 // Check if critical frame system globals are available before rendering.
 // This prevents silent failures and "ReferenceError: getFrameTemplate is not defined" crashes on Samsung Internet.
 (() => {
-  const missingFrameGlobals = [];
+  var missingFrameGlobals = [];
   if (typeof window.getFrameTemplateSafe !== 'function' && typeof window.getFrameTemplate !== 'function') missingFrameGlobals.push('getFrameTemplate');
   if (typeof window.renderComposition !== 'function') missingFrameGlobals.push('renderComposition');
   if (!window.FrameRenderEngine) missingFrameGlobals.push('FrameRenderEngine');
@@ -79,7 +79,7 @@ function deriveCameraZoomOptions({
   wideCameraActive,
   normalCameraDeviceId
 }) {
-  const options = [{
+  var options = [{
     label: '0.6×',
     value: 0.6,
     type: 'unavailable',
@@ -98,8 +98,8 @@ function deriveCameraZoomOptions({
     enabled: false,
     reason: 'not-supported'
   }];
-  const zoomCap = cameraCapabilities?.zoom;
-  const candidates = facingMode === 'user' ? frontWideCandidates : rearWideCandidates;
+  var zoomCap = cameraCapabilities?.zoom;
+  var candidates = facingMode === 'user' ? frontWideCandidates : rearWideCandidates;
   if (zoomCap && zoomCap.min <= 0.6) {
     options[0] = {
       ...options[0],
@@ -141,7 +141,7 @@ function getCaptureShotCountForLayout(layout) {
   return 6;
 }
 function App() {
-  const [tweaks, setTweaks] = React.useState({
+  var [tweaks, setTweaks] = React.useState({
     variant: 'A',
     layout: 'strip',
     orientation: 'portrait',
@@ -152,44 +152,44 @@ function App() {
     frameColor: '#ffffff',
     useWebgl: window.innerWidth >= 640 // Default off on mobile for stability
   });
-  const [screen, setScreen] = React.useState(() => location.hash.startsWith('#/s/') ? 'share' : localStorage.getItem('immm.v2.screen') || 'landing');
-  const [shots, setShots] = React.useState(() => Array(6).fill(null));
-  const [selected, setSelected] = React.useState(() => {
+  var [screen, setScreen] = React.useState(() => location.hash.startsWith('#/s/') ? 'share' : localStorage.getItem('immm.v2.screen') || 'landing');
+  var [shots, setShots] = React.useState(() => Array(6).fill(null));
+  var [selected, setSelected] = React.useState(() => {
     try {
       return JSON.parse(localStorage.getItem('immm.v2.sel') || '[]');
     } catch (e) {
       return [];
     }
   });
-  const [preStickers, setPreStickers] = React.useState([]);
-  const [stickers, setStickers] = React.useState([]);
-  const [drawStrokes, setDrawStrokes] = React.useState([]);
-  const [photoEditMode, setPhotoEditMode] = React.useState(false);
-  const [lang, setLang] = React.useState('ko');
+  var [preStickers, setPreStickers] = React.useState([]);
+  var [stickers, setStickers] = React.useState([]);
+  var [drawStrokes, setDrawStrokes] = React.useState([]);
+  var [photoEditMode, setPhotoEditMode] = React.useState(false);
+  var [lang, setLang] = React.useState('ko');
 
   // Responsive mobile detection
-  const [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
+  var [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
   React.useEffect(() => {
-    const handler = () => setMobile(window.innerWidth < 640);
+    var handler = () => setMobile(window.innerWidth < 640);
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
   }, []);
-  const safeFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
+  var safeFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
 
   // EMERGENCY FACE SHAPE SAFETY:
   // Disabling ALL face-tracked filters and geometry warp to prevent distortion on Galaxy/Samsung Internet.
-  const faceTrackedFilters = [];
-  const isSamsungInternet = () => {
+  var faceTrackedFilters = [];
+  var isSamsungInternet = () => {
     if (typeof navigator === 'undefined') return false;
-    const ua = navigator.userAgent || '';
+    var ua = navigator.userAgent || '';
     return /SamsungBrowser/i.test(ua);
   };
-  const forceSafeCameraMode = isSamsungInternet();
+  var forceSafeCameraMode = isSamsungInternet();
 
   // shouldUseWebgl: forced OFF on Samsung Internet for emergency safety.
-  const shouldUseWebgl = !forceSafeCameraMode && tweaks.useWebgl;
-  const [cameraBox, setCameraBox] = React.useState(null);
-  const [debugBuildVisible, setDebugBuildVisible] = React.useState(false);
+  var shouldUseWebgl = !forceSafeCameraMode && tweaks.useWebgl;
+  var [cameraBox, setCameraBox] = React.useState(null);
+  var [debugBuildVisible, setDebugBuildVisible] = React.useState(false);
   React.useEffect(() => {
     console.info('[IMMM build]', {
       version: window.IMMM_APP_VERSION,
@@ -198,14 +198,14 @@ function App() {
       stableBaseline: window.IMMM_STABLE_BASELINE,
       cacheName: 'immm-cache-v6-2026-05-10-rc2.2'
     });
-    const tick = () => {
+    var tick = () => {
       setDebugBuildVisible(window.IMMM_DEBUG_CAMERA === true || window.IMMM_DEBUG_BUILD === true);
     };
     tick();
-    const id = setInterval(tick, 500);
+    var id = setInterval(tick, 500);
     return () => clearInterval(id);
   }, []);
-  const BuildPill = () => {
+  var BuildPill = () => {
     if (!debugBuildVisible) return null;
     return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -235,45 +235,45 @@ function App() {
 
   // ═══════════════════════════════════════════════════════════════
   // Persistent Background Engine (Pre-warming)
-  const videoRef = React.useRef(null);
-  const canvasRef = React.useRef(null);
+  var videoRef = React.useRef(null);
+  var canvasRef = React.useRef(null);
 
   // EMERGENCY FACE SHAPE SAFETY:
   // Face landmarks are globally disabled until Galaxy/Samsung Internet distortion is fully resolved.
   // Do not call useFaceLandmarks in production path.
-  const FACE_LANDMARKS_DISABLED = true;
-  const faceDataRef = React.useRef({
+  var FACE_LANDMARKS_DISABLED = true;
+  var faceDataRef = React.useRef({
     detected: false,
     faces: []
   });
-  const [facingMode, setFacingMode] = React.useState('user');
-  const [camOk, setCamOk] = React.useState(null);
-  const streamRef = React.useRef(null);
-  const [cameraZoom, setCameraZoomState] = React.useState(1);
-  const [cameraCapabilities, setCameraCapabilities] = React.useState(null);
-  const [cameraSettings, setCameraSettings] = React.useState(null);
-  const [frontWideCandidates, setFrontWideCandidates] = React.useState([]);
-  const [rearWideCandidates, setRearWideCandidates] = React.useState([]);
-  const [cameraDevices, setCameraDevices] = React.useState([]);
-  const [activeCameraDeviceId, setActiveCameraDeviceId] = React.useState(null);
-  const [normalCameraDeviceId, setNormalCameraDeviceId] = React.useState(null);
-  const [wideCameraActive, setWideCameraActive] = React.useState(false);
-  const [lastWideToggleReason, setLastWideToggleReason] = React.useState('');
-  const [lastWideTogglePath, setLastWideTogglePath] = React.useState('');
-  const [cameraToggleBusy, setCameraToggleBusy] = React.useState(false);
-  const [torchSupported, setTorchSupported] = React.useState(false);
-  const [torchEnabled, setTorchEnabled] = React.useState(false);
-  const [screenFlashEnabled, setScreenFlashEnabled] = React.useState(false);
-  const [screenFlashActive, setScreenFlashActive] = React.useState(false);
-  const [cameraZoomHistory, setCameraZoomHistory] = React.useState([]);
-  const pushCameraZoomHistory = React.useCallback(entry => {
+  var [facingMode, setFacingMode] = React.useState('user');
+  var [camOk, setCamOk] = React.useState(null);
+  var streamRef = React.useRef(null);
+  var [cameraZoom, setCameraZoomState] = React.useState(1);
+  var [cameraCapabilities, setCameraCapabilities] = React.useState(null);
+  var [cameraSettings, setCameraSettings] = React.useState(null);
+  var [frontWideCandidates, setFrontWideCandidates] = React.useState([]);
+  var [rearWideCandidates, setRearWideCandidates] = React.useState([]);
+  var [cameraDevices, setCameraDevices] = React.useState([]);
+  var [activeCameraDeviceId, setActiveCameraDeviceId] = React.useState(null);
+  var [normalCameraDeviceId, setNormalCameraDeviceId] = React.useState(null);
+  var [wideCameraActive, setWideCameraActive] = React.useState(false);
+  var [lastWideToggleReason, setLastWideToggleReason] = React.useState('');
+  var [lastWideTogglePath, setLastWideTogglePath] = React.useState('');
+  var [cameraToggleBusy, setCameraToggleBusy] = React.useState(false);
+  var [torchSupported, setTorchSupported] = React.useState(false);
+  var [torchEnabled, setTorchEnabled] = React.useState(false);
+  var [screenFlashEnabled, setScreenFlashEnabled] = React.useState(false);
+  var [screenFlashActive, setScreenFlashActive] = React.useState(false);
+  var [cameraZoomHistory, setCameraZoomHistory] = React.useState([]);
+  var pushCameraZoomHistory = React.useCallback(entry => {
     if (!window.IMMM_DEBUG_CAMERA) return;
     setCameraZoomHistory(prev => [{
       ts: Date.now(),
       ...entry
     }, ...prev].slice(0, 10));
   }, []);
-  const cameraZoomOptions = React.useMemo(() => deriveCameraZoomOptions({
+  var cameraZoomOptions = React.useMemo(() => deriveCameraZoomOptions({
     cameraCapabilities,
     facingMode,
     frontWideCandidates,
@@ -281,11 +281,11 @@ function App() {
     wideCameraActive,
     normalCameraDeviceId
   }), [cameraCapabilities, facingMode, frontWideCandidates, rearWideCandidates, wideCameraActive, normalCameraDeviceId]);
-  const getCameraDebugSnapshot = React.useCallback((label, extra = {}) => {
-    const track = streamRef.current?.getVideoTracks?.()[0] || null;
-    const settings = track?.getSettings?.() || {};
-    const capabilities = typeof track?.getCapabilities === 'function' ? track.getCapabilities() : {};
-    const constraints = typeof track?.getConstraints === 'function' ? track.getConstraints() : {};
+  var getCameraDebugSnapshot = React.useCallback((label, extra = {}) => {
+    var track = streamRef.current?.getVideoTracks?.()[0] || null;
+    var settings = track?.getSettings?.() || {};
+    var capabilities = typeof track?.getCapabilities === 'function' ? track.getCapabilities() : {};
+    var constraints = typeof track?.getConstraints === 'function' ? track.getConstraints() : {};
     return {
       label,
       trackLabel: track?.label || '',
@@ -308,24 +308,24 @@ function App() {
       ...extra
     };
   }, [activeCameraDeviceId, normalCameraDeviceId, wideCameraActive]);
-  const refreshCameraDevices = React.useCallback(async () => {
+  var refreshCameraDevices = React.useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return;
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const vidInputs = devices.filter(d => d.kind === 'videoinput');
+      var devices = await navigator.mediaDevices.enumerateDevices();
+      var vidInputs = devices.filter(d => d.kind === 'videoinput');
       setCameraDevices(vidInputs);
-      const wideKeywords = ['ultra', 'wide', '0.5', '0.6', '광각', '초광각'];
-      const frontKeywords = ['front', 'user', 'face', 'selfie', '전면', '셀카'];
-      const rearKeywords = ['back', 'rear', 'environment', '후면'];
-      const hasAny = (label, words) => words.some(kw => (label || '').toLowerCase().includes(kw));
-      const frontWide = vidInputs.filter(d => {
-        const label = (d.label || '').toLowerCase();
-        const score = (label.includes('ultra') ? 2 : 0) + (label.includes('wide') ? 1 : 0) + (label.includes('0.5') ? 2 : 0) + (label.includes('0.6') ? 2 : 0) + (label.includes('초광각') ? 2 : 0) + (label.includes('광각') ? 1 : 0);
+      var wideKeywords = ['ultra', 'wide', '0.5', '0.6', '광각', '초광각'];
+      var frontKeywords = ['front', 'user', 'face', 'selfie', '전면', '셀카'];
+      var rearKeywords = ['back', 'rear', 'environment', '후면'];
+      var hasAny = (label, words) => words.some(kw => (label || '').toLowerCase().includes(kw));
+      var frontWide = vidInputs.filter(d => {
+        var label = (d.label || '').toLowerCase();
+        var score = (label.includes('ultra') ? 2 : 0) + (label.includes('wide') ? 1 : 0) + (label.includes('0.5') ? 2 : 0) + (label.includes('0.6') ? 2 : 0) + (label.includes('초광각') ? 2 : 0) + (label.includes('광각') ? 1 : 0);
         return score >= 1 && hasAny(label, frontKeywords);
       });
-      const rearWide = vidInputs.filter(d => {
-        const label = (d.label || '').toLowerCase();
-        const score = (label.includes('ultra') ? 2 : 0) + (label.includes('wide') ? 1 : 0) + (label.includes('0.5') ? 2 : 0) + (label.includes('0.6') ? 2 : 0) + (label.includes('초광각') ? 2 : 0) + (label.includes('광각') ? 1 : 0);
+      var rearWide = vidInputs.filter(d => {
+        var label = (d.label || '').toLowerCase();
+        var score = (label.includes('ultra') ? 2 : 0) + (label.includes('wide') ? 1 : 0) + (label.includes('0.5') ? 2 : 0) + (label.includes('0.6') ? 2 : 0) + (label.includes('초광각') ? 2 : 0) + (label.includes('광각') ? 1 : 0);
         return score >= 1 && hasAny(label, rearKeywords);
       });
       setFrontWideCandidates(frontWide);
@@ -343,7 +343,7 @@ function App() {
   }, []);
 
   // useFilterEngine stays active from the start, warming up shaders
-  const {
+  var {
     engineRef,
     webglOk,
     firstFrame,
@@ -357,15 +357,15 @@ function App() {
 
   // Shared Camera Stream
   React.useEffect(() => {
-    let active = true;
-    const stopStream = stream => {
+    var active = true;
+    var stopStream = stream => {
       if (stream) stream.getTracks().forEach(t => t.stop());
     };
     (async () => {
       try {
         stopStream(streamRef.current);
         streamRef.current = null;
-        let s = null;
+        var s = null;
         try {
           s = await navigator.mediaDevices.getUserMedia({
             video: {
@@ -422,11 +422,11 @@ function App() {
         }
         streamRef.current = s;
         setCamOk(true);
-        const track = s.getVideoTracks()[0];
+        var track = s.getVideoTracks()[0];
         if (track) {
-          const settings = track.getSettings ? track.getSettings() : {};
-          const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
-          const constraints = track.getConstraints ? track.getConstraints() : {};
+          var settings = track.getSettings ? track.getSettings() : {};
+          var capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+          var constraints = track.getConstraints ? track.getConstraints() : {};
           setCameraSettings(settings);
           setCameraCapabilities(capabilities);
           setCameraZoomState(settings.zoom ?? 1);
@@ -435,7 +435,7 @@ function App() {
             setNormalCameraDeviceId(settings.deviceId || null);
           }
           if (window.IMMM_DEBUG_CAMERA) {
-            const snap = {
+            var snap = {
               label: track.label,
               readyState: track.readyState,
               deviceId: settings.deviceId,
@@ -472,9 +472,9 @@ function App() {
       if (videoRef.current) videoRef.current.srcObject = null;
     };
   }, [facingMode]);
-  const applyCameraZoom = React.useCallback(async zoom => {
-    const track = streamRef.current?.getVideoTracks?.()[0];
-    const snapBefore = getCameraDebugSnapshot('zoom-start');
+  var applyCameraZoom = React.useCallback(async zoom => {
+    var track = streamRef.current?.getVideoTracks?.()[0];
+    var snapBefore = getCameraDebugSnapshot('zoom-start');
     if (!track) {
       return {
         ok: false,
@@ -483,7 +483,7 @@ function App() {
         snapBefore
       };
     }
-    const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+    var caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
     if (!caps.zoom) {
       return {
         ok: false,
@@ -492,9 +492,9 @@ function App() {
         snapBefore
       };
     }
-    const min = caps.zoom.min ?? 1;
-    const max = caps.zoom.max ?? 1;
-    const step = caps.zoom.step ?? 0.01;
+    var min = caps.zoom.min ?? 1;
+    var max = caps.zoom.max ?? 1;
+    var step = caps.zoom.step ?? 0.01;
     if (zoom < min || zoom > max) {
       return {
         ok: false,
@@ -512,9 +512,9 @@ function App() {
 
       // Verification
       await new Promise(r => requestAnimationFrame(r));
-      const afterSettings = track.getSettings?.() || {};
-      const afterZoom = afterSettings.zoom;
-      const snapAfter = getCameraDebugSnapshot('zoom-end');
+      var afterSettings = track.getSettings?.() || {};
+      var afterZoom = afterSettings.zoom;
+      var snapAfter = getCameraDebugSnapshot('zoom-end');
       if (afterZoom === undefined) {
         pushCameraZoomHistory({
           requestedZoom: zoom,
@@ -531,7 +531,7 @@ function App() {
           snapAfter
         };
       }
-      const diff = Math.abs(afterZoom - zoom);
+      var diff = Math.abs(afterZoom - zoom);
       if (diff <= step * 2 + 0.05) {
         setCameraZoomState(afterZoom);
         setCameraSettings(afterSettings);
@@ -583,18 +583,18 @@ function App() {
       };
     }
   }, [getCameraDebugSnapshot]);
-  const switchCameraDevice = React.useCallback(async deviceId => {
+  var switchCameraDevice = React.useCallback(async deviceId => {
     if (!deviceId) return {
       ok: false,
       path: 'device-switch',
       reason: 'no-target-device'
     };
-    const snapBefore = getCameraDebugSnapshot('switch-start', {
+    var snapBefore = getCameraDebugSnapshot('switch-start', {
       targetDeviceId: deviceId
     });
-    const beforeDeviceId = cameraSettings?.deviceId;
+    var beforeDeviceId = cameraSettings?.deviceId;
     try {
-      const next = await navigator.mediaDevices.getUserMedia({
+      var next = await navigator.mediaDevices.getUserMedia({
         video: {
           deviceId: {
             exact: deviceId
@@ -614,17 +614,17 @@ function App() {
         videoRef.current.srcObject = next;
         await videoRef.current.play().catch(() => {});
       }
-      const track = next.getVideoTracks()[0];
-      const settings = track.getSettings?.() || {};
-      const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+      var track = next.getVideoTracks()[0];
+      var settings = track.getSettings?.() || {};
+      var capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
       setCameraSettings(settings);
       setCameraCapabilities(capabilities);
       setCameraZoomState(settings.zoom ?? 1);
       setActiveCameraDeviceId(settings.deviceId || deviceId);
-      const isWide = [...frontWideCandidates, ...rearWideCandidates].some(d => d.deviceId === (settings.deviceId || deviceId));
+      var isWide = [...frontWideCandidates, ...rearWideCandidates].some(d => d.deviceId === (settings.deviceId || deviceId));
       setWideCameraActive(isWide);
-      const snapAfter = getCameraDebugSnapshot('switch-end');
-      const deviceIdMatches = settings.deviceId === deviceId || beforeDeviceId && settings.deviceId !== beforeDeviceId;
+      var snapAfter = getCameraDebugSnapshot('switch-end');
+      var deviceIdMatches = settings.deviceId === deviceId || beforeDeviceId && settings.deviceId !== beforeDeviceId;
       if (deviceIdMatches) {
         await refreshCameraDevices();
         pushCameraZoomHistory({
@@ -642,8 +642,8 @@ function App() {
           snapAfter
         };
       } else {
-        const labelChanged = snapAfter.trackLabel && snapAfter.trackLabel !== snapBefore.trackLabel;
-        const resolutionChanged = snapAfter.width !== snapBefore.width || snapAfter.height !== snapBefore.height;
+        var labelChanged = snapAfter.trackLabel && snapAfter.trackLabel !== snapBefore.trackLabel;
+        var resolutionChanged = snapAfter.width !== snapBefore.width || snapAfter.height !== snapBefore.height;
         if (labelChanged || resolutionChanged) {
           await refreshCameraDevices();
           pushCameraZoomHistory({
@@ -692,8 +692,8 @@ function App() {
       };
     }
   }, [refreshCameraDevices, frontWideCandidates, rearWideCandidates, cameraSettings?.deviceId, getCameraDebugSnapshot]);
-  const setCameraTorch = React.useCallback(async enabled => {
-    const track = streamRef.current?.getVideoTracks?.()[0];
+  var setCameraTorch = React.useCallback(async enabled => {
+    var track = streamRef.current?.getVideoTracks?.()[0];
     if (!track || !torchSupported) return false;
     try {
       await track.applyConstraints({
@@ -708,16 +708,16 @@ function App() {
       return false;
     }
   }, [torchSupported]);
-  const runScreenFlash = React.useCallback(async () => {
+  var runScreenFlash = React.useCallback(async () => {
     if (!screenFlashEnabled || facingMode !== 'user') return;
     setScreenFlashActive(true);
     await new Promise(r => setTimeout(r, 450));
     setScreenFlashActive(false);
   }, [screenFlashEnabled, facingMode]);
-  const setCameraZoom = React.useCallback(async val => {
+  var setCameraZoom = React.useCallback(async val => {
     if (cameraToggleBusy) return false;
     setCameraToggleBusy(true);
-    let result = {
+    var result = {
       ok: false,
       path: 'zoom',
       reason: 'unknown'
@@ -729,7 +729,7 @@ function App() {
           path: 'lens-return-start',
           wideCameraActive
         });
-        const hwRes = await applyCameraZoom(1);
+        var hwRes = await applyCameraZoom(1);
         if (hwRes.ok) {
           setWideCameraActive(false);
           result = {
@@ -744,7 +744,7 @@ function App() {
           return true;
         }
         if (normalCameraDeviceId) {
-          const devRes = await switchCameraDevice(normalCameraDeviceId);
+          var devRes = await switchCameraDevice(normalCameraDeviceId);
           if (devRes.ok) {
             setWideCameraActive(false);
             result = {
@@ -777,7 +777,7 @@ function App() {
         });
         return false;
       }
-      const opt = cameraZoomOptions.find(o => o.value === val);
+      var opt = cameraZoomOptions.find(o => o.value === val);
       if (!opt || !opt.enabled) return false;
       pushCameraZoomHistory({
         requestedZoom: val,
@@ -785,17 +785,17 @@ function App() {
         optType: opt.type
       });
       if (opt.type === 'hardware') {
-        const res = await applyCameraZoom(val);
+        var res = await applyCameraZoom(val);
         if (res.ok) {
           setWideCameraActive(val <= 0.75);
           result = res;
           return true;
         }
       } else if ((opt.type === 'lens' || opt.type === 'lens-return') && opt.deviceId) {
-        const res = await switchCameraDevice(opt.deviceId);
-        if (res.ok) {
+        var _res = await switchCameraDevice(opt.deviceId);
+        if (_res.ok) {
           setWideCameraActive(opt.type === 'lens');
-          result = res;
+          result = _res;
           return true;
         }
       }
@@ -806,20 +806,20 @@ function App() {
       setCameraToggleBusy(false);
     }
   }, [cameraToggleBusy, cameraZoomOptions, applyCameraZoom, switchCameraDevice, wideCameraActive, normalCameraDeviceId]);
-  const onDebugSwitchCameraDevice = React.useCallback(async deviceId => {
+  var onDebugSwitchCameraDevice = React.useCallback(async deviceId => {
     if (cameraToggleBusy) return {
       ok: false,
       path: 'manual-device-switch',
       reason: 'busy'
     };
     setCameraToggleBusy(true);
-    let result = {
+    var result = {
       ok: false,
       path: 'manual-device-switch',
       reason: 'unknown'
     };
     try {
-      const res = await switchCameraDevice(deviceId);
+      var res = await switchCameraDevice(deviceId);
       result = {
         ...res,
         path: res.ok ? 'manual-device-switch' : 'manual-device-switch-failed'
@@ -834,19 +834,19 @@ function App() {
       }
     }
   }, [cameraToggleBusy, switchCameraDevice]);
-  const toggleWideCamera = React.useCallback(async () => {
+  var toggleWideCamera = React.useCallback(async () => {
     if (cameraToggleBusy) return false;
     setCameraToggleBusy(true);
-    let result = {
+    var result = {
       ok: false,
       path: 'init',
       reason: 'starting'
     };
-    const isCurrentlyWide = wideCameraActive || cameraSettings?.zoom != null && cameraSettings.zoom <= 0.75;
+    var isCurrentlyWide = wideCameraActive || cameraSettings?.zoom != null && cameraSettings.zoom <= 0.75;
     try {
       // Path 1: Return to 1x
       if (isCurrentlyWide) {
-        const hwRes = await applyCameraZoom(1);
+        var hwRes = await applyCameraZoom(1);
         if (hwRes.ok) {
           setWideCameraActive(false);
           result = {
@@ -854,7 +854,7 @@ function App() {
             path: 'hardware-return'
           };
         } else if (normalCameraDeviceId) {
-          const devRes = await switchCameraDevice(normalCameraDeviceId);
+          var devRes = await switchCameraDevice(normalCameraDeviceId);
           if (devRes.ok) {
             setWideCameraActive(false);
             result = {
@@ -877,37 +877,37 @@ function App() {
         }
       } else {
         // Path 2: Go to 0.6x (Hardware first)
-        const hwRes = await applyCameraZoom(0.6);
-        if (hwRes.ok) {
+        var _hwRes = await applyCameraZoom(0.6);
+        if (_hwRes.ok) {
           setWideCameraActive(true);
           result = {
-            ...hwRes,
+            ..._hwRes,
             path: 'hardware-zoom'
           };
         } else {
           // Path 3: Go to 0.6x (Device switch fallback)
-          const candidates = facingMode === 'user' ? frontWideCandidates : rearWideCandidates;
-          const candidate = candidates?.[0];
+          var candidates = facingMode === 'user' ? frontWideCandidates : rearWideCandidates;
+          var candidate = candidates?.[0];
           if (candidate?.deviceId) {
-            const devRes = await switchCameraDevice(candidate.deviceId);
-            if (devRes.ok) {
+            var _devRes = await switchCameraDevice(candidate.deviceId);
+            if (_devRes.ok) {
               setWideCameraActive(true);
               result = {
-                ...devRes,
+                ..._devRes,
                 path: 'device-switch'
               };
             } else {
               result = {
                 ok: false,
                 path: 'failed-wide',
-                reason: `hardware:${hwRes.reason};device:${devRes.reason}`
+                reason: `hardware:${_hwRes.reason};device:${_devRes.reason}`
               };
             }
           } else {
             result = {
               ok: false,
               path: 'failed-wide',
-              reason: `hardware:${hwRes.reason};device:no-candidates`
+              reason: `hardware:${_hwRes.reason};device:no-candidates`
             };
           }
         }
@@ -923,7 +923,7 @@ function App() {
     return result.ok;
   }, [cameraSettings, wideCameraActive, normalCameraDeviceId, facingMode, frontWideCandidates, rearWideCandidates, applyCameraZoom, switchCameraDevice, cameraToggleBusy]);
   React.useEffect(() => {
-    const onHash = () => {
+    var onHash = () => {
       if (location.hash.startsWith('#/s/')) setScreen('share');
     };
     window.addEventListener('hashchange', onHash);
@@ -943,43 +943,43 @@ function App() {
       videoRef.current.play().catch(() => {});
     }
   }, [screen]);
-  const go = s => {
+  var go = s => {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
     }
     // Reset shots + selected when starting a fresh capture session.
     // This prevents previous roll's shots leaking into SelectV2 on re-capture.
     if (s === 'capture') {
-      const newShotCount = getCaptureShotCountForLayout(tweaks.layout);
+      var newShotCount = getCaptureShotCountForLayout(tweaks.layout);
       setShots(Array(newShotCount).fill(null));
       setSelected([]);
     }
     setScreen(s);
   };
-  const updateTweak = (k, v) => setTweaks(prev => ({
+  var updateTweak = (k, v) => setTweaks(prev => ({
     ...prev,
     [k]: v
   }));
-  const frameShotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(tweaks.layout) : tweaks.layout === 'polaroid' ? 1 : tweaks.layout === 'trip' ? 3 : 4;
-  const captureShotCount = getCaptureShotCountForLayout(tweaks.layout);
+  var frameShotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(tweaks.layout) : tweaks.layout === 'polaroid' ? 1 : tweaks.layout === 'trip' ? 3 : 4;
+  var captureShotCount = getCaptureShotCountForLayout(tweaks.layout);
 
   // Dummy-fill shots when jumping deep without capturing
-  const needsDummy = ['select', 'deco', 'result'].includes(screen) && shots.every(s => !s);
-  const effShots = needsDummy ? Array.from({
+  var needsDummy = ['select', 'deco', 'result'].includes(screen) && shots.every(s => !s);
+  var effShots = needsDummy ? Array.from({
     length: captureShotCount
   }, () => ({
     dataUrl: null,
     filter: safeFilter
   })) : shots;
-  const selectionCount = frameShotCount;
-  const defaultSelected = Array.from({
+  var selectionCount = frameShotCount;
+  var defaultSelected = Array.from({
     length: selectionCount
   }, (_, i) => i);
-  const effSelected = selected.length === selectionCount ? selected : defaultSelected;
-  const variant = tweaks.variant;
-  const T = TOKENS[variant];
-  const accent = T.pinkDeep;
-  const commonProps = {
+  var effSelected = selected.length === selectionCount ? selected : defaultSelected;
+  var variant = tweaks.variant;
+  var T = TOKENS[variant];
+  var accent = T.pinkDeep;
+  var commonProps = {
     T,
     go,
     mobile,
@@ -995,8 +995,8 @@ function App() {
     lang,
     setLang
   };
-  const renderScreen = () => {
-    const p = {
+  var renderScreen = () => {
+    var p = {
       ...commonProps
     };
     switch (screen) {

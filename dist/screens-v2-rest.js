@@ -62,9 +62,9 @@ function CaptureV2({
   // 4. Frame export quality: scale 3.0 (mobile) or 4.0 (desktop) based on memory safety.
   // ──────────────────────────────────────────────────────────────────────────
 
-  const shotCount = layout === 'polaroid' ? 3 : layout === 'trip' ? 5 : 6;
-  const getCaptureLongEdges = () => mobile ? [1920, 1280] : [2560, 1920, 1280];
-  const resolveFrameTemplate = layout => {
+  var shotCount = layout === 'polaroid' ? 3 : layout === 'trip' ? 5 : 6;
+  var getCaptureLongEdges = () => mobile ? [1920, 1280] : [2560, 1920, 1280];
+  var resolveFrameTemplate = layout => {
     if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
       return window.getFrameTemplateSafe(layout);
     }
@@ -74,29 +74,29 @@ function CaptureV2({
     console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
     return null;
   };
-  const frameTemplate = resolveFrameTemplate(layout);
-  const firstSlot = frameTemplate?.photoSlots?.[0];
-  const cameraAspect = firstSlot ? firstSlot.width / firstSlot.height : 4 / 3;
-  const viewfinderAspect = mobile ? 3 / 4 : cameraAspect;
-  const [idx, setIdx] = React.useState(0);
-  const [countdown, setCountdown] = React.useState(0);
-  const [timerLen, setTimerLen] = React.useState(3);
-  const [flashing, setFlashing] = React.useState(false);
-  const [auto, setAuto] = React.useState(false);
-  const [overlayBox, setOverlayBox] = React.useState(null);
-  const [zoomToggleError, setZoomToggleError] = React.useState('');
-  const touchStartY = React.useRef(null);
-  const cameraFrameRef = React.useRef(null);
+  var frameTemplate = resolveFrameTemplate(layout);
+  var firstSlot = frameTemplate?.photoSlots?.[0];
+  var cameraAspect = firstSlot ? firstSlot.width / firstSlot.height : 4 / 3;
+  var viewfinderAspect = mobile ? 3 / 4 : cameraAspect;
+  var [idx, setIdx] = React.useState(0);
+  var [countdown, setCountdown] = React.useState(0);
+  var [timerLen, setTimerLen] = React.useState(3);
+  var [flashing, setFlashing] = React.useState(false);
+  var [auto, setAuto] = React.useState(false);
+  var [overlayBox, setOverlayBox] = React.useState(null);
+  var [zoomToggleError, setZoomToggleError] = React.useState('');
+  var touchStartY = React.useRef(null);
+  var cameraFrameRef = React.useRef(null);
 
   // Only show stickers assigned to the current frame slot during live capture preview.
   // Extra candidate shots (idx >= slotCount) get no stickers to prevent duplication.
   React.useEffect(() => {
     if (window.IMMM_DEBUG_CAMERA && videoRef.current && cameraSettings) {
-      const v = videoRef.current;
-      const vw = v.videoWidth;
-      const vh = v.videoHeight;
+      var v = videoRef.current;
+      var vw = v.videoWidth;
+      var vh = v.videoHeight;
       if (vw && vh) {
-        const aspect = vw / vh;
+        var aspect = vw / vh;
         console.info('[IMMM camera] Aspect ratio check:', {
           videoResolution: `${vw}x${vh}`,
           videoAspect: aspect.toFixed(4),
@@ -106,13 +106,13 @@ function CaptureV2({
       }
     }
   }, [cameraSettings, viewfinderAspect, videoRef]);
-  const visibleCaptureStickers = typeof getStickersForCapturePreview === 'function' ? getStickersForCapturePreview(preStickers, idx, layout) : [];
-  const canvasActive = webglOk && firstFrame;
+  var visibleCaptureStickers = typeof getStickersForCapturePreview === 'function' ? getStickersForCapturePreview(preStickers, idx, layout) : [];
+  var canvasActive = webglOk && firstFrame;
   React.useEffect(() => {
     if (!onCameraFrameChange || !cameraFrameRef.current) return;
-    const update = () => {
+    var update = () => {
       if (!cameraFrameRef.current) return;
-      const r = cameraFrameRef.current.getBoundingClientRect();
+      var r = cameraFrameRef.current.getBoundingClientRect();
       onCameraFrameChange({
         top: r.top,
         left: r.left,
@@ -127,7 +127,7 @@ function CaptureV2({
       });
     };
     update();
-    const ro = new ResizeObserver(update);
+    var ro = new ResizeObserver(update);
     ro.observe(cameraFrameRef.current);
     window.addEventListener('resize', update);
     window.addEventListener('orientationchange', update);
@@ -139,41 +139,41 @@ function CaptureV2({
       onCameraFrameChange(null);
     };
   }, [onCameraFrameChange, mobile]);
-  const toggleCamera = () => {
+  var toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
-  const handleTouchStart = e => {
+  var handleTouchStart = e => {
     touchStartY.current = e.touches[0].clientY;
   };
-  const handleTouchEnd = e => {
+  var handleTouchEnd = e => {
     if (touchStartY.current === null) return;
-    const touchEndY = e.changedTouches[0].clientY;
-    const diff = touchStartY.current - touchEndY;
+    var touchEndY = e.changedTouches[0].clientY;
+    var diff = touchStartY.current - touchEndY;
     // Swipe up (diff > 50px)
     if (diff > 50) toggleCamera();
     touchStartY.current = null;
   };
-  const captureFromVideo = React.useCallback(async (v, cssFilter, mirrorX, edge) => {
+  var captureFromVideo = React.useCallback(async (v, cssFilter, mirrorX, edge) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
-    const rect = cameraFrameRef.current?.getBoundingClientRect();
-    const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
+    var rect = cameraFrameRef.current?.getBoundingClientRect();
+    var aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
     try {
-      const c = document.createElement('canvas');
-      const capW = edge;
-      const capH = Math.max(1, Math.round(edge / aspect));
+      var c = document.createElement('canvas');
+      var capW = edge;
+      var capH = Math.max(1, Math.round(edge / aspect));
       c.width = capW;
       c.height = capH;
-      const ctx = c.getContext('2d');
+      var ctx = c.getContext('2d');
       ctx.save();
       if (mirrorX) {
         ctx.translate(c.width, 0);
         ctx.scale(-1, 1);
       }
       if (cssFilter && cssFilter !== 'none') ctx.filter = cssFilter;
-      const vw = v.videoWidth,
+      var vw = v.videoWidth,
         vh = v.videoHeight;
-      const srcAspect = vw / vh;
-      let sx = 0,
+      var srcAspect = vw / vh;
+      var sx = 0,
         sy = 0,
         sw = vw,
         sh = vh;
@@ -206,7 +206,7 @@ function CaptureV2({
       // They are rendered once in the final frame composite via frameSlot.
       // Baking them per-shot would cause each original photo to carry the sticker,
       // resulting in duplicate rendering in the final frame output.
-      const dataUrl = c.toDataURL('image/jpeg', 0.95);
+      var dataUrl = c.toDataURL('image/jpeg', 0.95);
       if (dataUrl && dataUrl.length > 5000) {
         return {
           dataUrl,
@@ -220,10 +220,10 @@ function CaptureV2({
     }
     return null;
   }, [preStickers]);
-  const applyCapturedFilterLook = (ctx, w, h, filterKey) => {
+  var applyCapturedFilterLook = (ctx, w, h, filterKey) => {
     ctx.save();
     // ── Skin-retouching base (for all skin-enhancing filters) ─────────────────
-    const isSkinFilter = ['smooth', 'porcelain', 'blush', 'purikura'].includes(filterKey);
+    var isSkinFilter = ['smooth', 'porcelain', 'blush', 'purikura'].includes(filterKey);
     if (isSkinFilter) {
       // EMERGENCY FACE SHAPE SAFETY:
       // applyFaceZoneSoftening and applyBeautyGeometry are permanently disabled
@@ -238,7 +238,7 @@ function CaptureV2({
       // Step 2: Shadow lift — target dark areas (spots/acne tend to be darker)
       // Use a gradient from image center outward to avoid over-brightening already bright areas
       ctx.globalCompositeOperation = 'screen';
-      const lift = ctx.createRadialGradient(w * 0.5, h * 0.38, 0, w * 0.5, h * 0.38, w * 0.55);
+      var lift = ctx.createRadialGradient(w * 0.5, h * 0.38, 0, w * 0.5, h * 0.38, w * 0.55);
       lift.addColorStop(0, 'rgba(255,235,215,0.18)');
       lift.addColorStop(0.6, 'rgba(255,230,210,0.09)');
       lift.addColorStop(1, 'rgba(0,0,0,0)');
@@ -279,7 +279,7 @@ function CaptureV2({
       ctx.fillStyle = 'rgba(255,244,250,0.22)';
       ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = 'source-over';
-      const vignette = ctx.createRadialGradient(w * 0.5, h * 0.42, w * 0.12, w * 0.5, h * 0.42, w * 0.62);
+      var vignette = ctx.createRadialGradient(w * 0.5, h * 0.42, w * 0.12, w * 0.5, h * 0.42, w * 0.62);
       vignette.addColorStop(0, 'rgba(255,255,255,0)');
       vignette.addColorStop(1, 'rgba(255,255,255,0.22)');
       ctx.fillStyle = vignette;
@@ -289,9 +289,9 @@ function CaptureV2({
       ctx.fillStyle = 'rgba(244,226,205,0.10)';
       ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = 'source-over';
-      for (let i = 0; i < 260; i++) {
-        const x = i * 97 % w;
-        const y = i * 53 % h;
+      for (var i = 0; i < 260; i++) {
+        var x = i * 97 % w;
+        var y = i * 53 % h;
         ctx.globalAlpha = 0.08 + i % 5 * 0.015;
         ctx.fillStyle = '#fff';
         ctx.fillRect(x, y, 1, 1);
@@ -302,7 +302,7 @@ function CaptureV2({
   };
 
   // mapFacePoint: was used only by applyBeautyGeometry (now disabled). Keep stub.
-  const mapFacePoint = (p, mirrorX) => {
+  var mapFacePoint = (p, mirrorX) => {
     if (!Array.isArray(p)) return [0.5, 0.5];
     return [mirrorX ? 1 - p[0] : p[0], p[1]];
   };
@@ -311,7 +311,7 @@ function CaptureV2({
   // Do not re-enable geometry, radial face blur, or landmark-based deformation.
   // Galaxy Samsung Internet showed face distortion at face/background boundary.
   // All face-shape-changing code must remain disabled.
-  const applyBeautyGeometry = () => {
+  var applyBeautyGeometry = () => {
     return;
   };
   // The radial-gradient-masked blur caused face/background boundary distortion
@@ -319,55 +319,55 @@ function CaptureV2({
   // Kept as a no-op so references in applyCapturedFilterLook do not throw.
   // If a future PR re-introduces softening, use a very small strength (<0.08)
   // and validate on both light and dark backgrounds before re-enabling.
-  const applyFaceZoneSoftening = () => {
+  var applyFaceZoneSoftening = () => {
     return;
   };
-  const bakePreStickers = React.useCallback(async dataUrl => {
+  var bakePreStickers = React.useCallback(async dataUrl => {
     // Step 1 slot stickers must NOT be baked into raw shot data.
     // They are composited once in the final frame render (frame-system.jsx drawStickerToCtx),
     // placed per frameSlot. Baking here would duplicate them in every original photo
     // and cause double-rendering in the exported frame.
     return dataUrl;
   }, []);
-  const enhanceCapturedDataUrl = React.useCallback(async (dataUrl, filterKey, mirrorX) => {
+  var enhanceCapturedDataUrl = React.useCallback(async (dataUrl, filterKey, mirrorX) => {
     // EMERGENCY FACE SHAPE SAFETY:
     // WebGL filter is already fully applied in takeSnapshot.
     // Do not re-apply any landmark-based logic here.
     return dataUrl;
   }, []);
-  const takeShot = React.useCallback(() => {
+  var takeShot = React.useCallback(() => {
     setFlashing(true);
     setTimeout(() => setFlashing(false), 140);
-    const doCapture = async () => {
+    var doCapture = async () => {
       // Screen flash logic for front camera
       if (facingMode === 'user' && screenFlashEnabled) {
         await runScreenFlash();
       }
-      let dataUrl = null;
-      let captureMode = null;
-      let captureMeta = {
+      var dataUrl = null;
+      var captureMode = null;
+      var captureMeta = {
         edge: 0,
         sourceW: 0,
         sourceH: 0
       };
-      const rect = cameraFrameRef.current?.getBoundingClientRect();
-      const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
-      const candidates = getCaptureLongEdges();
+      var rect = cameraFrameRef.current?.getBoundingClientRect();
+      var aspect = rect?.width && rect?.height ? rect.width / rect.height : 1;
+      var candidates = getCaptureLongEdges();
 
       // 1. WebGL Path
       if (canvasActive && engineRef.current) {
-        const {
+        var {
           mirrorX
         } = engineRef.current._getSize();
-        const {
+        var {
           pipeline,
           faceUniforms
         } = engineRef.current._getParams();
-        for (const edge of candidates) {
+        for (var edge of candidates) {
           try {
-            const capW = edge;
-            const capH = Math.max(1, Math.round(edge / aspect));
-            const raw = engineRef.current.takeSnapshot(capW, capH, mirrorX, pipeline, faceUniforms);
+            var capW = edge;
+            var capH = Math.max(1, Math.round(edge / aspect));
+            var raw = engineRef.current.takeSnapshot(capW, capH, mirrorX, pipeline, faceUniforms);
             if (raw && raw.length > 5000) {
               dataUrl = await bakePreStickers(raw);
               captureMeta = {
@@ -386,11 +386,11 @@ function CaptureV2({
 
       // 2. Fallback Path
       if (!dataUrl) {
-        const v = videoRef.current;
-        if (v && v.readyState >= 2 && v.videoWidth > 0) {
-          const cssFilter = FILTERS[filter]?.css || 'none';
-          for (const edge of candidates) {
-            const result = await captureFromVideo(v, cssFilter, facingMode === 'user', edge);
+        var _v = videoRef.current;
+        if (_v && _v.readyState >= 2 && _v.videoWidth > 0) {
+          var cssFilter = FILTERS[filter]?.css || 'none';
+          for (var _edge of candidates) {
+            var result = await captureFromVideo(_v, cssFilter, facingMode === 'user', _edge);
             if (result) {
               dataUrl = result.dataUrl;
               captureMeta = {
@@ -409,7 +409,7 @@ function CaptureV2({
         captureMode = 'failed';
       }
       setShots(prev => {
-        const copy = [...prev];
+        var copy = [...prev];
         while (copy.length < shotCount) copy.push(null);
         copy[idx] = {
           dataUrl,
@@ -431,9 +431,9 @@ function CaptureV2({
     };
 
     // Wait for video ready if needed
-    const v = videoRef.current;
+    var v = videoRef.current;
     if (v && v.readyState < 2) {
-      const onReady = () => {
+      var onReady = () => {
         v.removeEventListener('canplay', onReady);
         doCapture();
       };
@@ -448,7 +448,7 @@ function CaptureV2({
   }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers, enhanceCapturedDataUrl]);
   React.useEffect(() => {
     if (countdown <= 0) return;
-    const t = setTimeout(() => {
+    var t = setTimeout(() => {
       if (countdown === 1) {
         takeShot();
         setCountdown(0);
@@ -460,17 +460,17 @@ function CaptureV2({
   React.useEffect(() => {
     if (idx >= shotCount) setTimeout(() => go('select'), 600);
   }, [idx, go, shotCount]);
-  const startCountdown = () => {
+  var startCountdown = () => {
     if (countdown === 0 && idx < shotCount) setCountdown(timerLen);
   };
-  const toggleAuto = () => {
+  var toggleAuto = () => {
     setAuto(a => !a);
     if (!auto && idx < shotCount && countdown === 0) setCountdown(timerLen);
   };
-  const thumbs = Array.from({
+  var thumbs = Array.from({
     length: shotCount
   }, (_, i) => shots[i]);
-  const cameraOverlay = overlayBox && (countdown > 0 || flashing || visibleCaptureStickers.length > 0) ? ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+  var cameraOverlay = overlayBox && (countdown > 0 || flashing || visibleCaptureStickers.length > 0) ? ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       top: overlayBox.top,
@@ -519,7 +519,7 @@ function CaptureV2({
       animation: 'flash 0.14s ease-out'
     }
   })), document.body) : null;
-  const shotsRail = /*#__PURE__*/React.createElement("div", {
+  var shotsRail = /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       flexDirection: mobile ? 'row' : 'column',
@@ -634,7 +634,7 @@ function CaptureV2({
       fontFamily: '"Plus Jakarta Sans",system-ui'
     }
   }, "DEMO MODE")), (() => {
-    const safeFrameColor = frameColor || frameTemplate?.theme?.frameFill || '#fff';
+    var safeFrameColor = frameColor || frameTemplate?.theme?.frameFill || '#fff';
     return /*#__PURE__*/React.createElement(CaptureOverlay, {
       template: frameTemplate,
       layout: layout,
@@ -709,8 +709,8 @@ function CaptureV2({
       marginTop: 12
     }
   }, cameraZoomOptions.map(opt => {
-    const isZoomNear = Math.abs((cameraZoom || 1) - opt.value) < 0.08;
-    const isActive = opt.value === 0.6 ? wideCameraActive || isZoomNear : !wideCameraActive && isZoomNear;
+    var isZoomNear = Math.abs((cameraZoom || 1) - opt.value) < 0.08;
+    var isActive = opt.value === 0.6 ? wideCameraActive || isZoomNear : !wideCameraActive && isZoomNear;
     return /*#__PURE__*/React.createElement("button", {
       key: opt.label,
       title: window.IMMM_DEBUG_CAMERA ? `reason: ${opt.reason || 'none'}, type: ${opt.type}` : undefined,
@@ -741,8 +741,8 @@ function CaptureV2({
       marginTop: mobile ? 8 : 0
     }
   }, (() => {
-    const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
-    const leftBtnStyle = {
+    var debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
+    var leftBtnStyle = {
       padding: '8px 11px',
       borderRadius: 999,
       border: 'none',
@@ -757,17 +757,17 @@ function CaptureV2({
       fontFamily: '"Plus Jakarta Sans",system-ui',
       transition: 'all 0.2s'
     };
-    const lightSupported = facingMode === 'user' ? true : torchSupported;
-    const isLightOn = facingMode === 'user' ? screenFlashEnabled : torchEnabled;
-    const onLightToggle = () => {
+    var lightSupported = facingMode === 'user' ? true : torchSupported;
+    var isLightOn = facingMode === 'user' ? screenFlashEnabled : torchEnabled;
+    var onLightToggle = () => {
       if (facingMode === 'user') {
         setScreenFlashEnabled(!screenFlashEnabled);
       } else {
         setCameraTorch(!torchEnabled);
       }
     };
-    const onToggle = () => {
-      const target = cameraZoom <= 0.75 || wideCameraActive ? 1 : 0.6;
+    var onToggle = () => {
+      var target = cameraZoom <= 0.75 || wideCameraActive ? 1 : 0.6;
       setCameraZoom(target);
     };
     return /*#__PURE__*/React.createElement("div", {
@@ -906,13 +906,13 @@ function CaptureV2({
       paddingBottom: 4
     }
   }, (() => {
-    const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA === true;
-    const hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
-    const showWidePicker = debugCamera;
-    const onSwitchWide = async candidate => {
+    var debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA === true;
+    var hasWideCandidates = frontWideCandidates.length > 0 || rearWideCandidates.length > 0;
+    var showWidePicker = debugCamera;
+    var onSwitchWide = async candidate => {
       if (!candidate?.deviceId) return;
       try {
-        const ok = await switchCameraDevice(candidate.deviceId);
+        var ok = await switchCameraDevice(candidate.deviceId);
         if (!ok && window.IMMM_DEBUG_CAMERA) {
           console.warn('[IMMM camera] wide switch failed', candidate);
         }
@@ -920,7 +920,7 @@ function CaptureV2({
         console.warn('[IMMM camera] wide switch error', e);
       }
     };
-    const WideCameraDebugPill = () => /*#__PURE__*/React.createElement("div", {
+    var WideCameraDebugPill = () => /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         alignItems: 'center',
@@ -946,7 +946,7 @@ function CaptureV2({
         fontWeight: 700
       }
     }, "path: ", lastWideTogglePath || 'none'), /*#__PURE__*/React.createElement("span", null, "\xB7"), /*#__PURE__*/React.createElement("span", null, "fWide: ", frontWideCandidates.length), /*#__PURE__*/React.createElement("span", null, "\xB7"), /*#__PURE__*/React.createElement("span", null, "rWide: ", rearWideCandidates.length));
-    const DebugWideDevicePicker = () => /*#__PURE__*/React.createElement("div", {
+    var DebugWideDevicePicker = () => /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 6,
@@ -959,9 +959,9 @@ function CaptureV2({
         borderRadius: 12
       }
     }, cameraDevices.map((d, i) => {
-      const isActive = activeCameraDeviceId === d.deviceId;
-      const isWide = [...frontWideCandidates, ...rearWideCandidates].some(w => w.deviceId === d.deviceId);
-      const label = d.label || 'Unnamed Camera';
+      var isActive = activeCameraDeviceId === d.deviceId;
+      var isWide = [...frontWideCandidates, ...rearWideCandidates].some(w => w.deviceId === d.deviceId);
+      var label = d.label || 'Unnamed Camera';
       return /*#__PURE__*/React.createElement("button", {
         key: d.deviceId || i,
         disabled: cameraToggleBusy,
@@ -1004,7 +1004,7 @@ function CaptureV2({
         }
       }, "[WIDE]")));
     }));
-    const ZoomHistoryPanel = () => {
+    var ZoomHistoryPanel = () => {
       if (cameraZoomHistory.length === 0) return null;
       return /*#__PURE__*/React.createElement("div", {
         style: {
@@ -1111,17 +1111,17 @@ function SelectV2({
   setSelected,
   layout
 }) {
-  const maxSel = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
-  const availableShots = shots.map((shot, index) => ({
+  var maxSel = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
+  var availableShots = shots.map((shot, index) => ({
     shot,
     index
   })).filter(({
     shot
   }) => shot?.dataUrl);
-  const [previewIdx, setPreviewIdx] = React.useState(null);
-  const pressTimerRef = React.useRef(null);
-  const longPressRef = React.useRef(false);
-  const toggle = i => {
+  var [previewIdx, setPreviewIdx] = React.useState(null);
+  var pressTimerRef = React.useRef(null);
+  var longPressRef = React.useRef(false);
+  var toggle = i => {
     if (maxSel === 1) {
       // Polaroid / single-select: never deselect, just switch to the new index.
       if (!selected.includes(i)) setSelected([i]);
@@ -1138,8 +1138,8 @@ function SelectV2({
   // (e.g. after a re-capture that reset shots), pin to the first available shot.
   React.useEffect(() => {
     if (availableShots.length === 0) return;
-    const validIndices = availableShots.map(s => s.index);
-    const hasValid = selected.some(idx => validIndices.includes(idx));
+    var validIndices = availableShots.map(s => s.index);
+    var hasValid = selected.some(idx => validIndices.includes(idx));
     if (!hasValid) {
       if (maxSel === 1) {
         setSelected([availableShots[0].index]);
@@ -1148,13 +1148,13 @@ function SelectV2({
       }
     }
   }, [availableShots.map(s => s.index).join(','), maxSel]);
-  const clearPressTimer = () => {
+  var clearPressTimer = () => {
     if (pressTimerRef.current) {
       clearTimeout(pressTimerRef.current);
       pressTimerRef.current = null;
     }
   };
-  const beginPress = i => {
+  var beginPress = i => {
     clearPressTimer();
     longPressRef.current = false;
     pressTimerRef.current = setTimeout(() => {
@@ -1162,7 +1162,7 @@ function SelectV2({
       setPreviewIdx(i);
     }, 420);
   };
-  const endPress = () => clearPressTimer();
+  var endPress = () => clearPressTimer();
   return /*#__PURE__*/React.createElement("div", {
     style: {
       height: '100%',
@@ -1223,8 +1223,8 @@ function SelectV2({
     shot: s,
     index: i
   }) => {
-    const sel = selected.indexOf(i);
-    const isSel = sel >= 0;
+    var sel = selected.indexOf(i);
+    var isSel = sel >= 0;
     return /*#__PURE__*/React.createElement("button", {
       key: i,
       onPointerDown: () => beginPress(i),
@@ -1362,16 +1362,16 @@ function GalleryV2({
   go,
   mobile
 }) {
-  const [items, setItems] = React.useState([]);
-  const [busy, setBusy] = React.useState(true);
-  const [preview, setPreview] = React.useState(null);
-  const [qrPreview, setQrPreview] = React.useState(null);
-  const load = React.useCallback(async () => {
+  var [items, setItems] = React.useState([]);
+  var [busy, setBusy] = React.useState(true);
+  var [preview, setPreview] = React.useState(null);
+  var [qrPreview, setQrPreview] = React.useState(null);
+  var load = React.useCallback(async () => {
     setBusy(true);
     try {
-      const rows = typeof LocalGalleryStore !== 'undefined' ? await LocalGalleryStore.listPhotos() : [];
-      const filteredRows = rows.filter(row => row.source !== 'qr');
-      const mapped = filteredRows.map(row => ({
+      var rows = typeof LocalGalleryStore !== 'undefined' ? await LocalGalleryStore.listPhotos() : [];
+      var filteredRows = rows.filter(row => row.source !== 'qr');
+      var mapped = filteredRows.map(row => ({
         ...row,
         url: URL.createObjectURL(row.blob)
       }));
@@ -1392,7 +1392,7 @@ function GalleryV2({
       return [];
     });
   }, [load]);
-  const remove = async item => {
+  var remove = async item => {
     if (typeof LocalGalleryStore === 'undefined') return;
     await LocalGalleryStore.deletePhoto(item.id);
     await load();
@@ -1700,18 +1700,18 @@ function SharedPhotoV2({
   go,
   mobile
 }) {
-  const [state, setState] = React.useState(() => {
-    const raw = location.hash || '';
-    const query = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : '';
-    const params = new URLSearchParams(query);
-    const url = params.get('u');
-    const expiresAt = Number(params.get('e') || 0);
+  var [state, setState] = React.useState(() => {
+    var raw = location.hash || '';
+    var query = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : '';
+    var params = new URLSearchParams(query);
+    var url = params.get('u');
+    var expiresAt = Number(params.get('e') || 0);
     return {
       url,
       expiresAt
     };
   });
-  const expired = state.expiresAt && Date.now() > state.expiresAt;
+  var expired = state.expiresAt && Date.now() > state.expiresAt;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       minHeight: '100%',
@@ -1804,28 +1804,28 @@ function CaptureOverlay({
   frameColor,
   viewfinderAspect
 }) {
-  const canvasRef = React.useRef(null);
-  const draw = React.useCallback(() => {
-    const cvs = canvasRef.current;
+  var canvasRef = React.useRef(null);
+  var draw = React.useCallback(() => {
+    var cvs = canvasRef.current;
     if (!cvs || !template) return;
-    const rect = cvs.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
+    var rect = cvs.getBoundingClientRect();
+    var w = rect.width;
+    var h = rect.height;
     if (!w || !h) return;
-    const ctx = cvs.getContext('2d');
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var ctx = cvs.getContext('2d');
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
     cvs.width = Math.round(w * dpr);
     cvs.height = Math.round(h * dpr);
     ctx.scale(dpr, dpr);
 
     // 1. Compute photo slot aspect — use photoRects (normalized) for accuracy
-    const pr = template.photoRects?.[0];
-    const ps = template.photoSlots?.[0];
-    const slotAspect = pr ? pr.w / pr.h : ps ? ps.width / ps.height : viewfinderAspect || 3 / 4;
-    const containerAspect = viewfinderAspect || slotAspect;
+    var pr = template.photoRects?.[0];
+    var ps = template.photoSlots?.[0];
+    var slotAspect = pr ? pr.w / pr.h : ps ? ps.width / ps.height : viewfinderAspect || 3 / 4;
+    var containerAspect = viewfinderAspect || slotAspect;
 
     // Photo area inside the viewfinder (letter-box / pillar-box)
-    let gW, gH;
+    var gW, gH;
     if (containerAspect > slotAspect) {
       gH = h;
       gW = h * slotAspect;
@@ -1833,8 +1833,8 @@ function CaptureOverlay({
       gW = w;
       gH = w / slotAspect;
     }
-    const l = (w - gW) / 2;
-    const t = (h - gH) / 2;
+    var l = (w - gW) / 2;
+    var t = (h - gH) / 2;
     ctx.clearRect(0, 0, w, h);
 
     // Dim outside photo area
@@ -1852,7 +1852,7 @@ function CaptureOverlay({
     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = 1.5;
     // 2. Map template space → viewfinder space and call renderFrameOverlay
-    const resolveFrameTemplate = layout => {
+    var resolveFrameTemplate = layout => {
       if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
         return window.getFrameTemplateSafe(layout);
       }
@@ -1862,23 +1862,23 @@ function CaptureOverlay({
       console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
       return null;
     };
-    const template = resolveFrameTemplate(layout);
+    var template = resolveFrameTemplate(layout);
     if (!template) {
       console.warn('[IMMM] skip overlay draw: template unavailable', layout);
       return;
     }
-    const renderOverlay = window.renderFrameOverlay || (typeof renderFrameOverlay === 'function' ? renderFrameOverlay : null);
+    var renderOverlay = window.renderFrameOverlay || (typeof renderFrameOverlay === 'function' ? renderFrameOverlay : null);
     if (pr && renderOverlay) {
       // Scale factor: the photo rect occupies gW px in the overlay
-      const s = gW / (pr.w * template.canvasSize.width);
-      const fullW = template.canvasSize.width * s;
-      const fullH = template.canvasSize.height * s;
-      const offsetX = l - pr.x * template.canvasSize.width * s;
-      const offsetY = t - pr.y * template.canvasSize.height * s;
+      var s = gW / (pr.w * template.canvasSize.width);
+      var fullW = template.canvasSize.width * s;
+      var fullH = template.canvasSize.height * s;
+      var offsetX = l - pr.x * template.canvasSize.width * s;
+      var offsetY = t - pr.y * template.canvasSize.height * s;
       ctx.save();
       ctx.translate(offsetX, offsetY);
-      const getTheme = window.getFrameTheme || (typeof getFrameTheme === 'function' ? getFrameTheme : null);
-      const theme = getTheme ? getTheme(template, {
+      var getTheme = window.getFrameTheme || (typeof getFrameTheme === 'function' ? getFrameTheme : null);
+      var theme = getTheme ? getTheme(template, {
         frameColor
       }) : null;
       renderOverlay(ctx, template, fullW, fullH, {
@@ -1907,9 +1907,9 @@ function CaptureOverlay({
   }, [template, layout, logo, dateText, accent, frameColor, viewfinderAspect]);
   React.useEffect(() => {
     draw();
-    const cvs = canvasRef.current;
+    var cvs = canvasRef.current;
     if (!cvs) return;
-    const ro = new ResizeObserver(() => draw());
+    var ro = new ResizeObserver(() => draw());
     ro.observe(cvs);
     return () => ro.disconnect();
   }, [draw]);

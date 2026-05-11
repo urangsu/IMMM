@@ -2,7 +2,7 @@
 // Exposes useFaceLandmarks(videoRef) → ref with face data updated ~30fps
 // Falls back gracefully when MediaPipe is unavailable or no face detected.
 
-const DEFAULT_FACE = {
+var DEFAULT_FACE = {
   detected: false,
   faces: [],
   leftEyeCenter: [0.35, 0.40],
@@ -34,8 +34,8 @@ function waitForMediaPipe(timeoutMs = 12000) {
       resolve();
       return;
     }
-    const t = setTimeout(() => reject(new Error('MediaPipe load timeout')), timeoutMs);
-    const handler = () => {
+    var t = setTimeout(() => reject(new Error('MediaPipe load timeout')), timeoutMs);
+    var handler = () => {
       clearTimeout(t);
       resolve();
     };
@@ -45,22 +45,22 @@ function waitForMediaPipe(timeoutMs = 12000) {
   });
 }
 function useFaceLandmarks(videoRef) {
-  const dataRef = React.useRef({
+  var dataRef = React.useRef({
     ...DEFAULT_FACE
   });
-  const landmarkerRef = React.useRef(null);
-  const readyRef = React.useRef(false);
+  var landmarkerRef = React.useRef(null);
+  var readyRef = React.useRef(false);
 
   // ── Init FaceLandmarker ────────────────────────────
   React.useEffect(() => {
-    let destroyed = false;
+    var destroyed = false;
     (async () => {
       try {
         await waitForMediaPipe();
         if (destroyed) return;
-        const vision = await window.MediaPipeFilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+        var vision = await window.MediaPipeFilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
         if (destroyed) return;
-        const lm = await window.MediaPipeFaceLandmarker.createFromOptions(vision, {
+        var lm = await window.MediaPipeFaceLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
             delegate: 'GPU'
@@ -85,20 +85,20 @@ function useFaceLandmarks(videoRef) {
 
   // ── Detection loop (~30fps via frame-skip) ─────────
   React.useEffect(() => {
-    let frameCount = 0;
-    let raf;
-    const detect = () => {
+    var frameCount = 0;
+    var raf;
+    var detect = () => {
       raf = requestAnimationFrame(detect);
       frameCount++;
       if (frameCount % 2 !== 0) return; // ~30fps
 
-      const video = videoRef.current;
-      const landmarker = landmarkerRef.current;
+      var video = videoRef.current;
+      var landmarker = landmarkerRef.current;
       if (!video || !landmarker || !readyRef.current) return;
       if (video.readyState < 2 || video.videoWidth === 0) return;
       try {
-        const result = landmarker.detectForVideo(video, performance.now());
-        const faceLandmarks = (result?.faceLandmarks || []).filter(lm => lm && lm.length >= 478);
+        var result = landmarker.detectForVideo(video, performance.now());
+        var faceLandmarks = (result?.faceLandmarks || []).filter(lm => lm && lm.length >= 478);
         if (!faceLandmarks.length) {
           dataRef.current = {
             ...dataRef.current,
@@ -107,52 +107,52 @@ function useFaceLandmarks(videoRef) {
           };
           return;
         }
-        const faces = faceLandmarks.slice(0, 4).map(lmArr => {
+        var faces = faceLandmarks.slice(0, 4).map(lmArr => {
           // ── Eye centres (iris: 468=left, 473=right) ──
-          const li = lmArr[468] || lmArr[159]; // left iris / fallback
-          const ri = lmArr[473] || lmArr[386]; // right iris / fallback
+          var li = lmArr[468] || lmArr[159]; // left iris / fallback
+          var ri = lmArr[473] || lmArr[386]; // right iris / fallback
 
           // ── Eye width for radius (outer to inner corner) ──
-          const lo = lmArr[33],
+          var lo = lmArr[33],
             li2 = lmArr[133]; // left eye corners
-          const eyeW = Math.hypot((lo?.x ?? 0.30) - (li2?.x ?? 0.38), (lo?.y ?? 0.40) - (li2?.y ?? 0.40));
+          var eyeW = Math.hypot((lo?.x ?? 0.30) - (li2?.x ?? 0.38), (lo?.y ?? 0.40) - (li2?.y ?? 0.40));
 
           // ── Cheek landmarks ──
-          const lc = lmArr[205] || lmArr[50]; // left cheek
-          const rc = lmArr[425] || lmArr[280]; // right cheek
+          var lc = lmArr[205] || lmArr[50]; // left cheek
+          var rc = lmArr[425] || lmArr[280]; // right cheek
 
           // ── Lip landmarks — LEGACY: only used by hidden 'glam' filter (lip_color shader) ──
-          const lipTop = lmArr[13] || lmArr[0]; // upper lip center
-          const lipBot = lmArr[14] || lmArr[17]; // lower lip center
-          const lipLeft = lmArr[61] || lmArr[78]; // lip left corner
-          const lipRight = lmArr[291] || lmArr[308]; // lip right corner
-          const lipCenterX = ((lipTop?.x ?? 0.50) + (lipBot?.x ?? 0.50)) / 2;
-          const lipCenterY = ((lipTop?.y ?? 0.68) + (lipBot?.y ?? 0.70)) / 2;
-          const lipW = Math.hypot((lipLeft?.x ?? 0.42) - (lipRight?.x ?? 0.58), (lipLeft?.y ?? 0.68) - (lipRight?.y ?? 0.68));
+          var lipTop = lmArr[13] || lmArr[0]; // upper lip center
+          var lipBot = lmArr[14] || lmArr[17]; // lower lip center
+          var lipLeft = lmArr[61] || lmArr[78]; // lip left corner
+          var lipRight = lmArr[291] || lmArr[308]; // lip right corner
+          var lipCenterX = ((lipTop?.x ?? 0.50) + (lipBot?.x ?? 0.50)) / 2;
+          var lipCenterY = ((lipTop?.y ?? 0.68) + (lipBot?.y ?? 0.70)) / 2;
+          var lipW = Math.hypot((lipLeft?.x ?? 0.42) - (lipRight?.x ?? 0.58), (lipLeft?.y ?? 0.68) - (lipRight?.y ?? 0.68));
 
           // ── Nose & face contour — LEGACY: only used by hidden 'glam'/'aurora' filters ──
           // (face_slim uses leftJaw/rightJaw/chin; contour uses noseTip/noseTop)
           // Not used by any currently-visible filter.
-          const noseTip = lmArr[4] || lmArr[1]; // nose tip
-          const noseTop = lmArr[168] || lmArr[6]; // nose bridge
-          const lJaw = lmArr[234] || lmArr[93]; // left jaw
-          const rJaw = lmArr[454] || lmArr[323]; // right jaw
-          const chin = lmArr[152] || lmArr[175]; // chin
-          const forehead = lmArr[10] || lmArr[151]; // forehead
+          var noseTip = lmArr[4] || lmArr[1]; // nose tip
+          var noseTop = lmArr[168] || lmArr[6]; // nose bridge
+          var lJaw = lmArr[234] || lmArr[93]; // left jaw
+          var rJaw = lmArr[454] || lmArr[323]; // right jaw
+          var chin = lmArr[152] || lmArr[175]; // chin
+          var forehead = lmArr[10] || lmArr[151]; // forehead
 
-          const leftEyeCenter = [li?.x ?? 0.35, li?.y ?? 0.40];
-          const rightEyeCenter = [ri?.x ?? 0.65, ri?.y ?? 0.40];
-          const eyeRadius = Math.max(0.035, eyeW * 1.3);
-          const leftCheek = [lc?.x ?? 0.28, lc?.y ?? 0.55];
-          const rightCheek = [rc?.x ?? 0.72, rc?.y ?? 0.55];
-          const cheekRadius = Math.max(0.07, eyeW * 1.65);
-          const lipCenter = [lipCenterX, lipCenterY];
-          const lipRadius = Math.max(0.045, lipW * 0.65);
-          const leftJaw = [lJaw?.x ?? 0.20, lJaw?.y ?? 0.70];
-          const rightJaw = [rJaw?.x ?? 0.80, rJaw?.y ?? 0.70];
-          const chinPos = [chin?.x ?? 0.50, chin?.y ?? 0.88];
-          const getPoly = indices => indices.map(i => {
-            const p = lmArr[i];
+          var leftEyeCenter = [li?.x ?? 0.35, li?.y ?? 0.40];
+          var rightEyeCenter = [ri?.x ?? 0.65, ri?.y ?? 0.40];
+          var eyeRadius = Math.max(0.035, eyeW * 1.3);
+          var leftCheek = [lc?.x ?? 0.28, lc?.y ?? 0.55];
+          var rightCheek = [rc?.x ?? 0.72, rc?.y ?? 0.55];
+          var cheekRadius = Math.max(0.07, eyeW * 1.65);
+          var lipCenter = [lipCenterX, lipCenterY];
+          var lipRadius = Math.max(0.045, lipW * 0.65);
+          var leftJaw = [lJaw?.x ?? 0.20, lJaw?.y ?? 0.70];
+          var rightJaw = [rJaw?.x ?? 0.80, rJaw?.y ?? 0.70];
+          var chinPos = [chin?.x ?? 0.50, chin?.y ?? 0.88];
+          var getPoly = indices => indices.map(i => {
+            var p = lmArr[i];
             return p ? [p.x, p.y] : null;
           }).filter(p => p !== null);
           return {
@@ -179,7 +179,7 @@ function useFaceLandmarks(videoRef) {
             lips: getPoly([61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 78])
           };
         });
-        const primary = faces[0];
+        var primary = faces[0];
         dataRef.current = {
           detected: true,
           faces,

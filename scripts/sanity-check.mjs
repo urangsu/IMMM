@@ -1628,7 +1628,46 @@ function checkBabelMigrationPlan() {
       console.error('❌ FAIL: scripts/build-precompile.mjs must not just warn on import/export');
       hasErrors = true;
     }
+    if (!buildScript.includes('plugin-transform-block-scoping')) {
+      console.error('❌ FAIL: scripts/build-precompile.mjs missing @babel/plugin-transform-block-scoping (required to prevent classic script lexical collision)');
+      hasErrors = true;
+    }
   }
+
+  const pkgJson = readFile('package.json');
+  if (pkgJson && !pkgJson.includes('plugin-transform-block-scoping')) {
+    console.error('❌ FAIL: package.json missing @babel/plugin-transform-block-scoping');
+    hasErrors = true;
+  }
+
+  // Multi-script classic global lexical collision guard
+  const distFiles = ['dist/app.js', 'dist/filters.js', 'dist/webgl-engine.js',
+    'dist/mediapipe-face.js', 'dist/sticker-engine.js', 'dist/frame-system.js',
+    'dist/screens-v2.js', 'dist/screens-v2-rest.js', 'dist/screens-v2-deco.js', 'dist/main.js'];
+  const collisionSymbols = ['ZoomMinusIcon', 'ZoomPlusIcon'];
+  collisionSymbols.forEach(sym => {
+    let count = 0;
+    distFiles.forEach(df => {
+      const content = readFile(df);
+      if (content && new RegExp(`const ${sym}\\b`).test(content)) count++;
+    });
+    if (count > 0) {
+      console.error(`❌ FAIL: dist contains top-level 'const ${sym}' — will cause SyntaxError in classic multi-script context`);
+      hasErrors = true;
+    }
+  });
+  distFiles.forEach(df => {
+    const content = readFile(df);
+    if (content && /^const /m.test(content)) {
+      console.error(`❌ FAIL: ${df} contains top-level const — block-scoping transform must convert all const/let to var`);
+      hasErrors = true;
+    }
+    if (content && /^let /m.test(content)) {
+      console.error(`❌ FAIL: ${df} contains top-level let — block-scoping transform must convert all const/let to var`);
+      hasErrors = true;
+    }
+  });
+
 
   // Workspace Hygiene & QA Truth Checks
   const gitignore = readFile('.gitignore');

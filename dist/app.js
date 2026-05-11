@@ -1,6 +1,6 @@
 // app.jsx — IMMM photobooth prototype core
 
-const {
+var {
   useState,
   useEffect,
   useRef,
@@ -11,7 +11,7 @@ const {
 // ═══════════════════════════════════════════════════════════════
 // Design tokens
 // ═══════════════════════════════════════════════════════════════
-const TOKENS = {
+var TOKENS = {
   A: {
     // Clean Cotton (Premium UI Refresh)
     bg: '#FCFCFA',
@@ -41,7 +41,7 @@ const TOKENS = {
 // ═══════════════════════════════════════════════════════════════
 // Tiny icon set — 1.5px stroke, rounded caps
 // ═══════════════════════════════════════════════════════════════
-const I = {
+var I = {
   camera: (s = 20, c = 'currentColor') => /*#__PURE__*/React.createElement("svg", {
     width: s,
     height: s,
@@ -320,7 +320,7 @@ const I = {
   }))
 };
 function getShotCountForLayout(layout) {
-  const getShotCount = window.getShotCountForFrameSafe || window.getShotCountForFrame || (typeof getShotCountForFrame === 'function' ? getShotCountForFrame : null);
+  var getShotCount = window.getShotCountForFrameSafe || window.getShotCountForFrame || (typeof getShotCountForFrame === 'function' ? getShotCountForFrame : null);
   if (getShotCount) return getShotCount(layout);
   if (layout === 'polaroid') return 1;
   if (layout === 'trip') return 3;
@@ -341,15 +341,15 @@ function Starburst({
   h = 70
 }) {
   // 16-point starburst path
-  const cx = w / 2,
+  var cx = w / 2,
     cy = h / 2,
     rO = Math.min(w, h) / 2 - 2,
     rI = rO * 0.74;
-  const pts = [];
-  const N = 14;
-  for (let i = 0; i < N * 2; i++) {
-    const r = i % 2 === 0 ? rO : rI;
-    const a = i / (N * 2) * Math.PI * 2 - Math.PI / 2;
+  var pts = [];
+  var N = 14;
+  for (var i = 0; i < N * 2; i++) {
+    var r = i % 2 === 0 ? rO : rI;
+    var a = i / (N * 2) * Math.PI * 2 - Math.PI / 2;
     pts.push(`${cx + Math.cos(a) * r},${cy + Math.sin(a) * r}`);
   }
   return /*#__PURE__*/React.createElement("svg", {
@@ -461,7 +461,7 @@ function MiniSticker({
   }));
   return null;
 }
-const RETRO_STICKERS = [{
+var RETRO_STICKERS = [{
   id: 's1',
   type: 'burst',
   text: '다 같이!',
@@ -540,7 +540,7 @@ const RETRO_STICKERS = [{
   tc: '#D81B60',
   w: 105
 }];
-const MINIMAL_STICKERS = [{
+var MINIMAL_STICKERS = [{
   id: 'm1',
   type: 'mini',
   kind: 'heart',

@@ -277,6 +277,47 @@ QA steps (Reference):
 
 ---
 
+## Precompiled Global Lexical Collision Hotfix (Phase 3.46)
+- [x] Root cause documented: classic script top-level const/let collision
+- [x] `ZoomMinusIcon` redeclaration error reproduced
+- [x] `@babel/plugin-transform-block-scoping` added
+- [x] dist regenerated through build script
+- [x] `const ZoomMinusIcon` removed from dist output
+- [x] multi-script lexical collision sanity guard added
+- [x] legacy index.html preserved
+- [x] main entry switch not performed
+- [x] Desktop Chrome precompiled boot actually verified after hotfix
+- [x] Desktop Chrome setup flow actually verified after hotfix
+- [ ] Galaxy S23+ precompiled boot actually verified after hotfix
+
+### Error
+- message: Identifier 'ZoomMinusIcon' has already been declared
+- file: dist/screens-v2-deco.js
+- cause: top-level lexical binding collision across classic scripts (const ZoomMinusIcon declared in both screens-v2.js and screens-v2-deco.js)
+
+### Fix
+- method: Babel block scoping transform (`@babel/plugin-transform-block-scoping`)
+- result: all top-level const/let converted to var — no more SyntaxError on re-declaration
+- build verified: top-level `const ` / `let ` count in dist = 0
+
+### Desktop Chrome Actual Result (Post-Hotfix)
+- date: 2026-05-11
+- browser: Chrome (Desktop)
+- URL: http://localhost:4173/index.precompiled.html
+- boot error overlay: None (confirmed: no overlay)
+- ZoomMinusIcon SyntaxError: None (resolved)
+- console errors: None observed
+- landing: ✅ Displayed — "My moments. Uniquely Mine." heading visible
+- setup: ✅ Displayed — frame picker (1×4 Strip, 1×3, 2×2 Grid, 1×1 Polaroid) visible
+- capture: Pending (not tested this session)
+- select: Pending
+- deco: Pending
+- result: Pending
+- save: Pending
+
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안

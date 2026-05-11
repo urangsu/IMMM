@@ -50,6 +50,9 @@ async function build() {
         presets: [
           ['@babel/preset-react', { runtime: 'classic' }]
         ],
+        plugins: [
+          '@babel/plugin-transform-block-scoping'
+        ],
         sourceMaps: false,
         compact: false,
         comments: true,

@@ -1,6 +1,6 @@
 // screens-v2-deco.jsx — Deco Studio + Result
 
-const ZoomMinusIcon = () => /*#__PURE__*/React.createElement("svg", {
+var ZoomMinusIcon = () => /*#__PURE__*/React.createElement("svg", {
   width: "18",
   height: "18",
   viewBox: "0 0 18 18",
@@ -12,7 +12,7 @@ const ZoomMinusIcon = () => /*#__PURE__*/React.createElement("svg", {
   strokeWidth: "2.4",
   strokeLinecap: "round"
 }));
-const ZoomPlusIcon = () => /*#__PURE__*/React.createElement("svg", {
+var ZoomPlusIcon = () => /*#__PURE__*/React.createElement("svg", {
   width: "18",
   height: "18",
   viewBox: "0 0 18 18",
@@ -35,7 +35,7 @@ function revokeBlobUrl(url) {
     } catch (e) {}
   }
 }
-const zoomBtnStyle = {
+var zoomBtnStyle = {
   width: 56,
   height: 56,
   borderRadius: 999,
@@ -51,7 +51,7 @@ const zoomBtnStyle = {
   lineHeight: 0,
   boxShadow: '0 8px 24px rgba(0,0,0,0.16)'
 };
-const getDecoFitMaxScale = (layout, mobile) => {
+var getDecoFitMaxScale = (layout, mobile) => {
   if (!mobile) return 1.5;
   if (layout === 'strip') return 0.55;
   if (layout === 'trip') return 0.68;
@@ -86,25 +86,25 @@ function DecoV2({
   accent,
   frameColor
 }) {
-  const [tab, setTab] = React.useState('stickers'); // stickers | draw | text
-  const [selStId, setSelStId] = React.useState(null);
-  const [drawColor, setDrawColor] = React.useState('#D98893');
-  const [drawMode, setDrawMode] = React.useState(false);
-  const drawModeRef = React.useRef(false);
-  const [drawWidth, setDrawWidth] = React.useState(3);
-  const [drawBrush, setDrawBrush] = React.useState('pen'); // pen | sparkle
-  const [textInput, setTextInput] = React.useState('');
-  const fileRef = React.useRef(null);
-  const curStrokeRef = React.useRef(null);
-  const curPathElRef = React.useRef(null);
-  const curPathDRef = React.useRef('');
-  const [drawVersion, setDrawVersion] = React.useState(0);
-  const drawRafRef = React.useRef(null);
+  var [tab, setTab] = React.useState('stickers'); // stickers | draw | text
+  var [selStId, setSelStId] = React.useState(null);
+  var [drawColor, setDrawColor] = React.useState('#D98893');
+  var [drawMode, setDrawMode] = React.useState(false);
+  var drawModeRef = React.useRef(false);
+  var [drawWidth, setDrawWidth] = React.useState(3);
+  var [drawBrush, setDrawBrush] = React.useState('pen'); // pen | sparkle
+  var [textInput, setTextInput] = React.useState('');
+  var fileRef = React.useRef(null);
+  var curStrokeRef = React.useRef(null);
+  var curPathElRef = React.useRef(null);
+  var curPathDRef = React.useRef('');
+  var [drawVersion, setDrawVersion] = React.useState(0);
+  var drawRafRef = React.useRef(null);
 
   // One-time font readiness gate — keeps preview/export text rendering consistent
-  const [fontsReady, setFontsReady] = React.useState(false);
+  var [fontsReady, setFontsReady] = React.useState(false);
   React.useEffect(() => {
-    let alive = true;
+    var alive = true;
     if (document.fonts?.ready) {
       document.fonts.ready.then(() => {
         if (alive) setFontsReady(true);
@@ -126,14 +126,14 @@ function DecoV2({
       }
     };
   }, []);
-  const requestDrawRefresh = React.useCallback(() => {
+  var requestDrawRefresh = React.useCallback(() => {
     if (drawRafRef.current) return;
     drawRafRef.current = requestAnimationFrame(() => {
       drawRafRef.current = null;
       setDrawVersion(v => v + 1);
     });
   }, []);
-  const getDecoInitialPresetScale = item => {
+  var getDecoInitialPresetScale = item => {
     if (!item) return 1;
     if (item.type === 'mini') return 1.25;
     if (item.type === 'immm-logo') return 1.0;
@@ -141,9 +141,9 @@ function DecoV2({
     if (item.type === 'burst' || item.type === 'cloud') return 1.0;
     return 1;
   };
-  const addPreset = libId => {
-    const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
-    const sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
+  var addPreset = libId => {
+    var item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
+    var sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
     setStickers(p => [...p, makeSticker('preset', {
       libId
     }, {
@@ -151,15 +151,15 @@ function DecoV2({
       scale: 1
     })]);
   };
-  const addUpload = dataUrl => setStickers(p => [...p, makeSticker('upload', {
+  var addUpload = dataUrl => setStickers(p => [...p, makeSticker('upload', {
     dataUrl
   }, {
     scale: 0.6
   })]);
-  const addText = () => {
+  var addText = () => {
     if (!textInput.trim()) return;
-    const rect = frameNativeRef.current?.getBoundingClientRect();
-    const sizeNorm = rect?.width ? 32 / rect.width : null;
+    var rect = frameNativeRef.current?.getBoundingClientRect();
+    var sizeNorm = rect?.width ? 32 / rect.width : null;
     setStickers(p => [...p, makeSticker('text', {
       text: textInput,
       font: 'Caveat',
@@ -170,23 +170,23 @@ function DecoV2({
     })]);
     setTextInput('');
   };
-  const onFile = e => {
-    const f = e.target.files?.[0];
+  var onFile = e => {
+    var f = e.target.files?.[0];
     if (!f) return;
-    const rd = new FileReader();
+    var rd = new FileReader();
     rd.onload = () => addUpload(rd.result);
     rd.readAsDataURL(f);
   };
-  const shotsForFrame = shots;
+  var shotsForFrame = shots;
 
   // Draw handlers
-  const toggleDrawMode = () => {
-    const next = !drawModeRef.current;
+  var toggleDrawMode = () => {
+    var next = !drawModeRef.current;
     drawModeRef.current = next;
     setDrawMode(next);
     if (next) setSelStId(null); // deselect stickers when entering draw mode
   };
-  const onDrawStart = React.useCallback(e => {
+  var onDrawStart = React.useCallback(e => {
     if (!drawModeRef.current || !frameNativeRef.current) return;
     e.stopPropagation();
     e.preventDefault();
@@ -194,13 +194,13 @@ function DecoV2({
     if (e.pointerId != null && e.currentTarget?.setPointerCapture) {
       e.currentTarget.setPointerCapture(e.pointerId);
     }
-    const rect = frameNativeRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * 100;
-    const y = (e.clientY - rect.top) / rect.height * 100;
+    var rect = frameNativeRef.current.getBoundingClientRect();
+    var x = (e.clientX - rect.left) / rect.width * 100;
+    var y = (e.clientY - rect.top) / rect.height * 100;
     // Store normalized width so export renders at same visual size regardless of canvas scale
-    const widthNorm = rect.width > 0 ? drawWidth / rect.width : null;
+    var widthNorm = rect.width > 0 ? drawWidth / rect.width : null;
     // High-entropy seed: avoids collision even when multiple strokes start same ms
-    const seed = Math.floor(performance.now() * 1000) ^ Math.floor(Math.random() * 1e9);
+    var seed = Math.floor(performance.now() * 1000) ^ Math.floor(Math.random() * 1e9);
     curStrokeRef.current = {
       color: drawColor,
       width: drawWidth,
@@ -218,12 +218,12 @@ function DecoV2({
       curPathElRef.current.setAttribute('stroke-width', drawWidth);
     }
   }, [drawColor, drawWidth, drawBrush]);
-  const onDrawMove = React.useCallback(e => {
+  var onDrawMove = React.useCallback(e => {
     if (!drawModeRef.current || !frameNativeRef.current || !curStrokeRef.current) return;
     e.preventDefault();
-    const rect = frameNativeRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * 100;
-    const y = (e.clientY - rect.top) / rect.height * 100;
+    var rect = frameNativeRef.current.getBoundingClientRect();
+    var x = (e.clientX - rect.left) / rect.width * 100;
+    var y = (e.clientY - rect.top) / rect.height * 100;
     curStrokeRef.current.points.push([x, y]);
     curPathDRef.current += ` L${x} ${y}`;
     if (curPathElRef.current) {
@@ -231,14 +231,14 @@ function DecoV2({
     }
     requestDrawRefresh();
   }, [requestDrawRefresh]);
-  const onDrawEnd = React.useCallback(e => {
+  var onDrawEnd = React.useCallback(e => {
     if (e?.pointerId != null && e.currentTarget?.releasePointerCapture) {
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch (_) {}
     }
     if (curStrokeRef.current && curStrokeRef.current.points.length > 1) {
-      const stroke = curStrokeRef.current;
+      var stroke = curStrokeRef.current;
       setDrawStrokes(p => [...p.filter(Boolean), stroke]);
     }
     curStrokeRef.current = null;
@@ -246,31 +246,31 @@ function DecoV2({
       curPathElRef.current.setAttribute('d', '');
     }
   }, [setDrawStrokes]);
-  const undoStroke = () => setDrawStrokes(p => p.slice(0, -1));
-  const clearDraw = () => setDrawStrokes([]);
-  const previewContainerRef = React.useRef(null);
-  const frameNativeRef = React.useRef(null);
-  const [zoom, setZoom] = React.useState(() => getDecoFitMaxScale(layout, mobile));
+  var undoStroke = () => setDrawStrokes(p => p.slice(0, -1));
+  var clearDraw = () => setDrawStrokes([]);
+  var previewContainerRef = React.useRef(null);
+  var frameNativeRef = React.useRef(null);
+  var [zoom, setZoom] = React.useState(() => getDecoFitMaxScale(layout, mobile));
   React.useEffect(() => {
-    const fit = () => {
+    var fit = () => {
       if (!previewContainerRef.current || !frameNativeRef.current) return;
-      const cW = previewContainerRef.current.clientWidth - 40;
-      const cH = previewContainerRef.current.clientHeight - 40;
-      const fW = frameNativeRef.current.offsetWidth;
-      const fH = frameNativeRef.current.offsetHeight;
+      var cW = previewContainerRef.current.clientWidth - 40;
+      var cH = previewContainerRef.current.clientHeight - 40;
+      var fW = frameNativeRef.current.offsetWidth;
+      var fH = frameNativeRef.current.offsetHeight;
       if (!fW || !fH) return;
-      const maxS = getDecoFitMaxScale(layout, mobile);
-      const s = Math.min(maxS, cW / fW, cH / fH);
+      var maxS = getDecoFitMaxScale(layout, mobile);
+      var s = Math.min(maxS, cW / fW, cH / fH);
       setZoom(Math.max(0.2, s));
     };
     fit();
-    const ro = new ResizeObserver(fit);
+    var ro = new ResizeObserver(fit);
     if (previewContainerRef.current) ro.observe(previewContainerRef.current);
     return () => ro.disconnect();
   }, [layout, mobile]);
-  const zoomIn = () => setZoom(z => Math.min(3, +(z + 0.15).toFixed(2)));
-  const zoomOut = () => setZoom(z => Math.max(0.2, +(z - 0.15).toFixed(2)));
-  const resolveFrameTemplate = layout => {
+  var zoomIn = () => setZoom(z => Math.min(3, +(z + 0.15).toFixed(2)));
+  var zoomOut = () => setZoom(z => Math.max(0.2, +(z - 0.15).toFixed(2)));
+  var resolveFrameTemplate = layout => {
     if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
       return window.getFrameTemplateSafe(layout);
     }
@@ -280,7 +280,7 @@ function DecoV2({
     console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
     return null;
   };
-  const zoomControls = /*#__PURE__*/React.createElement("div", {
+  var zoomControls = /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       bottom: 18,
@@ -300,24 +300,24 @@ function DecoV2({
     style: zoomBtnStyle,
     "aria-label": "Zoom in"
   }, /*#__PURE__*/React.createElement(ZoomPlusIcon, null)));
-  const compositionCanvasRef = React.useRef(null);
-  const renderSeqRef = React.useRef(0);
+  var compositionCanvasRef = React.useRef(null);
+  var renderSeqRef = React.useRef(0);
   React.useEffect(() => {
-    let cancelled = false;
-    const draw = async () => {
+    var cancelled = false;
+    var draw = async () => {
       if (cancelled || !compositionCanvasRef.current || !fontsReady) return;
-      const cvs = compositionCanvasRef.current;
-      const ctx = cvs.getContext('2d');
+      var cvs = compositionCanvasRef.current;
+      var ctx = cvs.getContext('2d');
       if (!ctx) return;
-      const seq = ++renderSeqRef.current;
-      const template = resolveFrameTemplate(layout);
+      var seq = ++renderSeqRef.current;
+      var template = resolveFrameTemplate(layout);
       if (!template) {
         console.warn('[IMMM] skip draw: frame template unavailable', layout);
         return;
       }
-      const baseW = template.canvasSize.width;
-      const baseH = template.canvasSize.height;
-      const data = {
+      var baseW = template.canvasSize.width;
+      var baseH = template.canvasSize.height;
+      var data = {
         layout,
         shots,
         selected,
@@ -332,12 +332,12 @@ function DecoV2({
       };
 
       // Render to offscreen canvas to prevent tearing/flickering
-      const off = document.createElement('canvas');
+      var off = document.createElement('canvas');
       off.width = baseW;
       off.height = baseH;
-      const offCtx = off.getContext('2d');
+      var offCtx = off.getContext('2d');
       if (!offCtx) return;
-      const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+      var renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) {
         await renderComp(offCtx, data, {
           scale: 1
@@ -352,35 +352,35 @@ function DecoV2({
       ctx.drawImage(off, 0, 0);
     };
     // RAF-only: avoids double render per dependency change
-    const raf = requestAnimationFrame(draw);
+    var raf = requestAnimationFrame(draw);
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
     };
   }, [fontsReady, layout, shots, selected, filter, frameColor, stickers, drawStrokes, drawVersion, logo, dateText, accent, orientation, drawMode]);
-  const frameW = layout === 'strip' || layout === 'trip' ? 180 : 220;
+  var frameW = layout === 'strip' || layout === 'trip' ? 180 : 220;
 
   // Compute ratio of CSS displayed size to native canvas size.
   // composition canvas renders at native baseW×baseH, but CSS displays at frameW wide.
   // hitbox bounds (in CSS px) = native bounds × (cssSize / nativeSize).
   // Do NOT use getBoundingClientRect here — it reflects zoom transform.
-  const decoScale = React.useMemo(() => {
-    const resolveFrameTemplate = l => {
+  var decoScale = React.useMemo(() => {
+    var resolveFrameTemplate = l => {
       if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
       if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
       return null;
     };
-    const tmpl = resolveFrameTemplate(layout);
-    const baseW = tmpl?.canvasSize?.width || 880;
-    const baseH = tmpl?.canvasSize?.height || 1070;
-    const cssW = frameW;
-    const cssH = frameW * (baseH / baseW);
+    var tmpl = resolveFrameTemplate(layout);
+    var baseW = tmpl?.canvasSize?.width || 880;
+    var baseH = tmpl?.canvasSize?.height || 1070;
+    var cssW = frameW;
+    var cssH = frameW * (baseH / baseW);
     return {
       x: cssW / baseW,
       y: cssH / baseH
     };
   }, [layout, frameW]);
-  const preview = /*#__PURE__*/React.createElement("div", {
+  var preview = /*#__PURE__*/React.createElement("div", {
     ref: previewContainerRef,
     style: {
       display: 'flex',
@@ -434,8 +434,8 @@ function DecoV2({
   })), zoomControls);
 
   // Sticker layer controls (only when one is selected)
-  const selSticker = stickers.find(s => s.id === selStId);
-  const layerBar = selSticker && /*#__PURE__*/React.createElement("div", {
+  var selSticker = stickers.find(s => s.id === selStId);
+  var layerBar = selSticker && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 6,
@@ -470,14 +470,14 @@ function DecoV2({
       color: '#fff'
     }
   }, "Remove"));
-  const [setlogTime, setSetlogTime] = React.useState(() => {
-    const now = new Date();
+  var [setlogTime, setSetlogTime] = React.useState(() => {
+    var now = new Date();
     return `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
   });
-  const [setlogCaption, setSetlogCaption] = React.useState('');
-  const [setlogTheme, setSetlogTheme] = React.useState('white'); // white | black
-  const [expandedPacks, setExpandedPacks] = React.useState({});
-  const addSetlog = () => {
+  var [setlogCaption, setSetlogCaption] = React.useState('');
+  var [setlogTheme, setSetlogTheme] = React.useState('white'); // white | black
+  var [expandedPacks, setExpandedPacks] = React.useState({});
+  var addSetlog = () => {
     setStickers(p => [...p, makeSticker('setlog', {
       time: setlogTime,
       caption: setlogCaption,
@@ -486,7 +486,7 @@ function DecoV2({
       rotation: 0
     })]);
   };
-  const stickerTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
+  var stickerTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
     T: T
   }, "TIME \xB7 \uC2DC\uAC04 \uAE30\uB85D"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -695,7 +695,7 @@ function DecoV2({
       overflow: 'hidden'
     }
   }, "+", pack.items.length - 5)))));
-  const drawTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  var drawTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       justifyContent: 'space-between',
@@ -856,7 +856,7 @@ function DecoV2({
       boxShadow: drawColor === c ? '0 0 0 2px ' + T.ink + ', 0 0 0 3px ' + T.bg : '0 0 0 1px rgba(0,0,0,0.1)'
     }
   }))));
-  const textTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
+  var textTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
     T: T
   }, "Add text \xB7 \uD14D\uC2A4\uD2B8"), /*#__PURE__*/React.createElement("input", {
     value: textInput,
@@ -906,8 +906,8 @@ function DecoV2({
       cursor: 'pointer'
     }
   }, "Add to frame"));
-  const tabContent = tab === 'stickers' ? stickerTab : tab === 'draw' ? drawTab : textTab;
-  const tabBar = /*#__PURE__*/React.createElement("div", {
+  var tabContent = tab === 'stickers' ? stickerTab : tab === 'draw' ? drawTab : textTab;
+  var tabBar = /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 0,
@@ -1122,8 +1122,8 @@ function ResultPrintIntro({
   layout,
   previewSrc
 }) {
-  const prefersReducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const duration = prefersReducedMotion ? 500 : 2000;
+  var prefersReducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var duration = prefersReducedMotion ? 500 : 2000;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
@@ -1231,8 +1231,8 @@ function ResultV2({
   accent,
   frameColor
 }) {
-  const shotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
-  const getResultPreviewBaseWidth = (layoutId, isMobile) => {
+  var shotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
+  var getResultPreviewBaseWidth = (layoutId, isMobile) => {
     if (isMobile) {
       if (layoutId === 'strip') return 230;
       if (layoutId === 'trip') return 240;
@@ -1244,8 +1244,8 @@ function ResultV2({
     if (layoutId === 'polaroid') return 360;
     return 360;
   };
-  const getResultPreviewFit = (layoutId, isMobile) => {
-    const rules = {
+  var getResultPreviewFit = (layoutId, isMobile) => {
+    var rules = {
       strip: {
         maxScale: isMobile ? 1.6 : 2.8,
         targetHeightVh: isMobile ? 50 : 58,
@@ -1273,7 +1273,7 @@ function ResultV2({
     };
     return rules[layoutId] || rules.grid;
   };
-  const getResultDisplayFit = (layoutId, isMobile) => {
+  var getResultDisplayFit = (layoutId, isMobile) => {
     if (layoutId === 'strip') {
       return {
         minScale: isMobile ? 0.76 : 0.70,
@@ -1300,7 +1300,7 @@ function ResultV2({
       minHeightPx: isMobile ? 360 : 440
     };
   };
-  const resultStageHeight = (() => {
+  var resultStageHeight = (() => {
     if (layout === 'strip') {
       return mobile ? 'clamp(420px, 52vh, 600px)' : 'clamp(520px, 58vh, 700px)';
     }
@@ -1309,34 +1309,34 @@ function ResultV2({
     }
     return mobile ? 'clamp(360px, 44vh, 500px)' : 'clamp(440px, 48vh, 600px)';
   })();
-  const shotsForFrame = shots;
-  const freeStickers = stickers.filter(s => s.frameSlot == null);
-  const slottedMap = {};
+  var shotsForFrame = shots;
+  var freeStickers = stickers.filter(s => s.frameSlot == null);
+  var slottedMap = {};
   stickers.filter(s => s.frameSlot != null).forEach(s => {
     if (!slottedMap[s.frameSlot]) slottedMap[s.frameSlot] = [];
     slottedMap[s.frameSlot].push(s);
   });
-  const compositionCanvasRef = React.useRef(null);
-  const [resultPreviewSrc, setResultPreviewSrc] = React.useState(null);
-  const [resultPreviewStatus, setResultPreviewStatus] = React.useState('idle'); // idle | building | ready | error
-  const [resultPreviewError, setResultPreviewError] = React.useState('');
+  var compositionCanvasRef = React.useRef(null);
+  var [resultPreviewSrc, setResultPreviewSrc] = React.useState(null);
+  var [resultPreviewStatus, setResultPreviewStatus] = React.useState('idle'); // idle | building | ready | error
+  var [resultPreviewError, setResultPreviewError] = React.useState('');
   async function renderFinalResultBlob() {
-    const resolveTpl = l => {
+    var resolveTpl = l => {
       if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
       if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
       return null;
     };
-    const template = resolveTpl(layout);
+    var template = resolveTpl(layout);
     if (!template) throw new Error('Frame template unavailable');
-    const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+    var renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
     if (!renderComp) throw new Error('renderComposition function missing');
     if (!shots || shots.length === 0) throw new Error('No shots available');
-    const canvas = document.createElement('canvas');
+    var canvas = document.createElement('canvas');
     canvas.width = template.canvasSize.width;
     canvas.height = template.canvasSize.height;
-    const ctx = canvas.getContext('2d');
+    var ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Failed to get context');
-    const data = {
+    var data = {
       layout,
       shots,
       selected,
@@ -1358,17 +1358,17 @@ function ResultV2({
       }, 'image/png', 1);
     });
   }
-  const buildFinalResultAsset = async () => {
+  var buildFinalResultAsset = async () => {
     if (resultPreviewStatus === 'building') return;
     setResultPreviewStatus('building');
     setResultPreviewError('');
     try {
       // 1. Generate high-quality blob using direct offscreen render
-      const blob = await renderFinalResultBlob();
+      var blob = await renderFinalResultBlob();
       if (!blob) throw new Error('결과물을 생성하지 못했습니다');
 
       // 2. Create local URL for preview <img>
-      const url = URL.createObjectURL(blob);
+      var url = URL.createObjectURL(blob);
 
       // Explicit Owner Cleanup: Revoke previous preview URL before setting new one
       revokeBlobUrl(resultPreviewUrlRef.current);
@@ -1403,7 +1403,7 @@ function ResultV2({
       saveSheetUrlRef.current = null;
     };
   }, []);
-  const resultFrame = scale => /*#__PURE__*/React.createElement("div", {
+  var resultFrame = scale => /*#__PURE__*/React.createElement("div", {
     style: {
       transform: `scale(${scale})`,
       transformOrigin: 'center',
@@ -1479,59 +1479,59 @@ function ResultV2({
       cursor: 'pointer'
     }
   }, "Retry"))));
-  const containerRef = React.useRef(null);
-  const frameRef = React.useRef(null);
-  const captureRef = React.useRef(null);
-  const [autoScale, setAutoScale] = React.useState(mobile ? 1.0 : 1.3);
-  const [downloading, setDownloading] = React.useState(false);
-  const [sharing, setSharing] = React.useState(false);
-  const [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
-  const resultPreviewUrlRef = React.useRef(null);
-  const saveSheetUrlRef = React.useRef(null);
-  const [qrShare, setQrShare] = React.useState(null);
-  const [qrBusy, setQrBusy] = React.useState(false);
-  const [showMoreActions, setShowMoreActions] = React.useState(false);
-  const [toasts, setToasts] = React.useState([]);
-  const [showPrintIntro, setShowPrintIntro] = React.useState(false);
-  const autoSavedRef = React.useRef(false);
-  const revokeSaveSheetUrl = () => {
+  var containerRef = React.useRef(null);
+  var frameRef = React.useRef(null);
+  var captureRef = React.useRef(null);
+  var [autoScale, setAutoScale] = React.useState(mobile ? 1.0 : 1.3);
+  var [downloading, setDownloading] = React.useState(false);
+  var [sharing, setSharing] = React.useState(false);
+  var [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
+  var resultPreviewUrlRef = React.useRef(null);
+  var saveSheetUrlRef = React.useRef(null);
+  var [qrShare, setQrShare] = React.useState(null);
+  var [qrBusy, setQrBusy] = React.useState(false);
+  var [showMoreActions, setShowMoreActions] = React.useState(false);
+  var [toasts, setToasts] = React.useState([]);
+  var [showPrintIntro, setShowPrintIntro] = React.useState(false);
+  var autoSavedRef = React.useRef(false);
+  var revokeSaveSheetUrl = () => {
     revokeBlobUrl(saveSheetUrlRef.current);
     saveSheetUrlRef.current = null;
     setSaveSheetUrl(null);
   };
   React.useEffect(() => {
     if (!showPrintIntro) return;
-    const prefersReducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = prefersReducedMotion ? 750 : 2300;
-    const timer = setTimeout(() => setShowPrintIntro(false), duration);
+    var prefersReducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var duration = prefersReducedMotion ? 750 : 2300;
+    var timer = setTimeout(() => setShowPrintIntro(false), duration);
     return () => clearTimeout(timer);
   }, [showPrintIntro]);
-  const addToast = (msg, duration = 2500) => {
-    const id = Date.now();
+  var addToast = (msg, duration = 2500) => {
+    var id = Date.now();
     setToasts(p => [...p, {
       id,
       msg
     }]);
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), duration);
   };
-  const getFormattedFilename = () => {
-    const now = new Date();
-    const YYYY = now.getFullYear();
-    const MM = String(now.getMonth() + 1).padStart(2, '0');
-    const DD = String(now.getDate()).padStart(2, '0');
-    const HH = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
+  var getFormattedFilename = () => {
+    var now = new Date();
+    var YYYY = now.getFullYear();
+    var MM = String(now.getMonth() + 1).padStart(2, '0');
+    var DD = String(now.getDate()).padStart(2, '0');
+    var HH = String(now.getHours()).padStart(2, '0');
+    var mm = String(now.getMinutes()).padStart(2, '0');
     return `IMMM_${YYYY}-${MM}-${DD}_${HH}${mm}.png`;
   };
-  const exportBlobRef = React.useRef({
+  var exportBlobRef = React.useRef({
     key: null,
     blob: null
   });
-  const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-  const saveResultToGallery = async (blob, source = 'local', shareInfo = null) => {
+  var isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  var saveResultToGallery = async (blob, source = 'local', shareInfo = null) => {
     if (!blob || typeof LocalGalleryStore === 'undefined') return;
     try {
-      const stableId = ['immm', layout, selected.map(i => shots[i]?.ts || i).join('-'), stickers.length, drawStrokes.length].join('_');
+      var stableId = ['immm', layout, selected.map(i => shots[i]?.ts || i).join('-'), stickers.length, drawStrokes.length].join('_');
       await LocalGalleryStore.putPhoto({
         id: stableId,
         createdAt: Date.now(),
@@ -1539,7 +1539,7 @@ function ResultV2({
         blob,
         layout,
         frameType: (() => {
-          const getTpl = window.getFrameTemplateSafe || window.getFrameTemplate || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
+          var getTpl = window.getFrameTemplateSafe || window.getFrameTemplate || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
           return getTpl ? getTpl(layout).type : layout;
         })(),
         filter,
@@ -1554,11 +1554,11 @@ function ResultV2({
       console.warn('[IMMM] Local gallery save failed:', e);
     }
   };
-  const getExportKey = () => [layout, frameColor, logo ? 'logo' : 'nologo', dateText ? 'date' : 'nodate', selected.map(i => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 32) || i).join('-'), stickers.map(s => `${s.id}:${s.x}:${s.y}:${s.scale}:${s.rotation}:${s.frameSlot ?? 'free'}`).join('|'), drawStrokes.length].join('::');
-  const drawCover = (ctx, img, x, y, w, h) => {
-    const ar = img.width / img.height;
-    const dar = w / h;
-    let sx, sy, sw, sh;
+  var getExportKey = () => [layout, frameColor, logo ? 'logo' : 'nologo', dateText ? 'date' : 'nodate', selected.map(i => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 32) || i).join('-'), stickers.map(s => `${s.id}:${s.x}:${s.y}:${s.scale}:${s.rotation}:${s.frameSlot ?? 'free'}`).join('|'), drawStrokes.length].join('::');
+  var drawCover = (ctx, img, x, y, w, h) => {
+    var ar = img.width / img.height;
+    var dar = w / h;
+    var sx, sy, sw, sh;
     if (ar > dar) {
       sh = img.height;
       sw = sh * dar;
@@ -1572,27 +1572,27 @@ function ResultV2({
     }
     ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
   };
-  const drawStickerToCanvas = async (ctx, s, baseW, baseH, S) => {
+  var drawStickerToCanvas = async (ctx, s, baseW, baseH, S) => {
     ctx.save();
-    const cx = s.x / 100 * baseW;
-    const cy = s.y / 100 * baseH;
+    var cx = s.x / 100 * baseW;
+    var cy = s.y / 100 * baseH;
     ctx.translate(cx, cy);
     ctx.rotate((s.rotation || 0) * Math.PI / 180);
     ctx.scale(s.scale || 1, s.scale || 1);
     if (s.kind === 'preset') {
-      const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(s.payload.libId) : null;
+      var item = typeof getStickerByLibId === 'function' ? getStickerByLibId(s.payload.libId) : null;
       if (item) {
         if (item.type === 'burst') {
-          const w = (item.w || 90) * S,
+          var w = (item.w || 90) * S,
             h = (item.h || 70) * S;
-          const fs = (item.fs || 11) * S;
-          const rO = Math.min(w, h) / 2 - 2 * S,
+          var fs = (item.fs || 11) * S;
+          var rO = Math.min(w, h) / 2 - 2 * S,
             rI = rO * 0.74;
-          const N = 14;
+          var N = 14;
           ctx.beginPath();
-          for (let i = 0; i < N * 2; i++) {
-            const r = i % 2 === 0 ? rO : rI;
-            const a = i / (N * 2) * Math.PI * 2 - Math.PI / 2;
+          for (var i = 0; i < N * 2; i++) {
+            var r = i % 2 === 0 ? rO : rI;
+            var a = i / (N * 2) * Math.PI * 2 - Math.PI / 2;
             ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
           }
           ctx.closePath();
@@ -1607,24 +1607,24 @@ function ResultV2({
           ctx.textBaseline = 'middle';
           ctx.fillText(item.text, 0, fs * 0.1);
         } else if (item.type === 'cloud') {
-          const w = (item.w || 100) * S,
-            h = (item.h || 60) * S;
-          const fs = (item.fs || 11) * S;
+          var _w = (item.w || 100) * S,
+            _h = (item.h || 60) * S;
+          var _fs = (item.fs || 11) * S;
           ctx.beginPath();
           // Simplified cloud path for canvas
-          ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+          ctx.ellipse(0, 0, _w / 2, _h / 2, 0, 0, Math.PI * 2);
           ctx.fillStyle = item.fill;
           ctx.strokeStyle = '#111';
           ctx.lineWidth = 2 * S;
           ctx.fill();
           ctx.stroke();
           ctx.fillStyle = item.tc;
-          ctx.font = `800 ${fs}px Pretendard, sans-serif`;
+          ctx.font = `800 ${_fs}px Pretendard, sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(item.text, 0, 0);
         } else if (item.type === 'mini') {
-          const sz = 44 * S;
+          var sz = 44 * S;
           ctx.fillStyle = item.fill;
           ctx.strokeStyle = '#111';
           ctx.lineWidth = 2 * S;
@@ -1637,10 +1637,10 @@ function ResultV2({
             ctx.stroke();
           } else if (item.kind === 'star') {
             ctx.beginPath();
-            for (let i = 0; i < 10; i++) {
-              const r = i % 2 === 0 ? sz * 0.5 : sz * 0.25;
-              const a = i / 10 * Math.PI * 2 - Math.PI / 2;
-              ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+            for (var _i = 0; _i < 10; _i++) {
+              var _r = _i % 2 === 0 ? sz * 0.5 : sz * 0.25;
+              var _a = _i / 10 * Math.PI * 2 - Math.PI / 2;
+              ctx.lineTo(Math.cos(_a) * _r, Math.sin(_a) * _r);
             }
             ctx.closePath();
             ctx.fill();
@@ -1658,40 +1658,40 @@ function ResultV2({
             ctx.stroke();
           }
         } else if (item.type === 'text') {
-          const fs = item.size * S;
+          var _fs2 = item.size * S;
           ctx.fillStyle = item.color;
-          ctx.font = `${fs}px Caveat, cursive`;
+          ctx.font = `${_fs2}px Caveat, cursive`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(item.text, 0, 0);
         }
       }
     } else if (s.kind === 'upload') {
-      const img = await new Promise(res => {
-        const i = new Image();
+      var img = await new Promise(res => {
+        var i = new Image();
         i.onload = () => res(i);
         i.onerror = () => res(null);
         i.src = s.payload.dataUrl;
       });
       if (img) {
-        const w = 120 * S;
-        ctx.drawImage(img, -w / 2, -(w / (img.width / img.height)) / 2, w, w / (img.width / img.height));
+        var _w2 = 120 * S;
+        ctx.drawImage(img, -_w2 / 2, -(_w2 / (img.width / img.height)) / 2, _w2, _w2 / (img.width / img.height));
       }
     } else if (s.kind === 'text') {
-      const fs = s.payload.size * S;
+      var _fs3 = s.payload.size * S;
       ctx.fillStyle = s.payload.color;
-      ctx.font = `600 ${fs}px Pretendard, sans-serif`;
+      ctx.font = `600 ${_fs3}px Pretendard, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(s.payload.text, 0, 0);
     } else if (s.kind === 'setlog') {
-      const {
+      var {
         time,
         caption,
         theme
       } = s.payload;
-      const fg = theme === 'white' ? '#fff' : '#000';
-      const shadow = theme === 'white' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)';
+      var fg = theme === 'white' ? '#fff' : '#000';
+      var shadow = theme === 'white' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)';
       ctx.shadowColor = shadow;
       ctx.shadowBlur = 4 * S;
       ctx.fillStyle = fg;
@@ -1707,12 +1707,12 @@ function ResultV2({
     }
     ctx.restore();
   };
-  const getFinalResultBlob = async () => {
-    const key = getExportKey();
+  var getFinalResultBlob = async () => {
+    var key = getExportKey();
     if (exportBlobRef.current?.key === key && exportBlobRef.current?.blob) {
       return exportBlobRef.current.blob;
     }
-    const blob = await renderFinalResultBlob();
+    var blob = await renderFinalResultBlob();
     exportBlobRef.current = {
       key,
       blob
@@ -1722,13 +1722,13 @@ function ResultV2({
   React.useEffect(() => {
     if (autoSavedRef.current) return;
     autoSavedRef.current = true;
-    const selectedShots = selected.map(i => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 28) || i).join('|');
-    const key = `immm.gallery.autosaved.${layout}.${selectedShots}.${stickers.length}.${drawStrokes.length}`;
+    var selectedShots = selected.map(i => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 28) || i).join('|');
+    var key = `immm.gallery.autosaved.${layout}.${selectedShots}.${stickers.length}.${drawStrokes.length}`;
     if (localStorage.getItem(key)) return;
-    let cancelled = false;
-    const timer = setTimeout(async () => {
+    var cancelled = false;
+    var timer = setTimeout(async () => {
       try {
-        const blob = await getFinalResultBlob();
+        var blob = await getFinalResultBlob();
         if (!cancelled && blob) {
           await saveResultToGallery(blob, 'local');
           localStorage.setItem(key, '1');
@@ -1742,8 +1742,8 @@ function ResultV2({
       clearTimeout(timer);
     };
   }, []);
-  const triggerDownload = (blob, fname) => {
-    const url = URL.createObjectURL(blob);
+  var triggerDownload = (blob, fname) => {
+    var url = URL.createObjectURL(blob);
     if (isIOS()) {
       // Explicit Owner Cleanup for iOS save sheet
       revokeBlobUrl(saveSheetUrlRef.current);
@@ -1752,7 +1752,7 @@ function ResultV2({
       addToast('이미지를 길게 눌러 저장하세요');
       return;
     }
-    const a = document.createElement('a');
+    var a = document.createElement('a');
     a.href = url;
     a.download = fname;
     document.body.appendChild(a);
@@ -1771,12 +1771,12 @@ function ResultV2({
       revokeBlobUrl(url);
     }, 15000);
   };
-  const handleDownload = async () => {
+  var handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
     try {
-      const blob = await getFinalResultBlob();
-      const fname = getFormattedFilename();
+      var blob = await getFinalResultBlob();
+      var fname = getFormattedFilename();
       await saveResultToGallery(blob, 'local');
       triggerDownload(blob, fname);
     } catch (e) {
@@ -1786,13 +1786,13 @@ function ResultV2({
       setDownloading(false);
     }
   };
-  const handleShare = async () => {
+  var handleShare = async () => {
     if (sharing) return;
     setSharing(true);
     try {
-      const blob = await getFinalResultBlob();
-      const fname = getFormattedFilename();
-      const file = new File([blob], fname, {
+      var blob = await getFinalResultBlob();
+      var fname = getFormattedFilename();
+      var file = new File([blob], fname, {
         type: 'image/png'
       });
       await saveResultToGallery(blob, 'local');
@@ -1818,26 +1818,26 @@ function ResultV2({
       setSharing(false);
     }
   };
-  const handleQrShare = async () => {
+  var handleQrShare = async () => {
     alert('QR 공유는 현재 미구현입니다. Supabase 연결 후 공개 링크/만료 정책까지 붙여서 열겠습니다.');
   };
 
   // ── video download — current frame shots, flash transitions, 24fps film feel ──
-  const [videoRecording, setVideoRecording] = React.useState(false);
-  const videoSupported = typeof MediaRecorder !== 'undefined' && (typeof HTMLCanvasElement.prototype.captureStream !== 'undefined' || typeof HTMLCanvasElement.prototype.mozCaptureStream !== 'undefined');
-  const handleVideoDownload = async () => {
+  var [videoRecording, setVideoRecording] = React.useState(false);
+  var videoSupported = typeof MediaRecorder !== 'undefined' && (typeof HTMLCanvasElement.prototype.captureStream !== 'undefined' || typeof HTMLCanvasElement.prototype.mozCaptureStream !== 'undefined');
+  var handleVideoDownload = async () => {
     if (videoRecording) return;
     if (!videoSupported) {
       alert('이 브라우저에서는 영상 저장이 지원되지 않아요. (Chrome 권장)');
       return;
     }
-    const selectedShots = selected.map(shotIndex => shots[shotIndex]).filter(s => s?.dataUrl);
+    var selectedShots = selected.map(shotIndex => shots[shotIndex]).filter(s => s?.dataUrl);
     if (!selectedShots.length) {
       alert('먼저 사진을 촬영해주세요');
       return;
     }
     setVideoRecording(true);
-    const resolveFrameTemplate = layout => {
+    var resolveFrameTemplate = layout => {
       if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
         return window.getFrameTemplateSafe(layout);
       }
@@ -1847,26 +1847,26 @@ function ResultV2({
       console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
       return null;
     };
-    const template = resolveFrameTemplate(layout);
+    var template = resolveFrameTemplate(layout);
     if (!template) {
       console.warn('[IMMM] skip draw: frame template unavailable', layout);
       return;
     }
-    const baseW = template?.canvasSize?.width || 720;
-    const baseH = template?.canvasSize?.height || 960;
-    const W = 720;
-    const H = Math.round(W * (baseH / baseW));
-    const cvs = document.createElement('canvas');
+    var baseW = template?.canvasSize?.width || 720;
+    var baseH = template?.canvasSize?.height || 960;
+    var W = 720;
+    var H = Math.round(W * (baseH / baseW));
+    var cvs = document.createElement('canvas');
     cvs.width = W;
     cvs.height = H;
-    const ctx = cvs.getContext('2d');
-    const mimeTypes = ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-    const mimeType = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
-    const stream = cvs.captureStream(24);
-    const rec = new MediaRecorder(stream, {
+    var ctx = cvs.getContext('2d');
+    var mimeTypes = ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    var mimeType = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+    var stream = cvs.captureStream(24);
+    var rec = new MediaRecorder(stream, {
       mimeType
     });
-    const chunks = [];
+    var chunks = [];
     rec.ondataavailable = e => {
       if (e.data.size > 0) chunks.push(e.data);
     };
@@ -1875,14 +1875,14 @@ function ResultV2({
         setVideoRecording(false);
         return;
       }
-      const blob = new Blob(chunks, {
+      var blob = new Blob(chunks, {
         type: mimeType
       });
-      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-      const fname = `IMMM_${Date.now()}.${ext}`;
+      var ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      var fname = `IMMM_${Date.now()}.${ext}`;
       // Mobile: try Web Share API first
       if (navigator.share && navigator.canShare) {
-        const file = new File([blob], fname, {
+        var file = new File([blob], fname, {
           type: mimeType
         });
         if (navigator.canShare({
@@ -1903,8 +1903,8 @@ function ResultV2({
           }
         }
       }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
       a.href = url;
       a.download = fname;
       document.body.appendChild(a);
@@ -1913,19 +1913,19 @@ function ResultV2({
       setTimeout(() => revokeBlobUrl(url), 30000);
       setVideoRecording(false);
     };
-    const drawCanvasCover = source => {
+    var drawCanvasCover = source => {
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, W, H);
-      const scale = Math.min(W / source.width, H / source.height);
-      const dw = source.width * scale;
-      const dh = source.height * scale;
+      var scale = Math.min(W / source.width, H / source.height);
+      var dw = source.width * scale;
+      var dh = source.height * scale;
       ctx.drawImage(source, (W - dw) / 2, (H - dh) / 2, dw, dh);
     };
-    const renderProgressFrame = async count => {
-      const engine = window.FrameRenderEngine || (typeof FrameRenderEngine !== 'undefined' ? FrameRenderEngine : null);
+    var renderProgressFrame = async count => {
+      var engine = window.FrameRenderEngine || (typeof FrameRenderEngine !== 'undefined' ? FrameRenderEngine : null);
       if (engine) {
-        const progressiveShots = shots.map((shot, index) => {
-          const order = selected.indexOf(index);
+        var progressiveShots = shots.map((shot, index) => {
+          var order = selected.indexOf(index);
           return order >= 0 && order < count ? shot : null;
         });
         return engine.renderToCanvas({
@@ -1941,32 +1941,32 @@ function ResultV2({
           scale: 1.5
         });
       }
-      const fallback = document.createElement('canvas');
+      var fallback = document.createElement('canvas');
       fallback.width = W;
       fallback.height = H;
-      const fctx = fallback.getContext('2d');
+      var fctx = fallback.getContext('2d');
       fctx.fillStyle = frameColor || '#fff';
       fctx.fillRect(0, 0, W, H);
       return fallback;
     };
-    const paintWait = async ms => {
-      const end = Date.now() + ms;
+    var paintWait = async ms => {
+      var end = Date.now() + ms;
       while (Date.now() < end) {
         ctx.fillStyle = `rgba(0,0,0,0.001)`;
         ctx.fillRect(0, 0, 1, 1); // Force repaint
-        const track = stream.getVideoTracks()[0];
+        var track = stream.getVideoTracks()[0];
         if (track && track.requestFrame) track.requestFrame();
         await new Promise(r => requestAnimationFrame(r));
       }
     };
     rec.start(200); // 200ms timeslice — collect chunks progressively
 
-    for (let i = 0; i < selected.length; i++) {
+    for (var i = 0; i < selected.length; i++) {
       // white flash in
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, W, H);
       await paintWait(60);
-      const frameCanvas = await renderProgressFrame(i + 1);
+      var frameCanvas = await renderProgressFrame(i + 1);
       drawCanvasCover(frameCanvas);
 
       // shot number badge
@@ -1984,41 +1984,41 @@ function ResultV2({
         await paintWait(50);
       }
     }
-    const finalFrame = await renderProgressFrame(selected.length);
+    var finalFrame = await renderProgressFrame(selected.length);
     drawCanvasCover(finalFrame);
     await paintWait(800);
     rec.stop();
   };
   React.useEffect(() => {
-    const compute = () => {
+    var compute = () => {
       if (!containerRef.current || !frameRef.current) return;
-      const fit = getResultPreviewFit(layout, mobile);
-      const cW = containerRef.current.clientWidth - fit.padding;
-      const cH = containerRef.current.clientHeight - fit.padding;
-      const fW = frameRef.current.scrollWidth;
-      const fH = frameRef.current.scrollHeight;
+      var fit = getResultPreviewFit(layout, mobile);
+      var cW = containerRef.current.clientWidth - fit.padding;
+      var cH = containerRef.current.clientHeight - fit.padding;
+      var fW = frameRef.current.scrollWidth;
+      var fH = frameRef.current.scrollHeight;
       if (!fW || !fH) return;
 
       // Consider target height if available
-      const vhTarget = window.innerHeight * (fit.targetHeightVh || 40) / 100;
-      const targetScale = fit.maxHeightPx ? Math.min(fit.maxScale, fit.maxHeightPx / fH) : fit.maxScale;
-      const rawScale = Math.min(targetScale, cW / fW, cH / fH, vhTarget / fH);
-      const fitRule = getResultDisplayFit(layout, mobile);
-      let nextScale = rawScale;
+      var vhTarget = window.innerHeight * (fit.targetHeightVh || 40) / 100;
+      var targetScale = fit.maxHeightPx ? Math.min(fit.maxScale, fit.maxHeightPx / fH) : fit.maxScale;
+      var rawScale = Math.min(targetScale, cW / fW, cH / fH, vhTarget / fH);
+      var fitRule = getResultDisplayFit(layout, mobile);
+      var nextScale = rawScale;
       if (layout === 'strip' || layout === 'trip') {
-        const safeMaxByWidth = cW / fW;
-        const safeMaxByHeight = cH / fH;
-        const safeMax = Math.min(fitRule.maxScale, safeMaxByWidth, safeMaxByHeight);
+        var safeMaxByWidth = cW / fW;
+        var safeMaxByHeight = cH / fH;
+        var safeMax = Math.min(fitRule.maxScale, safeMaxByWidth, safeMaxByHeight);
         nextScale = Math.max(rawScale, Math.min(fitRule.minScale, safeMax));
       }
       setAutoScale(Math.max(0.1, nextScale));
     };
     compute();
-    const ro = new ResizeObserver(compute);
+    var ro = new ResizeObserver(compute);
     if (containerRef.current) ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, [layout, mobile]);
-  const resultOverlays = /*#__PURE__*/React.createElement(React.Fragment, null, saveSheetUrl && /*#__PURE__*/React.createElement("div", {
+  var resultOverlays = /*#__PURE__*/React.createElement(React.Fragment, null, saveSheetUrl && /*#__PURE__*/React.createElement("div", {
     onClick: revokeSaveSheetUrl,
     style: {
       position: 'fixed',
@@ -2140,7 +2140,7 @@ function ResultV2({
     }
   }, qrShare.mode === 'local-preview' ? 'Supabase 설정 전이라 이 기기에서만 열리는 미리보기 링크입니다.' : '7일 동안 열 수 있는 공유 링크입니다.'), /*#__PURE__*/React.createElement("button", {
     onClick: async () => {
-      const text = qrShare.qrUrl || qrShare.url;
+      var text = qrShare.qrUrl || qrShare.url;
       try {
         await navigator.clipboard.writeText(text);
       } catch (_) {}

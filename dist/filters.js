@@ -1,6 +1,6 @@
 // filters.jsx — CSS filter presets + placeholder portraits
 
-const FILTERS = {
+var FILTERS = {
   original: {
     name: 'No Filter',
     ko: '노 필터',
@@ -62,16 +62,16 @@ const FILTERS = {
 };
 
 // BW stays as a permanent basic filter. Do not hide it when pruning experiments.
-const VISIBLE_FILTER_KEYS = ['original', 'porcelain', 'smooth', 'blush', 'grain', 'bw'];
-const getVisibleFilters = () => VISIBLE_FILTER_KEYS.map(key => [key, FILTERS[key]]).filter(([, value]) => value && !value.hidden);
-const getSafeFilterKey = key => FILTERS[key] && !FILTERS[key].hidden ? key : 'porcelain';
+var VISIBLE_FILTER_KEYS = ['original', 'porcelain', 'smooth', 'blush', 'grain', 'bw'];
+var getVisibleFilters = () => VISIBLE_FILTER_KEYS.map(key => [key, FILTERS[key]]).filter(([, value]) => value && !value.hidden);
+var getSafeFilterKey = key => FILTERS[key] && !FILTERS[key].hidden ? key : 'porcelain';
 
 // Filter overlay — decorative layer rendered on top of video/photo
 function FilterOverlay({
   filter,
   style = {}
 }) {
-  const type = FILTERS[filter]?.overlay;
+  var type = FILTERS[filter]?.overlay;
   if (!type) return null;
   if (type === 'glitter') return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -82,11 +82,11 @@ function FilterOverlay({
       ...style
     }
   }, [...Array(18)].map((_, i) => {
-    const x = (i * 37 + 11) % 97;
-    const y = (i * 53 + 7) % 97;
-    const s = 0.4 + i % 5 * 0.22;
-    const delay = i * 0.18 % 1.5;
-    const hue = i * 25 % 360;
+    var x = (i * 37 + 11) % 97;
+    var y = (i * 53 + 7) % 97;
+    var s = 0.4 + i % 5 * 0.22;
+    var delay = i * 0.18 % 1.5;
+    var hue = i * 25 % 360;
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       style: {
@@ -200,9 +200,9 @@ function PlaceholderPortrait({
   filter = 'original',
   children
 }) {
-  const palettes = [['#FFD8CC', '#F4A3AE', '#8E5B6B'], ['#F4E4D4', '#E8B89A', '#A66D55'], ['#FFE8D6', '#F0B59C', '#754C3B'], ['#F8DACB', '#D89A8A', '#6B3E35'], ['#FFE4D9', '#E8A596', '#7E4E45'], ['#F1CBBD', '#C98B82', '#5C362F']];
-  const p = palettes[seed % palettes.length];
-  const f = FILTERS[filter]?.css || 'none';
+  var palettes = [['#FFD8CC', '#F4A3AE', '#8E5B6B'], ['#F4E4D4', '#E8B89A', '#A66D55'], ['#FFE8D6', '#F0B59C', '#754C3B'], ['#F8DACB', '#D89A8A', '#6B3E35'], ['#FFE4D9', '#E8A596', '#7E4E45'], ['#F1CBBD', '#C98B82', '#5C362F']];
+  var p = palettes[seed % palettes.length];
+  var f = FILTERS[filter]?.css || 'none';
   return /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',

@@ -13,7 +13,7 @@
 // 
 // VERTEX SHADER (shared)
 // 
-const VERT_QUAD = `
+var VERT_QUAD = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
 uniform float u_flipX;
@@ -42,7 +42,7 @@ void main(){
 // 
 // FRAGMENT SHADERS
 // 
-const FRAGS = {
+var FRAGS = {
   // ─────────────────────────────────────────────────────────────────────────────
   // ACTIVE CORE SHADERS — used by visible filter pipelines (porcelain/smooth/blush)
   // ─────────────────────────────────────────────────────────────────────────────
@@ -327,7 +327,7 @@ void main(){
 // 
 // Filter pipeline presets
 // 
-const FILTER_PIPELINES = {
+var FILTER_PIPELINES = {
   // ─────────────────────────────────────────────────────────────────────────────
   // VISIBLE FILTER PIPELINES — shown in the filter carousel to all users.
   // Rules: no face_slim / lip_color / eye_bright / contour / purikura warp calls.
@@ -515,7 +515,7 @@ class FilterEngine {
     this._downW = 0;
     this._downH = 0;
     this._isMobile = false;
-    const gl = canvas.getContext('webgl', {
+    var gl = canvas.getContext('webgl', {
       alpha: false,
       antialias: false,
       depth: false,
@@ -531,9 +531,9 @@ class FilterEngine {
     canvas.addEventListener('webglcontextrestored', this._onRestored.bind(this), false);
   }
   _init() {
-    const gl = this.gl;
+    var gl = this.gl;
     this._programs = {};
-    for (const [name, frag] of Object.entries(FRAGS)) {
+    for (var [name, frag] of Object.entries(FRAGS)) {
       try {
         this._programs[name] = twgl.createProgramInfo(gl, [VERT_QUAD, frag]);
       } catch (e) {
@@ -564,13 +564,13 @@ class FilterEngine {
   }
   updateMask(canvas) {
     if (this._destroyed || !canvas) return;
-    const gl = this.gl;
+    var gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this._maskTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
   }
   clearMask() {
     if (this._destroyed) return;
-    const gl = this.gl;
+    var gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this._maskTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
   }
@@ -578,8 +578,8 @@ class FilterEngine {
     this._isMobile = Boolean(value);
   }
   _ensureFbos(w, h) {
-    const gl = this.gl;
-    const spec = [{
+    var gl = this.gl;
+    var spec = [{
       format: gl.RGBA,
       type: gl.UNSIGNED_BYTE,
       min: gl.LINEAR,
@@ -602,8 +602,8 @@ class FilterEngine {
     }
 
     // 2. Downsampled FBOs (Max 512px for mobile-heavy tasks)
-    const dw = Math.round(w > h ? 512 : 512 * (w / h));
-    const dh = Math.round(h > w ? 512 : 512 * (h / w));
+    var dw = Math.round(w > h ? 512 : 512 * (w / h));
+    var dh = Math.round(h > w ? 512 : 512 * (h / w));
     if (this._downW !== dw || this._downH !== dh) {
       this._downW = dw;
       this._downH = dh;
@@ -617,8 +617,8 @@ class FilterEngine {
     }
   }
   _pass(shaderName, inputTex, outputFbo, uniforms) {
-    const gl = this.gl;
-    const prog = this._programs[shaderName];
+    var gl = this.gl;
+    var prog = this._programs[shaderName];
     if (!prog) {
       console.warn('[GL] missing program:', shaderName);
       return false; // caller must check
@@ -636,7 +636,7 @@ class FilterEngine {
   }
   render(source, pipeline, w, h, mirrorX, faceUniforms, isMobile = false) {
     if (this._destroyed) return;
-    const gl = this.gl;
+    var gl = this.gl;
     if (this.canvas.width !== w) this.canvas.width = w;
     if (this.canvas.height !== h) this.canvas.height = h;
     this._ensureFbos(w, h);
@@ -647,14 +647,14 @@ class FilterEngine {
     try {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
     } catch (_) {}
-    const res = [w, h];
-    const srcRes = [source.videoWidth || w, source.videoHeight || h];
-    const fu = faceUniforms || {};
-    let curTex = this._srcTex;
-    let idx = 0;
-    let sceneTex = this._srcTex;
-    for (let i = 0; i < pipeline.length; i++) {
-      const step = pipeline[i];
+    var res = [w, h];
+    var srcRes = [source.videoWidth || w, source.videoHeight || h];
+    var fu = faceUniforms || {};
+    var curTex = this._srcTex;
+    var idx = 0;
+    var sceneTex = this._srcTex;
+    for (var i = 0; i < pipeline.length; i++) {
+      var step = pipeline[i];
 
       // --- T-1: 2-pass halation routing ---
       if (step.shader === 'halation_h') {
@@ -669,7 +669,7 @@ class FilterEngine {
       }
       if (step.shader === 'halation_v') {
         // halation_v: read FBO[2] (H-result), write to fboInfos[1-idx].
-        const halVOut = 1 - idx;
+        var halVOut = 1 - idx;
         this._pass('halation_v', this._fboInfos[2].attachments[0], this._fboInfos[halVOut], {
           u_resolution: res,
           u_flipX: 0.0,
@@ -701,8 +701,8 @@ class FilterEngine {
       }
 
       // --- Normal pass ---
-      const out = this._fboInfos[1 - idx];
-      const drew = this._pass(step.shader, curTex, out, {
+      var out = this._fboInfos[1 - idx];
+      var drew = this._pass(step.shader, curTex, out, {
         u_resolution: res,
         u_flipX: i === 0 && mirrorX ? 1.0 : 0.0,
         u_flipY: i === 0 ? 1.0 : 0.0,
@@ -738,16 +738,16 @@ class FilterEngine {
     this._onWebglFail = onWebglFail;
     this._firstFrameFired = false;
     this._renderedFrames = 0;
-    const tick = () => {
+    var tick = () => {
       if (this._destroyed) return;
-      const src = getSource();
+      var src = getSource();
       if (src && src.readyState >= 2 && src.videoWidth > 0) {
-        const {
+        var {
           w,
           h,
           mirrorX
         } = getSize();
-        const {
+        var {
           pipeline,
           faceUniforms
         } = getParams();
@@ -755,12 +755,12 @@ class FilterEngine {
         this._renderedFrames++;
         if (!this._firstFrameFired && this._renderedFrames >= 5) {
           try {
-            const gl = this.gl;
-            const px = new Uint8Array(4);
+            var gl = this.gl;
+            var px = new Uint8Array(4);
             // Sample center + 4 offsets to avoid dark-background false negatives
-            const pts = [[Math.floor(w * 0.5), Math.floor(h * 0.5)], [Math.floor(w * 0.3), Math.floor(h * 0.4)], [Math.floor(w * 0.7), Math.floor(h * 0.4)], [Math.floor(w * 0.5), Math.floor(h * 0.7)]];
-            let bright = false;
-            for (const [x, y] of pts) {
+            var pts = [[Math.floor(w * 0.5), Math.floor(h * 0.5)], [Math.floor(w * 0.3), Math.floor(h * 0.4)], [Math.floor(w * 0.7), Math.floor(h * 0.4)], [Math.floor(w * 0.5), Math.floor(h * 0.7)]];
+            var bright = false;
+            for (var [x, y] of pts) {
               gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
               if (px[0] + px[1] + px[2] > 20) {
                 bright = true;
@@ -804,11 +804,11 @@ class FilterEngine {
     this._destroyed = true;
     this.stop();
     try {
-      const gl = this.gl;
+      var gl = this.gl;
       if (!gl) return;
       // Delete all compiled shader programs
       if (this._programs) {
-        for (const pi of Object.values(this._programs)) {
+        for (var pi of Object.values(this._programs)) {
           if (pi?.program) gl.deleteProgram(pi.program);
         }
         this._programs = {};
@@ -819,7 +819,7 @@ class FilterEngine {
         this._srcTex = null;
       }
       // Delete FBO textures and framebuffers
-      for (const fbo of this._fboInfos || []) {
+      for (var fbo of this._fboInfos || []) {
         if (!fbo) continue;
         if (fbo.framebuffer) gl.deleteFramebuffer(fbo.framebuffer);
         if (fbo.attachments) fbo.attachments.forEach(t => {
@@ -828,13 +828,13 @@ class FilterEngine {
       }
       this._fboInfos = [null, null, null];
       // Lose context explicitly to free GPU memory immediately
-      const ext = gl.getExtension('WEBGL_lose_context');
+      var ext = gl.getExtension('WEBGL_lose_context');
       if (ext) ext.loseContext();
     } catch (_) {}
   }
   takeSnapshot(w, h, mirrorX, pipeline, faceUniforms, isMobile = false) {
     if (this._destroyed) return null;
-    const src = this._getSource();
+    var src = this._getSource();
     if (!src || src.readyState < 2) return null;
     this.render(src, pipeline, w, h, mirrorX, faceUniforms, isMobile);
     return this.canvas.toDataURL('image/jpeg', 0.98);
@@ -853,48 +853,48 @@ class FilterEngine {
 // useFilterEngine  React hook
 // 
 function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, mirrorX = true, mobile = false) {
-  const engineRef = React.useRef(null);
-  const filterKeyRef = React.useRef(filterKey);
-  const mirrorXRef = React.useRef(mirrorX);
-  const [webglOk, setWebglOk] = React.useState(false);
-  const [firstFrame, setFirstFrame] = React.useState(false);
-  const [webglFailed, setWebglFailed] = React.useState(false);
-  const maskCanvasRef = React.useRef(null);
-  const lastMaskUpdateRef = React.useRef(0);
+  var engineRef = React.useRef(null);
+  var filterKeyRef = React.useRef(filterKey);
+  var mirrorXRef = React.useRef(mirrorX);
+  var [webglOk, setWebglOk] = React.useState(false);
+  var [firstFrame, setFirstFrame] = React.useState(false);
+  var [webglFailed, setWebglFailed] = React.useState(false);
+  var maskCanvasRef = React.useRef(null);
+  var lastMaskUpdateRef = React.useRef(0);
   if (!maskCanvasRef.current && typeof document !== 'undefined') {
-    const mc = document.createElement('canvas');
+    var mc = document.createElement('canvas');
     mc.width = 512;
     mc.height = 512;
     maskCanvasRef.current = mc;
   }
-  const updateRetouchMask = faceData => {
+  var updateRetouchMask = faceData => {
     if (!faceData?.detected || !maskCanvasRef.current) return false;
-    const faces = faceData.faces?.length ? faceData.faces.slice(0, 4) : [faceData];
-    let validCount = 0;
-    for (const f of faces) {
+    var faces = faceData.faces?.length ? faceData.faces.slice(0, 4) : [faceData];
+    var validCount = 0;
+    for (var f of faces) {
       if (f.faceOval && f.faceOval.length >= 3) validCount++;
     }
     if (validCount === 0) {
-      const mc = maskCanvasRef.current;
-      const ctx = mc.getContext('2d');
-      ctx.clearRect(0, 0, 512, 512);
-      if (engineRef.current) engineRef.current.updateMask(mc);
+      var _mc = maskCanvasRef.current;
+      var _ctx = _mc.getContext('2d');
+      _ctx.clearRect(0, 0, 512, 512);
+      if (engineRef.current) engineRef.current.updateMask(_mc);
       return false;
     }
-    const now = Date.now();
+    var now = Date.now();
     if (now - lastMaskUpdateRef.current < 66) return true;
     lastMaskUpdateRef.current = now;
-    const mc = maskCanvasRef.current;
-    const ctx = mc.getContext('2d');
+    var mc = maskCanvasRef.current;
+    var ctx = mc.getContext('2d');
     ctx.clearRect(0, 0, 512, 512);
-    const drawPoly = (pts, color, blur = 0) => {
+    var drawPoly = (pts, color, blur = 0) => {
       if (!pts || pts.length < 3) return;
       ctx.save();
       if (blur > 0) ctx.filter = `blur(${blur}px)`;
       ctx.fillStyle = color;
       ctx.beginPath();
       pts.forEach((p, i) => {
-        const x = p[0] * 512,
+        var x = p[0] * 512,
           y = p[1] * 512;
         if (i === 0) ctx.moveTo(x, y);else ctx.lineTo(x, y);
       });
@@ -944,9 +944,9 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
       setWebglFailed(false);
       return; // mobile: skip WebGL, use CSS filter + canvas2D capture instead
     }
-    const canvas = canvasRef.current;
+    var canvas = canvasRef.current;
     if (!canvas) return;
-    let engine;
+    var engine;
     try {
       engine = new FilterEngine(canvas);
       engineRef.current = engine;
@@ -958,30 +958,30 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
       return;
     }
     engine.startLoop(() => {
-      const v = videoRef.current;
+      var v = videoRef.current;
       return v && v.readyState >= 2 && v.videoWidth > 0 ? v : null;
     }, () => {
-      const key = filterKeyRef.current;
-      const preset = FILTER_PIPELINES[key] || {
+      var key = filterKeyRef.current;
+      var preset = FILTER_PIPELINES[key] || {
         pipeline: []
       };
-      const time = performance.now() / 1000;
-      const face = faceDataRef?.current;
+      var time = performance.now() / 1000;
+      var face = faceDataRef?.current;
 
       // EMERGENCY FACE SHAPE SAFETY:
       // No face uniforms are injected in emergency mode.
       // All face landmark processing and uniform injection are PERMANENTLY DISABLED globally.
-      const FACE_UNIFORMS_DISABLED = true;
-      let faceUniforms = {};
+      var FACE_UNIFORMS_DISABLED = true;
+      var faceUniforms = {};
 
       /* Legacy injection block disabled
       if (!FACE_UNIFORMS_DISABLED && face?.detected) { ... }
       */
 
-      let steps = preset.pipeline;
+      var steps = preset.pipeline;
       if (engineRef.current?._isMobile) {
         // Mobile optimization: restrict bilateral to 1-pass only
-        let hCount = 0,
+        var hCount = 0,
           vCount = 0;
         steps = steps.filter(step => {
           if (step.shader === 'bilateral_h') {
@@ -1005,7 +1005,7 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
       }
       */
 
-      const pipeline = steps.map(step => step.shader === 'film_grain_v2' || step.shader === 'eye_bright' ? {
+      var pipeline = steps.map(step => step.shader === 'film_grain_v2' || step.shader === 'eye_bright' ? {
         ...step,
         uniforms: {
           ...step.uniforms,
@@ -1018,11 +1018,11 @@ function useFilterEngine(canvasRef, videoRef, filterKey, faceDataRef, disabled, 
       };
     }, () => {
       // Render at High-DPI canvas size (capped at 2.0 for performance)
-      const c = canvasRef.current;
-      const r = c?.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
-      const W = r ? Math.max(16, Math.round(r.width * dpr)) : 480;
-      const H = r ? Math.max(16, Math.round(r.height * dpr)) : 480;
+      var c = canvasRef.current;
+      var r = c?.getBoundingClientRect();
+      var dpr = Math.min(window.devicePixelRatio || 1, 2.0);
+      var W = r ? Math.max(16, Math.round(r.width * dpr)) : 480;
+      var H = r ? Math.max(16, Math.round(r.height * dpr)) : 480;
       return {
         w: W,
         h: H,

@@ -20,7 +20,7 @@ function nowMs() {
 function logExportPerf(label, data) {
   if (isExportPerfDebugEnabled()) console.info?.('[IMMM export perf]', label, data);
 }
-const FRAME_TEMPLATE_ALIASES = {
+var FRAME_TEMPLATE_ALIASES = {
   strip: '1x4',
   grid: '2x2',
   trip: '1x3',
@@ -28,9 +28,9 @@ const FRAME_TEMPLATE_ALIASES = {
   layered: '2x2'
 };
 function parseHexColor(hex) {
-  const s = String(hex || '').trim();
+  var s = String(hex || '').trim();
   if (!s.startsWith('#')) return null;
-  const v = s.slice(1);
+  var v = s.slice(1);
   if (v.length === 3) {
     return {
       r: parseInt(v[0] + v[0], 16),
@@ -48,11 +48,11 @@ function parseHexColor(hex) {
   return null;
 }
 function isDarkFrameColor(color) {
-  const rgb = parseHexColor(color);
+  var rgb = parseHexColor(color);
   if (!rgb) {
     return /^#(0{3,6}|1{3,6}|111111|000000?)$/i.test(String(color || '').trim());
   }
-  const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+  var luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
   return luminance < 0.25;
 }
 if (typeof window !== 'undefined') {
@@ -64,12 +64,12 @@ if (typeof window !== 'undefined') {
  * Ensures consistent contrast for Logo, Dot, and Date across all renders.
  */
 function getFrameTheme(template, options = {}) {
-  const frameBg = options.frameColor || template?.theme?.frameFill || '#ffffff';
-  const dark = isDarkFrameColor(frameBg);
-  const markColor = dark ? '#FFFFFF' : '#111111';
-  const dotColor = markColor;
-  const dateColor = dark ? 'rgba(255,255,255,0.82)' : '#6B6B6B';
-  const photoBg = dark ? 'rgba(255,255,255,0.10)' : '#f0f0f0';
+  var frameBg = options.frameColor || template?.theme?.frameFill || '#ffffff';
+  var dark = isDarkFrameColor(frameBg);
+  var markColor = dark ? '#FFFFFF' : '#111111';
+  var dotColor = markColor;
+  var dateColor = dark ? 'rgba(255,255,255,0.82)' : '#6B6B6B';
+  var photoBg = dark ? 'rgba(255,255,255,0.10)' : '#f0f0f0';
   return {
     frameBg,
     photoBg,
@@ -83,7 +83,7 @@ function getFrameTheme(template, options = {}) {
 if (typeof window !== 'undefined') {
   window.getFrameTheme = getFrameTheme;
 }
-const FRAME_TEMPLATES = {
+var FRAME_TEMPLATES = {
   '1x4': {
     id: 'core-1x4',
     type: '1x4',
@@ -246,7 +246,7 @@ const FRAME_TEMPLATES = {
 
 // Map legacy photoSlots to new photoRects
 Object.keys(FRAME_TEMPLATES).forEach(k => {
-  const t = FRAME_TEMPLATES[k];
+  var t = FRAME_TEMPLATES[k];
   if (!t.photoSlots || t.photoSlots.length === 0) {
     t.photoSlots = t.photoRects.map(r => ({
       x: r.x * t.canvasSize.width,
@@ -257,7 +257,7 @@ Object.keys(FRAME_TEMPLATES).forEach(k => {
   }
 });
 function getFrameTemplate(layoutOrType) {
-  const type = FRAME_TEMPLATE_ALIASES[layoutOrType] || layoutOrType || '1x4';
+  var type = FRAME_TEMPLATE_ALIASES[layoutOrType] || layoutOrType || '1x4';
   return FRAME_TEMPLATES[type] || FRAME_TEMPLATES['1x4'];
 }
 function getShotCountForFrame(layoutOrType) {
@@ -269,7 +269,7 @@ function loadImageForCanvas(src) {
       resolve(null);
       return;
     }
-    const img = new Image();
+    var img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.crossOrigin = 'anonymous';
@@ -278,9 +278,9 @@ function loadImageForCanvas(src) {
 }
 function drawCoverToCtx(ctx, img, x, y, w, h) {
   if (!img) return;
-  const ar = img.width / img.height;
-  const dar = w / h;
-  let sx = 0,
+  var ar = img.width / img.height;
+  var dar = w / h;
+  var sx = 0,
     sy = 0,
     sw = img.width,
     sh = img.height;
@@ -296,7 +296,7 @@ function drawCoverToCtx(ctx, img, x, y, w, h) {
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 function drawFallbackSticker(ctx, item, scalePx = 1) {
-  const label = item?.label || item?.text || item?.id || '♡';
+  var label = item?.label || item?.text || item?.id || '♡';
   ctx.save();
   ctx.fillStyle = item?.color || item?.tc || item?.fill || '#111';
   ctx.font = `700 ${28 * scalePx}px Pretendard, sans-serif`;
@@ -306,8 +306,8 @@ function drawFallbackSticker(ctx, item, scalePx = 1) {
   ctx.restore();
 }
 function collectUploadStickerSources(stickers = []) {
-  const sources = new Set();
-  for (const s of stickers || []) {
+  var sources = new Set();
+  for (var s of stickers || []) {
     if (s?.kind === 'upload' && s?.payload?.dataUrl) {
       sources.add(s.payload.dataUrl);
     }
@@ -315,8 +315,8 @@ function collectUploadStickerSources(stickers = []) {
   return Array.from(sources);
 }
 async function preloadStickerImages(stickers = []) {
-  const sources = collectUploadStickerSources(stickers);
-  const entries = await Promise.all(sources.map(async src => {
+  var sources = collectUploadStickerSources(stickers);
+  var entries = await Promise.all(sources.map(async src => {
     try {
       return [src, await loadImageForCanvas(src)];
     } catch (err) {
@@ -331,19 +331,19 @@ async function preloadStickerImages(stickers = []) {
 async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets = {}) {
   if (!sticker) return;
   ctx.save();
-  const cx = sticker.x / 100 * baseW;
-  const cy = sticker.y / 100 * baseH;
+  var cx = sticker.x / 100 * baseW;
+  var cy = sticker.y / 100 * baseH;
   ctx.translate(cx, cy);
   ctx.rotate((sticker.rotation || 0) * Math.PI / 180);
-  const actualSizeNorm = sticker.sizeNorm ?? sticker.payload?.sizeNorm;
-  let raw = {
+  var actualSizeNorm = sticker.sizeNorm ?? sticker.payload?.sizeNorm;
+  var raw = {
     w: 64,
     h: 64
   };
   if (typeof getStickerVisualBounds === 'function') {
     raw = getStickerVisualBounds(sticker);
   } else if (sticker.kind === 'preset') {
-    const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload?.libId) : null;
+    var item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload?.libId) : null;
     raw = typeof getCatalogStickerBaseSize === 'function' ? getCatalogStickerBaseSize(item) : raw;
   } else if (sticker.kind === 'upload') {
     raw = {
@@ -351,8 +351,8 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets 
       h: 120
     };
   } else if (sticker.kind === 'text') {
-    const size = sticker.payload?.size || 32;
-    const text = sticker.payload?.text || '';
+    var size = sticker.payload?.size || 32;
+    var text = sticker.payload?.text || '';
     raw = {
       w: Math.max(44, Math.min(220, text.length * size * 0.58)),
       h: Math.max(34, size * 1.25)
@@ -363,48 +363,48 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets 
       h: 64
     };
   }
-  const targetW = actualSizeNorm ? baseW * actualSizeNorm : raw.w * scalePx;
-  const drawScale = targetW / (raw.w || 1);
-  const effectiveScale = drawScale * (sticker.scale || 1);
+  var targetW = actualSizeNorm ? baseW * actualSizeNorm : raw.w * scalePx;
+  var drawScale = targetW / (raw.w || 1);
+  var effectiveScale = drawScale * (sticker.scale || 1);
   ctx.scale(effectiveScale, effectiveScale);
   if (sticker.kind === 'preset') {
-    const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload.libId) : null;
+    var _item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload.libId) : null;
     try {
-      const globalDraw = typeof drawCatalogSticker === 'function' ? drawCatalogSticker : typeof window !== 'undefined' ? window.drawCatalogSticker : null;
-      if (item && typeof globalDraw === 'function') {
-        globalDraw(ctx, item, 1);
-      } else if (item) {
-        drawFallbackSticker(ctx, item, 1);
+      var globalDraw = typeof drawCatalogSticker === 'function' ? drawCatalogSticker : typeof window !== 'undefined' ? window.drawCatalogSticker : null;
+      if (_item && typeof globalDraw === 'function') {
+        globalDraw(ctx, _item, 1);
+      } else if (_item) {
+        drawFallbackSticker(ctx, _item, 1);
       }
     } catch (err) {
       console.warn('[IMMM] preset sticker render failed, using fallback', err);
-      if (item) drawFallbackSticker(ctx, item, 1);
+      if (_item) drawFallbackSticker(ctx, _item, 1);
     }
   } else if (sticker.kind === 'upload') {
-    const src = sticker.payload.dataUrl;
-    const hasPreload = assets?.uploadImages?.has?.(src);
-    const preloaded = hasPreload ? assets.uploadImages.get(src) : undefined;
-    const img = hasPreload ? preloaded : await loadImageForCanvas(src);
+    var src = sticker.payload.dataUrl;
+    var hasPreload = assets?.uploadImages?.has?.(src);
+    var preloaded = hasPreload ? assets.uploadImages.get(src) : undefined;
+    var img = hasPreload ? preloaded : await loadImageForCanvas(src);
     if (img) {
-      const w = 120;
-      const h = w / (img.width / img.height || 1);
+      var w = 120;
+      var h = w / (img.width / img.height || 1);
       ctx.drawImage(img, -w / 2, -h / 2, w, h);
     }
   } else if (sticker.kind === 'text') {
     ctx.fillStyle = sticker.payload.color || '#111';
     // sizeNorm is applied via ctx.scale(effectiveScale) above.
-    const fontPx = sticker.payload.size || 32;
+    var fontPx = sticker.payload.size || 32;
     ctx.font = `600 ${fontPx}px Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(sticker.payload.text || '', 0, 0);
   } else if (sticker.kind === 'setlog') {
-    const {
+    var {
       time,
       caption,
       theme
     } = sticker.payload;
-    const fg = theme === 'white' ? '#fff' : '#000';
+    var fg = theme === 'white' ? '#fff' : '#000';
     ctx.fillStyle = fg;
     ctx.shadowColor = theme === 'white' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)';
     ctx.shadowBlur = 4;
@@ -426,8 +426,8 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets 
  * Replaces ctx.letterSpacing which is not supported on all platforms.
  */
 function drawLetterSpacedText(ctx, text, x, y, spacingPx) {
-  let curX = x;
-  for (const ch of text) {
+  var curX = x;
+  for (var ch of text) {
     ctx.fillText(ch, curX, y);
     curX += ctx.measureText(ch).width + spacingPx;
   }
@@ -439,7 +439,7 @@ function drawLetterSpacedText(ctx, text, x, y, spacingPx) {
  */
 function seededRand(seed) {
   // xorshift32
-  let s = (seed ^ 0xdeadbeef) >>> 0;
+  var s = (seed ^ 0xdeadbeef) >>> 0;
   s ^= s << 13;
   s ^= s >> 17;
   s ^= s << 5;
@@ -453,28 +453,28 @@ function seededRand(seed) {
  */
 function renderSparkleStroke(ctx, stroke, w, h, lineWidth) {
   if (!Array.isArray(stroke.points) || stroke.points.length < 1) return;
-  const spacing = lineWidth * 2.2; // world-space distance between stamps
-  const sz = lineWidth * 1.5;
-  const baseSeed = stroke.seed || 0;
-  let accumulated = 0;
-  let stampIdx = 0;
+  var spacing = lineWidth * 2.2; // world-space distance between stamps
+  var sz = lineWidth * 1.5;
+  var baseSeed = stroke.seed || 0;
+  var accumulated = 0;
+  var stampIdx = 0;
   ctx.fillStyle = stroke.color || '#fff';
   ctx.globalAlpha = 0.85;
-  for (let i = 1; i < stroke.points.length; i++) {
-    const [ax, ay] = stroke.points[i - 1];
-    const [bx, by] = stroke.points[i];
-    const segX = (bx - ax) / 100 * w;
-    const segY = (by - ay) / 100 * h;
-    const segLen = Math.sqrt(segX * segX + segY * segY);
+  for (var i = 1; i < stroke.points.length; i++) {
+    var [ax, ay] = stroke.points[i - 1];
+    var [bx, by] = stroke.points[i];
+    var segX = (bx - ax) / 100 * w;
+    var segY = (by - ay) / 100 * h;
+    var segLen = Math.sqrt(segX * segX + segY * segY);
     if (segLen === 0) continue;
-    const ux = segX / segLen;
-    const uy = segY / segLen;
-    let d = accumulated === 0 ? 0 : spacing - accumulated;
+    var ux = segX / segLen;
+    var uy = segY / segLen;
+    var d = accumulated === 0 ? 0 : spacing - accumulated;
     while (d <= segLen) {
-      const tx = ax / 100 * w + ux * d;
-      const ty = ay / 100 * h + uy * d;
-      const rotSeed = seededRand(baseSeed + stampIdx * 7);
-      const rot = rotSeed * Math.PI * 2;
+      var tx = ax / 100 * w + ux * d;
+      var ty = ay / 100 * h + uy * d;
+      var rotSeed = seededRand(baseSeed + stampIdx * 7);
+      var rot = rotSeed * Math.PI * 2;
       ctx.save();
       ctx.translate(tx, ty);
       ctx.rotate(rot);
@@ -504,24 +504,24 @@ function renderSparkleStroke(ctx, stroke, w, h, lineWidth) {
  * options.dateText: string to show | false to hide | undefined = auto (today)
  */
 function renderFrameOverlay(ctx, template, width, height, options = {}) {
-  const theme = getFrameTheme(template, {
+  var theme = getFrameTheme(template, {
     frameColor: options.frameColor
   });
-  const textColor = options.textColor || theme.dateColor;
-  const logoColor = options.logoColor || theme.markColor;
-  const dotColor = options.dotColor || theme.dotColor;
+  var textColor = options.textColor || theme.dateColor;
+  var logoColor = options.logoColor || theme.markColor;
+  var dotColor = options.dotColor || theme.dotColor;
 
   // 1. Logo
   if (options.logo !== false && template.logo) {
     ctx.save();
     ctx.fillStyle = logoColor;
-    const fs = template.logo.fontSize * width;
+    var fs = template.logo.fontSize * width;
     ctx.font = `800 ${fs}px "Plus Jakarta Sans", sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    const lx = template.logo.x * width;
-    const ly = template.logo.y * height;
-    const spacing = template.logo.letterSpacing || 0;
+    var lx = template.logo.x * width;
+    var ly = template.logo.y * height;
+    var spacing = template.logo.letterSpacing || 0;
     if (spacing > 0) {
       drawLetterSpacedText(ctx, 'IMMM', lx, ly, spacing * (width / (template.canvasSize?.width || width)));
     } else {
@@ -547,17 +547,17 @@ function renderFrameOverlay(ctx, template, width, height, options = {}) {
   if (options.dateText !== false && template.date) {
     ctx.save();
     ctx.fillStyle = textColor;
-    const fs = template.date.fontSize * width;
-    ctx.font = `700 ${fs}px "Plus Jakarta Sans", Pretendard, sans-serif`;
+    var _fs = template.date.fontSize * width;
+    ctx.font = `700 ${_fs}px "Plus Jakarta Sans", Pretendard, sans-serif`;
     ctx.globalAlpha = 0.82;
     ctx.textAlign = template.date.align || 'center';
     ctx.textBaseline = 'middle';
-    const dateStr = typeof options.dateText === 'string' && options.dateText ? options.dateText : new Date().toLocaleDateString('ko-KR', {
+    var dateStr = typeof options.dateText === 'string' && options.dateText ? options.dateText : new Date().toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
     });
-    let dx, dy;
+    var dx, dy;
     if (template.captionRect) {
       dx = (template.captionRect.x + template.captionRect.w * template.date.x) * width;
       dy = (template.captionRect.y + template.captionRect.h * template.date.y) * height;
@@ -581,27 +581,27 @@ function renderFrameOverlay(ctx, template, width, height, options = {}) {
  */
 function isStickerValidForLayout(sticker, layout) {
   if (sticker?.frameSlot == null) return true;
-  const slotCount = typeof getLayoutSlotCount === 'function' ? getLayoutSlotCount(layout) : 4;
+  var slotCount = typeof getLayoutSlotCount === 'function' ? getLayoutSlotCount(layout) : 4;
   return Number(sticker.frameSlot) >= 0 && Number(sticker.frameSlot) < slotCount;
 }
 async function renderComposition(ctx, data, options = {}) {
-  const tStart = nowMs();
-  const template = getFrameTemplateSafe(data.layout || data.templateType);
+  var tStart = nowMs();
+  var template = getFrameTemplateSafe(data.layout || data.templateType);
   if (!template) {
     throw new Error('[IMMM frame template unavailable]');
   }
-  const scale = options.scale || 1;
-  const w = template.canvasSize.width * scale;
-  const h = template.canvasSize.height * scale;
-  const theme = getFrameTheme(template, data);
+  var scale = options.scale || 1;
+  var w = template.canvasSize.width * scale;
+  var h = template.canvasSize.height * scale;
+  var theme = getFrameTheme(template, data);
 
   // 1. Background
   ctx.fillStyle = theme.frameBg;
   ctx.fillRect(0, 0, w, h);
 
   // 1b. Preload Stickers (parallel)
-  const tPreloadStart = nowMs();
-  const stickerAssets = {
+  var tPreloadStart = nowMs();
+  var stickerAssets = {
     uploadImages: await preloadStickerImages(data.stickers || [])
   };
   logExportPerf('sticker-preload', {
@@ -610,24 +610,24 @@ async function renderComposition(ctx, data, options = {}) {
   });
 
   // 2. Photo Slots
-  const selected = data.selected || [];
-  const shots = data.shots || [];
-  const tPhotoStart = nowMs();
-  const images = await Promise.all(template.photoSlots.map((_, i) => {
-    const shot = shots[selected[i]];
+  var selected = data.selected || [];
+  var shots = data.shots || [];
+  var tPhotoStart = nowMs();
+  var images = await Promise.all(template.photoSlots.map((_, i) => {
+    var shot = shots[selected[i]];
     return loadImageForCanvas(shot?.dataUrl);
   }));
   logExportPerf('photo-slots', {
     ms: nowMs() - tPhotoStart,
     count: images.length
   });
-  const tStickerDrawStart = nowMs();
-  for (let i = 0; i < template.photoSlots.length; i++) {
-    const slot = template.photoSlots[i];
-    const sx = slot.x * scale;
-    const sy = slot.y * scale;
-    const sw = slot.width * scale;
-    const sh = slot.height * scale;
+  var tStickerDrawStart = nowMs();
+  var _loop = async function (i) {
+    var slot = template.photoSlots[i];
+    var sx = slot.x * scale;
+    var sy = slot.y * scale;
+    var sw = slot.width * scale;
+    var sh = slot.height * scale;
     ctx.save();
     ctx.beginPath();
     ctx.rect(sx, sy, sw, sh);
@@ -639,12 +639,12 @@ async function renderComposition(ctx, data, options = {}) {
     }
 
     // Slotted stickers — only valid slots for this layout
-    const slotted = (data.stickers || []).filter(s => Number(s.frameSlot) === i && isStickerValidForLayout(s, data.layout || data.templateType));
-    for (const s of slotted) {
-      const local = {
-        ...s,
-        x: s.slotX ?? 50,
-        y: s.slotY ?? 50
+    var slotted = (data.stickers || []).filter(s => Number(s.frameSlot) === i && isStickerValidForLayout(s, data.layout || data.templateType));
+    for (var _s of slotted) {
+      var local = {
+        ..._s,
+        x: _s.slotX ?? 50,
+        y: _s.slotY ?? 50
       };
       ctx.save();
       ctx.translate(sx, sy);
@@ -652,11 +652,14 @@ async function renderComposition(ctx, data, options = {}) {
       ctx.restore();
     }
     ctx.restore();
+  };
+  for (var i = 0; i < template.photoSlots.length; i++) {
+    await _loop(i);
   }
 
   // 3. Global Stickers (not in slots) — validate layout-slot compatibility
-  const freeStickers = (data.stickers || []).filter(st => st.frameSlot == null && isStickerValidForLayout(st, data.layout || data.templateType));
-  for (const s of freeStickers) {
+  var freeStickers = (data.stickers || []).filter(st => st.frameSlot == null && isStickerValidForLayout(st, data.layout || data.templateType));
+  for (var s of freeStickers) {
     await drawStickerToCtx(ctx, s, w, h, scale, stickerAssets);
   }
   logExportPerf('sticker-draw', {
@@ -667,12 +670,12 @@ async function renderComposition(ctx, data, options = {}) {
   });
 
   // 4. Drawing Strokes
-  const drawStrokes = data.drawStrokes || [];
+  var drawStrokes = data.drawStrokes || [];
   drawStrokes.filter(Boolean).forEach(stroke => {
     if (!Array.isArray(stroke.points) || stroke.points.length < 1) return;
 
     // Prefer normalized width (0~1 of frame width), fall back to absolute px * scale
-    const lineWidth = stroke.widthNorm ? stroke.widthNorm * w : (stroke.width || 3) * scale;
+    var lineWidth = stroke.widthNorm ? stroke.widthNorm * w : (stroke.width || 3) * scale;
     ctx.save();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -687,8 +690,8 @@ async function renderComposition(ctx, data, options = {}) {
       ctx.lineWidth = lineWidth;
       ctx.beginPath();
       stroke.points.forEach(([px, py], idx) => {
-        const tx = px / 100 * w;
-        const ty = py / 100 * h;
+        var tx = px / 100 * w;
+        var ty = py / 100 * h;
         if (idx === 0) ctx.moveTo(tx, ty);else ctx.lineTo(tx, ty);
       });
       ctx.stroke();
@@ -708,45 +711,45 @@ async function renderFrameToCanvas(input) {
   if (document.fonts && document.fonts.ready) {
     await document.fonts.ready;
   }
-  const template = getFrameTemplateSafe(input.layout || input.templateType);
+  var template = getFrameTemplateSafe(input.layout || input.templateType);
   if (!template) {
     throw new Error('[IMMM] frame template unavailable');
   }
-  const scale = input.scale || 1;
-  const w = template.canvasSize.width * scale;
-  const h = template.canvasSize.height * scale;
-  const cvs = document.createElement('canvas');
+  var scale = input.scale || 1;
+  var w = template.canvasSize.width * scale;
+  var h = template.canvasSize.height * scale;
+  var cvs = document.createElement('canvas');
   cvs.width = Math.round(w);
   cvs.height = Math.round(h);
-  const ctx = cvs.getContext('2d');
+  var ctx = cvs.getContext('2d');
   await window.renderComposition(ctx, input, {
     scale
   });
   return cvs;
 }
-const FrameRenderEngine = {
+var FrameRenderEngine = {
   renderToCanvas: renderFrameToCanvas,
   async renderToBlob(input, type = 'image/png', quality = 0.96) {
-    const canvas = await renderFrameToCanvas(input);
+    var canvas = await renderFrameToCanvas(input);
     return new Promise(resolve => canvas.toBlob(resolve, type, quality));
   },
   async renderToDataUrl(input, type = 'image/png', quality = 0.96) {
-    const canvas = await renderFrameToCanvas(input);
+    var canvas = await renderFrameToCanvas(input);
     return canvas.toDataURL(type, quality);
   },
   drawStickerToCanvas: drawStickerToCtx,
   drawCover: drawCoverToCtx
 };
-const LocalGalleryStore = {
+var LocalGalleryStore = {
   dbName: 'immm.local.gallery',
   version: 1,
   open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open(this.dbName, this.version);
+      var req = indexedDB.open(this.dbName, this.version);
       req.onupgradeneeded = () => {
-        const db = req.result;
+        var db = req.result;
         if (!db.objectStoreNames.contains('photos')) {
-          const store = db.createObjectStore('photos', {
+          var store = db.createObjectStore('photos', {
             keyPath: 'id'
           });
           store.createIndex('createdAt', 'createdAt');
@@ -758,34 +761,34 @@ const LocalGalleryStore = {
     });
   },
   async putPhoto(photo) {
-    const db = await this.open();
+    var db = await this.open();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction('photos', 'readwrite');
+      var tx = db.transaction('photos', 'readwrite');
       tx.objectStore('photos').put(photo);
       tx.oncomplete = () => resolve(photo);
       tx.onerror = () => reject(tx.error);
     });
   },
   async listPhotos() {
-    const db = await this.open();
+    var db = await this.open();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction('photos', 'readonly');
-      const req = tx.objectStore('photos').getAll();
+      var tx = db.transaction('photos', 'readonly');
+      var req = tx.objectStore('photos').getAll();
       req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.createdAt - a.createdAt));
       req.onerror = () => reject(req.error);
     });
   },
   async deletePhoto(id) {
-    const db = await this.open();
+    var db = await this.open();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction('photos', 'readwrite');
+      var tx = db.transaction('photos', 'readwrite');
       tx.objectStore('photos').delete(id);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   }
 };
-const ShareStore = {
+var ShareStore = {
   ttlDays: 7,
   localUrls: new Map(),
   // id -> { url, createdAt }
@@ -798,36 +801,36 @@ const ShareStore = {
     };
   },
   isConfigured() {
-    const c = this.config();
+    var c = this.config();
     return Boolean(c?.url && c?.anonKey && c?.bucket);
   },
   clearExpired(maxAgeMs = 600000) {
     // Default 10 mins for local previews
-    const now = Date.now();
-    for (const [id, info] of this.localUrls.entries()) {
+    var now = Date.now();
+    for (var [id, info] of this.localUrls.entries()) {
       if (now - info.createdAt > maxAgeMs) {
         this.revokeShare(id);
       }
     }
   },
   revokeShare(id) {
-    const info = this.localUrls.get(id);
+    var info = this.localUrls.get(id);
     if (info) {
       revokeBlobUrl(info.url);
       this.localUrls.delete(id);
     }
   },
   clearAllLocalUrls() {
-    for (const id of this.localUrls.keys()) {
+    for (var id of this.localUrls.keys()) {
       this.revokeShare(id);
     }
   },
   async createShare(blob, metadata = {}) {
     this.clearExpired(); // Auto-cleanup on every share attempt
-    const id = `sh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const expiresAt = Date.now() + this.ttlDays * 86400000;
+    var id = `sh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    var expiresAt = Date.now() + this.ttlDays * 86400000;
     if (!this.isConfigured()) {
-      const localUrl = URL.createObjectURL(blob);
+      var localUrl = URL.createObjectURL(blob);
       this.localUrls.set(id, {
         url: localUrl,
         createdAt: Date.now()
@@ -841,9 +844,9 @@ const ShareStore = {
         metadata
       };
     }
-    const c = this.config();
-    const path = `${id}.png`;
-    const upload = await fetch(`${c.url}/storage/v1/object/${c.bucket}/${path}`, {
+    var c = this.config();
+    var path = `${id}.png`;
+    var upload = await fetch(`${c.url}/storage/v1/object/${c.bucket}/${path}`, {
       method: 'POST',
       headers: {
         apikey: c.anonKey,
@@ -854,8 +857,8 @@ const ShareStore = {
       body: blob
     });
     if (!upload.ok) throw new Error(`Supabase upload failed: ${upload.status}`);
-    const publicUrl = `${c.url}/storage/v1/object/public/${c.bucket}/${path}`;
-    const shareUrl = `${location.origin}${location.pathname}#/s/${id}?u=${encodeURIComponent(publicUrl)}&e=${expiresAt}`;
+    var publicUrl = `${c.url}/storage/v1/object/public/${c.bucket}/${path}`;
+    var shareUrl = `${location.origin}${location.pathname}#/s/${id}?u=${encodeURIComponent(publicUrl)}&e=${expiresAt}`;
     localStorage.setItem(`immm.share.${id}`, JSON.stringify({
       id,
       publicUrl,
@@ -899,23 +902,23 @@ function FrameThumb({
   scale = 1,
   orientation
 }) {
-  const canvasRef = React.useRef(null);
+  var canvasRef = React.useRef(null);
   React.useEffect(() => {
-    const draw = async () => {
+    var draw = async () => {
       if (!canvasRef.current) return;
-      const cvs = canvasRef.current;
-      const ctx = cvs.getContext('2d');
-      const getTpl = window.getFrameTemplateSafe || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
-      const template = getTpl ? getTpl(layout) : null;
+      var cvs = canvasRef.current;
+      var ctx = cvs.getContext('2d');
+      var getTpl = window.getFrameTemplateSafe || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
+      var template = getTpl ? getTpl(layout) : null;
       if (!template) {
         console.warn('[IMMM] skip draw: frame template unavailable', layout);
         return;
       }
-      const baseW = template.canvasSize.width;
-      const baseH = template.canvasSize.height;
+      var baseW = template.canvasSize.width;
+      var baseH = template.canvasSize.height;
       cvs.width = baseW;
       cvs.height = baseH;
-      const data = {
+      var data = {
         layout,
         shots,
         selected,
@@ -928,7 +931,7 @@ function FrameThumb({
         accent,
         orientation
       };
-      const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+      var renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) await renderComp(ctx, data, {
         scale: 1
       });
@@ -956,7 +959,7 @@ function getFrameTemplateSafe(layoutOrType) {
   return FRAME_TEMPLATES?.['1x4'];
 }
 function getShotCountForFrameSafe(layoutOrType) {
-  const t = getFrameTemplateSafe(layoutOrType);
+  var t = getFrameTemplateSafe(layoutOrType);
   return t?.photoSlots?.length || 4;
 }
 Object.assign(window, {
