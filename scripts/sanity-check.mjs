@@ -1652,9 +1652,48 @@ function checkCameraModelAndBestCut() {
       console.error('❌ FAIL: main.jsx polaroid captureShotCount must be 3 (Best Cut contract)');
       hasErrors = true;
     }
+    // Hotfix 3.42: 1x Return Path
+    if (!main.includes('val === 1 && wideCameraActive')) {
+      console.error('❌ FAIL: main.jsx missing 1x return path for wide camera');
+      hasErrors = true;
+    }
+    if (!main.includes('switchCameraDevice(normalCameraDeviceId)')) {
+      console.error('❌ FAIL: main.jsx missing normal camera device return path');
+      hasErrors = true;
+    }
+    if (!main.includes('type: \'lens-return\'')) {
+      console.error('❌ FAIL: main.jsx missing lens-return option type');
+      hasErrors = true;
+    }
+
+    // Torch Duplication Guard
+    const torchSetterMatch = main.match(/setTorchEnabled\(settings\.torch \|\| false\)/g);
+    if (torchSetterMatch && torchSetterMatch.length >= 2) {
+      console.error('❌ FAIL: main.jsx contains duplicate setTorchEnabled calls');
+      hasErrors = true;
+    }
+
+    // Capture Shot Count Policy
+    if (!main.includes("layout === 'polaroid') return 3")) {
+      console.error('❌ FAIL: main.jsx getCaptureShotCountForLayout missing polaroid=3 policy');
+      hasErrors = true;
+    }
+    if (!main.includes("layout === 'trip') return 5")) {
+      console.error('❌ FAIL: main.jsx getCaptureShotCountForLayout missing trip=5 policy');
+      hasErrors = true;
+    }
+
     // Camera Prewarm Check (Persistent getUserMedia)
     if (!main.includes('navigator.mediaDevices.getUserMedia') || !main.includes('streamRef.current = s')) {
       console.error('❌ FAIL: main.jsx missing persistent camera prewarm (getUserMedia on mount)');
+      hasErrors = true;
+    }
+  }
+
+  const rest = readFile('screens-v2-rest.jsx');
+  if (rest) {
+    if (!rest.includes('Math.abs') || !rest.includes('0.08')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx missing zoom active tolerance logic');
       hasErrors = true;
     }
   }

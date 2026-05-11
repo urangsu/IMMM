@@ -538,7 +538,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         {/* Camera Control Layer: Zoom Rail */}
         <div style={{ flexShrink: 0, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 12 }}>
           {cameraZoomOptions.map((opt) => {
-            const isActive = (opt.value === 0.6) ? wideCameraActive : (cameraZoom === opt.value && !wideCameraActive);
+            const isZoomNear = Math.abs((cameraZoom || 1) - opt.value) < 0.08;
+            const isActive = opt.value === 0.6
+              ? wideCameraActive || isZoomNear
+              : !wideCameraActive && isZoomNear;
             return (
               <button
                 key={opt.label}

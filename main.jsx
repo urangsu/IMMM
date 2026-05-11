@@ -54,7 +54,9 @@ function deriveCameraZoomOptions({
   cameraCapabilities,
   facingMode,
   frontWideCandidates,
-  rearWideCandidates
+  rearWideCandidates,
+  wideCameraActive,
+  normalCameraDeviceId
 }) {
   const options = [
     { label: '0.6×', value: 0.6, type: 'unavailable', enabled: false, reason: 'not-detected' },
@@ -73,6 +75,16 @@ function deriveCameraZoomOptions({
 
   if (zoomCap && zoomCap.max >= 2) {
     options[2] = { ...options[2], type: 'hardware', enabled: true, reason: 'hardware-zoom' };
+  }
+
+  if (wideCameraActive && normalCameraDeviceId) {
+    options[1] = {
+      ...options[1],
+      type: 'lens-return',
+      enabled: true,
+      reason: 'normal-device',
+      deviceId: normalCameraDeviceId
+    };
   }
 
   return options;
@@ -211,8 +223,10 @@ function App() {
       facingMode,
       frontWideCandidates,
       rearWideCandidates,
+      wideCameraActive,
+      normalCameraDeviceId
     }),
-    [cameraCapabilities, facingMode, frontWideCandidates, rearWideCandidates]
+    [cameraCapabilities, facingMode, frontWideCandidates, rearWideCandidates, wideCameraActive, normalCameraDeviceId]
   );
 
   const getCameraDebugSnapshot = React.useCallback((label, extra = {}) => {
@@ -363,8 +377,6 @@ function App() {
           setTorchSupported(!!capabilities.torch);
           setTorchEnabled(settings.torch || false);
 
-          setTorchEnabled(settings.torch || false);
-
           // enumerateDevices after permission granted to get labels for wide candidates
           await refreshCameraDevices();
         }
@@ -513,7 +525,31 @@ function App() {
   const setCameraZoom = React.useCallback(async (val) => {
     if (cameraToggleBusy) return false;
     setCameraToggleBusy(true);
+    let result = { ok: false, path: 'zoom', reason: 'unknown' };
+
     try {
+      if (val === 1 && wideCameraActive) {
+        const hwRes = await applyCameraZoom(1);
+        if (hwRes.ok) {
+          setWideCameraActive(false);
+          result = { ...hwRes, path: 'hardware-return' };
+          return true;
+        }
+
+        if (normalCameraDeviceId) {
+          const devRes = await switchCameraDevice(normalCameraDeviceId);
+          if (devRes.ok) {
+            setWideCameraActive(false);
+            result = { ...devRes, path: 'device-return' };
+            return true;
+          }
+          result = { ok: false, path: 'failed-return', reason: `hw:${hwRes.reason};dev:${devRes.reason}` };
+        } else {
+          result = { ok: false, path: 'failed-return', reason: `hw:${hwRes.reason};no-normal-dev` };
+        }
+        return false;
+      }
+
       const opt = cameraZoomOptions.find(o => o.value === val);
       if (!opt || !opt.enabled) return false;
 
@@ -521,20 +557,24 @@ function App() {
         const res = await applyCameraZoom(val);
         if (res.ok) {
           setWideCameraActive(val <= 0.75);
+          result = res;
           return true;
         }
-      } else if (opt.type === 'lens' && opt.deviceId) {
+      } else if ((opt.type === 'lens' || opt.type === 'lens-return') && opt.deviceId) {
         const res = await switchCameraDevice(opt.deviceId);
         if (res.ok) {
-          setWideCameraActive(true);
+          setWideCameraActive(opt.type === 'lens');
+          result = res;
           return true;
         }
       }
       return false;
     } finally {
+      setLastWideToggleReason(result.reason || 'unknown');
+      setLastWideTogglePath(result.path || 'none');
       setCameraToggleBusy(false);
     }
-  }, [cameraToggleBusy, cameraZoomOptions, applyCameraZoom, switchCameraDevice]);
+  }, [cameraToggleBusy, cameraZoomOptions, applyCameraZoom, switchCameraDevice, wideCameraActive, normalCameraDeviceId]);
 
   const onDebugSwitchCameraDevice = React.useCallback(async (deviceId) => {
     if (cameraToggleBusy) return { ok: false, path: 'manual-device-switch', reason: 'busy' };
