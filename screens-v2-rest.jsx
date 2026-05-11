@@ -8,6 +8,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   cameraZoom = 1, cameraCapabilities = null, cameraSettings = null, applyCameraZoom,
   switchCameraDevice, cameraDevices = [], frontWideCandidates = [], rearWideCandidates = [],
   activeCameraDeviceId, normalCameraDeviceId, wideCameraActive, toggleWideCamera,
+  cameraZoomHistory = [],
   cameraToggleBusy = false, onDebugSwitchCameraDevice = null,
   lastWideToggleReason = '', lastWideTogglePath = '',
   cameraZoomOptions = [], torchSupported = false, torchEnabled = false,
@@ -21,7 +22,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   // 4. Frame export quality: scale 3.0 (mobile) or 4.0 (desktop) based on memory safety.
   // ──────────────────────────────────────────────────────────────────────────
 
-  const shotCount = layout === 'polaroid' ? 1 : 6;
+  const shotCount = layout === 'polaroid' ? 3 : (layout === 'trip' ? 5 : 6);
   const getCaptureLongEdges = () => mobile ? [1920, 1280] : [2560, 1920, 1280];
   const resolveFrameTemplate = (layout) => {
     if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
@@ -730,10 +731,33 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 </div>
               );
 
+              const ZoomHistoryPanel = () => {
+                if (cameraZoomHistory.length === 0) return null;
+                return (
+                  <div style={{ marginTop: 6, padding: 8, background: 'rgba(255,255,255,0.8)', borderRadius: 10, fontSize: 9, fontFamily: 'monospace', border: '1px solid rgba(0,0,0,0.05)' }}>
+                    <div style={{ fontWeight: 800, marginBottom: 4, color: T.ink }}>ZOOM HISTORY (PROXY FOV)</div>
+                    {cameraZoomHistory.slice(0, 5).map((h, i) => (
+                      <div key={i} style={{ marginBottom: 6, borderBottom: i < 4 ? '1px solid rgba(0,0,0,0.03)' : 'none', paddingBottom: 2 }}>
+                        <div style={{ fontWeight: 700, color: h.reason?.includes('success') ? '#007AFF' : '#ff4444' }}>
+                           {h.path} - {h.reason || '...'}
+                        </div>
+                        {h.snapBefore && h.snapAfter && (
+                          <div style={{ opacity: 0.7 }}>
+                            {h.snapBefore.deviceId?.slice(-4)}@{h.snapBefore.zoom?.toFixed(2)} → {h.snapAfter.deviceId?.slice(-4)}@{h.snapAfter.zoom?.toFixed(2)}
+                            <br/>{h.snapBefore.width}x{h.snapBefore.height} → {h.snapAfter.width}x{h.snapAfter.height}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              };
+
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%', marginTop: 8 }}>
                   {debugCamera && <WideCameraDebugPill />}
                   {showWidePicker && <DebugWideDevicePicker />}
+                  {debugCamera && <ZoomHistoryPanel />}
                 </div>
               );
             })()}

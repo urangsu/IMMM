@@ -1683,6 +1683,20 @@ function checkCameraModelAndBestCut() {
       hasErrors = true;
     }
 
+    // Hotfix 3.43: Zoom QA Instrumentation
+    if (!main.includes('cameraZoomHistory')) {
+      console.error('❌ FAIL: main.jsx missing cameraZoomHistory state');
+      hasErrors = true;
+    }
+    if (!main.includes('pushCameraZoomHistory')) {
+      console.error('❌ FAIL: main.jsx missing pushCameraZoomHistory helper');
+      hasErrors = true;
+    }
+    if (!main.includes('trackLabel: track?.label') || !main.includes('zoomCap: capabilities.zoom')) {
+      console.error('❌ FAIL: main.jsx getCameraDebugSnapshot missing FOV proxy fields');
+      hasErrors = true;
+    }
+
     // Camera Prewarm Check (Persistent getUserMedia)
     if (!main.includes('navigator.mediaDevices.getUserMedia') || !main.includes('streamRef.current = s')) {
       console.error('❌ FAIL: main.jsx missing persistent camera prewarm (getUserMedia on mount)');
@@ -1695,6 +1709,14 @@ function checkCameraModelAndBestCut() {
     if (!rest.includes('Math.abs') || !rest.includes('0.08')) {
       console.error('❌ FAIL: screens-v2-rest.jsx missing zoom active tolerance logic');
       hasErrors = true;
+    }
+    if (!rest.includes('ZoomHistoryPanel')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx missing ZoomHistoryPanel debug UI');
+      hasErrors = true;
+    }
+    if (rest.includes('<ZoomHistoryPanel />') && !rest.includes('debugCamera &&')) {
+       console.error('❌ FAIL: screens-v2-rest.jsx ZoomHistoryPanel must be gated by debugCamera');
+       hasErrors = true;
     }
   }
 

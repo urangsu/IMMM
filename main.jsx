@@ -216,6 +216,18 @@ function App() {
   const [torchEnabled, setTorchEnabled] = React.useState(false);
   const [screenFlashEnabled, setScreenFlashEnabled] = React.useState(false);
   const [screenFlashActive, setScreenFlashActive] = React.useState(false);
+  const [cameraZoomHistory, setCameraZoomHistory] = React.useState([]);
+
+  const pushCameraZoomHistory = React.useCallback((entry) => {
+    if (!window.IMMM_DEBUG_CAMERA) return;
+    setCameraZoomHistory(prev => [
+      {
+        ts: Date.now(),
+        ...entry
+      },
+      ...prev
+    ].slice(0, 10));
+  }, []);
   
   const cameraZoomOptions = React.useMemo(
     () => deriveCameraZoomOptions({
@@ -432,7 +444,7 @@ function App() {
       const snapAfter = getCameraDebugSnapshot('zoom-end');
       
       if (afterZoom === undefined) {
-        // Strictly false if we cannot verify the change
+        pushCameraZoomHistory({ requestedZoom: zoom, path: 'hardware-zoom', reason: 'zoom-settings-unavailable', snapBefore, snapAfter });
         return { ok: false, path: 'hardware-zoom', reason: 'zoom-settings-unavailable', snapBefore, snapAfter };
       }
 
@@ -440,12 +452,15 @@ function App() {
       if (diff <= (step * 2 + 0.05)) {
         setCameraZoom(afterZoom);
         setCameraSettings(afterSettings);
+        pushCameraZoomHistory({ requestedZoom: zoom, path: 'hardware-zoom', reason: 'success', snapBefore, snapAfter });
         return { ok: true, path: 'hardware-zoom', reason: 'success', beforeZoom: snapBefore.zoom, afterZoom, snapBefore, snapAfter };
       } else {
+        pushCameraZoomHistory({ requestedZoom: zoom, path: 'hardware-zoom', reason: `zoom-unchanged(${afterZoom})`, snapBefore, snapAfter });
         return { ok: false, path: 'hardware-zoom', reason: `zoom-unchanged(requested ${zoom.toFixed(2)}, got ${afterZoom.toFixed(2)})`, snapBefore, snapAfter };
       }
     } catch (e) {
       console.warn('[IMMM camera] zoom apply failed:', e);
+      pushCameraZoomHistory({ requestedZoom: zoom, path: 'hardware-zoom', reason: `zoom-error(${e.name})`, snapBefore });
       return { ok: false, path: 'hardware-zoom', reason: `zoom-error(${e.name})`, snapBefore };
     }
   }, [getCameraDebugSnapshot]);
@@ -485,6 +500,7 @@ function App() {
       const deviceIdMatches = settings.deviceId === deviceId || (beforeDeviceId && settings.deviceId !== beforeDeviceId);
       if (deviceIdMatches) {
         await refreshCameraDevices();
+        pushCameraZoomHistory({ requestedDeviceId: deviceId, path: 'device-switch', reason: 'success', snapBefore, snapAfter });
         return { ok: true, path: 'device-switch', reason: 'success', snapBefore, snapAfter };
       } else {
         const labelChanged = snapAfter.trackLabel && snapAfter.trackLabel !== snapBefore.trackLabel;
@@ -492,12 +508,15 @@ function App() {
         
         if (labelChanged || resolutionChanged) {
            await refreshCameraDevices();
+           pushCameraZoomHistory({ requestedDeviceId: deviceId, path: 'device-switch', reason: 'unverified-success', snapBefore, snapAfter });
            return { ok: true, path: 'device-switch', reason: 'unverified-device-switch', snapBefore, snapAfter };
         }
+        pushCameraZoomHistory({ requestedDeviceId: deviceId, path: 'device-switch', reason: 'device-not-switched', snapBefore, snapAfter });
         return { ok: false, path: 'device-switch', reason: 'device-not-switched', snapBefore, snapAfter };
       }
     } catch (e) {
       console.warn('[IMMM camera] switchCameraDevice failed:', e);
+      pushCameraZoomHistory({ requestedDeviceId: deviceId, path: 'device-switch', reason: `switch-failed(${e.name})`, snapBefore });
       return { ok: false, path: 'device-switch', reason: `switch-failed(${e.name})`, snapBefore };
     }
   }, [refreshCameraDevices, frontWideCandidates, rearWideCandidates, cameraSettings?.deviceId, getCameraDebugSnapshot]);
@@ -529,10 +548,12 @@ function App() {
 
     try {
       if (val === 1 && wideCameraActive) {
+        pushCameraZoomHistory({ requestedZoom: 1, path: 'lens-return-start', wideCameraActive });
         const hwRes = await applyCameraZoom(1);
         if (hwRes.ok) {
           setWideCameraActive(false);
           result = { ...hwRes, path: 'hardware-return' };
+          pushCameraZoomHistory({ requestedZoom: 1, path: 'hardware-return', reason: 'success' });
           return true;
         }
 
@@ -541,17 +562,21 @@ function App() {
           if (devRes.ok) {
             setWideCameraActive(false);
             result = { ...devRes, path: 'device-return' };
+            pushCameraZoomHistory({ requestedZoom: 1, path: 'device-return', reason: 'success' });
             return true;
           }
           result = { ok: false, path: 'failed-return', reason: `hw:${hwRes.reason};dev:${devRes.reason}` };
         } else {
           result = { ok: false, path: 'failed-return', reason: `hw:${hwRes.reason};no-normal-dev` };
         }
+        pushCameraZoomHistory({ requestedZoom: 1, path: 'failed-return', reason: result.reason });
         return false;
       }
 
       const opt = cameraZoomOptions.find(o => o.value === val);
       if (!opt || !opt.enabled) return false;
+
+      pushCameraZoomHistory({ requestedZoom: val, path: 'zoom-opt-start', optType: opt.type });
 
       if (opt.type === 'hardware') {
         const res = await applyCameraZoom(val);
@@ -782,6 +807,7 @@ function App() {
           toggleWideCamera={toggleWideCamera}
           lastWideToggleReason={lastWideToggleReason}
           lastWideTogglePath={lastWideTogglePath}
+          cameraZoomHistory={cameraZoomHistory}
           onDebugSwitchCameraDevice={onDebugSwitchCameraDevice}
         />;
       case 'select':
