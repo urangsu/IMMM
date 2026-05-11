@@ -234,6 +234,13 @@ QA steps (Reference):
 - [ ] Samsung Internet precompiled smoke test complete
 - [ ] Main `index.html` migration approved
 
+### Phase 3.40 Hotfix Notes
+- [x] `main.jsx` compile-blocking naming collision was fixed during Phase 3.40
+- [x] main.jsx touched: Yes, compile-blocking fix (Source touch documented: `setCameraZoom` state setter renamed to `setCameraZoomState`)
+- [x] `index.precompiled.html` no longer contains `@babel/standalone` even in comments
+- [x] Build script fails on import/export output
+- [x] Legacy `index.html` remains unchanged
+
 ---
 
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap

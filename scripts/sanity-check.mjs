@@ -1582,8 +1582,12 @@ function checkBabelMigrationPlan() {
   // Phase 3.40 Artifact Checks
   const precompiled = readFile('index.precompiled.html');
   if (precompiled) {
-    if (precompiled.includes('@babel/standalone') && !precompiled.includes('removed')) {
+    if (precompiled.includes('@babel/standalone')) {
       console.error('❌ FAIL: index.precompiled.html still contains @babel/standalone');
+      hasErrors = true;
+    }
+    if (precompiled.includes('Babel standalone')) {
+      console.error('❌ FAIL: index.precompiled.html still contains Babel standalone');
       hasErrors = true;
     }
     if (precompiled.includes('type="text/babel"')) {
@@ -1612,6 +1616,18 @@ function checkBabelMigrationPlan() {
   } else {
     console.error('❌ FAIL: package.json missing (Phase 3.40 requirement)');
     hasErrors = true;
+  }
+
+  const buildScript = readFile('scripts/build-precompile.mjs');
+  if (buildScript) {
+    if (!buildScript.includes('process.exit(1)') || !buildScript.includes('console.error')) {
+      console.error('❌ FAIL: scripts/build-precompile.mjs must fail (process.exit(1)) on import/export');
+      hasErrors = true;
+    }
+    if (buildScript.includes('console.warn') && (buildScript.includes('import/export') || buildScript.includes('import ') || buildScript.includes('export '))) {
+      console.error('❌ FAIL: scripts/build-precompile.mjs must not just warn on import/export');
+      hasErrors = true;
+    }
   }
 }
 

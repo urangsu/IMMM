@@ -58,8 +58,9 @@ async function build() {
       });
 
       // No import/export check: classic runtime with no ES modules
-      if (result.code.includes('import ') || result.code.includes('export ')) {
-        console.warn(`⚠️ Warning: ${file} contains import/export after transform. Checking classic runtime...`);
+      if (/(?:^|\n)\s*(import|export)\s+/.test(result.code)) {
+        console.error(`❌ ${file} produced import/export syntax. Precompiled output must be classic global script.`);
+        process.exit(1);
       }
 
       fs.writeFileSync(outPath, result.code);
@@ -73,9 +74,11 @@ async function build() {
   console.log('Generating index.precompiled.html...');
   let html = fs.readFileSync('index.html', 'utf-8');
 
-  // Remove @babel/standalone script tag (handles multiline or complex tags)
+  // Remove Babel standalone comment if present
+  html = html.replace(/<!--\s*Babel standalone[\s\S]*?-->/g, '');
+  // Remove @babel/standalone script tag entirely
   const babelStandaloneRegex = /<script\s+src="https:\/\/unpkg\.com\/@babel\/standalone[^>]+><\/script>/g;
-  html = html.replace(babelStandaloneRegex, '<!-- @babel/standalone removed for precompiled mode -->');
+  html = html.replace(babelStandaloneRegex, '');
 
   // Replace <script type="text/babel" src="xxx.jsx"></script>
   // with <script src="./dist/xxx.js"></script>
