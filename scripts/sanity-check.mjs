@@ -1682,6 +1682,29 @@ function checkBabelMigrationPlan() {
     }
   }
 
+  // Phase 3.49 Precompiled Sync Check
+  const distRest = readFile('dist/screens-v2-rest.js');
+  if (distRest) {
+    if (!distRest.includes('SoftLightGlyph')) {
+      console.error('❌ FAIL: dist/screens-v2-rest.js is out of sync (missing SoftLightGlyph)');
+      hasErrors = true;
+    }
+    if (!distRest.includes('Selfie Light')) {
+      console.error('❌ FAIL: dist/screens-v2-rest.js is out of sync (missing Selfie Light label)');
+      hasErrors = true;
+    }
+    if (distRest.includes('🤳') || distRest.includes('🔦') || distRest.includes('💡')) {
+      console.error('❌ FAIL: dist/screens-v2-rest.js still contains crude emojis');
+      hasErrors = true;
+    }
+  }
+
+  const task349 = readFile('task.md');
+  if (task349 && !task349.includes('Precompiled Sync + Capture Full Flow QA + Entry Switch Readiness (Phase 3.49)')) {
+     console.error('❌ FAIL: task.md missing Phase 3.49 Roadmap section');
+     hasErrors = true;
+  }
+
   const taskForQA = readFile('task.md');
   if (taskForQA) {
     if (taskForQA.includes('## Precompiled Entry Smoke Test (Phase 3.45)')) {

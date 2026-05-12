@@ -367,6 +367,53 @@ QA steps (Reference):
 
 ---
 
+## Precompiled Sync + Capture Full Flow QA + Entry Switch Readiness (Phase 3.49)
+- [x] Precompile rerun after Capture Light UI polish
+- [x] dist/screens-v2-rest.js synced with SoftLightGlyph
+- [x] index.precompiled.html remains Babel-free
+- [x] global lexical collision guard preserved
+- [ ] Desktop Chrome capture verified
+- [ ] Desktop Chrome select verified
+- [ ] Desktop Chrome deco verified
+- [ ] Desktop Chrome result verified
+- [ ] Desktop Chrome save verified
+- [ ] Galaxy S23+ Chrome visual QA verified
+- [ ] Samsung Internet visual QA verified
+- [ ] index.html migration approved
+
+### Desktop Chrome Actual Result
+- date: 2026-05-12
+- URL: http://localhost:4173/index.precompiled.html
+- landing: Pending (Environment capacity issue)
+- setup: Pending
+- capture: Pending
+- camera preview: Pending
+- light button: Pending (Synced in code: SoftLightGlyph present)
+- zoom rail: Pending
+- shots: 0
+- select: Pending
+- deco: Pending
+- result: Pending
+- save: Pending
+- console errors: N/A
+- issue: Browser subagent unavailable due to capacity limits.
+
+### Mobile Actual Result
+- device: Galaxy S23+
+- browser: Chrome / Samsung Internet
+- boot: Pending
+- capture: Pending
+- light button: Pending
+- zoom rail: Pending
+- issue: Actual verification pending.
+
+### Entry Switch Decision
+- decision: Not Ready
+- reason: Artifact synchronization is complete and verified at the code level, but the actual browser flow (Capture -> Result -> Save) remains unverified in this session. Switching production entry without full-flow verification of precompiled artifacts is a P0 risk.
+- required before switch: Successful full-flow smoke test on index.precompiled.html from capture to save.
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안

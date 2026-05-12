@@ -3,6 +3,31 @@
 // ═══════════════════════════════════════════════════════════════
 // CAPTURE — 6 shots
 // ═══════════════════════════════════════════════════════════════
+
+function SoftLightGlyph() {
+  return /*#__PURE__*/React.createElement("svg", {
+    width: "16",
+    height: "16",
+    viewBox: "0 0 16 16",
+    "aria-hidden": "true",
+    focusable: "false",
+    style: {
+      display: 'block'
+    }
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "8",
+    cy: "8",
+    r: "2.2",
+    fill: "currentColor",
+    opacity: "0.95"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M8 1.8V4M8 12v2.2M14.2 8H12M4 8H1.8M12.4 3.6L10.9 5.1M5.1 10.9L3.6 12.4M12.4 12.4L10.9 10.9M5.1 5.1L3.6 3.6",
+    stroke: "currentColor",
+    strokeWidth: "1.7",
+    strokeLinecap: "round",
+    opacity: "0.92"
+  }));
+}
 function CaptureV2({
   T,
   go,
@@ -798,17 +823,15 @@ function CaptureV2({
     }), "Auto"), /*#__PURE__*/React.createElement("button", {
       onClick: onLightToggle,
       disabled: !lightSupported || cameraToggleBusy,
+      "aria-label": facingMode === 'user' ? screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light' : torchEnabled ? 'Turn off light' : 'Turn on light',
+      title: facingMode === 'user' ? 'Selfie screen light' : 'Camera light',
       style: {
         ...leftBtnStyle,
         background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
         color: isLightOn ? T.bg : T.ink,
         opacity: cameraToggleBusy ? 0.6 : lightSupported ? 1 : 0.4
       }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 14
-      }
-    }, facingMode === 'user' ? '🤳' : '🔦'), cameraToggleBusy ? '...' : facingMode === 'user' ? 'Light' : 'Torch'), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement(SoftLightGlyph, null), cameraToggleBusy ? '...' : facingMode === 'user' ? mobile ? 'Light' : 'Selfie Light' : 'Light'), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'none'
       },
