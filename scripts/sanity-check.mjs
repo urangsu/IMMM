@@ -1721,6 +1721,34 @@ function checkBabelMigrationPlan() {
     }
   }
 
+  // Phase 3.51 Release Gate Correction
+  const task351 = readFile('task.md');
+  if (task351) {
+    const correctOrder = 'app -> filters -> webgl-engine -> mediapipe-face -> sticker-engine -> frame-system -> screens-v2 -> screens-v2-rest -> screens-v2-deco -> main';
+    const wrongOrder = 'webgl-engine -> app -> filters';
+    
+    if (task351.includes(wrongOrder)) {
+       console.error('❌ FAIL: task.md contains wrong dist script order (Phase 3.51 Correction needed)');
+       hasErrors = true;
+    }
+    if (!task351.includes(correctOrder)) {
+       console.error('❌ FAIL: task.md missing correct dist script order (Phase 3.51 requirement)');
+       hasErrors = true;
+    }
+    if (!task351.includes('Phase 3.50 is a release gate draft')) {
+       console.error('❌ FAIL: task.md missing Phase 3.50 draft clarification');
+       hasErrors = true;
+    }
+    if (!task351.includes('Full-flow verification remains pending')) {
+       console.error('❌ FAIL: task.md missing full-flow pending status');
+       hasErrors = true;
+    }
+    if (!task351.includes('Parallel Stabilization While Full-Flow QA Is Pending')) {
+       console.error('❌ FAIL: task.md missing Parallel Stabilization section');
+       hasErrors = true;
+    }
+  }
+
   const taskForQA = readFile('task.md');
   if (taskForQA) {
     if (taskForQA.includes('## Precompiled Entry Smoke Test (Phase 3.45)')) {

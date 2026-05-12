@@ -415,6 +415,9 @@ QA steps (Reference):
 ---
 
 ## Actual Precompiled Full-Flow Release Gate (Phase 3.50)
+- Phase 3.50 is a release gate draft, not a completed full-flow QA.
+- Full-flow verification remains pending.
+- index.html migration is blocked until Capture -> Save is actually verified.
 - [ ] Desktop Chrome landing verified
 - [ ] Desktop Chrome setup verified
 - [ ] Desktop Chrome capture verified
@@ -456,6 +459,22 @@ QA steps (Reference):
 - reason: Verification gate (Phase 3.50) cannot be closed without actual full-flow browser smoke test results.
 - remaining blockers: Successful full flow test (Capture -> Save) on index.precompiled.html.
 
+## Parallel Stabilization While Full-Flow QA Is Pending
+- [ ] Capture Light visual QA on mobile
+- [ ] Result preview spacing final visual QA
+- [ ] Setup frame picker contrast final QA
+- [ ] Camera zoom rail visual QA
+- [ ] Save/Share button visual QA
+- [ ] Service Worker dist cache migration plan
+- [ ] Precompiled entry rollback plan
+- [ ] Release checklist screenshot evidence plan
+
+우선순위:
+P0: Service Worker dist cache migration plan
+P1: Mobile visual QA
+P1: Rollback plan
+P2: screenshot evidence plan
+
 ## Entry Switch Package Draft
 전환 시 수정 대상:
 - `index.html`: @babel/standalone 제거, type="text/babel" 제거, dist/*.js script로 교체
@@ -465,7 +484,7 @@ QA steps (Reference):
 
 전환 시 체크리스트:
 1. index.html에서 Babel standalone runtime 완전 제거 확인
-2. dist/*.js 파일 순서대로 로드 (webgl-engine -> app -> filters -> mediapipe-face -> screens-v2 -> sticker-engine -> frame-system -> screens-v2-deco -> screens-v2-rest -> main)
+2. dist/*.js 파일 순서대로 로드 (app -> filters -> webgl-engine -> mediapipe-face -> sticker-engine -> frame-system -> screens-v2 -> screens-v2-rest -> screens-v2-deco -> main)
 3. IMMM_APP_VERSION / IMMM_BUILD_LABEL bump
 4. Service Worker 캐시 갱신 (CACHE_NAME 변경)
 5. node scripts/sanity-check.mjs 최종 통과
