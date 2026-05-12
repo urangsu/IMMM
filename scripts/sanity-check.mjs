@@ -1705,6 +1705,22 @@ function checkBabelMigrationPlan() {
      hasErrors = true;
   }
 
+  const task350 = readFile('task.md');
+  if (task350) {
+    if (!task350.includes('Actual Precompiled Full-Flow Release Gate (Phase 3.50)')) {
+       console.error('❌ FAIL: task.md missing Phase 3.50 Release Gate section');
+       hasErrors = true;
+    }
+    if (!task350.includes('Entry Switch Package Draft')) {
+       console.error('❌ FAIL: task.md missing Entry Switch Package Draft');
+       hasErrors = true;
+    }
+    if (task350.includes('- [x] index.html switch approved') && task350.includes('decision: Not Ready')) {
+       console.error('❌ FAIL: index.html switch approved while decision is Not Ready');
+       hasErrors = true;
+    }
+  }
+
   const taskForQA = readFile('task.md');
   if (taskForQA) {
     if (taskForQA.includes('## Precompiled Entry Smoke Test (Phase 3.45)')) {

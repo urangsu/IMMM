@@ -414,6 +414,65 @@ QA steps (Reference):
 
 ---
 
+## Actual Precompiled Full-Flow Release Gate (Phase 3.50)
+- [ ] Desktop Chrome landing verified
+- [ ] Desktop Chrome setup verified
+- [ ] Desktop Chrome capture verified
+- [ ] Desktop Chrome camera preview verified
+- [ ] Desktop Chrome zoom rail verified
+- [ ] Desktop Chrome light button visual verified
+- [ ] Desktop Chrome select verified
+- [ ] Desktop Chrome deco verified
+- [ ] Desktop Chrome result verified
+- [ ] Desktop Chrome save verified
+- [ ] Polaroid 1×1 Best Cut verified
+- [ ] Galaxy S23+ Chrome boot verified
+- [ ] Galaxy S23+ Chrome capture verified
+- [ ] Samsung Internet boot verified
+- [ ] Samsung Internet capture verified
+- [ ] index.html switch approved
+
+### Desktop Chrome 1×4 Actual Result
+- date: 2026-05-12
+- URL: http://localhost:4173/index.precompiled.html
+- browser: Chrome (Desktop)
+- landing: Pending (Environment capacity)
+- setup: Pending
+- capture: Pending
+- camera permission: Pending
+- camera preview: Pending
+- zoom rail: Pending
+- light button: Pending
+- shots: 0
+- select: Pending
+- deco: Pending
+- result: Pending
+- save: Pending
+- console errors:
+- issue: Browser subagent unavailable for full flow testing in this session.
+
+### Entry Switch Decision
+- decision: Not Ready
+- reason: Verification gate (Phase 3.50) cannot be closed without actual full-flow browser smoke test results.
+- remaining blockers: Successful full flow test (Capture -> Save) on index.precompiled.html.
+
+## Entry Switch Package Draft
+전환 시 수정 대상:
+- `index.html`: @babel/standalone 제거, type="text/babel" 제거, dist/*.js script로 교체
+- `sw.js`: CACHE_NAME bump
+- `package.json`: IMMM_APP_VERSION bump
+- `task.md`: Phase 3.51 (Entry Switch) 완료 처리
+
+전환 시 체크리스트:
+1. index.html에서 Babel standalone runtime 완전 제거 확인
+2. dist/*.js 파일 순서대로 로드 (webgl-engine -> app -> filters -> mediapipe-face -> screens-v2 -> sticker-engine -> frame-system -> screens-v2-deco -> screens-v2-rest -> main)
+3. IMMM_APP_VERSION / IMMM_BUILD_LABEL bump
+4. Service Worker 캐시 갱신 (CACHE_NAME 변경)
+5. node scripts/sanity-check.mjs 최종 통과
+6. Chrome / Samsung Internet 실기 smoke 재확인
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안
