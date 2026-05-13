@@ -254,15 +254,17 @@
   // --- Self-Test ---
 
   function runSessionModelSelfTest() {
+    var asset = createMediaAsset({
+      mediaType: 'photo',
+      sourceType: 'camera',
+      width: 1200,
+      height: 1600
+    });
     var session = createCaptureSession({
       mode: 'bestCut',
-      shots: [createMediaAsset({
-        mediaType: 'photo',
-        sourceType: 'camera',
-        width: 1200,
-        height: 1600
-      })],
+      shots: [asset],
       selectedCuts: [createSelectedCut({
+        assetId: asset.assetId,
         sourceShotIndex: 0,
         targetSlotIndex: 0
       })]
@@ -275,6 +277,7 @@
       errors: [...result.errors, ...normalizedResult.errors],
       sample: {
         sessionId: session.sessionId,
+        assetId: asset.assetId,
         shotCount: session.shots.length,
         selectedCount: session.selectedCuts.length
       }

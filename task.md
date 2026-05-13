@@ -731,6 +731,25 @@ Rollback verification:
 
 ---
 
+## CaptureSession Self-Test Execution Hotfix (Phase 3.58)
+- [x] runSessionModelSelfTest SelectedCut assetId binding fixed
+- [x] SessionModel self-test now executes in sanity-check
+- [x] Invalid session mode negative test added
+- [x] Invalid ShareState status negative test added
+- [x] Invalid ExportState status negative test added
+- [x] normalizeCaptureSession clone separation test added
+- [x] dist/session-model.js regenerated
+- [x] Capture runtime untouched
+- [x] Result/Export untouched
+- [x] QR/Video remain disabled
+
+### Finding
+Phase 3.57 added a self-test function, but string-based sanity checks did not execute it.
+SelectedCut validation required assetId, while the self-test sample did not bind one.
+Phase 3.58 turns the self-test into an executed release gate.
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안

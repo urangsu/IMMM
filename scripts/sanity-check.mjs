@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import vm from 'node:vm';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,9 +97,77 @@ function checkCaptureSessionModel() {
   });
 
   const distModel = readFile('dist/session-model.js');
-  if (distModel && !distModel.includes('runSessionModelSelfTest')) {
-    console.error('❌ FAIL: dist/session-model.js missing runSessionModelSelfTest');
-    hasErrors = true;
+  if (distModel) {
+    if (!distModel.includes('runSessionModelSelfTest')) {
+      console.error('❌ FAIL: dist/session-model.js missing runSessionModelSelfTest');
+      hasErrors = true;
+    } else {
+      // Execute actual self-test in VM
+      try {
+        const sandbox = {
+          window: {},
+          crypto: { randomUUID: () => 'test-uuid-0000-1111' },
+          Date,
+          Math,
+          console
+        };
+        vm.createContext(sandbox);
+        vm.runInContext(distModel, sandbox);
+
+        const model = sandbox.window.IMMMSessionModel;
+        if (!model) {
+          throw new Error('window.IMMMSessionModel not found after execution');
+        }
+
+        // 1. Positive self-test
+        const testResult = model.runSessionModelSelfTest();
+        if (!testResult.ok) {
+          console.error('❌ FAIL: IMMMSessionModel.runSessionModelSelfTest() failed:', testResult.errors);
+          hasErrors = true;
+        }
+
+        // 2. Negative: invalid mode
+        const badMode = model.createCaptureSession({ mode: 'invalid_mode_xyz' });
+        if (model.validateCaptureSession(badMode).ok) {
+          console.error('❌ FAIL: validateCaptureSession allowed invalid mode');
+          hasErrors = true;
+        }
+
+        // 3. Negative: invalid share status
+        const badShare = model.createCaptureSession({
+          shareState: model.createShareState({ status: 'not-a-valid-status' })
+        });
+        if (model.validateCaptureSession(badShare).ok) {
+          console.error('❌ FAIL: validateCaptureSession allowed invalid share status');
+          hasErrors = true;
+        }
+
+        // 4. Negative: invalid export status
+        const badExport = model.createCaptureSession({
+          exportState: model.createExportState({ status: 'finished' })
+        });
+        if (model.validateCaptureSession(badExport).ok) {
+          console.error('❌ FAIL: validateCaptureSession allowed invalid export status');
+          hasErrors = true;
+        }
+
+        // 5. Clone separation check
+        const input = model.createCaptureSession();
+        const normalized = model.normalizeCaptureSession(input);
+        if (input === normalized) {
+          console.error('❌ FAIL: normalizeCaptureSession returned same reference (no clone)');
+          hasErrors = true;
+        }
+        if (input.renderRecipe === normalized.renderRecipe) {
+           console.error('❌ FAIL: normalizeCaptureSession nested objects are not cloned');
+           hasErrors = true;
+        }
+
+      } catch (err) {
+        console.error('💥 FAIL: Exception during IMMMSessionModel self-test execution:', err.message);
+        hasErrors = true;
+      }
+    }
   }
 
   const build = readFile('scripts/build-precompile.mjs');
