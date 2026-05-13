@@ -1,10 +1,20 @@
 // sw.js — Emergency Cache Update for Samsung Internet Stability
-const CACHE_NAME = 'immm-cache-v6-2026-05-10-rc2.2';
+const CACHE_NAME = 'immm-cache-v7-2026-05-12-rc2.3-precompiled';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icon.svg'
+  './icon.svg',
+  './dist/app.js',
+  './dist/filters.js',
+  './dist/webgl-engine.js',
+  './dist/mediapipe-face.js',
+  './dist/sticker-engine.js',
+  './dist/frame-system.js',
+  './dist/screens-v2.js',
+  './dist/screens-v2-rest.js',
+  './dist/screens-v2-deco.js',
+  './dist/main.js'
 ];
 
 self.addEventListener('install', (e) => {

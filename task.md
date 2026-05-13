@@ -480,7 +480,7 @@ P2: screenshot evidence plan
 - `index.html`: @babel/standalone 제거, type="text/babel" 제거, dist/*.js script로 교체
 - `sw.js`: CACHE_NAME bump
 - `package.json`: IMMM_APP_VERSION bump
-- `task.md`: Phase 3.51 (Entry Switch) 완료 처리
+- `task.md`: Phase 3.52 (Entry Switch) 완료 처리
 
 전환 시 체크리스트:
 1. index.html에서 Babel standalone runtime 완전 제거 확인
@@ -491,6 +491,57 @@ P2: screenshot evidence plan
 6. Chrome / Samsung Internet 실기 smoke 재확인
 
 ---
+
+## Production Precompiled Entry Switch + Crop Parity Gate (Phase 3.52)
+- [x] index.html @babel/standalone removed
+- [x] index.html type="text/babel" removed
+- [x] dist/*.js scripts loaded in manifest order
+- [x] IMMM_APP_VERSION bumped to 2026-05-12-rc2.3
+- [x] IMMM_BUILD_LABEL bumped to rc2.3-precompiled-entry
+- [x] sw.js CACHE_NAME bumped to immm-cache-v7-2026-05-12-rc2.3-precompiled
+- [x] dist/*.js added to sw.js ASSETS precache
+- [ ] Desktop Chrome boot smoke verified
+- [ ] Samsung Internet boot smoke verified
+
+## 1×4 Preview / Capture / Export Crop Parity Gate
+- [x] 1×4 strip is treated as a production-critical layout
+- [x] Capture source ratio must not distort faces
+- [x] Result preview must use resultPreviewSrc, not DOM capture
+- [x] Export must use renderFinalResultBlob only
+- [x] DOM/captureRef/captureFrameAsBlob forbidden in final asset path
+- [ ] 1×4 capture visual QA verified
+- [ ] 1×4 result preview visual QA verified
+- [ ] 1×4 downloaded PNG visual QA verified
+- [ ] 1×4 preview/export crop parity screenshot evidence attached
+
+## QR / Video Production Gate
+- [x] QR Share remains disabled until CaptureSession/ShareState exists
+- [x] Save Video remains disabled until MotionExport contract exists
+- [x] No production QR without share backend/session model
+- [x] No production video without export contract
+
+## CaptureSession Model Contract
+필수 엔티티:
+- CaptureSession
+- MediaAsset
+- SelectedCut
+- RenderRecipe
+- EditRecipe
+- ShareState
+- ExportState
+
+원칙:
+- 원본 photo data는 보존
+- blur/edit는 EditRecipe로 저장
+- QR/Video는 CaptureSession 기반으로만 활성화
+- Deco/Result는 RenderRecipe 기반으로 재현 가능해야 함
+
+주의:
+- 이번 Phase에서는 코드 구현하지 않는다.
+- index.html 전환 안정화 후 별도 Phase로 구현.
+
+---
+
 
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 

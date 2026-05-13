@@ -69,9 +69,9 @@
 </style>
 
 <script>
-  window.IMMM_APP_VERSION = '2026-05-10-rc2.2';
-  window.IMMM_BUILD_LABEL = 'rc2.2-react-production-umd';
-  window.IMMM_RC_BASELINE = 'ca3df30';
+  window.IMMM_APP_VERSION = '2026-05-12-rc2.3';
+  window.IMMM_BUILD_LABEL = 'rc2.3-precompiled-entry';
+  window.IMMM_RC_BASELINE = 'b3f7f1c';
   window.IMMM_STABLE_BASELINE = '8b5e42c';
   window.IMMM_COMMIT = window.IMMM_RC_BASELINE; // Alias for backward compatibility
   
@@ -134,10 +134,6 @@
         crossorigin="anonymous"
         integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1"></script>
 
-<!-- Babel standalone (JSX → JS in-browser) -->
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
-  integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
-  crossorigin="anonymous"></script>
 
 <!-- html2canvas — frame PNG export -->
 <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -168,26 +164,17 @@
 <div id="boot-error"></div>
 <div id="root"></div>
 
-<!-- Shared globals: design tokens, icons, sticker assets -->
-<script type="text/babel" src="app.jsx"></script>
-<!-- CSS filter definitions -->
-<script type="text/babel" src="filters.jsx"></script>
-<!-- WebGL pipeline (TWGL + face warp + blush) -->
-<script type="text/babel" src="webgl-engine.jsx"></script>
-<!-- MediaPipe face landmark detection -->
-<script type="text/babel" src="mediapipe-face.jsx"></script>
-<!-- Sticker drag/scale/rotate canvas -->
-<script type="text/babel" src="sticker-engine.jsx"></script>
-<!-- Frame templates + unified renderer + local/QR stores -->
-<script type="text/babel" src="frame-system.jsx"></script>
-<!-- Landing + Setup screens + shared UI primitives -->
-<script type="text/babel" src="screens-v2.jsx"></script>
-<!-- Capture + Select screens -->
-<script type="text/babel" src="screens-v2-rest.jsx"></script>
-<!-- Deco Studio + Result screens -->
-<script type="text/babel" src="screens-v2-deco.jsx"></script>
-<!-- App entry point -->
-<script type="text/babel" src="main.jsx"></script>
+<!-- Precompiled dist scripts (Babel-free classic global scripts) -->
+<script src="./dist/app.js"></script>
+<script src="./dist/filters.js"></script>
+<script src="./dist/webgl-engine.js"></script>
+<script src="./dist/mediapipe-face.js"></script>
+<script src="./dist/sticker-engine.js"></script>
+<script src="./dist/frame-system.js"></script>
+<script src="./dist/screens-v2.js"></script>
+<script src="./dist/screens-v2-rest.js"></script>
+<script src="./dist/screens-v2-deco.js"></script>
+<script src="./dist/main.js"></script>
 <script>
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     window.addEventListener('load', function() {

@@ -607,11 +607,11 @@ function checkRuntimeVersion() {
   const main = fs.readFileSync('main.jsx', 'utf8');
   const sw = fs.readFileSync('sw.js', 'utf8');
 
-  if (!html.includes('IMMM_APP_VERSION = \'2026-05-10-rc2.2\'')) {
+  if (!html.includes('IMMM_APP_VERSION = \'2026-05-12-rc2.3\'')) {
     console.error("❌ FAIL: index.html missing or incorrect IMMM_APP_VERSION");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_BUILD_LABEL = \'rc2.2-react-production-umd\'')) {
+  if (!html.includes('IMMM_BUILD_LABEL = \'rc2.3-precompiled-entry\'')) {
     console.error("❌ FAIL: index.html missing IMMM_BUILD_LABEL");
     hasErrors = true;
   }
@@ -619,7 +619,7 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: index.html contains misleading IMMM_COMMIT = '91bc1ba'");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_RC_BASELINE = \'ca3df30\'')) {
+  if (!html.includes('IMMM_RC_BASELINE = \'b3f7f1c\'')) {
     console.error("❌ FAIL: index.html missing or incorrect IMMM_RC_BASELINE");
     hasErrors = true;
   }
@@ -635,8 +635,8 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v6-2026-05-10-rc2.2')) {
-    console.error("❌ FAIL: sw.js missing immm-cache-v6-2026-05-10-rc2.2");
+  if (!sw.includes('immm-cache-v7-2026-05-12-rc2.3-precompiled')) {
+    console.error("❌ FAIL: sw.js missing immm-cache-v7-2026-05-12-rc2.3-precompiled");
     hasErrors = true;
   }
   if (sw.includes('immm-cache-v1') || sw.includes('immm-cache-v4')) {
@@ -1575,19 +1575,49 @@ function checkBabelMigrationPlan() {
   }
 
   const index = readFile('index.html');
-  if (index && index.includes('@babel/standalone')) {
-    console.warn("⚠️ WARN: @babel/standalone still present in index.html (P0 Risk tracked in Phase 3.39)");
+  if (index) {
+    // Phase 3.52: @babel/standalone must be removed from index.html
+    if (index.includes('@babel/standalone')) {
+      console.error('❌ FAIL: index.html still contains @babel/standalone (Phase 3.52: production entry switch required)');
+      hasErrors = true;
+    }
+    if (index.includes('type="text/babel"')) {
+      console.error('❌ FAIL: index.html still contains type="text/babel" (Phase 3.52: production entry switch required)');
+      hasErrors = true;
+    }
+    // Must load dist scripts in order
+    const distOrder = ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/mediapipe-face.js',
+      'dist/sticker-engine.js','dist/frame-system.js','dist/screens-v2.js',
+      'dist/screens-v2-rest.js','dist/screens-v2-deco.js','dist/main.js'];
+    let lastIdx = -1;
+    let orderOk = true;
+    distOrder.forEach(s => {
+      const pos = index.indexOf(s);
+      if (pos === -1) { orderOk = false; }
+      else if (pos < lastIdx) { orderOk = false; }
+      else lastIdx = pos;
+    });
+    if (!orderOk) {
+      console.error('❌ FAIL: index.html dist script order does not match manifest order');
+      hasErrors = true;
+    }
   }
 
-  // Phase 3.40 Artifact Checks
+  const packageJson = readFile('package.json');
+  if (packageJson) {
+    if (!packageJson.includes('build:precompile')) {
+       console.error('❌ FAIL: package.json missing build:precompile script');
+       hasErrors = true;
+    }
+  } else {
+    console.error('❌ FAIL: package.json missing (Phase 3.40 requirement)');
+    hasErrors = true;
+  }
+  // Phase 3.40 Artifact Checks (precompiled.html remains Babel-free)
   const precompiled = readFile('index.precompiled.html');
   if (precompiled) {
     if (precompiled.includes('@babel/standalone')) {
       console.error('❌ FAIL: index.precompiled.html still contains @babel/standalone');
-      hasErrors = true;
-    }
-    if (precompiled.includes('Babel standalone')) {
-      console.error('❌ FAIL: index.precompiled.html still contains Babel standalone');
       hasErrors = true;
     }
     if (precompiled.includes('type="text/babel"')) {
@@ -1602,20 +1632,73 @@ function checkBabelMigrationPlan() {
     console.warn('⚠️ WARN: index.precompiled.html not found (Phase 3.40 incomplete)');
   }
 
-  if (index && index.includes('dist/') && !index.includes('<!--')) {
-       console.error('❌ FAIL: index.html should not reference dist/ files during Phase 3.40 (Rollback safety)');
-       hasErrors = true;
+  // Phase 3.52: sw.js CACHE_NAME and dist precache guards
+  const swJs = readFile('sw.js');
+  if (swJs) {
+    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled series');
+      hasErrors = true;
+    }
+    ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {
+      if (!swJs.includes(d)) {
+        console.error(`❌ FAIL: sw.js ASSETS missing ${d}`);
+        hasErrors = true;
+      }
+    });
+    if (!swJs.includes('self.skipWaiting()')) {
+      console.error('❌ FAIL: sw.js missing skipWaiting');
+      hasErrors = true;
+    }
+    if (!swJs.includes('self.clients.claim')) {
+      console.error('❌ FAIL: sw.js missing clients.claim');
+      hasErrors = true;
+    }
   }
 
-  const packageJson = readFile('package.json');
-  if (packageJson) {
-    if (!packageJson.includes('build:precompile')) {
-       console.error('❌ FAIL: package.json missing build:precompile script');
-       hasErrors = true;
+  // Phase 3.52: QR / Video disabled guard
+  const deco = readFile('screens-v2-deco.jsx');
+  if (deco) {
+    // handleQrShare / handleVideoDownload must NOT be wired to onClick directly
+    const qrClickPattern = /onClick\s*=\s*\{[^}]*handleQrShare/;
+    const videoClickPattern = /onClick\s*=\s*\{[^}]*handleVideoDownload/;
+    if (qrClickPattern.test(deco)) {
+      console.error('❌ FAIL: screens-v2-deco.jsx handleQrShare is wired to onClick (must stay disabled)');
+      hasErrors = true;
     }
-  } else {
-    console.error('❌ FAIL: package.json missing (Phase 3.40 requirement)');
-    hasErrors = true;
+    if (videoClickPattern.test(deco)) {
+      console.error('❌ FAIL: screens-v2-deco.jsx handleVideoDownload is wired to onClick (must stay disabled)');
+      hasErrors = true;
+    }
+    // captureFrameAsBlob must NOT appear in final asset path
+    if (deco.includes('captureFrameAsBlob') && deco.includes('getFinalResultBlob')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx captureFrameAsBlob found in final asset path context');
+      hasErrors = true;
+    }
+    if (!deco.includes('renderFinalResultBlob')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx missing renderFinalResultBlob (result export path broken)');
+      hasErrors = true;
+    }
+  }
+
+  // Phase 3.52: task.md gate sections
+  const task352 = readFile('task.md');
+  if (task352) {
+    if (!task352.includes('1×4 Preview / Capture / Export Crop Parity Gate')) {
+      console.error('❌ FAIL: task.md missing 1×4 Crop Parity Gate section');
+      hasErrors = true;
+    }
+    if (!task352.includes('QR / Video Production Gate')) {
+      console.error('❌ FAIL: task.md missing QR / Video Production Gate section');
+      hasErrors = true;
+    }
+    if (!task352.includes('CaptureSession Model Contract')) {
+      console.error('❌ FAIL: task.md missing CaptureSession Model Contract section');
+      hasErrors = true;
+    }
+    if (!task352.includes('Production Precompiled Entry Switch + Crop Parity Gate (Phase 3.52)')) {
+      console.error('❌ FAIL: task.md missing Phase 3.52 section');
+      hasErrors = true;
+    }
   }
 
   const buildScript = readFile('scripts/build-precompile.mjs');
