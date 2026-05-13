@@ -69,9 +69,9 @@
 </style>
 
 <script>
-  window.IMMM_APP_VERSION = '2026-05-10-rc2.2';
-  window.IMMM_BUILD_LABEL = 'rc2.2-react-production-umd';
-  window.IMMM_RC_BASELINE = 'ca3df30';
+  window.IMMM_APP_VERSION = '2026-05-12-rc2.3';
+  window.IMMM_BUILD_LABEL = 'rc2.3-precompiled-entry';
+  window.IMMM_RC_BASELINE = 'b3f7f1c';
   window.IMMM_STABLE_BASELINE = '8b5e42c';
   window.IMMM_COMMIT = window.IMMM_RC_BASELINE; // Alias for backward compatibility
   
@@ -135,8 +135,6 @@
         integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1"></script>
 
 
-
-
 <!-- html2canvas — frame PNG export -->
 <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
@@ -166,25 +164,17 @@
 <div id="boot-error"></div>
 <div id="root"></div>
 
-<!-- Shared globals: design tokens, icons, sticker assets -->
+<!-- Precompiled dist scripts (Babel-free classic global scripts) -->
 <script src="./dist/app.js"></script>
-<!-- CSS filter definitions -->
 <script src="./dist/filters.js"></script>
-<!-- WebGL pipeline (TWGL + face warp + blush) -->
 <script src="./dist/webgl-engine.js"></script>
-<!-- MediaPipe face landmark detection -->
 <script src="./dist/mediapipe-face.js"></script>
-<!-- Sticker drag/scale/rotate canvas -->
 <script src="./dist/sticker-engine.js"></script>
-<!-- Frame templates + unified renderer + local/QR stores -->
+<script src="./dist/session-model.js"></script>
 <script src="./dist/frame-system.js"></script>
-<!-- Landing + Setup screens + shared UI primitives -->
 <script src="./dist/screens-v2.js"></script>
-<!-- Capture + Select screens -->
 <script src="./dist/screens-v2-rest.js"></script>
-<!-- Deco Studio + Result screens -->
 <script src="./dist/screens-v2-deco.js"></script>
-<!-- App entry point -->
 <script src="./dist/main.js"></script>
 <script>
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

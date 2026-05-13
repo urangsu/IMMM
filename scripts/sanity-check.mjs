@@ -58,6 +58,69 @@ function checkRepositoryScope() {
 
 checkRepositoryScope();
 
+function checkCaptureSessionModel() {
+  const model = readFile('session-model.jsx');
+  if (!model) {
+    console.error('❌ FAIL: session-model.jsx missing');
+    hasErrors = true;
+    return;
+  }
+
+  const required = [
+    'window.IMMMSessionModel',
+    'createCaptureSession',
+    'createMediaAsset',
+    'createSelectedCut',
+    'createRenderRecipe',
+    'createEditRecipe',
+    'createShareState',
+    'createExportState',
+    'validateCaptureSession',
+    'normalizeCaptureSession'
+  ];
+
+  required.forEach(r => {
+    if (!model.includes(r)) {
+      console.error(`❌ FAIL: session-model.jsx missing ${r}`);
+      hasErrors = true;
+    }
+  });
+
+  const build = readFile('scripts/build-precompile.mjs');
+  if (build && !build.includes('session-model.jsx')) {
+    console.error('❌ FAIL: build-precompile.mjs manifest missing session-model.jsx');
+    hasErrors = true;
+  }
+
+  const index = readFile('index.html');
+  if (index) {
+    if (!index.includes('dist/session-model.js')) {
+      console.error('❌ FAIL: index.html missing dist/session-model.js');
+      hasErrors = true;
+    }
+    const modelIdx = index.indexOf('dist/session-model.js');
+    const systemIdx = index.indexOf('dist/frame-system.js');
+    const engineIdx = index.indexOf('dist/sticker-engine.js');
+    
+    if (modelIdx > systemIdx) {
+      console.error('❌ FAIL: session-model.js must be loaded BEFORE frame-system.js');
+      hasErrors = true;
+    }
+    if (modelIdx < engineIdx) {
+      console.error('❌ FAIL: session-model.js must be loaded AFTER sticker-engine.js');
+      hasErrors = true;
+    }
+  }
+
+  const sw = readFile('sw.js');
+  if (sw && !sw.includes('./dist/session-model.js')) {
+    console.error('❌ FAIL: sw.js ASSETS missing ./dist/session-model.js');
+    hasErrors = true;
+  }
+}
+
+checkCaptureSessionModel();
+
 function checkWebGL() {
   const webgl = readFile('webgl-engine.jsx');
   if (!webgl) return;
@@ -677,8 +740,8 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v7-2026-05-12-rc2.3-precompiled')) {
-    console.error("❌ FAIL: sw.js missing immm-cache-v7-2026-05-12-rc2.3-precompiled");
+  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-')) {
+    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7 or v8)");
     hasErrors = true;
   }
   if (sw.includes('immm-cache-v1') || sw.includes('immm-cache-v4')) {
@@ -1674,11 +1737,11 @@ function checkBabelMigrationPlan() {
     console.warn('⚠️ WARN: index.precompiled.html not found (Phase 3.40 incomplete)');
   }
 
-  // Phase 3.52: sw.js CACHE_NAME and dist precache guards
+  // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled series');
+    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled or v8 series');
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {

@@ -14,6 +14,7 @@ const manifest = [
   'webgl-engine.jsx',
   'mediapipe-face.jsx',
   'sticker-engine.jsx',
+  'session-model.jsx',
   'frame-system.jsx',
   'screens-v2.jsx',
   'screens-v2-rest.jsx',

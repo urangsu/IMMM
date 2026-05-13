@@ -678,6 +678,36 @@ Rollback verification:
 
 ---
 
+## CaptureSession Foundation Implementation (Phase 3.56)
+
+- [x] session-model.jsx added
+- [x] IMMMSessionModel namespace added
+- [x] CaptureSession factory added
+- [x] MediaAsset factory added
+- [x] SelectedCut factory added
+- [x] RenderRecipe factory added
+- [x] EditRecipe factory added
+- [x] ShareState factory added
+- [x] ExportState factory added
+- [x] validateCaptureSession added
+- [x] normalizeCaptureSession added
+- [x] build-precompile manifest updated
+- [x] dist/session-model.js generated
+- [x] index.html script order updated
+- [x] sw.js cache includes session-model
+- [x] QR/Video remain disabled
+- [x] runtime capture flow untouched
+- [x] Result/Export untouched
+
+### CaptureSession Expansion Rules
+- QR Share can only be enabled after ShareState supports cloud-ready URLs.
+- Save Video can only be enabled after MotionExport contract exists.
+- Setlog/group album requires CaptureSession.groupId and participants.
+- Re-edit requires RenderRecipe + EditRecipe replay.
+- Original MediaAsset must not be overwritten by edits.
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안
