@@ -750,6 +750,33 @@ Phase 3.58 turns the self-test into an executed release gate.
 
 ---
 
+## CaptureSession Adapter Foundation (Phase 3.59)
+- [x] session-adapter.jsx added
+- [x] IMMMSessionAdapter namespace added
+- [x] createSessionSnapshot added
+- [x] createMediaAssetsFromShots added
+- [x] createSelectedCutsFromSelection added
+- [x] createRenderRecipeFromAppState added
+- [x] createEditRecipeFromAppState added
+- [x] createResultAssetContract added
+- [x] runSessionAdapterSelfTest added
+- [x] dist/session-adapter.js generated
+- [x] build-precompile manifest updated
+- [x] index.html script order updated
+- [x] sw.js cache includes session-adapter
+- [x] Existing runtime capture flow untouched
+- [x] Result/Export untouched
+- [x] QR/Video remain disabled
+
+### Adapter Rules
+- Adapter is read-only.
+- Adapter must not mutate shots/selected/appState.
+- Adapter must not auto-select cuts when selected is empty.
+- Adapter must not store Blob/File objects directly.
+- Adapter must not enable QR/Video.
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안

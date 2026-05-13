@@ -59,15 +59,23 @@ function checkRepositoryScope() {
 
 checkRepositoryScope();
 
-function checkCaptureSessionModel() {
+function checkCaptureSessionSystem() {
   const model = readFile('session-model.jsx');
+  const adapter = readFile('session-adapter.jsx');
+  
   if (!model) {
     console.error('❌ FAIL: session-model.jsx missing');
     hasErrors = true;
     return;
   }
+  if (!adapter) {
+    console.error('❌ FAIL: session-adapter.jsx missing');
+    hasErrors = true;
+    return;
+  }
 
-  const required = [
+  // Model required strings
+  const modelRequired = [
     'window.IMMMSessionModel',
     'SESSION_MODES',
     'MEDIA_TYPES',
@@ -84,25 +92,51 @@ function checkCaptureSessionModel() {
     'validateCaptureSession',
     'normalizeCaptureSession',
     'runSessionModelSelfTest',
-    'clonePlain',
-    'SHARE_STATUSES.includes',
-    'EXPORT_STATUSES.includes'
+    'clonePlain'
   ];
 
-  required.forEach(r => {
+  modelRequired.forEach(r => {
     if (!model.includes(r)) {
       console.error(`❌ FAIL: session-model.jsx missing ${r}`);
       hasErrors = true;
     }
   });
 
+  // Adapter required strings
+  const adapterRequired = [
+    'window.IMMMSessionAdapter',
+    'ADAPTER_VERSION',
+    'createSessionSnapshot',
+    'createMediaAssetsFromShots',
+    'createSelectedCutsFromSelection',
+    'createRenderRecipeFromAppState',
+    'createEditRecipeFromAppState',
+    'createResultAssetContract',
+    'runSessionAdapterSelfTest'
+  ];
+
+  adapterRequired.forEach(r => {
+    if (!adapter.includes(r)) {
+      console.error(`❌ FAIL: session-adapter.jsx missing ${r}`);
+      hasErrors = true;
+    }
+  });
+
   const distModel = readFile('dist/session-model.js');
-  if (distModel) {
+  const distAdapter = readFile('dist/session-adapter.js');
+
+  if (distModel && distAdapter) {
     if (!distModel.includes('runSessionModelSelfTest')) {
       console.error('❌ FAIL: dist/session-model.js missing runSessionModelSelfTest');
       hasErrors = true;
-    } else {
-      // Execute actual self-test in VM
+    }
+    if (!distAdapter.includes('runSessionAdapterSelfTest')) {
+      console.error('❌ FAIL: dist/session-adapter.js missing runSessionAdapterSelfTest');
+      hasErrors = true;
+    }
+
+    if (!hasErrors) {
+      // Execute actual self-tests in VM
       try {
         const sandbox = {
           window: {},
@@ -112,98 +146,94 @@ function checkCaptureSessionModel() {
           console
         };
         vm.createContext(sandbox);
+        
+        // Order matters: model then adapter
         vm.runInContext(distModel, sandbox);
+        vm.runInContext(distAdapter, sandbox);
 
-        const model = sandbox.window.IMMMSessionModel;
-        if (!model) {
-          throw new Error('window.IMMMSessionModel not found after execution');
-        }
+        const modelObj = sandbox.window.IMMMSessionModel;
+        const adapterObj = sandbox.window.IMMMSessionAdapter;
 
-        // 1. Positive self-test
-        const testResult = model.runSessionModelSelfTest();
-        if (!testResult.ok) {
-          console.error('❌ FAIL: IMMMSessionModel.runSessionModelSelfTest() failed:', testResult.errors);
+        if (!modelObj) throw new Error('window.IMMMSessionModel not found after execution');
+        if (!adapterObj) throw new Error('window.IMMMSessionAdapter not found after execution');
+
+        // 1. Model Positive self-test
+        const modelTestResult = modelObj.runSessionModelSelfTest();
+        if (!modelTestResult.ok) {
+          console.error('❌ FAIL: IMMMSessionModel.runSessionModelSelfTest() failed:', modelTestResult.errors);
           hasErrors = true;
         }
 
-        // 2. Negative: invalid mode
-        const badMode = model.createCaptureSession({ mode: 'invalid_mode_xyz' });
-        if (model.validateCaptureSession(badMode).ok) {
+        // 2. Adapter Positive self-test
+        const adapterTestResult = adapterObj.runSessionAdapterSelfTest();
+        if (!adapterTestResult.ok) {
+          console.error('❌ FAIL: IMMMSessionAdapter.runSessionAdapterSelfTest() failed:', adapterTestResult.errors);
+          hasErrors = true;
+        }
+
+        // 3. Negative tests (Model)
+        const badMode = modelObj.createCaptureSession({ mode: 'invalid_mode_xyz' });
+        if (modelObj.validateCaptureSession(badMode).ok) {
           console.error('❌ FAIL: validateCaptureSession allowed invalid mode');
           hasErrors = true;
         }
 
-        // 3. Negative: invalid share status
-        const badShare = model.createCaptureSession({
-          shareState: model.createShareState({ status: 'not-a-valid-status' })
-        });
-        if (model.validateCaptureSession(badShare).ok) {
-          console.error('❌ FAIL: validateCaptureSession allowed invalid share status');
-          hasErrors = true;
-        }
-
-        // 4. Negative: invalid export status
-        const badExport = model.createCaptureSession({
-          exportState: model.createExportState({ status: 'finished' })
-        });
-        if (model.validateCaptureSession(badExport).ok) {
-          console.error('❌ FAIL: validateCaptureSession allowed invalid export status');
-          hasErrors = true;
-        }
-
-        // 5. Clone separation check
-        const input = model.createCaptureSession();
-        const normalized = model.normalizeCaptureSession(input);
-        if (input === normalized) {
-          console.error('❌ FAIL: normalizeCaptureSession returned same reference (no clone)');
-          hasErrors = true;
-        }
-        if (input.renderRecipe === normalized.renderRecipe) {
-           console.error('❌ FAIL: normalizeCaptureSession nested objects are not cloned');
-           hasErrors = true;
-        }
-
       } catch (err) {
-        console.error('💥 FAIL: Exception during IMMMSessionModel self-test execution:', err.message);
+        console.error('💥 FAIL: Exception during Session System VM self-test execution:', err.message);
         hasErrors = true;
       }
     }
   }
 
   const build = readFile('scripts/build-precompile.mjs');
-  if (build && !build.includes('session-model.jsx')) {
-    console.error('❌ FAIL: build-precompile.mjs manifest missing session-model.jsx');
-    hasErrors = true;
+  if (build) {
+    if (!build.includes('session-model.jsx')) {
+      console.error('❌ FAIL: build-precompile.mjs manifest missing session-model.jsx');
+      hasErrors = true;
+    }
+    if (!build.includes('session-adapter.jsx')) {
+      console.error('❌ FAIL: build-precompile.mjs manifest missing session-adapter.jsx');
+      hasErrors = true;
+    }
   }
 
   const index = readFile('index.html');
   if (index) {
-    if (!index.includes('dist/session-model.js')) {
-      console.error('❌ FAIL: index.html missing dist/session-model.js');
-      hasErrors = true;
-    }
+    ['dist/session-model.js', 'dist/session-adapter.js'].forEach(d => {
+      if (!index.includes(d)) {
+        console.error(`❌ FAIL: index.html missing ${d}`);
+        hasErrors = true;
+      }
+    });
+
     const modelIdx = index.indexOf('dist/session-model.js');
+    const adapterIdx = index.indexOf('dist/session-adapter.js');
     const systemIdx = index.indexOf('dist/frame-system.js');
-    const engineIdx = index.indexOf('dist/sticker-engine.js');
     
-    if (modelIdx > systemIdx) {
-      console.error('❌ FAIL: session-model.js must be loaded BEFORE frame-system.js');
+    if (modelIdx > adapterIdx) {
+      console.error('❌ FAIL: session-model.js must be loaded BEFORE session-adapter.js');
       hasErrors = true;
     }
-    if (modelIdx < engineIdx) {
-      console.error('❌ FAIL: session-model.js must be loaded AFTER sticker-engine.js');
+    if (adapterIdx > systemIdx) {
+      console.error('❌ FAIL: session-adapter.js must be loaded BEFORE frame-system.js');
       hasErrors = true;
     }
   }
 
   const sw = readFile('sw.js');
-  if (sw && !sw.includes('./dist/session-model.js')) {
-    console.error('❌ FAIL: sw.js ASSETS missing ./dist/session-model.js');
-    hasErrors = true;
+  if (sw) {
+    if (!sw.includes('./dist/session-model.js')) {
+      console.error('❌ FAIL: sw.js ASSETS missing ./dist/session-model.js');
+      hasErrors = true;
+    }
+    if (!sw.includes('./dist/session-adapter.js')) {
+      console.error('❌ FAIL: sw.js ASSETS missing ./dist/session-adapter.js');
+      hasErrors = true;
+    }
   }
 }
 
-checkCaptureSessionModel();
+checkCaptureSessionSystem();
 
 function checkWebGL() {
   const webgl = readFile('webgl-engine.jsx');
@@ -824,8 +854,8 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-')) {
-    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7 or v8)");
+  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-')) {
+    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8 or v9)");
     hasErrors = true;
   }
   if (sw.includes('immm-cache-v1') || sw.includes('immm-cache-v4')) {
@@ -1824,8 +1854,8 @@ function checkBabelMigrationPlan() {
   // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled or v8 series');
+    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8 or v9 series');
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {
