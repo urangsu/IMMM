@@ -16,6 +16,48 @@ function readFile(filename) {
 
 let hasErrors = false;
 
+function checkRepositoryScope() {
+  const taskContent = readFile('task.md');
+  if (!taskContent) return;
+
+  if (!taskContent.includes('## Repository Scope Guard')) {
+    console.error('❌ FAIL: task.md missing "## Repository Scope Guard" section');
+    hasErrors = true;
+  }
+
+  if (taskContent.includes('MyTeam is out of scope') && taskContent.includes('/Users/su/Desktop/MyTeam')) {
+    // Basic presence check passed
+  } else {
+     console.error('❌ FAIL: task.md Repository Scope Guard section is incomplete');
+     hasErrors = true;
+  }
+
+  // Cross-repo mention check in new task sections
+  const lines = taskContent.split('\n');
+  let currentHeader = '';
+  lines.forEach(line => {
+    if (line.startsWith('## ')) currentHeader = line;
+    if (currentHeader.includes('Phase 3.54') || currentHeader.includes('Current Execution')) {
+       if (line.includes('MyTeam') && !line.includes('out of scope') && !line.includes('Guard')) {
+         console.error('❌ FAIL: Unauthorized MyTeam mention in task.md');
+         hasErrors = true;
+       }
+       if (line.includes('TASK.md')) {
+         console.error('❌ FAIL: Unauthorized TASK.md mention in task.md');
+         hasErrors = true;
+       }
+    }
+  });
+
+  // Verify git root if possible (optional but recommended in shell context)
+  if (rootDir.includes('MyTeam')) {
+    console.error('❌ FAIL: Sanity check running from wrong repository root (MyTeam detected)');
+    hasErrors = true;
+  }
+}
+
+checkRepositoryScope();
+
 function checkWebGL() {
   const webgl = readFile('webgl-engine.jsx');
   if (!webgl) return;
