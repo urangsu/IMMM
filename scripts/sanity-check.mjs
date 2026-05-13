@@ -1845,6 +1845,32 @@ function checkBabelMigrationPlan() {
       hasErrors = true;
     }
   }
+
+  // Phase 3.53: Post-Switch Release Gate
+  const task353 = readFile('task.md');
+  if (task353) {
+    if (!task353.includes('Production Precompiled Post-Switch Release Gate (Phase 3.53)')) {
+      console.error('❌ FAIL: task.md missing Phase 3.53 Post-Switch Release Gate section');
+      hasErrors = true;
+    }
+    if (!task353.includes('Production Precompiled Rollback Plan')) {
+      console.error('❌ FAIL: task.md missing Rollback Plan section');
+      hasErrors = true;
+    }
+    // If Release approved is checked, Desktop Chrome must also be checked
+    const approvedChecked = task353.includes('- [x] Release approved');
+    const desktopPending = task353.includes('- [ ] Desktop Chrome production boot verified');
+    if (approvedChecked && desktopPending) {
+      console.error('❌ FAIL: Release approved checked but Desktop Chrome boot not yet verified');
+      hasErrors = true;
+    }
+    // SW guard must also be pending if release not ready
+    const swPending = task353.includes('- [ ] Service Worker registered');
+    if (approvedChecked && swPending) {
+      console.error('❌ FAIL: Release approved checked but Service Worker verification still pending');
+      hasErrors = true;
+    }
+  }
 }
 
 function checkCameraArchitecture() {

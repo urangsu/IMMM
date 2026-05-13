@@ -542,8 +542,102 @@ P2: screenshot evidence plan
 
 ---
 
+## Production Precompiled Rollback Plan
 
-## 🚀 Phase B — WebGL Skin Retouch Roadmap
+Rollback trigger:
+- index.html boot failure
+- missing dist global (ReferenceError on window.*)
+- Service Worker stale cache failure
+- Samsung Internet boot failure
+- Result/Save fatal regression
+
+Rollback method:
+1. `git revert 810d37e` (build: switch production entry to precompiled scripts)
+2. or `git checkout b3f7f1c -- index.html sw.js` to restore specific files
+3. bump sw.js CACHE_NAME to v8-rollback-YYYY-MM-DD
+4. deploy rollback commit
+5. ask users to hard refresh / close+reopen if SW cache persists
+
+Rollback files:
+- index.html
+- sw.js
+- task.md
+- scripts/sanity-check.mjs
+
+Rollback verification:
+- @babel/standalone restored only in rollback branch
+- type=text/babel restored only in rollback branch
+- app boots on legacy entry
+- sw cache name changed (old precompiled cache cleaned)
+
+주의:
+- rollback은 계획만 문서화한다.
+- 이번 Phase에서 실제 rollback 수행 금지.
+
+---
+
+## Production Precompiled Post-Switch Release Gate (Phase 3.53)
+
+- [ ] Desktop Chrome production boot verified
+- [ ] Desktop Chrome setup verified
+- [ ] Desktop Chrome capture entry verified
+- [ ] No-camera Mac mini state handled without crash
+- [ ] Service Worker registered
+- [ ] rc2.3 precompiled cache created
+- [ ] dist assets cached
+- [ ] old cache cleanup verified
+- [ ] Galaxy S23+ Chrome boot verified
+- [ ] Galaxy S23+ Chrome capture verified
+- [ ] Samsung Internet boot verified
+- [ ] Samsung Internet capture verified
+- [x] Rollback plan documented
+- [ ] Release approved
+
+### Desktop Chrome Result
+- date: 2026-05-13
+- URL: http://localhost:4173/index.html
+- boot: Pending (browser subagent capacity unavailable)
+- landing: Pending
+- setup: Pending
+- capture: Pending
+- no-camera state: Pending
+- console errors: Not verified
+- issue: Browser subagent unavailable for smoke test
+- server asset check: index.html 200 ✅, dist/app.js 200 ✅, dist/main.js 200 ✅, sw.js 200 ✅
+
+### Service Worker Result
+- CACHE_NAME: immm-cache-v7-2026-05-12-rc2.3-precompiled
+- registered: Pending (requires browser)
+- dist assets cached: Pending (requires browser)
+- old cache cleanup: Pending (requires browser)
+- reload behavior: Pending
+- issue: Cannot verify without browser
+
+### Galaxy Chrome Result
+- date: Pending
+- URL: Pending
+- boot: Pending
+- capture: Pending
+- camera preview: Pending
+- issue: Not yet tested
+
+### Samsung Internet Result
+- date: Pending
+- URL: Pending
+- boot: Pending
+- capture: Pending
+- camera preview: Pending
+- issue: Not yet tested
+
+### Release Decision
+- decision: Not Ready
+- blockers: Desktop Chrome + Samsung Internet full-flow smoke test not yet performed
+- non-blockers: Server HTTP 200 for all dist assets confirmed. Sanity check passes.
+- next action: Perform actual browser smoke test on real device with camera.
+
+---
+
+
 
 - [x] PR 1 — 문서/설계 초안
 - [x] PR 2 — Desktop-only experimental shader compile validation + mask data wiring
