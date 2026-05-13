@@ -1871,6 +1871,36 @@ function checkBabelMigrationPlan() {
       hasErrors = true;
     }
   }
+
+  // Phase 3.54: Document structure + evidence guards
+  const task354 = readFile('task.md');
+  if (task354) {
+    if (!task354.includes('## 🚀 Phase B — WebGL Skin Retouch Roadmap')) {
+      console.error('❌ FAIL: task.md missing Phase B heading (document structure regression)');
+      hasErrors = true;
+    }
+    if (!task354.includes('Phase 3.54 Evidence')) {
+      console.error('❌ FAIL: task.md missing Phase 3.54 Evidence section');
+      hasErrors = true;
+    }
+    const relApproved354 = task354.includes('- [x] Release approved');
+    const bothBootsPending = task354.includes('- [ ] Desktop Chrome production boot verified') &&
+                             task354.includes('- [ ] Galaxy S23+ Chrome boot verified');
+    const allCapturePending = task354.includes('- [ ] Desktop Chrome capture entry verified') &&
+                              task354.includes('- [ ] Galaxy S23+ Chrome capture verified');
+    if (relApproved354 && bothBootsPending) {
+      console.error('❌ FAIL: Release approved but neither Desktop nor Galaxy boot is verified');
+      hasErrors = true;
+    }
+    if (relApproved354 && allCapturePending) {
+      console.error('❌ FAIL: Release approved but no capture entry is verified');
+      hasErrors = true;
+    }
+    if (relApproved354 && task354.includes('- [ ] Service Worker registered')) {
+      console.error('❌ FAIL: Release approved but Service Worker still pending');
+      hasErrors = true;
+    }
+  }
 }
 
 function checkCameraArchitecture() {

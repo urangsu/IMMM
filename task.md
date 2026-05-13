@@ -637,7 +637,42 @@ Rollback verification:
 
 ---
 
+## Phase 3.54 Evidence
 
+### Production Precompiled Entry Switch (Phase 3.54)
+- date: 2026-05-13
+- server: python3 -m http.server 4173
+
+**Server-level asset verification:**
+- index.html: 200 ✅
+- dist/app.js: 200 ✅
+- dist/filters.js: 200 ✅
+- dist/main.js: 200 ✅
+- sw.js: 200 ✅
+- sanity-check: ✅ All sanity checks passed
+
+**Browser-level verification (요실기 필요):**
+- Desktop Chrome boot: Pending (browser subagent capacity unavailable)
+- Desktop Chrome setup: Pending
+- Desktop Chrome capture: Pending
+- no-camera Mac mini state: Pending
+- Galaxy S23+ Chrome: Pending
+- Samsung Internet: Pending
+- Service Worker registered: Pending
+- rc2.3 precompiled cache: Pending
+- dist assets in cache: Pending
+
+**Evidence screenshots:**
+- Desktop screenshot: not captured
+- Galaxy Chrome screenshot: not captured
+- Samsung Internet screenshot: not captured
+- SW cache screenshot: not captured
+- console issue: not captured
+- known limitation: Mac mini has no camera; browser subagent has no rendering capacity for smoke tests
+
+---
+
+## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안
 - [x] PR 2 — Desktop-only experimental shader compile validation + mask data wiring
