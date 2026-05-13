@@ -708,6 +708,29 @@ Rollback verification:
 
 ---
 
+## CaptureSession Schema Hardening (Phase 3.57)
+- [x] Session mode enum added
+- [x] Media type enum added
+- [x] Source type enum added
+- [x] Share status enum added
+- [x] Export status enum added
+- [x] validateCaptureSession checks core enum/status fields
+- [x] normalizeCaptureSession uses clonePlain for nested session data
+- [x] runSessionModelSelfTest added
+- [x] dist/session-model.js regenerated
+- [x] QR/Video remain disabled
+- [x] Capture runtime untouched
+- [x] Result/Export untouched
+
+### Schema Notes
+- CaptureSession schema is local-first.
+- Blob/File objects are not stored in the schema directly.
+- dataUrl/blobUrl/remoteUrl references are string contracts.
+- Cloud share requires ShareState.status = cloud-ready.
+- Save Video requires a future MotionExport contract.
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안

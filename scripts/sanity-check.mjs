@@ -68,6 +68,11 @@ function checkCaptureSessionModel() {
 
   const required = [
     'window.IMMMSessionModel',
+    'SESSION_MODES',
+    'MEDIA_TYPES',
+    'SOURCE_TYPES',
+    'SHARE_STATUSES',
+    'EXPORT_STATUSES',
     'createCaptureSession',
     'createMediaAsset',
     'createSelectedCut',
@@ -76,7 +81,11 @@ function checkCaptureSessionModel() {
     'createShareState',
     'createExportState',
     'validateCaptureSession',
-    'normalizeCaptureSession'
+    'normalizeCaptureSession',
+    'runSessionModelSelfTest',
+    'clonePlain',
+    'SHARE_STATUSES.includes',
+    'EXPORT_STATUSES.includes'
   ];
 
   required.forEach(r => {
@@ -85,6 +94,12 @@ function checkCaptureSessionModel() {
       hasErrors = true;
     }
   });
+
+  const distModel = readFile('dist/session-model.js');
+  if (distModel && !distModel.includes('runSessionModelSelfTest')) {
+    console.error('❌ FAIL: dist/session-model.js missing runSessionModelSelfTest');
+    hasErrors = true;
+  }
 
   const build = readFile('scripts/build-precompile.mjs');
   if (build && !build.includes('session-model.jsx')) {
