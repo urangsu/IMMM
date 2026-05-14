@@ -1,5 +1,5 @@
-// sw.js — Emergency Cache Update for Samsung Internet Stability
-const CACHE_NAME = 'immm-cache-v12-2026-05-14-session-infrastructure';
+// sw.js — Product Foundation Contracts Integration
+const CACHE_NAME = 'immm-cache-v13-2026-05-14-product-foundation';
 const ASSETS = [
   './',
   './index.html',
@@ -13,6 +13,11 @@ const ASSETS = [
   './dist/session-model.js',
   './dist/session-adapter.js',
   './dist/result-asset-store.js',
+  './dist/session-runtime-snapshot.js',
+  './dist/share-contract.js',
+  './dist/motion-export-contract.js',
+  './dist/edit-recipe-contract.js',
+  './dist/pwa-release-contract.js',
   './dist/frame-system.js',
   './dist/screens-v2.js',
   './dist/screens-v2-rest.js',

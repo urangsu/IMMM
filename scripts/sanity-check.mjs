@@ -343,6 +343,72 @@ function checkCaptureSessionSystem() {
           hasErrors = true;
         }
 
+        // 7. Foundation Contracts VM Tests
+        const distSnapshot = readFile('dist/session-runtime-snapshot.js');
+        const distShare = readFile('dist/share-contract.js');
+        const distMotion = readFile('dist/motion-export-contract.js');
+        const distEdit = readFile('dist/edit-recipe-contract.js');
+        const distPWA = readFile('dist/pwa-release-contract.js');
+
+        if (distSnapshot && distShare && distMotion && distEdit && distPWA) {
+          // Load foundation contracts into sandbox
+          vm.runInContext(distSnapshot, sandbox);
+          vm.runInContext(distShare, sandbox);
+          vm.runInContext(distMotion, sandbox);
+          vm.runInContext(distEdit, sandbox);
+          vm.runInContext(distPWA, sandbox);
+
+          const snapshotObj = sandbox.window.IMMMSessionRuntimeSnapshot;
+          const shareObj = sandbox.window.IMMMShareContract;
+          const motionObj = sandbox.window.IMMMMotionExportContract;
+          const editObj = sandbox.window.IMMMEditRecipeContract;
+          const pwaObj = sandbox.window.IMPWAReleaseContract;
+
+          if (!snapshotObj) throw new Error('window.IMMMSessionRuntimeSnapshot not found');
+          if (!shareObj) throw new Error('window.IMMMShareContract not found');
+          if (!motionObj) throw new Error('window.IMMMMotionExportContract not found');
+          if (!editObj) throw new Error('window.IMMMEditRecipeContract not found');
+          if (!pwaObj) throw new Error('window.IMPWAReleaseContract not found');
+
+          // Run self-tests for each contract
+          const snapshotTest = snapshotObj.runSessionRuntimeSnapshotSelfTest();
+          if (!snapshotTest.ok) {
+            console.error('❌ FAIL: IMMMSessionRuntimeSnapshot.runSessionRuntimeSnapshotSelfTest() failed:', snapshotTest.errors);
+            hasErrors = true;
+          }
+
+          const shareTest = shareObj.runShareContractSelfTest();
+          if (!shareTest.ok) {
+            console.error('❌ FAIL: IMMMShareContract.runShareContractSelfTest() failed:', shareTest.errors);
+            hasErrors = true;
+          }
+
+          const motionTest = motionObj.runMotionExportContractSelfTest();
+          if (!motionTest.ok) {
+            console.error('❌ FAIL: IMMMMotionExportContract.runMotionExportContractSelfTest() failed:', motionTest.errors);
+            hasErrors = true;
+          }
+
+          const editTest = editObj.runEditRecipeContractSelfTest();
+          if (!editTest.ok) {
+            console.error('❌ FAIL: IMMMEditRecipeContract.runEditRecipeContractSelfTest() failed:', editTest.errors);
+            hasErrors = true;
+          }
+
+          const pwaTest = pwaObj.runPwaReleaseContractSelfTest();
+          if (!pwaTest.ok) {
+            console.error('❌ FAIL: IMPWAReleaseContract.runPwaReleaseContractSelfTest() failed:', pwaTest.errors);
+            hasErrors = true;
+          }
+        } else {
+          if (!distSnapshot) console.error('❌ FAIL: dist/session-runtime-snapshot.js not found');
+          if (!distShare) console.error('❌ FAIL: dist/share-contract.js not found');
+          if (!distMotion) console.error('❌ FAIL: dist/motion-export-contract.js not found');
+          if (!distEdit) console.error('❌ FAIL: dist/edit-recipe-contract.js not found');
+          if (!distPWA) console.error('❌ FAIL: dist/pwa-release-contract.js not found');
+          hasErrors = true;
+        }
+
       } catch (err) {
         console.error('💥 FAIL: Exception during Session System VM self-test execution:', err.message);
         hasErrors = true;
@@ -364,11 +430,41 @@ function checkCaptureSessionSystem() {
       console.error('❌ FAIL: build-precompile.mjs manifest missing result-asset-store.jsx');
       hasErrors = true;
     }
+    if (!build.includes('session-runtime-snapshot.jsx')) {
+      console.error('❌ FAIL: build-precompile.mjs manifest missing session-runtime-snapshot.jsx');
+      hasErrors = true;
+    }
+    if (!build.includes('share-contract.jsx')) {
+      console.error('❌ FAIL: build-precompile.mjs manifest missing share-contract.jsx');
+      hasErrors = true;
+    }
+    if (!build.includes('motion-export-contract.jsx')) {
+      console.error('❌ FAIL: build-precompile.mjs manifest missing motion-export-contract.jsx');
+      hasErrors = true;
+    }
+    if (!build.includes('edit-recipe-contract.jsx')) {
+      console.error('❌ FAIL: build-precompile.mjs manifest missing edit-recipe-contract.jsx');
+      hasErrors = true;
+    }
+    if (!build.includes('pwa-release-contract.jsx')) {
+      console.error('❌ FAIL: build-precompile.mjs manifest missing pwa-release-contract.jsx');
+      hasErrors = true;
+    }
   }
 
   const index = readFile('index.html');
   if (index) {
-    ['dist/session-model.js', 'dist/session-adapter.js', 'dist/result-asset-store.js'].forEach(d => {
+    const requiredScripts = [
+      'dist/session-model.js',
+      'dist/session-adapter.js',
+      'dist/result-asset-store.js',
+      'dist/session-runtime-snapshot.js',
+      'dist/share-contract.js',
+      'dist/motion-export-contract.js',
+      'dist/edit-recipe-contract.js',
+      'dist/pwa-release-contract.js'
+    ];
+    requiredScripts.forEach(d => {
       if (!index.includes(d)) {
         console.error(`❌ FAIL: index.html missing ${d}`);
         hasErrors = true;
@@ -377,28 +473,66 @@ function checkCaptureSessionSystem() {
 
     const modelIdx = index.indexOf('dist/session-model.js');
     const adapterIdx = index.indexOf('dist/session-adapter.js');
+    const storeIdx = index.indexOf('dist/result-asset-store.js');
+    const snapshotIdx = index.indexOf('dist/session-runtime-snapshot.js');
+    const shareIdx = index.indexOf('dist/share-contract.js');
+    const motionIdx = index.indexOf('dist/motion-export-contract.js');
+    const editIdx = index.indexOf('dist/edit-recipe-contract.js');
+    const pwaIdx = index.indexOf('dist/pwa-release-contract.js');
     const systemIdx = index.indexOf('dist/frame-system.js');
-    
+
     if (modelIdx > adapterIdx) {
       console.error('❌ FAIL: session-model.js must be loaded BEFORE session-adapter.js');
       hasErrors = true;
     }
-    if (adapterIdx > systemIdx) {
-      console.error('❌ FAIL: session-adapter.js must be loaded BEFORE frame-system.js');
+    if (adapterIdx > storeIdx) {
+      console.error('❌ FAIL: session-adapter.js must be loaded BEFORE result-asset-store.js');
+      hasErrors = true;
+    }
+    if (storeIdx > snapshotIdx) {
+      console.error('❌ FAIL: result-asset-store.js must be loaded BEFORE session-runtime-snapshot.js');
+      hasErrors = true;
+    }
+    if (snapshotIdx > shareIdx) {
+      console.error('❌ FAIL: session-runtime-snapshot.js must be loaded BEFORE share-contract.js');
+      hasErrors = true;
+    }
+    if (shareIdx > motionIdx) {
+      console.error('❌ FAIL: share-contract.js must be loaded BEFORE motion-export-contract.js');
+      hasErrors = true;
+    }
+    if (motionIdx > editIdx) {
+      console.error('❌ FAIL: motion-export-contract.js must be loaded BEFORE edit-recipe-contract.js');
+      hasErrors = true;
+    }
+    if (editIdx > pwaIdx) {
+      console.error('❌ FAIL: edit-recipe-contract.js must be loaded BEFORE pwa-release-contract.js');
+      hasErrors = true;
+    }
+    if (pwaIdx > systemIdx) {
+      console.error('❌ FAIL: pwa-release-contract.js must be loaded BEFORE frame-system.js');
       hasErrors = true;
     }
   }
 
   const sw = readFile('sw.js');
   if (sw) {
-    if (!sw.includes('./dist/session-model.js')) {
-      console.error('❌ FAIL: sw.js ASSETS missing ./dist/session-model.js');
-      hasErrors = true;
-    }
-    if (!sw.includes('./dist/session-adapter.js')) {
-      console.error('❌ FAIL: sw.js ASSETS missing ./dist/session-adapter.js');
-      hasErrors = true;
-    }
+    const requiredAssets = [
+      './dist/session-model.js',
+      './dist/session-adapter.js',
+      './dist/result-asset-store.js',
+      './dist/session-runtime-snapshot.js',
+      './dist/share-contract.js',
+      './dist/motion-export-contract.js',
+      './dist/edit-recipe-contract.js',
+      './dist/pwa-release-contract.js'
+    ];
+    requiredAssets.forEach(asset => {
+      if (!sw.includes(asset)) {
+        console.error(`❌ FAIL: sw.js ASSETS missing ${asset}`);
+        hasErrors = true;
+      }
+    });
   }
 }
 
@@ -1023,8 +1157,8 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-')) {
-    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9, v10, v11 or v12)");
+  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-') && !sw.includes('immm-cache-v13-')) {
+    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9, v10, v11, v12 or v13)");
     hasErrors = true;
   }
   if (sw.includes('immm-cache-v1-') || sw.includes('immm-cache-v4-')) {
@@ -2023,8 +2157,8 @@ function checkBabelMigrationPlan() {
   // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11 or v12 series');
+    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-') && !swJs.includes('v13-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11, v12 or v13 series');
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {

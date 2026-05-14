@@ -1912,3 +1912,105 @@ QA steps:
 - [ ] Native exposure control implemented
 - [ ] Native camera permission flow implemented
 - [ ] App shell selected: Capacitor / React Native / Swift/Kotlin
+
+## Phase 3.62 — IMMM Product Infrastructure Sprint: Foundation Contracts Integration
+
+**Status**: ✅ COMPLETED
+
+### What Was Delivered
+Five new foundation contract files implementing data-level specifications without actual rendering/implementation:
+
+1. **session-runtime-snapshot.jsx** (150 lines)
+   - Debug-only session snapshot capture with `window.IMMM_DEBUG_SESSION` flag
+   - Memory-only storage to `window.__IMMM_LAST_SESSION_SNAPSHOT__`
+   - Functions: `isSessionDebugEnabled`, `createDebugSessionSnapshot`, `storeLastDebugSessionSnapshot`, `getLastDebugSessionSnapshot`, `clearLastDebugSessionSnapshot`
+   - Self-test: 8 tests covering debug state, snapshot creation, storage/retrieval/deletion, invalid input handling
+   - Namespace: `window.IMMMSessionRuntimeSnapshot`
+
+2. **share-contract.jsx** (300 lines)
+   - Defines sharing requirements without implementation
+   - SHARE_TYPES: local-preview, os-share, cloud-share, qr-share
+   - QR share requires cloud-ready status + remoteUrl (no blob: URLs)
+   - Functions: `canCreateQrShare`, `canCreateCloudShare`, `canUseOsShare`, `classifyShareTarget`, `createShareReadinessReport`
+   - Self-test: 6 tests covering blob URL rejection, local-preview rejection, cloud-ready pass, expired rejection, OS share eligibility, classification
+   - Namespace: `window.IMMMShareContract`
+
+3. **motion-export-contract.jsx** (350 lines)
+   - Specifies motion export parameters without rendering
+   - MOTION_OUTPUT_TYPES: webm, mp4, gif, preview-only
+   - MOTION_SLOT_TYPES: still, transition, motion
+   - Preview-only supported; video types require slots array
+   - Functions: `createMotionExportRecipe`, `createMotionSlotProvider`, `validateMotionExportRecipe`, `createMotionReadinessReport`
+   - Self-test: 8 tests covering valid recipes, type normalization, empty slot rejection, video recipes, slot providers, readiness reports, immutability
+   - Namespace: `window.IMMMMotionExportContract`
+
+4. **edit-recipe-contract.jsx** (300 lines)
+   - Defines editing operations without rendering
+   - EDIT_TYPES: blur, filter, crop, adjustment
+   - BLUR_TYPES: background, face-safe, full-frame
+   - Strength clamped to [0,1], dimensions validated positive
+   - All recipes frozen/immutable (Object.freeze)
+   - Functions: `createBlurRecipe`, `createFilterRecipe`, `createCropRecipe`, `createCompositeEditRecipe`, `validateEditRecipe`
+   - Self-test: 8 tests covering blur/filter/crop creation, validation, type normalization, strength clamping, immutability
+   - Namespace: `window.IMMMEditRecipeContract`
+
+5. **pwa-release-contract.jsx** (350 lines)
+   - Data-level PWA readiness checklist without manifest creation
+   - REQUIRED_ICON_SIZES: [192, 512]
+   - REQUIRED_CACHE_ASSETS: 13-item list of dist files (later expanded to 18)
+   - Functions: `createPwaReadinessReport`, `validateManifestContract`, `validateServiceWorkerContract`
+   - Self-test: 6 tests covering empty report (not ready), full report (ready), valid manifest, invalid manifest, valid SW, SW with Babel rejection
+   - Namespace: `window.IMPWAReleaseContract`
+
+### Build Infrastructure Updates
+- **scripts/build-precompile.mjs**: Updated manifest from 13 to 18 files; 5 new contracts inserted in dependency order
+- **index.html**: Added 5 new `<script>` tags for contract files between result-asset-store.js and frame-system.js
+- **index.precompiled.html**: Mirrored script tag additions
+- **sw.js**: Bumped CACHE_NAME from v12 to v13-2026-05-14-product-foundation; added 5 new assets to ASSETS array
+- **scripts/sanity-check.mjs**: 
+  - Added VM self-test execution for all 5 foundation contracts
+  - Added file existence checks in build manifest and index.html
+  - Added script load order validation for all 8 new scripts
+  - Added sw.js ASSETS validation for 8 new assets
+  - Updated cache version validation to accept v13
+
+### Build Manifest (18 files, explicit order)
+1. app.jsx
+2. filters.jsx
+3. webgl-engine.jsx
+4. mediapipe-face.jsx
+5. sticker-engine.jsx
+6. session-model.jsx
+7. session-adapter.jsx
+8. result-asset-store.jsx
+9. **session-runtime-snapshot.jsx** (NEW)
+10. **share-contract.jsx** (NEW)
+11. **motion-export-contract.jsx** (NEW)
+12. **edit-recipe-contract.jsx** (NEW)
+13. **pwa-release-contract.jsx** (NEW)
+14. frame-system.jsx
+15. screens-v2.jsx
+16. screens-v2-rest.jsx
+17. screens-v2-deco.jsx
+18. main.jsx
+
+### Testing Results
+- ✅ build:precompile: All 18 files compiled successfully
+- ✅ sanity-check: All checks passed including 8 new VM self-tests
+- ✅ Syntax validation: All 5 new contract dist files pass `node --check`
+- ✅ Script load order: Verified in index.html and index.precompiled.html
+- ✅ Cache assets: Verified in sw.js v13
+
+### Constraints Maintained
+- ❌ No actual QR rendering (qr-share is specification only)
+- ❌ No video rendering (motion export is specification only)
+- ❌ No cloud upload (cloud-share is specification only)
+- ❌ No blur/image processing (edit-recipe is specification only)
+- ❌ No manifest generation (pwa-release is specification only)
+- ✅ All contracts are data-level only; no implementation
+- ✅ All recipes immutable via Object.freeze
+- ✅ All self-tests passing in VM context
+
+### Commits
+- Committed all changes to feature branch `claude/session-infrastructure-consolidation`
+- 6 new dist files generated and cached in sw.js v13
