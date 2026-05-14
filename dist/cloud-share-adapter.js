@@ -200,7 +200,7 @@
   };
 
   /**
-   * Uploads result asset to cloud
+   * Uploads result asset to cloud and generates share viewer URL
    */
   var uploadResultAsset = async ({
     blob,
@@ -208,7 +208,8 @@
     sessionId,
     assetRecordId,
     metadata,
-    config
+    config,
+    appBaseUrl
   }) => {
     if (!blob) {
       return createCloudShareResult({
@@ -244,6 +245,10 @@
       } else {
         throw new Error('Unknown provider');
       }
+
+      // Generate Share Viewer URL
+      var baseUrl = appBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+      var qrUrl = baseUrl && result.remoteUrl ? `${baseUrl}/?share=${encodeURIComponent(result.remoteUrl)}` : null;
       return createCloudShareResult({
         ok: true,
         status: 'cloud-ready',
@@ -251,6 +256,7 @@
         sessionId,
         assetRecordId,
         remoteUrl: result.remoteUrl,
+        qrUrl,
         expiresAt: new Date(Date.now() + cfg.expiresInSec * 1000).toISOString(),
         metadata
       });
@@ -453,6 +459,17 @@
     var supabaseNoKeyReadiness = createCloudShareReadiness(supabaseNoKeyCfg);
     if (supabaseNoKeyReadiness.ok) {
       errors.push('Test 11 FAIL: Supabase without anon key should not be ready');
+    }
+
+    // Test 12: qrUrl generation in cloud share result
+    var resultWithQr = createCloudShareResult({
+      ok: true,
+      status: 'cloud-ready',
+      remoteUrl: 'https://cdn.example.com/photo.jpg',
+      qrUrl: 'https://app.example.com/?share=https%3A%2F%2Fcdn.example.com%2Fphoto.jpg'
+    });
+    if (!resultWithQr.qrUrl || !resultWithQr.qrUrl.includes('?share=')) {
+      errors.push('Test 12 FAIL: qrUrl not properly set');
     }
     return {
       ok: errors.length === 0,

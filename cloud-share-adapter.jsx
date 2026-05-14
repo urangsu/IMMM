@@ -215,9 +215,9 @@
   };
 
   /**
-   * Uploads result asset to cloud
+   * Uploads result asset to cloud and generates share viewer URL
    */
-  const uploadResultAsset = async ({ blob, filename, sessionId, assetRecordId, metadata, config }) => {
+  const uploadResultAsset = async ({ blob, filename, sessionId, assetRecordId, metadata, config, appBaseUrl }) => {
     if (!blob) {
       return createCloudShareResult({
         ok: false,
@@ -247,6 +247,12 @@
         throw new Error('Unknown provider');
       }
 
+      // Generate Share Viewer URL
+      const baseUrl = appBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+      const qrUrl = baseUrl && result.remoteUrl
+        ? `${baseUrl}/?share=${encodeURIComponent(result.remoteUrl)}`
+        : null;
+
       return createCloudShareResult({
         ok: true,
         status: 'cloud-ready',
@@ -254,6 +260,7 @@
         sessionId,
         assetRecordId,
         remoteUrl: result.remoteUrl,
+        qrUrl,
         expiresAt: new Date(Date.now() + (cfg.expiresInSec * 1000)).toISOString(),
         metadata
       });
@@ -452,6 +459,17 @@
     const supabaseNoKeyReadiness = createCloudShareReadiness(supabaseNoKeyCfg);
     if (supabaseNoKeyReadiness.ok) {
       errors.push('Test 11 FAIL: Supabase without anon key should not be ready');
+    }
+
+    // Test 12: qrUrl generation in cloud share result
+    const resultWithQr = createCloudShareResult({
+      ok: true,
+      status: 'cloud-ready',
+      remoteUrl: 'https://cdn.example.com/photo.jpg',
+      qrUrl: 'https://app.example.com/?share=https%3A%2F%2Fcdn.example.com%2Fphoto.jpg'
+    });
+    if (!resultWithQr.qrUrl || !resultWithQr.qrUrl.includes('?share=')) {
+      errors.push('Test 12 FAIL: qrUrl not properly set');
     }
 
     return {
