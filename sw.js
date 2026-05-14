@@ -1,5 +1,5 @@
 // sw.js — Emergency Cache Update for Samsung Internet Stability
-const CACHE_NAME = 'immm-cache-v10-2026-05-14-session-adapter-hardening';
+const CACHE_NAME = 'immm-cache-v11-2026-05-14-session-adapter-index-hotfix';
 const ASSETS = [
   './',
   './index.html',

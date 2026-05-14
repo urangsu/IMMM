@@ -19,12 +19,19 @@
   var isPlainObject = value => {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
   };
+  var findAssetByOriginalIndex = (mediaAssets, originalIndex) => {
+    if (!Array.isArray(mediaAssets)) return null;
+    return mediaAssets.find(asset => {
+      if (!asset || !asset.metadata) return false;
+      return asset.metadata.originalIndex === originalIndex;
+    }) || null;
+  };
 
   // --- Mapping Functions ---
 
   /**
    * Transforms raw shots into MediaAsset objects.
-   * shots can be array of: strings (dataUrl), objects with dataUrl/blobUrl/url/src.
+   * shots can be array of: strings (dataUrl or remoteUrl), objects with dataUrl/blobUrl/remoteUrl/url/src.
    * Unsupported inputs (null, undefined, number, boolean, function, array) are skipped.
    */
   var createMediaAssetsFromShots = (shots, options = {}) => {
@@ -45,19 +52,36 @@
       if (Array.isArray(shot)) return;
       var dataUrl = null;
       var blobUrl = null;
+      var remoteUrl = null;
       var width = 0;
       var height = 0;
       if (shotType === 'string') {
-        dataUrl = shot;
+        // Determine if string is a remote URL or data URL
+        if (/^https?:\/\//.test(shot)) {
+          remoteUrl = shot;
+        } else {
+          dataUrl = shot;
+        }
       } else if (isPlainObject(shot)) {
-        dataUrl = shot.dataUrl || shot.url || shot.src || null;
+        dataUrl = shot.dataUrl || null;
         blobUrl = shot.blobUrl || null;
+        remoteUrl = shot.remoteUrl || null;
+
+        // Handle generic url/src properties
+        var genericUrl = shot.url || shot.src || null;
+        if (genericUrl) {
+          if (/^https?:\/\//.test(genericUrl)) {
+            remoteUrl = remoteUrl || genericUrl;
+          } else {
+            dataUrl = dataUrl || genericUrl;
+          }
+        }
         width = typeof shot.width === 'number' ? shot.width : 0;
         height = typeof shot.height === 'number' ? shot.height : 0;
       }
 
       // Only create asset if we have meaningful data
-      if (dataUrl || blobUrl) {
+      if (dataUrl || blobUrl || remoteUrl) {
         assets.push(Model.createMediaAsset({
           sessionId,
           slotIndex: index,
@@ -65,6 +89,7 @@
           sourceType,
           dataUrl,
           blobUrl,
+          remoteUrl,
           width,
           height,
           metadata: {
@@ -78,6 +103,7 @@
 
   /**
    * Transforms selection indices/objects into SelectedCut objects.
+   * Uses metadata.originalIndex to ensure correct binding when shots are sparse.
    */
   var createSelectedCutsFromSelection = (selected, mediaAssets, options = {}) => {
     var Model = window.IMMMSessionModel;
@@ -90,14 +116,16 @@
     selected.forEach((item, index) => {
       var asset = null;
       if (typeof item === 'number') {
-        asset = mediaAssets[item];
+        // Use findAssetByOriginalIndex to handle sparse shots
+        asset = findAssetByOriginalIndex(mediaAssets, item);
       } else if (isPlainObject(item)) {
         if (item.assetId) {
           asset = mediaAssets.find(a => a.assetId === item.assetId);
         } else {
           var shotIdx = item.index !== undefined ? item.index : item.shotIndex;
           if (shotIdx !== undefined) {
-            asset = mediaAssets[shotIdx];
+            // Use original index lookup
+            asset = findAssetByOriginalIndex(mediaAssets, shotIdx);
           }
         }
       }
@@ -394,6 +422,65 @@
     // Test 11: No input mutation
     if (JSON.stringify(sampleShots) !== originalShotsJson) {
       errors.push('Test 11 FAIL: Input shots object was mutated');
+    }
+
+    // Test 12: Sparse shot selected original index mapping
+    var sparseShots = ['data:image/png;base64,shot0', null, 'data:image/png;base64,shot2'];
+    var sparseResult = createSessionSnapshot({
+      shots: sparseShots,
+      selected: [2]
+    });
+    if (sparseResult.session.selectedCuts.length !== 1) {
+      errors.push('Test 12 FAIL: Sparse selected original index mapping - wrong cut count');
+    }
+    var selectedAssetId = sparseResult.session.selectedCuts[0].assetId;
+    var originalIndexTwoAsset = sparseResult.session.shots.find(a => a.metadata && a.metadata.originalIndex === 2);
+    if (!originalIndexTwoAsset || selectedAssetId !== originalIndexTwoAsset.assetId) {
+      errors.push('Test 12 FAIL: Sparse selected original index 2 did not bind to correct asset');
+    }
+
+    // Test 13: Selected object with shotIndex original mapping
+    var objectSelResult = createSessionSnapshot({
+      shots: ['data:image/png;base64,shot0', null, 'data:image/png;base64,shot2'],
+      selected: [{
+        shotIndex: 2
+      }]
+    });
+    if (objectSelResult.session.selectedCuts.length !== 1) {
+      errors.push('Test 13 FAIL: Object shotIndex mapping - wrong cut count');
+    }
+    var objectSelAssetId = objectSelResult.session.selectedCuts[0].assetId;
+    var objectSelAsset = objectSelResult.session.shots.find(a => a.metadata && a.metadata.originalIndex === 2);
+    if (!objectSelAsset || objectSelAssetId !== objectSelAsset.assetId) {
+      errors.push('Test 13 FAIL: Object shotIndex did not bind to correct original index asset');
+    }
+
+    // Test 14: remoteUrl from string shot
+    var remoteStringResult = createSessionSnapshot({
+      shots: ['https://example.com/photo.jpg']
+    });
+    if (remoteStringResult.session.shots[0].remoteUrl !== 'https://example.com/photo.jpg') {
+      errors.push(`Test 14 FAIL: Remote string shot - expected remoteUrl, got ${remoteStringResult.session.shots[0].remoteUrl}`);
+    }
+
+    // Test 15: remoteUrl from object property
+    var remoteObjectResult = createSessionSnapshot({
+      shots: [{
+        remoteUrl: 'https://example.com/remote.jpg'
+      }]
+    });
+    if (remoteObjectResult.session.shots[0].remoteUrl !== 'https://example.com/remote.jpg') {
+      errors.push(`Test 15 FAIL: Object remoteUrl - expected https://example.com/remote.jpg, got ${remoteObjectResult.session.shots[0].remoteUrl}`);
+    }
+
+    // Test 16: http(s) in generic url property maps to remoteUrl
+    var httpUrlResult = createSessionSnapshot({
+      shots: [{
+        url: 'https://example.com/generic.jpg'
+      }]
+    });
+    if (httpUrlResult.session.shots[0].remoteUrl !== 'https://example.com/generic.jpg') {
+      errors.push(`Test 16 FAIL: HTTP url property - expected remoteUrl, got ${httpUrlResult.session.shots[0].remoteUrl}`);
     }
     return {
       ok: errors.length === 0,

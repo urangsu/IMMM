@@ -801,6 +801,33 @@ Phase 3.60 restores model guards and hardens the adapter contract before any run
 
 ---
 
+## Session Adapter Original Index Hotfix (Phase 3.60b)
+- [x] findAssetByOriginalIndex helper added
+- [x] Selected number index now maps by metadata.originalIndex
+- [x] Selected object index/shotIndex now maps by metadata.originalIndex
+- [x] Unsupported shot skip no longer breaks selected mapping
+- [x] remoteUrl shot mapping added (string https://, object property)
+- [x] http(s) string shot maps to remoteUrl, not dataUrl
+- [x] Sparse shot self-test added (test 12)
+- [x] Selected object shotIndex self-test added (test 13)
+- [x] Remote URL string self-test added (test 14)
+- [x] Remote URL object self-test added (test 15)
+- [x] HTTP generic url property mapping self-test added (test 16)
+- [x] sanity-check hotfix guards added
+- [x] dist/session-adapter.js regenerated
+- [x] sw.js cache bumped for index hotfix (v11)
+- [x] Capture runtime untouched
+- [x] Result/Export untouched
+- [x] QR/Video remain disabled
+
+### Finding
+Phase 3.60 hardened the adapter contract, but selected indexes still used compacted mediaAssets array positions.
+When unsupported shots were skipped, selected indexes could bind to the wrong asset or fail.
+Phase 3.60b fixes selection binding to use metadata.originalIndex as the source of truth.
+Also adds proper remoteUrl mapping for HTTP/HTTPS URLs vs data URLs.
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안
