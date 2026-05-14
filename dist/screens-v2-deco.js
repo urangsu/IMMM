@@ -1,5 +1,37 @@
 // screens-v2-deco.jsx — Deco Studio + Result
 
+// MARK: - Debug Runtime Asset Registry (Phase 3.63)
+
+function publishDebugResultAssetRecord(input) {
+  if (!window.IMMM_DEBUG_SESSION) return null;
+  var Store = window.IMMMResultAssetStore;
+  if (!Store) return null;
+  try {
+    var current = window.__IMMM_RESULT_ASSET_STORE__ || Store.createResultAssetStoreState();
+    var record = Store.createResultAssetRecord({
+      sessionId: input.sessionId || 'debug_session',
+      kind: 'image',
+      status: input.remoteUrl ? 'cloud-ready' : 'local-ready',
+      objectUrl: input.objectUrl || null,
+      blobId: input.blobId || null,
+      remoteUrl: input.remoteUrl || null,
+      width: input.width || 0,
+      height: input.height || 0,
+      mimeType: input.mimeType || 'image/png',
+      metadata: {
+        source: 'result-debug',
+        label: input.label || 'final-result'
+      }
+    });
+    var next = Store.addResultAssetRecord(current, record);
+    window.__IMMM_RESULT_ASSET_STORE__ = next;
+    console.debug('[IMMM result asset]', record);
+    return record;
+  } catch (error) {
+    console.debug('[IMMM result asset failed]', error);
+    return null;
+  }
+}
 var ZoomMinusIcon = () => /*#__PURE__*/React.createElement("svg", {
   width: "18",
   height: "18",
@@ -1382,7 +1414,38 @@ function ResultV2({
         blob
       };
 
-      // 4. Start intro only after asset is ready
+      // 4. Register with ResultAssetStore (Phase 3.64)
+      try {
+        var Store = window.IMMMResultAssetStore;
+        if (Store) {
+          var current = window.__IMMM_RESULT_ASSET_STORE__ || Store.createResultAssetStoreState();
+          var record = Store.createResultAssetRecord({
+            sessionId: window.__IMMM_SESSION_ID__ || 'session_result',
+            kind: 'image',
+            status: 'local-ready',
+            objectUrl: url,
+            blobId: null,
+            remoteUrl: null,
+            width: 0,
+            height: 0,
+            mimeType: 'image/png',
+            metadata: {
+              source: 'result-generation',
+              label: 'final-result',
+              layout,
+              frameColor,
+              filter
+            }
+          });
+          var next = Store.addResultAssetRecord(current, record);
+          window.__IMMM_RESULT_ASSET_STORE__ = next;
+          setResultAssetRecord(record);
+        }
+      } catch (e) {
+        console.debug('[IMMM] ResultAssetStore registration failed:', e);
+      }
+
+      // 5. Start intro only after asset is ready
       setShowPrintIntro(true);
     } catch (err) {
       console.error('[IMMM] buildFinalResultAsset error:', err);
@@ -1403,6 +1466,82 @@ function ResultV2({
       saveSheetUrlRef.current = null;
     };
   }, []);
+
+  // Debug Runtime Readiness Publishing (Phase 3.63)
+  React.useEffect(() => {
+    if (!window.IMMM_DEBUG_SESSION) return;
+    try {
+      // Publish share readiness status
+      var publishShare = window.publishDebugShareReadiness;
+      if (typeof publishShare === 'function') {
+        publishShare({
+          shareState: {
+            status: 'local-ready'
+          },
+          resultAsset: {
+            status: 'local-ready',
+            objectUrl: resultPreviewUrlRef.current || null,
+            remoteUrl: null
+          }
+        });
+      }
+
+      // Publish motion readiness status
+      var publishMotion = window.publishDebugMotionReadiness;
+      if (typeof publishMotion === 'function') {
+        publishMotion({
+          layout,
+          selected,
+          renderRecipe: null
+        });
+      }
+
+      // Publish edit recipe snapshot
+      var createEditRecipe = window.createDebugEditRecipeSnapshot;
+      if (typeof createEditRecipe === 'function') {
+        createEditRecipe({
+          blur: 0,
+          filterId: filter,
+          intensity: 1
+        });
+      }
+    } catch (e) {
+      console.debug('[IMMM] Debug readiness publishing error:', e);
+    }
+  }, [layout, selected, filter]);
+
+  // Debug Result Entry Snapshot (Phase 3.63)
+  React.useEffect(() => {
+    if (!window.IMMM_DEBUG_SESSION) return;
+    var publishSnapshot = window.publishDebugSessionSnapshot;
+    if (typeof publishSnapshot !== 'function') return;
+    try {
+      publishSnapshot('result-entry', {
+        shots,
+        selected,
+        appState: {
+          layout,
+          frameTheme: 'default',
+          frameTemplateId: `frame_${layout}`,
+          stickers,
+          drawings: drawStrokes,
+          textLayers: [],
+          filterId: filter,
+          filter,
+          intensity: 1,
+          blur: 0,
+          crop: null
+        },
+        metadata: {
+          route: 'result',
+          source: 'runtime-debug'
+        }
+      });
+    } catch (e) {
+      console.debug('[IMMM] Result entry snapshot error:', e);
+    }
+  }, []); // Run once on mount
+
   var resultFrame = scale => /*#__PURE__*/React.createElement("div", {
     style: {
       transform: `scale(${scale})`,
@@ -1494,6 +1633,7 @@ function ResultV2({
   var [toasts, setToasts] = React.useState([]);
   var [showPrintIntro, setShowPrintIntro] = React.useState(false);
   var autoSavedRef = React.useRef(false);
+  var [resultAssetRecord, setResultAssetRecord] = React.useState(null);
   var revokeSaveSheetUrl = () => {
     revokeBlobUrl(saveSheetUrlRef.current);
     saveSheetUrlRef.current = null;
@@ -1818,8 +1958,134 @@ function ResultV2({
       setSharing(false);
     }
   };
-  var handleQrShare = async () => {
-    alert('QR 공유는 현재 미구현입니다. Supabase 연결 후 공개 링크/만료 정책까지 붙여서 열겠습니다.');
+  var getQrShareState = () => {
+    var Adapter = window.IMMMCloudShareAdapter;
+    if (!Adapter) return {
+      ready: false,
+      reason: 'adapter-missing',
+      label: 'Cloud setup required'
+    };
+    var config = Adapter.getRuntimeCloudShareConfig();
+    if (!config?.enabled) return {
+      ready: false,
+      reason: 'config-disabled',
+      label: 'Cloud setup required'
+    };
+    var readiness = Adapter.createCloudShareReadiness(config);
+    if (!readiness.ok) return {
+      ready: false,
+      reason: 'config-incomplete',
+      label: 'Cloud setup required'
+    };
+    if (qrBusy) return {
+      ready: false,
+      reason: 'busy',
+      label: 'Creating QR...'
+    };
+    if (qrShare?.ok) return {
+      ready: true,
+      reason: 'ready',
+      label: 'QR Ready'
+    };
+    if (qrShare?.ok === false) return {
+      ready: false,
+      reason: 'failed',
+      label: 'QR Failed'
+    };
+    return {
+      ready: true,
+      reason: 'idle',
+      label: 'Create QR'
+    };
+  };
+  var handleCreateQrShare = async () => {
+    var state = getQrShareState();
+    if (!state.ready) return;
+    if (qrBusy) return;
+    setQrBusy(true);
+    try {
+      var blob = await getFinalResultBlob();
+      if (!blob) throw new Error('No blob available');
+      var Adapter = window.IMMMCloudShareAdapter;
+      if (!Adapter) throw new Error('CloudShareAdapter not available');
+      var cloudShareResult = await Adapter.uploadResultAsset({
+        blob,
+        filename: getFormattedFilename(),
+        sessionId: window.__IMMM_SESSION_ID__ || 'session_result',
+        assetRecordId: resultAssetRecord?.id || null,
+        metadata: {
+          layout,
+          filter,
+          frameColor
+        }
+      });
+      if (!cloudShareResult.ok) {
+        throw new Error(cloudShareResult.error || 'Upload failed');
+      }
+
+      // Generate QR code with client-side QRCode library
+      var QRCode = typeof window !== 'undefined' ? window.QRCode : null;
+      var qrDataUrl = null;
+      if (QRCode && cloudShareResult.remoteUrl) {
+        try {
+          var qrCanvas = document.createElement('canvas');
+          await new Promise((resolve, reject) => {
+            try {
+              new QRCode({
+                text: cloudShareResult.remoteUrl,
+                width: 220,
+                height: 220,
+                colorDark: '#111',
+                colorLight: '#fff',
+                correctLevel: QRCode.CorrectLevel.H,
+                useSVG: false,
+                canvas: qrCanvas,
+                onRenderingStart: () => {},
+                onRenderingEnd: () => resolve()
+              });
+            } catch (e) {
+              reject(e);
+            }
+          });
+          qrDataUrl = qrCanvas.toDataURL('image/png');
+        } catch (e) {
+          console.debug('[IMMM] QR generation fallback:', e);
+        }
+      }
+
+      // Update result asset record with cloud URL
+      if (resultAssetRecord && window.IMMMResultAssetStore) {
+        var Store = window.IMMMResultAssetStore;
+        var current = window.__IMMM_RESULT_ASSET_STORE__;
+        if (current && typeof Store.updateResultAssetRecord === 'function') {
+          var updated = Store.updateResultAssetRecord(current, resultAssetRecord.id, {
+            status: 'cloud-ready',
+            remoteUrl: cloudShareResult.remoteUrl,
+            expiresAt: cloudShareResult.expiresAt
+          });
+          window.__IMMM_RESULT_ASSET_STORE__ = updated;
+        }
+      }
+      setQrShare({
+        ok: true,
+        url: cloudShareResult.remoteUrl,
+        qrUrl: cloudShareResult.remoteUrl,
+        qrDataUrl,
+        provider: cloudShareResult.provider,
+        expiresAt: cloudShareResult.expiresAt,
+        mode: 'cloud-share'
+      });
+      addToast('QR 공유 준비 완료');
+    } catch (err) {
+      console.error('[IMMM] handleCreateQrShare error:', err);
+      setQrShare({
+        ok: false,
+        error: err.message || 'QR share failed'
+      });
+      addToast('QR 공유에 실패했어요');
+    } finally {
+      setQrBusy(false);
+    }
   };
 
   // ── video download — current frame shots, flash transitions, 24fps film feel ──
@@ -2471,27 +2737,34 @@ function ResultV2({
         background: T.line,
         margin: '6px 12px'
       }
-    }), /*#__PURE__*/React.createElement("button", {
-      disabled: true,
-      style: {
-        width: '100%',
-        padding: '14px 16px',
-        borderRadius: 14,
-        border: 'none',
-        background: 'transparent',
-        textAlign: 'left',
-        color: T.inkSoft,
-        fontSize: 14,
-        fontWeight: 500,
-        cursor: 'not-allowed',
-        opacity: 0.6
-      }
-    }, "QR Share ", /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 11,
-        opacity: 0.6
-      }
-    }, "(Preparing)")), /*#__PURE__*/React.createElement("button", {
+    }), (() => {
+      var qrState = getQrShareState();
+      return /*#__PURE__*/React.createElement("button", {
+        onClick: () => {
+          setShowMoreActions(false);
+          if (qrState.ready) handleCreateQrShare();
+        },
+        disabled: !qrState.ready,
+        style: {
+          width: '100%',
+          padding: '14px 16px',
+          borderRadius: 14,
+          border: 'none',
+          background: 'transparent',
+          textAlign: 'left',
+          color: qrState.ready ? T.ink : T.inkSoft,
+          fontSize: 14,
+          fontWeight: qrState.ready ? 600 : 500,
+          cursor: qrState.ready ? 'pointer' : 'not-allowed',
+          opacity: qrState.ready ? 1 : 0.6
+        }
+      }, "QR Share ", /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 11,
+          opacity: 0.6
+        }
+      }, "(", qrState.label, ")"));
+    })(), /*#__PURE__*/React.createElement("button", {
       disabled: true,
       style: {
         width: '100%',
@@ -2736,27 +3009,34 @@ function ResultV2({
       background: T.line,
       margin: '6px 10px'
     }
-  }), /*#__PURE__*/React.createElement("button", {
-    disabled: true,
-    style: {
-      width: '100%',
-      padding: '14px 16px',
-      borderRadius: 14,
-      border: 'none',
-      background: 'transparent',
-      textAlign: 'left',
-      color: T.inkSoft,
-      fontSize: 14,
-      fontWeight: 600,
-      cursor: 'not-allowed',
-      opacity: 0.6
-    }
-  }, "QR Share ", /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      opacity: 0.6
-    }
-  }, "(Preparing)")), /*#__PURE__*/React.createElement("button", {
+  }), (() => {
+    var qrState = getQrShareState();
+    return /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setShowMoreActions(false);
+        if (qrState.ready) handleCreateQrShare();
+      },
+      disabled: !qrState.ready,
+      style: {
+        width: '100%',
+        padding: '14px 16px',
+        borderRadius: 14,
+        border: 'none',
+        background: 'transparent',
+        textAlign: 'left',
+        color: qrState.ready ? T.ink : T.inkSoft,
+        fontSize: 14,
+        fontWeight: qrState.ready ? 700 : 600,
+        cursor: qrState.ready ? 'pointer' : 'not-allowed',
+        opacity: qrState.ready ? 1 : 0.6
+      }
+    }, "QR Share ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        opacity: 0.6
+      }
+    }, "(", qrState.label, ")"));
+  })(), /*#__PURE__*/React.createElement("button", {
     disabled: true,
     style: {
       width: '100%',
@@ -2776,7 +3056,21 @@ function ResultV2({
       fontSize: 11,
       opacity: 0.6
     }
-  }, "(Preparing)")))))));
+  }, "(Preparing)")))))), window.IMMM_DEBUG_SESSION && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20,
+      padding: '8px 12px',
+      background: 'rgba(0,0,0,0.04)',
+      borderRadius: 8,
+      fontSize: 10,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,monospace',
+      textAlign: 'left',
+      lineHeight: 1.4,
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word'
+    }
+  }, "Session: ", window.__IMMM_LAST_SESSION_SNAPSHOT__ ? 'ok' : 'pending', "AssetStore: ", window.__IMMM_RESULT_ASSET_STORE__ ? `${window.__IMMM_RESULT_ASSET_STORE__.records?.length || 0}` : '0', "QR: ", window.__IMMM_LAST_SHARE_READINESS__?.qrShareReady?.ok ? 'ready' : 'not-ready', "Motion: ", window.__IMMM_LAST_MOTION_READINESS__?.isValid ? 'ready' : 'not-ready'));
 }
 Object.assign(window, {
   DecoV2,

@@ -96,6 +96,94 @@ function getCaptureShotCountForLayout(layout) {
   return 6;
 }
 
+// MARK: - Debug Runtime Session Bridge Helpers (Phase 3.63)
+
+function isSessionDebugEnabled() {
+  return Boolean(window.IMMM_DEBUG_SESSION);
+}
+
+function publishDebugSessionSnapshot(label, payload) {
+  if (!isSessionDebugEnabled()) return null;
+  const RuntimeSnapshot = window.IMMMSessionRuntimeSnapshot;
+  if (!RuntimeSnapshot || typeof RuntimeSnapshot.createDebugSessionSnapshot !== 'function') {
+    return null;
+  }
+
+  const result = RuntimeSnapshot.createDebugSessionSnapshot(payload);
+  if (result && result.ok) {
+    RuntimeSnapshot.storeLastDebugSessionSnapshot({
+      label,
+      createdAt: new Date().toISOString(),
+      result
+    });
+    console.debug('[IMMM session snapshot]', label, result);
+  } else {
+    console.debug('[IMMM session snapshot failed]', label, result);
+  }
+  return result;
+}
+
+function publishDebugShareReadiness({ shareState, resultAsset }) {
+  if (!isSessionDebugEnabled()) return null;
+  const Share = window.IMMMShareContract;
+  if (!Share) return null;
+
+  const report = Share.createShareReadinessReport({
+    shareState,
+    resultAsset
+  });
+
+  window.__IMMM_LAST_SHARE_READINESS__ = report;
+  console.debug('[IMMM share readiness]', report);
+  return report;
+}
+
+function publishDebugMotionReadiness({ layout, selected, renderRecipe }) {
+  if (!isSessionDebugEnabled()) return null;
+  const Motion = window.IMMMMotionExportContract;
+  if (!Motion) return null;
+
+  const report = Motion.createMotionReadinessReport({
+    layout,
+    selectedCount: Array.isArray(selected) ? selected.length : 0,
+    renderRecipe
+  });
+
+  window.__IMMM_LAST_MOTION_READINESS__ = report;
+  console.debug('[IMMM motion readiness]', report);
+  return report;
+}
+
+function createDebugEditRecipeSnapshot(appState) {
+  if (!isSessionDebugEnabled()) return null;
+  const Edit = window.IMMMEditRecipeContract;
+  if (!Edit) return null;
+
+  try {
+    const recipe = Edit.createCompositeEditRecipe({
+      edits: [
+        Edit.createBlurRecipe({
+          blurType: 'background',
+          strength: (appState?.blur || 0) / 100
+        }),
+        Edit.createFilterRecipe({
+          filterId: appState?.filterId || appState?.filter || 'original',
+          intensity: appState?.intensity ?? 1
+        })
+      ]
+    });
+
+    const validation = Edit.validateEditRecipe(recipe);
+    window.__IMMM_LAST_EDIT_RECIPE__ = { recipe, validation };
+    console.debug('[IMMM edit recipe]', { recipe, validation });
+
+    return { recipe, validation };
+  } catch (error) {
+    console.debug('[IMMM edit recipe error]', error);
+    return null;
+  }
+}
+
 function App() {
   const [tweaks, setTweaks] = React.useState({
     variant: 'A',
