@@ -345,26 +345,30 @@ function checkCaptureSessionSystem() {
 
         // 7. Foundation Contracts VM Tests
         const distSnapshot = readFile('dist/session-runtime-snapshot.js');
+        const distCloudShare = readFile('dist/cloud-share-adapter.js');
         const distShare = readFile('dist/share-contract.js');
         const distMotion = readFile('dist/motion-export-contract.js');
         const distEdit = readFile('dist/edit-recipe-contract.js');
         const distPWA = readFile('dist/pwa-release-contract.js');
 
-        if (distSnapshot && distShare && distMotion && distEdit && distPWA) {
+        if (distSnapshot && distCloudShare && distShare && distMotion && distEdit && distPWA) {
           // Load foundation contracts into sandbox
           vm.runInContext(distSnapshot, sandbox);
+          vm.runInContext(distCloudShare, sandbox);
           vm.runInContext(distShare, sandbox);
           vm.runInContext(distMotion, sandbox);
           vm.runInContext(distEdit, sandbox);
           vm.runInContext(distPWA, sandbox);
 
           const snapshotObj = sandbox.window.IMMMSessionRuntimeSnapshot;
+          const cloudShareObj = sandbox.window.IMMMCloudShareAdapter;
           const shareObj = sandbox.window.IMMMShareContract;
           const motionObj = sandbox.window.IMMMMotionExportContract;
           const editObj = sandbox.window.IMMMEditRecipeContract;
           const pwaObj = sandbox.window.IMPWAReleaseContract;
 
           if (!snapshotObj) throw new Error('window.IMMMSessionRuntimeSnapshot not found');
+          if (!cloudShareObj) throw new Error('window.IMMMCloudShareAdapter not found');
           if (!shareObj) throw new Error('window.IMMMShareContract not found');
           if (!motionObj) throw new Error('window.IMMMMotionExportContract not found');
           if (!editObj) throw new Error('window.IMMMEditRecipeContract not found');
@@ -374,6 +378,12 @@ function checkCaptureSessionSystem() {
           const snapshotTest = snapshotObj.runSessionRuntimeSnapshotSelfTest();
           if (!snapshotTest.ok) {
             console.error('❌ FAIL: IMMMSessionRuntimeSnapshot.runSessionRuntimeSnapshotSelfTest() failed:', snapshotTest.errors);
+            hasErrors = true;
+          }
+
+          const cloudShareTest = cloudShareObj.runCloudShareAdapterSelfTest();
+          if (!cloudShareTest.ok) {
+            console.error('❌ FAIL: IMMMCloudShareAdapter.runCloudShareAdapterSelfTest() failed:', cloudShareTest.errors);
             hasErrors = true;
           }
 
@@ -402,6 +412,7 @@ function checkCaptureSessionSystem() {
           }
         } else {
           if (!distSnapshot) console.error('❌ FAIL: dist/session-runtime-snapshot.js not found');
+          if (!distCloudShare) console.error('❌ FAIL: dist/cloud-share-adapter.js not found');
           if (!distShare) console.error('❌ FAIL: dist/share-contract.js not found');
           if (!distMotion) console.error('❌ FAIL: dist/motion-export-contract.js not found');
           if (!distEdit) console.error('❌ FAIL: dist/edit-recipe-contract.js not found');
@@ -434,6 +445,10 @@ function checkCaptureSessionSystem() {
       console.error('❌ FAIL: build-precompile.mjs manifest missing session-runtime-snapshot.jsx');
       hasErrors = true;
     }
+    if (!build.includes('cloud-share-adapter.jsx')) {
+      console.error('❌ FAIL: build-precompile.mjs manifest missing cloud-share-adapter.jsx');
+      hasErrors = true;
+    }
     if (!build.includes('share-contract.jsx')) {
       console.error('❌ FAIL: build-precompile.mjs manifest missing share-contract.jsx');
       hasErrors = true;
@@ -459,6 +474,7 @@ function checkCaptureSessionSystem() {
       'dist/session-adapter.js',
       'dist/result-asset-store.js',
       'dist/session-runtime-snapshot.js',
+      'dist/cloud-share-adapter.js',
       'dist/share-contract.js',
       'dist/motion-export-contract.js',
       'dist/edit-recipe-contract.js',
@@ -475,6 +491,7 @@ function checkCaptureSessionSystem() {
     const adapterIdx = index.indexOf('dist/session-adapter.js');
     const storeIdx = index.indexOf('dist/result-asset-store.js');
     const snapshotIdx = index.indexOf('dist/session-runtime-snapshot.js');
+    const cloudShareIdx = index.indexOf('dist/cloud-share-adapter.js');
     const shareIdx = index.indexOf('dist/share-contract.js');
     const motionIdx = index.indexOf('dist/motion-export-contract.js');
     const editIdx = index.indexOf('dist/edit-recipe-contract.js');
@@ -493,8 +510,12 @@ function checkCaptureSessionSystem() {
       console.error('❌ FAIL: result-asset-store.js must be loaded BEFORE session-runtime-snapshot.js');
       hasErrors = true;
     }
-    if (snapshotIdx > shareIdx) {
-      console.error('❌ FAIL: session-runtime-snapshot.js must be loaded BEFORE share-contract.js');
+    if (snapshotIdx > cloudShareIdx) {
+      console.error('❌ FAIL: session-runtime-snapshot.js must be loaded BEFORE cloud-share-adapter.js');
+      hasErrors = true;
+    }
+    if (cloudShareIdx > shareIdx) {
+      console.error('❌ FAIL: cloud-share-adapter.js must be loaded BEFORE share-contract.js');
       hasErrors = true;
     }
     if (shareIdx > motionIdx) {
@@ -522,6 +543,7 @@ function checkCaptureSessionSystem() {
       './dist/session-adapter.js',
       './dist/result-asset-store.js',
       './dist/session-runtime-snapshot.js',
+      './dist/cloud-share-adapter.js',
       './dist/share-contract.js',
       './dist/motion-export-contract.js',
       './dist/edit-recipe-contract.js',
@@ -533,6 +555,12 @@ function checkCaptureSessionSystem() {
         hasErrors = true;
       }
     });
+
+    // Check cache version is v14 (Phase 3.64)
+    if (!sw.includes('immm-cache-v14')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME must be bumped to v14');
+      hasErrors = true;
+    }
   }
 }
 
@@ -1238,8 +1266,8 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-') && !sw.includes('immm-cache-v13-')) {
-    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9, v10, v11, v12 or v13)");
+  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-') && !sw.includes('immm-cache-v13-') && !sw.includes('immm-cache-v14-')) {
+    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9, v10, v11, v12, v13 or v14)");
     hasErrors = true;
   }
   if (sw.includes('immm-cache-v1-') || sw.includes('immm-cache-v4-')) {
@@ -2239,8 +2267,8 @@ function checkBabelMigrationPlan() {
   // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-') && !swJs.includes('v13-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11, v12 or v13 series');
+    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-') && !swJs.includes('v13-') && !swJs.includes('v14-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11, v12, v13 or v14 series');
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {

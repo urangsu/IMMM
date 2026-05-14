@@ -18,6 +18,7 @@ const manifest = [
   'session-adapter.jsx',
   'result-asset-store.jsx',
   'session-runtime-snapshot.jsx',
+  'cloud-share-adapter.jsx',
   'share-contract.jsx',
   'motion-export-contract.jsx',
   'edit-recipe-contract.jsx',

@@ -36,6 +36,7 @@
 
   /**
    * Determines if QR share is possible for the given asset.
+   * Requires cloudShareResult from cloud-share-adapter for remote URL validation.
    */
   var canCreateQrShare = params => {
     if (!isPlainObject(params)) {
@@ -47,37 +48,41 @@
     }
     var {
       shareState,
-      resultAsset
+      resultAsset,
+      cloudShareResult
     } = params;
     var failures = [];
 
-    // Check 1: ShareState status must be cloud-ready
-    if (!shareState || shareState.status !== 'cloud-ready') {
-      failures.push('ShareState.status must be cloud-ready (current: ' + (shareState ? shareState.status : 'missing') + ')');
+    // Check 1: CloudShareResult must be ok (cloud-ready)
+    if (!cloudShareResult || !cloudShareResult.ok || cloudShareResult.status !== 'cloud-ready') {
+      failures.push('cloud-share-required');
     }
 
-    // Check 2: ResultAsset status must not be expired/revoked
+    // Check 2: CloudShareResult must have valid http(s) remoteUrl
+    if (cloudShareResult) {
+      if (!cloudShareResult.remoteUrl || !/^https?:\/\//.test(cloudShareResult.remoteUrl)) {
+        failures.push('remote-url-missing');
+      }
+
+      // Check 2b: CloudShareResult remoteUrl must NOT be blob:
+      if (cloudShareResult.remoteUrl && cloudShareResult.remoteUrl.startsWith('blob:')) {
+        failures.push('blob-url-not-allowed');
+      }
+    }
+
+    // Check 3: ResultAsset status must not be expired/revoked/failed
     if (resultAsset) {
       if (resultAsset.status === 'expired') {
-        failures.push('ResultAsset is expired');
+        failures.push('expired');
       }
       if (resultAsset.status === 'revoked') {
-        failures.push('ResultAsset is revoked');
+        failures.push('revoked');
       }
-
-      // Check 3: Must have remoteUrl or shareState.cloudUrl
-      var hasRemoteUrl = resultAsset.remoteUrl && /^https?:\/\//.test(resultAsset.remoteUrl);
-      var hasCloudUrl = shareState && shareState.cloudUrl && /^https?:\/\//.test(shareState.cloudUrl);
-      if (!hasRemoteUrl && !hasCloudUrl) {
-        failures.push('No remoteUrl or cloudUrl available');
-      }
-
-      // Check 4: remoteUrl must NOT be blob:
-      if (resultAsset.remoteUrl && resultAsset.remoteUrl.startsWith('blob:')) {
-        failures.push('remoteUrl must not be blob: URL');
+      if (resultAsset.status === 'failed') {
+        failures.push('asset-not-shareable');
       }
     } else {
-      failures.push('ResultAsset required');
+      failures.push('asset-not-shareable');
     }
     return {
       ok: failures.length === 0,
@@ -198,67 +203,97 @@
   var runShareContractSelfTest = () => {
     var errors = [];
 
-    // Test 1: blob URL QR is rejected
+    // Test 1: blob URL in cloudShareResult is rejected
     var blobParams = {
       resultAsset: {
-        status: 'local-ready',
-        remoteUrl: 'blob:http://example.com/uuid'
+        status: 'local-ready'
       },
       shareState: {
         status: 'cloud-ready'
+      },
+      cloudShareResult: {
+        ok: true,
+        status: 'cloud-ready',
+        remoteUrl: 'blob:http://example.com/uuid'
       }
     };
     var blobQr = canCreateQrShare(blobParams);
     if (blobQr.ok) {
-      errors.push('Test 1 FAIL: blob: URL should be rejected for QR');
+      errors.push('Test 1 FAIL: blob: URL in cloudShareResult should be rejected for QR');
     }
 
-    // Test 2: local-preview cannot become QR
-    var localPreviewParams = {
+    // Test 2: missing cloudShareResult should be rejected
+    var missingCloudParams = {
       resultAsset: {
-        status: 'local-ready',
-        objectUrl: 'blob:...'
-      },
-      shareState: {
-        status: 'local'
-      }
-    };
-    var localQr = canCreateQrShare(localPreviewParams);
-    if (localQr.ok) {
-      errors.push('Test 2 FAIL: local-preview should not become QR');
-    }
-
-    // Test 3: cloud-ready + remoteUrl passes QR
-    var cloudReadyParams = {
-      resultAsset: {
-        status: 'cloud-ready',
-        remoteUrl: 'https://example.com/photo.jpg'
+        status: 'local-ready'
       },
       shareState: {
         status: 'cloud-ready'
       }
     };
+    var missingCloudQr = canCreateQrShare(missingCloudParams);
+    if (missingCloudQr.ok) {
+      errors.push('Test 2 FAIL: missing cloudShareResult should not pass QR check');
+    }
+
+    // Test 3: cloud-ready cloudShareResult + valid asset passes QR
+    var cloudReadyParams = {
+      resultAsset: {
+        status: 'cloud-ready'
+      },
+      shareState: {
+        status: 'cloud-ready'
+      },
+      cloudShareResult: {
+        ok: true,
+        status: 'cloud-ready',
+        remoteUrl: 'https://example.com/photo.jpg'
+      }
+    };
     var cloudQr = canCreateQrShare(cloudReadyParams);
     if (!cloudQr.ok) {
-      errors.push('Test 3 FAIL: cloud-ready + remoteUrl should pass QR check');
+      errors.push('Test 3 FAIL: cloud-ready cloudShareResult + valid asset should pass QR check');
     }
 
     // Test 4: expired asset is rejected
     var expiredParams = {
       resultAsset: {
-        status: 'expired',
-        remoteUrl: 'https://example.com/photo.jpg'
+        status: 'expired'
       },
       shareState: {
         status: 'cloud-ready'
+      },
+      cloudShareResult: {
+        ok: true,
+        status: 'cloud-ready',
+        remoteUrl: 'https://example.com/photo.jpg'
       }
     };
     var expiredQr = canCreateQrShare(expiredParams);
     if (expiredQr.ok) {
-      errors.push('Test 4 FAIL: expired asset should be rejected');
+      errors.push('Test 4 FAIL: expired asset should be rejected for QR');
     }
 
-    // Test 5: OS share works with objectUrl
+    // Test 5: failed asset is rejected
+    var failedParams = {
+      resultAsset: {
+        status: 'failed'
+      },
+      shareState: {
+        status: 'cloud-ready'
+      },
+      cloudShareResult: {
+        ok: true,
+        status: 'cloud-ready',
+        remoteUrl: 'https://example.com/photo.jpg'
+      }
+    };
+    var failedQr = canCreateQrShare(failedParams);
+    if (failedQr.ok) {
+      errors.push('Test 5 FAIL: failed asset should be rejected for QR');
+    }
+
+    // Test 6: OS share works with objectUrl
     var osParams = {
       resultAsset: {
         status: 'local-ready',
@@ -267,13 +302,26 @@
     };
     var osShare = canUseOsShare(osParams);
     if (!osShare.ok) {
-      errors.push('Test 5 FAIL: OS share should work with objectUrl');
+      errors.push('Test 6 FAIL: OS share should work with objectUrl');
     }
 
-    // Test 6: Classification
-    var classified = classifyShareTarget(cloudReadyParams);
+    // Test 7: Classification with cloud-ready params needs cloudShareResult
+    var classifyParams = {
+      resultAsset: {
+        status: 'cloud-ready'
+      },
+      shareState: {
+        status: 'cloud-ready'
+      },
+      cloudShareResult: {
+        ok: true,
+        status: 'cloud-ready',
+        remoteUrl: 'https://example.com/photo.jpg'
+      }
+    };
+    var classified = classifyShareTarget(classifyParams);
     if (classified !== 'qr-share') {
-      errors.push(`Test 6 FAIL: cloud-ready should classify as qr-share, got ${classified}`);
+      errors.push(`Test 7 FAIL: cloud-ready should classify as qr-share, got ${classified}`);
     }
     return {
       ok: errors.length === 0,
