@@ -122,16 +122,67 @@ function checkCaptureSessionSystem() {
     }
   });
 
+  // Adapter original index hotfix requirements
+  const adapterHotfixRequired = [
+    'findAssetByOriginalIndex',
+    'remoteUrl',
+    'metadata.originalIndex'
+  ];
+
+  adapterHotfixRequired.forEach(r => {
+    if (!adapter.includes(r)) {
+      console.error(`❌ FAIL: session-adapter.jsx missing hotfix requirement: ${r}`);
+      hasErrors = true;
+    }
+  });
+
+  // ResultAssetStore required strings
+  const store = readFile('result-asset-store.jsx');
+  const storeRequired = [
+    'window.IMMMResultAssetStore',
+    'STORE_VERSION',
+    'ASSET_KINDS',
+    'ASSET_STATUSES',
+    'createResultAssetRecord',
+    'createResultAssetStoreState',
+    'addResultAssetRecord',
+    'updateResultAssetRecord',
+    'markResultAssetRevoked',
+    'markResultAssetExpired',
+    'getResultAssetById',
+    'listResultAssetsBySession',
+    'validateResultAssetRecord',
+    'validateResultAssetStoreState',
+    'runResultAssetStoreSelfTest'
+  ];
+
+  if (store) {
+    storeRequired.forEach(r => {
+      if (!store.includes(r)) {
+        console.error(`❌ FAIL: result-asset-store.jsx missing ${r}`);
+        hasErrors = true;
+      }
+    });
+  } else {
+    console.error('❌ FAIL: result-asset-store.jsx missing');
+    hasErrors = true;
+  }
+
   const distModel = readFile('dist/session-model.js');
   const distAdapter = readFile('dist/session-adapter.js');
+  const distStore = readFile('dist/result-asset-store.js');
 
-  if (distModel && distAdapter) {
+  if (distModel && distAdapter && distStore) {
     if (!distModel.includes('runSessionModelSelfTest')) {
       console.error('❌ FAIL: dist/session-model.js missing runSessionModelSelfTest');
       hasErrors = true;
     }
     if (!distAdapter.includes('runSessionAdapterSelfTest')) {
       console.error('❌ FAIL: dist/session-adapter.js missing runSessionAdapterSelfTest');
+      hasErrors = true;
+    }
+    if (!distStore.includes('runResultAssetStoreSelfTest')) {
+      console.error('❌ FAIL: dist/result-asset-store.js missing runResultAssetStoreSelfTest');
       hasErrors = true;
     }
 
@@ -146,16 +197,19 @@ function checkCaptureSessionSystem() {
           console
         };
         vm.createContext(sandbox);
-        
-        // Order matters: model then adapter
+
+        // Order matters: model then adapter then store
         vm.runInContext(distModel, sandbox);
         vm.runInContext(distAdapter, sandbox);
+        vm.runInContext(distStore, sandbox);
 
         const modelObj = sandbox.window.IMMMSessionModel;
         const adapterObj = sandbox.window.IMMMSessionAdapter;
+        const storeObj = sandbox.window.IMMMResultAssetStore;
 
         if (!modelObj) throw new Error('window.IMMMSessionModel not found after execution');
         if (!adapterObj) throw new Error('window.IMMMSessionAdapter not found after execution');
+        if (!storeObj) throw new Error('window.IMMMResultAssetStore not found after execution');
 
         // 1. Model Positive self-test
         const modelTestResult = modelObj.runSessionModelSelfTest();
@@ -171,10 +225,121 @@ function checkCaptureSessionSystem() {
           hasErrors = true;
         }
 
-        // 3. Negative tests (Model)
+        // 3. Store Positive self-test
+        const storeTestResult = storeObj.runResultAssetStoreSelfTest();
+        if (!storeTestResult.ok) {
+          console.error('❌ FAIL: IMMMResultAssetStore.runResultAssetStoreSelfTest() failed:', storeTestResult.errors);
+          hasErrors = true;
+        }
+
+        // 4. Negative tests (Model)
         const badMode = modelObj.createCaptureSession({ mode: 'invalid_mode_xyz' });
         if (modelObj.validateCaptureSession(badMode).ok) {
-          console.error('❌ FAIL: validateCaptureSession allowed invalid mode');
+          console.error('❌ FAIL: validateCaptureSession allowed invalid mode (not-a-valid-status)');
+          hasErrors = true;
+        }
+
+        const badExportStatus = modelObj.createExportState({ status: 'not-a-valid-export-status' });
+        if (modelObj.validateCaptureSession({ exportState: badExportStatus }).ok) {
+          console.error('❌ FAIL: validateCaptureSession allowed invalid export status');
+          hasErrors = true;
+        }
+
+        const badShareStatus = modelObj.createShareState({ status: 'invalid-share-status' });
+        if (modelObj.validateCaptureSession({ shareState: badShareStatus }).ok) {
+          console.error('❌ FAIL: validateCaptureSession allowed invalid share status');
+          hasErrors = true;
+        }
+
+        // Test normalizeCaptureSession creates new reference at top level
+        const origSession = modelObj.createCaptureSession();
+        const normalizedSession = modelObj.normalizeCaptureSession(origSession);
+        if (origSession === normalizedSession) {
+          console.error('❌ FAIL: normalizeCaptureSession returned same reference (should clone)');
+          hasErrors = true;
+        }
+
+        // Test normalizeCaptureSession nested cloning for renderRecipe
+        const sessionWithRecipe = modelObj.createCaptureSession();
+        const recipe = modelObj.createRenderRecipe({ stickers: [{ id: 'test' }] });
+        sessionWithRecipe.renderRecipe = recipe;
+        const originalRecipeJson = JSON.stringify(recipe);
+        const normalized = modelObj.normalizeCaptureSession(sessionWithRecipe);
+        if (JSON.stringify(normalized.renderRecipe) !== originalRecipeJson) {
+          console.error('❌ FAIL: normalizeCaptureSession renderRecipe nested clone separation issue');
+          hasErrors = true;
+        }
+
+        // 4. Adapter negative tests
+        // Test validateSessionSnapshot with wrapper
+        const snapshotWrapper = adapterObj.createSessionSnapshot({
+          shots: ['data:image/png;base64,test']
+        });
+        const validateWrapperTest = adapterObj.validateSessionSnapshot(snapshotWrapper);
+        if (!validateWrapperTest.ok) {
+          console.error('❌ FAIL: Adapter validateSessionSnapshot should accept wrapper');
+          hasErrors = true;
+        }
+
+        // Test validateSessionSnapshot with raw session
+        const validateRawTest = adapterObj.validateSessionSnapshot(snapshotWrapper.session);
+        if (!validateRawTest.ok) {
+          console.error('❌ FAIL: Adapter validateSessionSnapshot should accept raw session');
+          hasErrors = true;
+        }
+
+        // Test empty selected array
+        const emptySelectedResult = adapterObj.createSessionSnapshot({
+          shots: ['data:image/png;base64,test'],
+          selected: []
+        });
+        if (emptySelectedResult.session.selectedCuts.length !== 0) {
+          console.error('❌ FAIL: Empty selected array should not auto-select cuts');
+          hasErrors = true;
+        }
+
+        // Test invalid shot input is skipped
+        const invalidShotResult = adapterObj.createSessionSnapshot({
+          shots: [null, undefined, 123, true, { dataUrl: 'data:image/png;base64,valid' }]
+        });
+        if (invalidShotResult.session.shots.length !== 1) {
+          console.error('❌ FAIL: Invalid shot inputs not skipped correctly');
+          hasErrors = true;
+        }
+
+        // Test result asset invalid kind normalizes
+        const invalidKindAsset = adapterObj.createResultAssetContract({ kind: 'invalid' });
+        if (invalidKindAsset.kind !== 'image') {
+          console.error('❌ FAIL: Result asset invalid kind should normalize to image');
+          hasErrors = true;
+        }
+
+        // Test result asset video default mimeType
+        const videoAsset = adapterObj.createResultAssetContract({ kind: 'video' });
+        if (videoAsset.mimeType !== 'video/mp4') {
+          console.error('❌ FAIL: Result asset video should default to video/mp4');
+          hasErrors = true;
+        }
+
+        // 5. Hotfix verification - sparse shot with original index mapping
+        const sparseVerifyResult = adapterObj.createSessionSnapshot({
+          shots: ['data:image/png;base64,shot0', null, 'data:image/png;base64,shot2'],
+          selected: [2]
+        });
+        if (sparseVerifyResult.session && sparseVerifyResult.session.selectedCuts.length === 1) {
+          const boundAsset = sparseVerifyResult.session.shots.find(a => a.metadata && a.metadata.originalIndex === 2);
+          if (!boundAsset || sparseVerifyResult.session.selectedCuts[0].assetId !== boundAsset.assetId) {
+            console.error('❌ FAIL: Sparse shot original index mapping failed');
+            hasErrors = true;
+          }
+        }
+
+        // 6. Hotfix verification - remoteUrl from HTTP string
+        const remoteVerifyResult = adapterObj.createSessionSnapshot({
+          shots: ['https://example.com/photo.jpg']
+        });
+        if (remoteVerifyResult.session && remoteVerifyResult.session.shots[0].remoteUrl !== 'https://example.com/photo.jpg') {
+          console.error('❌ FAIL: HTTP string shot should map to remoteUrl');
           hasErrors = true;
         }
 
@@ -195,11 +360,15 @@ function checkCaptureSessionSystem() {
       console.error('❌ FAIL: build-precompile.mjs manifest missing session-adapter.jsx');
       hasErrors = true;
     }
+    if (!build.includes('result-asset-store.jsx')) {
+      console.error('❌ FAIL: build-precompile.mjs manifest missing result-asset-store.jsx');
+      hasErrors = true;
+    }
   }
 
   const index = readFile('index.html');
   if (index) {
-    ['dist/session-model.js', 'dist/session-adapter.js'].forEach(d => {
+    ['dist/session-model.js', 'dist/session-adapter.js', 'dist/result-asset-store.js'].forEach(d => {
       if (!index.includes(d)) {
         console.error(`❌ FAIL: index.html missing ${d}`);
         hasErrors = true;
@@ -854,11 +1023,11 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-')) {
-    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8 or v9)");
+  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-')) {
+    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9, v10, v11 or v12)");
     hasErrors = true;
   }
-  if (sw.includes('immm-cache-v1') || sw.includes('immm-cache-v4')) {
+  if (sw.includes('immm-cache-v1-') || sw.includes('immm-cache-v4-')) {
     console.error("❌ FAIL: sw.js contains legacy cache name");
     hasErrors = true;
   }
@@ -1854,8 +2023,8 @@ function checkBabelMigrationPlan() {
   // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8 or v9 series');
+    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11 or v12 series');
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {

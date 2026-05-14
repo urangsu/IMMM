@@ -16,6 +16,7 @@ const manifest = [
   'sticker-engine.jsx',
   'session-model.jsx',
   'session-adapter.jsx',
+  'result-asset-store.jsx',
   'frame-system.jsx',
   'screens-v2.jsx',
   'screens-v2-rest.jsx',

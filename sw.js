@@ -1,5 +1,5 @@
 // sw.js — Emergency Cache Update for Samsung Internet Stability
-const CACHE_NAME = 'immm-cache-v9-2026-05-13-session-adapter-foundation';
+const CACHE_NAME = 'immm-cache-v12-2026-05-14-session-infrastructure';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './dist/sticker-engine.js',
   './dist/session-model.js',
   './dist/session-adapter.js',
+  './dist/result-asset-store.js',
   './dist/frame-system.js',
   './dist/screens-v2.js',
   './dist/screens-v2-rest.js',

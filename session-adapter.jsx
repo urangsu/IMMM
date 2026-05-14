@@ -7,6 +7,7 @@
 
 (function() {
   const ADAPTER_VERSION = '1.0.0';
+  const RESULT_KINDS = Object.freeze(['image', 'video']);
 
   // --- Helpers ---
 
@@ -20,53 +21,95 @@
     return value !== null && typeof value === 'object' && !Array.isArray(value);
   };
 
+  const findAssetByOriginalIndex = (mediaAssets, originalIndex) => {
+    if (!Array.isArray(mediaAssets)) return null;
+    return mediaAssets.find((asset) => {
+      if (!asset || !asset.metadata) return false;
+      return asset.metadata.originalIndex === originalIndex;
+    }) || null;
+  };
+
   // --- Mapping Functions ---
 
   /**
    * Transforms raw shots into MediaAsset objects.
-   * shots can be array of: strings (dataUrl), objects with dataUrl/blobUrl/url/src.
+   * shots can be array of: strings (dataUrl or remoteUrl), objects with dataUrl/blobUrl/remoteUrl/url/src.
+   * Unsupported inputs (null, undefined, number, boolean, function, array) are skipped.
    */
   const createMediaAssetsFromShots = (shots, options = {}) => {
     const Model = window.IMMMSessionModel;
     if (!Model) return [];
 
     const { sessionId = null, sourceType = 'camera', mediaType = 'photo' } = options;
-    
+
     if (!Array.isArray(shots)) return [];
 
-    return shots.map((shot, index) => {
+    const assets = [];
+
+    shots.forEach((shot, index) => {
+      // Skip unsupported input types
+      const shotType = typeof shot;
+      if (shot === null || shot === undefined) return;
+      if (shotType === 'number' || shotType === 'boolean' || shotType === 'function') return;
+      if (Array.isArray(shot)) return;
+
       let dataUrl = null;
       let blobUrl = null;
+      let remoteUrl = null;
       let width = 0;
       let height = 0;
 
-      if (typeof shot === 'string') {
-        dataUrl = shot;
+      if (shotType === 'string') {
+        // Determine if string is a remote URL or data URL
+        if (/^https?:\/\//.test(shot)) {
+          remoteUrl = shot;
+        } else {
+          dataUrl = shot;
+        }
       } else if (isPlainObject(shot)) {
-        dataUrl = shot.dataUrl || shot.url || shot.src || null;
+        dataUrl = shot.dataUrl || null;
         blobUrl = shot.blobUrl || null;
-        width = shot.width || 0;
-        height = shot.height || 0;
+        remoteUrl = shot.remoteUrl || null;
+
+        // Handle generic url/src properties
+        const genericUrl = shot.url || shot.src || null;
+        if (genericUrl) {
+          if (/^https?:\/\//.test(genericUrl)) {
+            remoteUrl = remoteUrl || genericUrl;
+          } else {
+            dataUrl = dataUrl || genericUrl;
+          }
+        }
+
+        width = (typeof shot.width === 'number') ? shot.width : 0;
+        height = (typeof shot.height === 'number') ? shot.height : 0;
       }
 
-      return Model.createMediaAsset({
-        sessionId,
-        slotIndex: index,
-        mediaType,
-        sourceType,
-        dataUrl,
-        blobUrl,
-        width,
-        height,
-        metadata: {
-          originalIndex: index
-        }
-      });
+      // Only create asset if we have meaningful data
+      if (dataUrl || blobUrl || remoteUrl) {
+        assets.push(Model.createMediaAsset({
+          sessionId,
+          slotIndex: index,
+          mediaType,
+          sourceType,
+          dataUrl,
+          blobUrl,
+          remoteUrl,
+          width,
+          height,
+          metadata: {
+            originalIndex: index
+          }
+        }));
+      }
     });
+
+    return assets;
   };
 
   /**
    * Transforms selection indices/objects into SelectedCut objects.
+   * Uses metadata.originalIndex to ensure correct binding when shots are sparse.
    */
   const createSelectedCutsFromSelection = (selected, mediaAssets, options = {}) => {
     const Model = window.IMMMSessionModel;
@@ -81,14 +124,16 @@
       let asset = null;
 
       if (typeof item === 'number') {
-        asset = mediaAssets[item];
+        // Use findAssetByOriginalIndex to handle sparse shots
+        asset = findAssetByOriginalIndex(mediaAssets, item);
       } else if (isPlainObject(item)) {
         if (item.assetId) {
           asset = mediaAssets.find(a => a.assetId === item.assetId);
         } else {
           const shotIdx = item.index !== undefined ? item.index : item.shotIndex;
           if (shotIdx !== undefined) {
-            asset = mediaAssets[shotIdx];
+            // Use original index lookup
+            asset = findAssetByOriginalIndex(mediaAssets, shotIdx);
           }
         }
       }
@@ -202,34 +247,67 @@
 
   /**
    * Defines a contract for a finalized result (image or video).
+   * Enforces kind normalization, default mimeTypes, and dimension validation.
    */
   const createResultAssetContract = (params) => {
     const {
       sessionId = null,
-      kind = 'image', // image | video
+      kind = 'image',
       objectUrl = null,
       blobId = null,
       remoteUrl = null,
       width = 0,
       height = 0,
-      mimeType = 'image/png',
+      mimeType = null,
       createdAt = new Date().toISOString(),
       metadata = {}
     } = params || {};
 
+    // Normalize kind to valid values
+    const normalizedKind = RESULT_KINDS.includes(kind) ? kind : 'image';
+
+    // Set default mimeType based on kind
+    let finalMimeType = mimeType;
+    if (!finalMimeType) {
+      finalMimeType = normalizedKind === 'video' ? 'video/mp4' : 'image/png';
+    }
+
+    // Validate dimensions
+    const finalWidth = (typeof width === 'number') ? width : 0;
+    const finalHeight = (typeof height === 'number') ? height : 0;
+
     return Object.freeze({
       contractVersion: ADAPTER_VERSION,
       sessionId,
-      kind,
+      kind: normalizedKind,
       objectUrl,
       blobId,
       remoteUrl,
-      width,
-      height,
-      mimeType,
+      width: finalWidth,
+      height: finalHeight,
+      mimeType: finalMimeType,
       createdAt,
       metadata: clonePlain(metadata)
     });
+  };
+
+  // --- Validation ---
+
+  /**
+   * Validates a CaptureSession snapshot or wrapper.
+   * Handles both { ok, session, errors } wrapper and raw session objects.
+   */
+  const validateSessionSnapshot = (snapshotOrSession) => {
+    const Model = window.IMMMSessionModel;
+    if (!Model) {
+      return { ok: false, errors: ['Model missing'] };
+    }
+
+    const session = snapshotOrSession && snapshotOrSession.session
+      ? snapshotOrSession.session
+      : snapshotOrSession;
+
+    return Model.validateCaptureSession(session);
   };
 
   // --- Self-Test ---
@@ -241,18 +319,14 @@
     }
 
     const errors = [];
-    
-    // 1. Sample shots
+
+    // Test 1: Basic snapshot with 3 shots + selected [0, 2]
     const sampleShots = [
       'data:image/png;base64,shot1',
       { dataUrl: 'data:image/png;base64,shot2', width: 100, height: 100 },
       { url: 'data:image/png;base64,shot3' }
     ];
-
-    // 2. Sample selection
     const sampleSelected = [0, 2];
-
-    // 3. App state
     const sampleAppState = {
       layout: 'strip',
       frameTheme: 'white',
@@ -260,7 +334,6 @@
       filterId: 'porcelain'
     };
 
-    // 4. Transform
     const originalShotsJson = JSON.stringify(sampleShots);
     const result = createSessionSnapshot({
       shots: sampleShots,
@@ -268,27 +341,156 @@
       appState: sampleAppState
     });
 
-    if (!result.ok) errors.push(...result.errors);
-    
-    if (result.session) {
-      if (result.session.shots.length !== 3) errors.push('Media assets length mismatch');
-      if (result.session.selectedCuts.length !== 2) errors.push('Selected cuts length mismatch');
-      
-      const cut0 = result.session.selectedCuts[0];
-      const asset0 = result.session.shots[0];
-      if (cut0.assetId !== asset0.assetId) errors.push('Asset ID binding mismatch');
-
-      // Check for invalid index handling
-      const resultWithBadIndex = createSessionSnapshot({
-        shots: sampleShots,
-        selected: [0, 99, 1] // 99 should be skipped
-      });
-      if (resultWithBadIndex.session.selectedCuts.length !== 2) errors.push('Invalid index not skipped correctly');
+    // Test 1a: Basic result ok
+    if (!result.ok) {
+      errors.push('Test 1a FAIL: Basic snapshot failed: ' + JSON.stringify(result.errors));
     }
 
-    // 5. Mutate check
+    // Test 1b: MediaAssets created
+    if (result.session && result.session.shots.length !== 3) {
+      errors.push(`Test 1b FAIL: Expected 3 shots, got ${result.session.shots.length}`);
+    }
+
+    // Test 2: Selected cuts length
+    if (result.session && result.session.selectedCuts.length !== 2) {
+      errors.push(`Test 2 FAIL: Expected 2 selected cuts, got ${result.session.selectedCuts.length}`);
+    }
+
+    // Test 3: Asset ID binding
+    if (result.session) {
+      const cut0 = result.session.selectedCuts[0];
+      const asset0 = result.session.shots[0];
+      if (cut0.assetId !== asset0.assetId) {
+        errors.push('Test 3 FAIL: Asset ID binding mismatch');
+      }
+    }
+
+    // Test 4: Empty selected array
+    const resultEmpty = createSessionSnapshot({
+      shots: sampleShots,
+      selected: []
+    });
+    if (resultEmpty.session && resultEmpty.session.selectedCuts.length !== 0) {
+      errors.push(`Test 4 FAIL: Empty selected should have 0 cuts, got ${resultEmpty.session.selectedCuts.length}`);
+    }
+
+    // Test 5: Invalid selected index is skipped
+    const resultBadIndex = createSessionSnapshot({
+      shots: sampleShots,
+      selected: [0, 99, 1]
+    });
+    if (resultBadIndex.session && resultBadIndex.session.selectedCuts.length !== 2) {
+      errors.push(`Test 5 FAIL: Invalid index not skipped, expected 2 cuts, got ${resultBadIndex.session.selectedCuts.length}`);
+    }
+
+    // Test 6: Unsupported shot input is skipped
+    const mixedShots = [
+      'data:image/png;base64,valid1',
+      null,
+      undefined,
+      123,
+      true,
+      { dataUrl: 'data:image/png;base64,valid2' }
+    ];
+    const resultMixed = createSessionSnapshot({
+      shots: mixedShots
+    });
+    if (resultMixed.session && resultMixed.session.shots.length !== 2) {
+      errors.push(`Test 6 FAIL: Unsupported inputs not skipped, expected 2 shots, got ${resultMixed.session.shots.length}`);
+    }
+
+    // Test 7: validateSessionSnapshot accepts wrapper
+    const validateWrapperResult = validateSessionSnapshot(result);
+    if (!validateWrapperResult.ok) {
+      errors.push('Test 7 FAIL: validateSessionSnapshot failed on wrapper: ' + JSON.stringify(validateWrapperResult.errors));
+    }
+
+    // Test 8: validateSessionSnapshot accepts raw session
+    const validateRawResult = validateSessionSnapshot(result.session);
+    if (!validateRawResult.ok) {
+      errors.push('Test 8 FAIL: validateSessionSnapshot failed on raw session: ' + JSON.stringify(validateRawResult.errors));
+    }
+
+    // Test 9: Result asset video default mimeType
+    const videoAsset = createResultAssetContract({ kind: 'video' });
+    if (videoAsset.mimeType !== 'video/mp4') {
+      errors.push(`Test 9 FAIL: Video mimeType should be 'video/mp4', got '${videoAsset.mimeType}'`);
+    }
+
+    // Test 10: Result asset invalid kind normalizes to image
+    const invalidAsset = createResultAssetContract({ kind: 'invalid-kind' });
+    if (invalidAsset.kind !== 'image') {
+      errors.push(`Test 10 FAIL: Invalid kind should normalize to 'image', got '${invalidAsset.kind}'`);
+    }
+
+    // Test 11: No input mutation
     if (JSON.stringify(sampleShots) !== originalShotsJson) {
-      errors.push('Input shots object was mutated');
+      errors.push('Test 11 FAIL: Input shots object was mutated');
+    }
+
+    // Test 12: Sparse shot selected original index mapping
+    const sparseShots = [
+      'data:image/png;base64,shot0',
+      null,
+      'data:image/png;base64,shot2'
+    ];
+    const sparseResult = createSessionSnapshot({
+      shots: sparseShots,
+      selected: [2]
+    });
+    if (sparseResult.session.selectedCuts.length !== 1) {
+      errors.push('Test 12 FAIL: Sparse selected original index mapping - wrong cut count');
+    }
+    const selectedAssetId = sparseResult.session.selectedCuts[0].assetId;
+    const originalIndexTwoAsset = sparseResult.session.shots.find(
+      a => a.metadata && a.metadata.originalIndex === 2
+    );
+    if (!originalIndexTwoAsset || selectedAssetId !== originalIndexTwoAsset.assetId) {
+      errors.push('Test 12 FAIL: Sparse selected original index 2 did not bind to correct asset');
+    }
+
+    // Test 13: Selected object with shotIndex original mapping
+    const objectSelResult = createSessionSnapshot({
+      shots: [
+        'data:image/png;base64,shot0',
+        null,
+        'data:image/png;base64,shot2'
+      ],
+      selected: [{ shotIndex: 2 }]
+    });
+    if (objectSelResult.session.selectedCuts.length !== 1) {
+      errors.push('Test 13 FAIL: Object shotIndex mapping - wrong cut count');
+    }
+    const objectSelAssetId = objectSelResult.session.selectedCuts[0].assetId;
+    const objectSelAsset = objectSelResult.session.shots.find(
+      a => a.metadata && a.metadata.originalIndex === 2
+    );
+    if (!objectSelAsset || objectSelAssetId !== objectSelAsset.assetId) {
+      errors.push('Test 13 FAIL: Object shotIndex did not bind to correct original index asset');
+    }
+
+    // Test 14: remoteUrl from string shot
+    const remoteStringResult = createSessionSnapshot({
+      shots: ['https://example.com/photo.jpg']
+    });
+    if (remoteStringResult.session.shots[0].remoteUrl !== 'https://example.com/photo.jpg') {
+      errors.push(`Test 14 FAIL: Remote string shot - expected remoteUrl, got ${remoteStringResult.session.shots[0].remoteUrl}`);
+    }
+
+    // Test 15: remoteUrl from object property
+    const remoteObjectResult = createSessionSnapshot({
+      shots: [{ remoteUrl: 'https://example.com/remote.jpg' }]
+    });
+    if (remoteObjectResult.session.shots[0].remoteUrl !== 'https://example.com/remote.jpg') {
+      errors.push(`Test 15 FAIL: Object remoteUrl - expected https://example.com/remote.jpg, got ${remoteObjectResult.session.shots[0].remoteUrl}`);
+    }
+
+    // Test 16: http(s) in generic url property maps to remoteUrl
+    const httpUrlResult = createSessionSnapshot({
+      shots: [{ url: 'https://example.com/generic.jpg' }]
+    });
+    if (httpUrlResult.session.shots[0].remoteUrl !== 'https://example.com/generic.jpg') {
+      errors.push(`Test 16 FAIL: HTTP url property - expected remoteUrl, got ${httpUrlResult.session.shots[0].remoteUrl}`);
     }
 
     return {
@@ -306,13 +508,14 @@
 
   window.IMMMSessionAdapter = Object.freeze({
     ADAPTER_VERSION,
+    RESULT_KINDS,
     createSessionSnapshot,
     createMediaAssetsFromShots,
     createSelectedCutsFromSelection,
     createRenderRecipeFromAppState,
     createEditRecipeFromAppState,
     createResultAssetContract,
-    validateSessionSnapshot: (s) => window.IMMMSessionModel ? window.IMMMSessionModel.validateCaptureSession(s) : { ok: false, errors: ['Model missing'] },
+    validateSessionSnapshot,
     runSessionAdapterSelfTest
   });
 
