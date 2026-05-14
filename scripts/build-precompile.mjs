@@ -27,6 +27,7 @@ const manifest = [
   'screens-v2.jsx',
   'screens-v2-rest.jsx',
   'screens-v2-deco.jsx',
+  'result-gallery.jsx',
   'main.jsx'
 ];
 
