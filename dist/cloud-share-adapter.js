@@ -10,6 +10,8 @@
   var CLOUD_SHARE_ADAPTER_VERSION = '1.0.0';
   var CLOUD_SHARE_PROVIDERS = Object.freeze(['endpoint', 'supabase', 'none']);
   var CLOUD_SHARE_STATUSES = Object.freeze(['cloud-ready', 'failed', 'unconfigured', 'uploading']);
+  var CLOUD_SHARE_READINESS_STATUSES = Object.freeze(['ready', 'unconfigured', 'cloud-share-disabled', 'cloud-provider-missing', 'upload-endpoint-missing', 'supabase-config-missing']);
+  var CLOUD_SHARE_RESULT_STATUSES = Object.freeze(['cloud-ready', 'failed', 'unconfigured', 'uploading', 'expired']);
   var isPlainObject = value => {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
   };
@@ -171,6 +173,9 @@
     filename,
     config
   }) => {
+    if (!blob || typeof blob.size !== 'number') {
+      throw new Error('Invalid blob for upload');
+    }
     if (!config.supabaseUrl || !config.supabaseAnonKey || !config.supabaseBucket) {
       throw new Error('Supabase configuration incomplete');
     }
@@ -180,6 +185,7 @@
       headers: {
         'Authorization': `Bearer ${config.supabaseAnonKey}`,
         'apikey': config.supabaseAnonKey,
+        'Content-Type': blob.type || 'image/png',
         'x-upsert': 'true'
       },
       body: blob
@@ -386,15 +392,15 @@
     }
 
     // Test 6: Result immutability
-    var frozenError = false;
+    var beforeUrl = validResult.remoteUrl;
     try {
       validResult.remoteUrl = 'https://hacked.com';
-      frozenError = true;
-    } catch (e) {
-      // Expected
+    } catch (_) {}
+    if (!Object.isFrozen(validResult)) {
+      errors.push('Test 6 FAIL: Result should be frozen');
     }
-    if (!frozenError && !Object.isFrozen(validResult)) {
-      errors.push('Test 6 FAIL: Result should be immutable');
+    if (validResult.remoteUrl !== beforeUrl) {
+      errors.push('Test 6 FAIL: Frozen result mutated');
     }
 
     // Test 7: Unavailable result
@@ -413,6 +419,41 @@
     if (invalidValidation.ok) {
       errors.push('Test 8 FAIL: Invalid result should fail validation');
     }
+
+    // Test 9: blob URL in result must be rejected
+    var blobResult = createCloudShareResult({
+      ok: true,
+      status: 'cloud-ready',
+      remoteUrl: 'blob:http://example.com/uuid'
+    });
+    var blobValidation = validateCloudShareResult(blobResult);
+    if (blobValidation.ok) {
+      errors.push('Test 9 FAIL: blob URL result should be invalid');
+    }
+
+    // Test 10: Supabase readiness validation
+    var supabaseCfg = createCloudShareConfig({
+      enabled: true,
+      provider: 'supabase',
+      supabaseUrl: 'https://xxx.supabase.co',
+      supabaseAnonKey: 'public_key',
+      supabaseBucket: 'immm-results'
+    });
+    var supabaseReadiness = createCloudShareReadiness(supabaseCfg);
+    if (!supabaseReadiness.ok) {
+      errors.push('Test 10 FAIL: Valid Supabase config should be ready');
+    }
+
+    // Test 11: Supabase missing anon key should fail
+    var supabaseNoKeyCfg = createCloudShareConfig({
+      enabled: true,
+      provider: 'supabase',
+      supabaseUrl: 'https://xxx.supabase.co'
+    });
+    var supabaseNoKeyReadiness = createCloudShareReadiness(supabaseNoKeyCfg);
+    if (supabaseNoKeyReadiness.ok) {
+      errors.push('Test 11 FAIL: Supabase without anon key should not be ready');
+    }
     return {
       ok: errors.length === 0,
       errors
@@ -425,6 +466,8 @@
     CLOUD_SHARE_ADAPTER_VERSION,
     CLOUD_SHARE_PROVIDERS,
     CLOUD_SHARE_STATUSES,
+    CLOUD_SHARE_READINESS_STATUSES,
+    CLOUD_SHARE_RESULT_STATUSES,
     getRuntimeCloudShareConfig,
     createCloudShareConfig,
     createCloudShareReadiness,

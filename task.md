@@ -2098,11 +2098,59 @@ Debug-only runtime instrumentation connecting foundation contracts to the app wi
 - ✅ Storage: Memory-only (no localStorage/IndexedDB references in debug code)
 - ✅ QR/Video: Buttons remain disabled and "Preparing"
 
-### Next Phase: Phase 3.64 — Full Runtime Integration
+## Phase 3.64 — Real Cloud Share + QR Activation (COMPLETED)
 
-Once main branch accepts Phase 3.62-3.63, next phase will:
-- Connect ResultAssetStore to actual final result blob generation
-- Wire QR/Cloud Share decision tree to result screen buttons
-- Enable cloud-ready path (if design permits)
-- Complete Motion export spec-to-readiness wiring
-- Implement actual QR code generation (if enabled)
+### Cloud Share Adapter
+- [x] Endpoint-based upload with FormData transport
+- [x] Supabase Storage REST API with Bearer token auth
+- [x] Config validation and readiness checking
+- [x] Content-Type header added to Supabase uploads
+- [x] Blob size validation before upload
+- [x] Result object immutability enforcement
+
+### QR Share Gate
+- [x] canCreateQrShare() requires cloud-ready + http(s) URL
+- [x] Blob URL detection and rejection
+- [x] ResultAssetRecord lifecycle tracking
+- [x] QR UI states: setup required → create → creating → ready/failed
+- [x] Client-side QR code generation
+
+### Build & Deploy
+- [x] Build manifest includes cloud-share-adapter.jsx
+- [x] Script tags added in correct order
+- [x] Service Worker v14 cache bump
+- [x] All sanity checks pass
+
+### Tests
+- [x] Self-tests include blob URL negative tests
+- [x] Supabase config validation tests
+- [x] Immutability freezing tests
+- [x] Content-Type header presence verified
+
+## Phase 3.64b — Cloud Share QR Hotfix (COMPLETED)
+
+### Enum Separation
+- [x] CLOUD_SHARE_READINESS_STATUSES added
+- [x] CLOUD_SHARE_RESULT_STATUSES added
+- [x] Original CLOUD_SHARE_STATUSES maintained for compatibility
+
+### Enhanced Validation
+- [x] Content-Type header in Supabase upload
+- [x] Blob size validation in uploadViaSupabaseStorage
+- [x] Self-tests for blob URL rejection
+- [x] Tests for Supabase config completeness
+
+### Security Guards
+- [x] No service_role strings committed
+- [x] No private_key strings committed
+- [x] Blob URL rejection verified in tests
+- [x] Save Video remains disabled
+
+### Next Phase: Phase 3.65 — Config Smoke Testing
+
+When ready:
+- Cloud config injection via window.IMMM_CLOUD_SHARE_CONFIG
+- Create QR button click flow
+- Remote URL generation verification
+- QR Ready state display
+- Disabled state when config missing

@@ -467,6 +467,58 @@ function checkCaptureSessionSystem() {
     }
   }
 
+  // Enhanced cloud-share-adapter checks
+  const cloudShareSrc = readFile('cloud-share-adapter.jsx');
+  if (cloudShareSrc) {
+    if (!cloudShareSrc.includes('CLOUD_SHARE_READINESS_STATUSES')) {
+      console.error('❌ FAIL: cloud-share-adapter.jsx missing CLOUD_SHARE_READINESS_STATUSES');
+      hasErrors = true;
+    }
+    if (!cloudShareSrc.includes('CLOUD_SHARE_RESULT_STATUSES')) {
+      console.error('❌ FAIL: cloud-share-adapter.jsx missing CLOUD_SHARE_RESULT_STATUSES');
+      hasErrors = true;
+    }
+    if (!cloudShareSrc.includes("'Content-Type': blob.type")) {
+      console.error('❌ FAIL: cloud-share-adapter.jsx Supabase upload missing Content-Type header');
+      hasErrors = true;
+    }
+    if (!cloudShareSrc.includes('typeof blob.size !== \'number\'')) {
+      console.error('❌ FAIL: cloud-share-adapter.jsx missing blob validation');
+      hasErrors = true;
+    }
+    if (cloudShareSrc.includes('service_role')) {
+      console.error('❌ FAIL: cloud-share-adapter.jsx contains service_role string');
+      hasErrors = true;
+    }
+    if (cloudShareSrc.includes('private_key')) {
+      console.error('❌ FAIL: cloud-share-adapter.jsx contains private_key string');
+      hasErrors = true;
+    }
+    if (cloudShareSrc.includes('blob-url-not-allowed')) {
+      // This is actually good - it means blob URLs are being rejected
+    }
+  }
+
+  const cloudShareDist = readFile('dist/cloud-share-adapter.js');
+  if (cloudShareDist) {
+    if (!cloudShareDist.includes('CLOUD_SHARE_READINESS_STATUSES')) {
+      console.error('❌ FAIL: dist/cloud-share-adapter.js missing CLOUD_SHARE_READINESS_STATUSES');
+      hasErrors = true;
+    }
+    if (!cloudShareDist.includes('CLOUD_SHARE_RESULT_STATUSES')) {
+      console.error('❌ FAIL: dist/cloud-share-adapter.js missing CLOUD_SHARE_RESULT_STATUSES');
+      hasErrors = true;
+    }
+    if (!cloudShareDist.includes("'Content-Type'")) {
+      console.error('❌ FAIL: dist/cloud-share-adapter.js missing Content-Type header');
+      hasErrors = true;
+    }
+    if (cloudShareDist.includes('service_role')) {
+      console.error('❌ FAIL: dist/cloud-share-adapter.js contains service_role string');
+      hasErrors = true;
+    }
+  }
+
   const index = readFile('index.html');
   if (index) {
     const requiredScripts = [
