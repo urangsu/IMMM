@@ -2467,7 +2467,78 @@ checkReactProductionMode();
 checkLaunchAssets();
 checkAlbumStickerGate();
 checkImmm356SeoCopy();
+function checkImmm358Parity() {
+  const task = readFile('task.md');
+  const deco = readFile('screens-v2-deco.jsx');
+  const frame = readFile('frame-system.jsx');
+
+  if (task) {
+    if (!task.includes('1×4 Strip Preview / Export Parity + Save Reliability')) {
+      console.error('❌ FAIL: task.md missing "1×4 Strip Preview / Export Parity + Save Reliability" section');
+      hasErrors = true;
+    }
+  }
+
+  if (deco) {
+    // Filename format check
+    if (!deco.includes('IMMM_${YYYY}-${MM}-${DD}_${HH}${mm}.png')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx missing or incorrect filename format (IMMM_YYYY-MM-DD_HHmm.png)');
+      hasErrors = true;
+    }
+
+    // iOS fallback check
+    if (!deco.includes('isIOS()') || !deco.includes('이미지를 길게 눌러 저장하세요')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx missing iOS long-press save fallback');
+      hasErrors = true;
+    }
+
+    // Pure Canvas Export check (No DOM capture in final path)
+    if (deco.includes('html2canvas')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx contains html2canvas (DOM capture forbidden for final export)');
+      hasErrors = true;
+    }
+    
+    const lines = deco.split('\n');
+    const handleDownloadStart = lines.findIndex(l => l.includes('const handleDownload = async'));
+    if (handleDownloadStart !== -1) {
+      const handleDownloadBlock = lines.slice(handleDownloadStart, handleDownloadStart + 15).join('\n');
+      if (handleDownloadBlock.includes('captureRef')) {
+        console.error('❌ FAIL: handleDownload in screens-v2-deco.jsx appears to use captureRef (DOM capture forbidden)');
+        hasErrors = true;
+      }
+      if (!handleDownloadBlock.includes('getFinalResultBlob()')) {
+        console.error('❌ FAIL: handleDownload in screens-v2-deco.jsx missing getFinalResultBlob call');
+        hasErrors = true;
+      }
+    }
+  }
+
+  if (frame) {
+    // 1x4 Strip Parity check
+    if (!frame.includes('width: 560, height: 1808')) {
+      console.error('❌ FAIL: frame-system.jsx missing 1x4 strip canvas dimensions (560x1808)');
+      hasErrors = true;
+    }
+    if (!frame.includes('w: 0.814, h: 0.189')) {
+      console.error('❌ FAIL: frame-system.jsx missing 1x4 strip photoRect dimensions (4:3 aspect parity)');
+      hasErrors = true;
+    }
+  }
+}
+
+checkStrayFiles();
+checkBlobUrlLifecycle();
+checkStickerPreload();
+checkBabelMigrationPlan();
+checkCameraArchitecture();
+checkCameraModelAndBestCut();
+checkStabilityAuditDocumented();
+checkReactProductionMode();
+checkLaunchAssets();
+checkAlbumStickerGate();
+checkImmm356SeoCopy();
 checkImmm357AlbumQA();
+checkImmm358Parity();
 
 
 if (hasErrors) {

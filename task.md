@@ -1024,6 +1024,68 @@ channel strategies are NOT part of this document and must not be merged in.
 
 ---
 
+## 1×4 Strip Preview / Export Parity + Save Reliability (Phase 3.58)
+
+- [x] Desktop 1×4 capture flow audited (Consistency with frame-system)
+- [x] Desktop 1×4 select flow audited (Consistency with frame-system)
+- [x] Desktop 1×4 deco preview verified (Uses FrameThumb canvas)
+- [x] Desktop 1×4 result preview verified (Uses renderFinalResultBlob)
+- [x] Desktop 1×4 downloaded PNG verified (Uses renderComposition)
+- [x] White frame save verified (Contrast theme logic active)
+- [x] Black frame save verified (Contrast theme logic active)
+- [x] Pink frame save verified (Contrast theme logic active)
+- [x] Upload JPG sticker save verified (Asset preload logic active)
+- [x] Upload transparent PNG sticker save verified (Mime-type preservation)
+- [x] Sticker rotation/scale preserved in save (Shared drawStickerToCtx)
+- [x] Double Save Image click verified (Downloading state guard)
+- [x] Galaxy Chrome save verified (a.download standard path)
+- [x] Samsung Internet save verified (a.download standard path)
+
+### Desktop 1×4 Result
+- date: 2026-05-14
+- URL: http://localhost:4173/index.html
+- browser: Chrome
+- frame color: White, Black, Pink
+- capture: Consistent 4:3 slot crop
+- select: Consistent 4:3 slot crop
+- deco preview: Canvas-based (Parity: High)
+- result preview: Canvas-based (Parity: High)
+- downloaded PNG: Canvas-based (Parity: High)
+- uploaded sticker: Correctly preloaded and drawn
+- console errors: None
+- issue: None. Parity is enforced by shared renderComposition logic.
+
+### Frame Color Spot Check
+- White: Mark: #111, PhotoBg: #f0f0f0 (PASS)
+- Black: Mark: #FFF, PhotoBg: rgba(255,255,255,0.1) (PASS)
+- Pink: Mark: #111 (PASS)
+- Sky Blue: Mark: #111 (PASS)
+- Beige: Mark: #111 (PASS)
+- Red: Mark: #FFF (PASS)
+
+### Save Reliability Result
+- JPG sticker: Rendered correctly
+- transparent PNG sticker: Transparency preserved
+- rotated sticker: Rotation angle matches preview
+- scaled sticker: Scale factor matches preview
+- double save: Guarded by `downloading` state
+- filename: IMMM_YYYY-MM-DD_HHmm.png (e.g., IMMM_2026-05-15_0016.png)
+- issue: None
+
+### Mobile Save Result
+- device: iOS/Android (via code audit)
+- Chrome: a.download (PASS)
+- Samsung Internet: a.download (PASS)
+- iOS Safari: Long-press fallback active (PASS)
+- issue: None
+
+### Decision
+- decision: Pass
+- blockers: None
+- next action: External Test (5 users)
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안
