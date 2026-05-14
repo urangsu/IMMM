@@ -828,6 +828,53 @@ Also adds proper remoteUrl mapping for HTTP/HTTPS URLs vs data URLs.
 
 ---
 
+## Session Infrastructure Consolidation (Phase 3.61)
+- [x] SessionAdapter hotfix verification (original index, remoteUrl)
+- [x] ResultAssetStore foundation added
+- [x] ASSET_KINDS and ASSET_STATUSES contracts defined
+- [x] ResultAssetRecord lifecycle contract (local-ready → cloud-ready → expired/revoked)
+- [x] Immutable state operations (addRecord, updateRecord, markRevoked, markExpired)
+- [x] ResultAssetStore self-test strengthened (13 test cases)
+- [x] Share/QR contract documented
+- [x] MotionExport contract documented
+- [x] build-precompile manifest updated (result-asset-store.jsx)
+- [x] index.html script order updated (result-asset-store.js)
+- [x] index.precompiled.html script order updated
+- [x] sw.js cache bumped to v12 (session-infrastructure)
+- [x] sanity-check verification updated
+- [x] VM self-test execution includes all three stores (model, adapter, asset-store)
+- [x] Capture runtime untouched
+- [x] Result/Export untouched
+- [x] QR/Video remain disabled
+
+### Session Infrastructure Contracts
+
+#### Share / QR Contract
+- QR Share must never use blob: URLs
+- QR Share requires ShareState.status = cloud-ready
+- QR Share requires ResultAssetRecord.remoteUrl or ShareState.cloudUrl
+- Local preview is device-local only, not shareable via QR
+- OS Web Share can share local files/blobs but must not generate QR
+- Cloud share must have expiration and ownership policy before launch
+- ResultAssetStore state is immutable and independent of runtime state
+
+#### MotionExport / Save Video Contract
+- Save Video remains disabled until MotionExport foundation exists
+- Still image export uses existing renderFinalResultBlob/renderComposition path
+- Motion export must use separate renderMotionComposition path
+- Motion slots require frame provider (timestamp → rendered frame)
+- Video result is represented as ResultAssetRecord with kind=video
+- MotionExport must not mutate original MediaAsset or ResultAssetRecord
+- MotionExport must produce ResultAssetRecord entries to ResultAssetStore
+- Frame interpolation policy is deferred to Phase 3.62
+
+### Finding
+Phase 3.60/3.60b hardened the session adapter with correct index mapping and remoteUrl support.
+Phase 3.61 adds the ResultAssetStore foundation to track result lifecycle independently of runtime state.
+The store is designed to be immutable, testable, and integration-ready for Phase 3.62+ (QR/Share/MotionExport).
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안
