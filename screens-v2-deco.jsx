@@ -128,8 +128,54 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     setTextInput('');
   };
   const onFile = (e) => {
-    const f = e.target.files?.[0];if (!f) return;
-    const rd = new FileReader();rd.onload = () => addUpload(rd.result);rd.readAsDataURL(f);
+    const f = e.target.files?.[0];
+    // Reset input value so the same file can be selected again
+    if (e.target) e.target.value = '';
+    if (!f) return;
+    if (!f.type.startsWith('image/')) {
+      console.warn('[IMMM] Album import: not an image file', f.type);
+      return;
+    }
+    const MAX_EDGE = 2048;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const longEdge = Math.max(img.width, img.height);
+            if (longEdge <= MAX_EDGE) {
+              // No resize needed
+              addUpload(rd.result);
+              return;
+            }
+            // Resize via canvas
+            const scale = MAX_EDGE / longEdge;
+            const w = Math.round(img.width * scale);
+            const h = Math.round(img.height * scale);
+            const cvs = document.createElement('canvas');
+            cvs.width = w; cvs.height = h;
+            const ctx2d = cvs.getContext('2d');
+            ctx2d.drawImage(img, 0, 0, w, h);
+            // Preserve PNG transparency if original is png, otherwise use jpeg
+            const mime = f.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            const resized = cvs.toDataURL(mime, 0.92);
+            addUpload(resized);
+          } catch (err) {
+            console.warn('[IMMM] Album import resize failed, using original:', err);
+            addUpload(rd.result);
+          }
+        };
+        img.onerror = () => {
+          console.warn('[IMMM] Album import: image load failed');
+        };
+        img.src = rd.result;
+      } catch (err) {
+        console.warn('[IMMM] Album import FileReader processing failed:', err);
+      }
+    };
+    rd.onerror = () => console.warn('[IMMM] Album import: FileReader error');
+    rd.readAsDataURL(f);
   };
 
   const shotsForFrame = shots;
@@ -403,13 +449,38 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         </div>
       </div>
 
+      {/* ── Album Image Import ─────────────────────────────────────────── */}
+      <div style={{ marginTop: 16, padding: '12px 14px', background: `rgba(217,136,147,0.06)`, borderRadius: 14,
+        border: `1px dashed rgba(217,136,147,0.35)` }}>
+        <Kick T={T}>My Album · 내 이미지</Kick>
+        <div style={{ marginTop: 6, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            id="album-import-btn"
+            onClick={() => fileRef.current?.click()}
+            style={{
+              flex: 1, padding: mobile ? '11px 10px' : '11px 16px',
+              background: T.ink, color: T.bg, border: 'none', borderRadius: 12,
+              fontWeight: 700, fontSize: mobile ? 13 : 14, cursor: 'pointer',
+              fontFamily: '"Plus Jakarta Sans",system-ui',
+              display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="3"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <path d="M21 15l-5-5L5 21"/>
+            </svg>
+            내 앨범에서 가져오기
+          </button>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 11, color: T.inkSoft, fontFamily: 'Pretendard,system-ui', lineHeight: 1.4 }}>
+          사진이나 PNG 스티커를 가져와 프레임에 붙일 수 있어요.
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
         <Kick T={T}>Stickers · 스티커</Kick>
-        <button onClick={() => fileRef.current?.click()} style={{
-        padding: '6px 10px', background: T.ink, color: T.bg, border: 'none', borderRadius: 999,
-        fontSize: 11, cursor: 'pointer', fontWeight: 600
-      }}>+ Upload</button>
-        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
       </div>
       {layerBar}
       {getStickerPickerPacks().map(([k, pack]) =>
@@ -1142,6 +1213,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    if (window.trackImmmEvent) window.trackImmmEvent('result_download', { layout, action: 'save_image' });
     try {
       const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();
@@ -1158,6 +1230,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const handleShare = async () => {
     if (sharing) return;
     setSharing(true);
+    if (window.trackImmmEvent) window.trackImmmEvent('result_share_attempt', { layout, action: 'native_share' });
     try {
       const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();

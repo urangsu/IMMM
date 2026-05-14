@@ -3,15 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>IMMM · Photobooth</title>
-<meta name="description" content="나와 그리고 우리의 순간. 나만의 포토부스.">
+<title>IMMM · 내 손 안의 네컷 포토부스</title>
+<meta name="description" content="설치 없이 브라우저에서 바로 찍는 감성 네컷 포토부스. 프레임을 고르고, 친구들과 찍고, 바로 저장하세요.">
+<link rel="canonical" href="https://photobooth-flame-gamma.vercel.app/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="IMMM · 내 손 안의 네컷 포토부스">
+<meta property="og:description" content="설치 없이 브라우저에서 바로 찍는 감성 네컷 포토부스.">
+<meta property="og:image" content="https://photobooth-flame-gamma.vercel.app/og.png">
+<meta property="og:url" content="https://photobooth-flame-gamma.vercel.app/">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="IMMM · 내 손 안의 네컷 포토부스">
+<meta name="twitter:description" content="설치 없이 브라우저에서 바로 찍는 감성 네컷 포토부스.">
+<meta name="twitter:image" content="https://photobooth-flame-gamma.vercel.app/og.png">
+
 <meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -163,6 +179,7 @@
 <body>
 <div id="boot-error"></div>
 <div id="root"></div>
+<a href="privacy.html" style="position:fixed; bottom:max(12px, env(safe-area-inset-bottom)); right:12px; font-size:10px; color:rgba(0,0,0,0.25); text-decoration:none; z-index:9999; font-family:system-ui, sans-serif;">Privacy</a>
 
 <!-- Precompiled dist scripts (Babel-free classic global scripts) -->
 <script src="./dist/app.js"></script>

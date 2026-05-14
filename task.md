@@ -775,6 +775,137 @@ Phase 3.58 turns the self-test into an executed release gate.
 - Adapter must not store Blob/File objects directly.
 - Adapter must not enable QR/Video.
 
+## Phase 3.54 — Soft Launch + App-Ready Surface Hardening
+- [x] Launch Assets generated (og.png, PWA icons)
+- [x] index.html updated with OG and canonical metadata
+- [x] privacy.html added and linked in footer
+- [x] manifest.webmanifest updated with new icons
+- [x] trackImmmEvent analytics wrapper added to main.jsx
+- [x] app_boot, capture_start, capture_complete, result_download, and result_share_attempt events instrumented
+- [x] sanity-check.mjs updated to validate new assets
+
+### Capacitor Native Wrapper Roadmap (Deferred)
+- **Goal:** Wrap IMMM in a native iOS/Android shell using Capacitor in the future.
+- **Current State:** The web app is standalone and fully functional as a PWA.
+- **Rules:** 
+  - QR Code sharing and Video export remain DISABLED until server-side infrastructure (Supabase/S3) is established.
+  - No native plugins are installed yet.
+  - Do not alter the core capture flow or disable existing browser capabilities.
+
+---
+
+## Product Roadmap Re-anchor (Phase 3.55)
+
+Priority now:
+1. Core capture flow
+2. Frame/layout quality
+3. Deco editing
+4. Album image sticker import
+5. Preview/export parity
+6. Save reliability
+7. Soft launch QA
+8. Share/QR
+9. Motion/video
+10. Native app wrapper
+
+Decision:
+- App Store / Capacitor work is deferred.
+- The product must first feel like a complete web photobooth.
+- Album image sticker import is a core editing feature, not a nice-to-have.
+
+---
+
+## Album Image Sticker Restore Gate (Phase 3.55)
+- [x] Existing upload sticker path audited
+- [x] Album import button is visible in Deco (full-width, Korean label)
+- [x] File input accepts image/*
+- [x] Uploaded image becomes sticker (makeSticker('upload'))
+- [x] Uploaded sticker can be moved
+- [x] Uploaded sticker can be scaled
+- [x] Uploaded sticker can be rotated
+- [x] Uploaded sticker can be removed
+- [x] Upload re-selects same file (input value reset)
+- [x] Large image auto-resized to ≤2048px via canvas
+- [x] Non-image file silently rejected (no crash)
+- [x] Uploaded sticker is included in renderComposition (preloadStickerImages path)
+- [x] Uploaded sticker is included in downloaded PNG (drawStickerToCtx upload branch)
+- [x] Upload failure does not crash export
+- [ ] Mobile album import visual QA completed
+- [ ] Samsung Internet album import QA completed
+
+---
+
+## Soft Launch QA + Release Decision Gate (Phase 3.55)
+- [ ] Production URL boot verified
+- [ ] Desktop Chrome landing verified
+- [ ] Desktop Chrome setup verified
+- [ ] Desktop Chrome capture entry verified
+- [ ] No-camera desktop state handled without crash
+- [ ] KakaoTalk OG preview verified
+- [ ] OG image loads
+- [ ] Twitter card tags verified
+- [ ] PWA manifest verified
+- [ ] PWA 192 icon verified
+- [ ] PWA 512 icon verified
+- [ ] PWA maskable icon verified
+- [ ] Privacy page verified
+- [ ] Privacy link verified
+- [ ] Analytics app_boot verified
+- [ ] Analytics capture_start verified
+- [ ] Analytics capture_complete verified
+- [ ] Analytics result_download verified
+- [ ] Analytics result_share_attempt verified
+- [ ] QR/Video disabled state verified
+- [ ] Soft Launch approved
+
+### Production Boot Result
+- date: (pending)
+- URL: https://photobooth-flame-gamma.vercel.app/
+- browser: (pending)
+- boot: (pending)
+- landing: (pending)
+- setup: (pending)
+- capture: (pending)
+- no-camera state: (pending)
+- console errors: (pending)
+- issue: (none known)
+
+### OG / SNS Result
+- KakaoTalk: (pending)
+- iMessage/Slack: (pending)
+- Twitter/X: (pending)
+- og image: (pending)
+- issue: (none known)
+
+### PWA Manifest Result
+- manifest: (pending)
+- 192 icon: (pending)
+- 512 icon: (pending)
+- maskable icon: (pending)
+- installability: (pending)
+- issue: (none known)
+
+### Privacy Result
+- URL: /privacy.html
+- link: fixed bottom-right in index.html
+- content: on-device only, no server upload, no PII
+- issue: (pending full review)
+
+### Analytics Debug Result
+- app_boot: (pending)
+- capture_start: (pending)
+- capture_complete: (pending)
+- result_download: (pending)
+- result_share_attempt: (pending)
+- payload safe: no dataUrl/blob/image in payload (code-level guarantee)
+- issue: (none known)
+
+### Release Decision
+- decision: Not Ready (QA pending)
+- blockers: QA items above pending manual browser test
+- non-blockers: icon rendering appearance (not verified on Android)
+- next action: Run production URL QA manually per items above
+
 ---
 
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap

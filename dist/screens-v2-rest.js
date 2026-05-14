@@ -483,8 +483,23 @@ function CaptureV2({
     return () => clearTimeout(t);
   }, [countdown, auto, idx, takeShot, shotCount]);
   React.useEffect(() => {
-    if (idx >= shotCount) setTimeout(() => go('select'), 600);
+    if (idx >= shotCount) {
+      if (window.trackImmmEvent) window.trackImmmEvent('capture_complete', {
+        layout,
+        shotCount
+      });
+      setTimeout(() => go('select'), 600);
+    }
   }, [idx, go, shotCount]);
+  React.useEffect(() => {
+    if (window.trackImmmEvent) {
+      window.trackImmmEvent('capture_start', {
+        layout,
+        filter,
+        frameColor
+      });
+    }
+  }, []);
   var startCountdown = () => {
     if (countdown === 0 && idx < shotCount) setCountdown(timerLen);
   };

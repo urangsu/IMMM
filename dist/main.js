@@ -140,6 +140,29 @@ function getCaptureShotCountForLayout(layout) {
   if (layout === 'trip') return 5;
   return 6;
 }
+function trackImmmEvent(name, payload = {}) {
+  try {
+    var safePayload = {
+      ...payload
+    };
+    delete safePayload.dataUrl;
+    delete safePayload.blob;
+    delete safePayload.image;
+    delete safePayload.photo;
+    window.dataLayer?.push({
+      event: name,
+      ...safePayload
+    });
+    window.gtag?.('event', name, safePayload);
+    window.plausible?.(name, {
+      props: safePayload
+    });
+    if (window.IMMM_DEBUG_ANALYTICS) {
+      console.info('[IMMM analytics]', name, safePayload);
+    }
+  } catch (e) {}
+}
+window.trackImmmEvent = trackImmmEvent;
 function App() {
   var [tweaks, setTweaks] = React.useState({
     variant: 'A',
@@ -198,6 +221,12 @@ function App() {
       stableBaseline: window.IMMM_STABLE_BASELINE,
       cacheName: 'immm-cache-v6-2026-05-10-rc2.2'
     });
+    if (window.trackImmmEvent) {
+      window.trackImmmEvent('app_boot', {
+        version: window.IMMM_APP_VERSION,
+        buildLabel: window.IMMM_BUILD_LABEL
+      });
+    }
     var tick = () => {
       setDebugBuildVisible(window.IMMM_DEBUG_CAMERA === true || window.IMMM_DEBUG_BUILD === true);
     };

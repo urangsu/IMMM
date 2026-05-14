@@ -2288,6 +2288,83 @@ function checkCameraModelAndBestCut() {
   }
 }
 
+function checkLaunchAssets() {
+  const assets = [
+    'privacy.html',
+    'og.png',
+    'icon-192.png',
+    'app-icon-1024.png',
+    'icon-512.png',
+    'icon-maskable-512.png'
+  ];
+  assets.forEach(asset => {
+    if (!fs.existsSync(asset)) {
+      console.error(`❌ FAIL: Phase 3.54 Launch Asset missing: ${asset}`);
+      hasErrors = true;
+    }
+  });
+}
+
+function checkAlbumStickerGate() {
+  const deco = readFile('screens-v2-deco.jsx');
+  const frame = readFile('frame-system.jsx');
+
+  if (deco) {
+    if (!deco.includes('fileRef')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx missing fileRef (album import input ref)');
+      hasErrors = true;
+    }
+    if (!deco.includes('addUpload')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx missing addUpload');
+      hasErrors = true;
+    }
+    if (!deco.includes('FileReader')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx missing FileReader (album import handler)');
+      hasErrors = true;
+    }
+    if (!deco.includes('accept="image/*"')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx missing accept="image/*" on file input');
+      hasErrors = true;
+    }
+    const hasKoreanLabel = deco.includes('내 앨범') || deco.includes('Album') || deco.includes('가져오기');
+    if (!hasKoreanLabel) {
+      console.error('❌ FAIL: screens-v2-deco.jsx missing album import label (내 앨범 / Album)');
+      hasErrors = true;
+    }
+    if (!deco.includes("makeSticker('upload'")) {
+      console.error("❌ FAIL: screens-v2-deco.jsx missing makeSticker('upload') call");
+      hasErrors = true;
+    }
+  }
+
+  if (frame) {
+    if (!frame.includes('payload.dataUrl')) {
+      console.error('❌ FAIL: frame-system.jsx missing payload.dataUrl (upload sticker export path)');
+      hasErrors = true;
+    }
+    if (!frame.includes('preloadStickerImages')) {
+      console.error('❌ FAIL: frame-system.jsx missing preloadStickerImages');
+      hasErrors = true;
+    }
+    if (!frame.includes('uploadImages')) {
+      console.error('❌ FAIL: frame-system.jsx missing uploadImages (upload sticker cache in drawStickerToCtx)');
+      hasErrors = true;
+    }
+  }
+
+  const task = readFile('task.md');
+  if (task) {
+    if (!task.includes('Product Roadmap Re-anchor')) {
+      console.error('❌ FAIL: task.md missing "Product Roadmap Re-anchor" section');
+      hasErrors = true;
+    }
+    if (!task.includes('Album Image Sticker Restore Gate')) {
+      console.error('❌ FAIL: task.md missing "Album Image Sticker Restore Gate" section');
+      hasErrors = true;
+    }
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -2296,6 +2373,8 @@ checkCameraArchitecture();
 checkCameraModelAndBestCut();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
+checkLaunchAssets();
+checkAlbumStickerGate();
 
 
 if (hasErrors) {
