@@ -2365,6 +2365,61 @@ function checkAlbumStickerGate() {
   }
 }
 
+function checkImmm356SeoCopy() {
+  const task = readFile('task.md');
+  const index = readFile('index.html');
+
+  if (task) {
+    // Required sections
+    if (!task.includes('IMMM-Only SEO / ASO / Launch Copy Strategy')) {
+      console.error('❌ FAIL: task.md missing "IMMM-Only SEO / ASO / Launch Copy Strategy" section');
+      hasErrors = true;
+    }
+    if (!task.includes('IMMM Soft Launch Channel Plan')) {
+      console.error('❌ FAIL: task.md missing "IMMM Soft Launch Channel Plan" section');
+      hasErrors = true;
+    }
+
+    // Guard against cross-product bleed after this Phase
+    const lines = task.split('\n');
+    let inSeoSection = false;
+    lines.forEach((line, i) => {
+      if (line.includes('IMMM-Only SEO') || line.includes('IMMM Soft Launch Channel Plan')) {
+        inSeoSection = true;
+      }
+      if (inSeoSection && line.startsWith('## ') && !line.includes('IMMM') && !line.includes('Phase B') && !line.includes('Phase')) {
+        inSeoSection = false;
+      }
+      if (inSeoSection) {
+        if (/MyTeam/.test(line) && !line.includes('NOT part of this document') && !line.includes('separate product')) {
+          console.error(`❌ FAIL: task.md SEO section contains unauthorized MyTeam reference (line ${i + 1})`);
+          hasErrors = true;
+        }
+        if (/When We Meet/.test(line) && !line.includes('NOT part of this document') && !line.includes('separate product')) {
+          console.error(`❌ FAIL: task.md SEO section contains unauthorized "When We Meet" reference (line ${i + 1})`);
+          hasErrors = true;
+        }
+      }
+    });
+  }
+
+  if (index) {
+    // Guard: no misleading claims in index.html
+    const misleadingPhrases = [
+      'QR 공유 가능',
+      '영상 저장 가능',
+      '카카오에 바로 공유',
+      'cloud share',
+    ];
+    misleadingPhrases.forEach(phrase => {
+      if (index.toLowerCase().includes(phrase.toLowerCase())) {
+        console.error(`❌ FAIL: index.html contains misleading feature claim: "${phrase}"`);
+        hasErrors = true;
+      }
+    });
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -2375,6 +2430,7 @@ checkStabilityAuditDocumented();
 checkReactProductionMode();
 checkLaunchAssets();
 checkAlbumStickerGate();
+checkImmm356SeoCopy();
 
 
 if (hasErrors) {

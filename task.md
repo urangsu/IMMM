@@ -908,6 +908,66 @@ Decision:
 
 ---
 
+## IMMM-Only SEO / ASO / Launch Copy Strategy (Phase 3.56)
+
+### Accepted now
+- IMMM is positioned as a browser-first four-cut photobooth.
+- Primary Korean keyword: 네컷 포토부스
+- Secondary keywords:
+  - 무료 네컷 앱
+  - 폰으로 네컷 찍기
+  - 설치 없이 네컷
+  - 온라인 포토부스
+  - 감성 네컷
+- Visible landing headline remains: My moments. Uniquely Mine.
+- SEO/OG copy explains the product directly:
+  - Title: IMMM · 내 손 안의 네컷 포토부스
+  - Description: 설치 없이 브라우저에서 바로 찍는 감성 네컷 포토부스
+
+### Deferred
+- App Store ASO title / subtitle / keyword field
+- App Store screenshots
+- App Store description copy
+- Influencer / 체험단 campaign
+- 네이버 블로그 SEO campaign
+- 인스타 릴스 challenge
+- 에브리타임 campus launch
+
+### Rejected for now
+- Claiming QR / cloud share is available
+- Claiming video export is available
+- Claiming Kakao share is fully supported
+- Changing the visible brand headline
+- Starting Capacitor / iOS packaging
+
+---
+
+## IMMM Soft Launch Channel Plan (Phase 3.56)
+
+Priority channels (post Soft Launch QA):
+1. Instagram Reels
+   - 네컷기계 vs IMMM 결과 비교
+   - 친구들과 카페에서 바로 찍는 장면
+2. Everytime
+   - 대학생 / 20대 초기 유입
+   - "설치 없이 네컷 찍는 링크" 포지션
+3. Naver Blog
+   - 검색 유입 확보
+   - 실제 결과물 중심 후기 글
+4. Kakao link sharing
+   - 현재는 OG preview 중심
+   - QR / cloud share는 CaptureSession 서버 연동 이후
+
+Do not start paid acquisition before:
+- Save reliability verified
+- Preview / export parity verified
+- Mobile capture QA completed
+
+Note: MyTeam and When We Meet are separate products. Their launch copy and
+channel strategies are NOT part of this document and must not be merged in.
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안
