@@ -174,7 +174,89 @@ function checkCaptureSessionSystem() {
         // 3. Negative tests (Model)
         const badMode = modelObj.createCaptureSession({ mode: 'invalid_mode_xyz' });
         if (modelObj.validateCaptureSession(badMode).ok) {
-          console.error('❌ FAIL: validateCaptureSession allowed invalid mode');
+          console.error('❌ FAIL: validateCaptureSession allowed invalid mode (not-a-valid-status)');
+          hasErrors = true;
+        }
+
+        const badExportStatus = modelObj.createExportState({ status: 'not-a-valid-export-status' });
+        if (modelObj.validateCaptureSession({ exportState: badExportStatus }).ok) {
+          console.error('❌ FAIL: validateCaptureSession allowed invalid export status');
+          hasErrors = true;
+        }
+
+        const badShareStatus = modelObj.createShareState({ status: 'invalid-share-status' });
+        if (modelObj.validateCaptureSession({ shareState: badShareStatus }).ok) {
+          console.error('❌ FAIL: validateCaptureSession allowed invalid share status');
+          hasErrors = true;
+        }
+
+        // Test normalizeCaptureSession creates new reference at top level
+        const origSession = modelObj.createCaptureSession();
+        const normalizedSession = modelObj.normalizeCaptureSession(origSession);
+        if (origSession === normalizedSession) {
+          console.error('❌ FAIL: normalizeCaptureSession returned same reference (should clone)');
+          hasErrors = true;
+        }
+
+        // Test normalizeCaptureSession nested cloning for renderRecipe
+        const sessionWithRecipe = modelObj.createCaptureSession();
+        const recipe = modelObj.createRenderRecipe({ stickers: [{ id: 'test' }] });
+        sessionWithRecipe.renderRecipe = recipe;
+        const originalRecipeJson = JSON.stringify(recipe);
+        const normalized = modelObj.normalizeCaptureSession(sessionWithRecipe);
+        if (JSON.stringify(normalized.renderRecipe) !== originalRecipeJson) {
+          console.error('❌ FAIL: normalizeCaptureSession renderRecipe nested clone separation issue');
+          hasErrors = true;
+        }
+
+        // 4. Adapter negative tests
+        // Test validateSessionSnapshot with wrapper
+        const snapshotWrapper = adapterObj.createSessionSnapshot({
+          shots: ['data:image/png;base64,test']
+        });
+        const validateWrapperTest = adapterObj.validateSessionSnapshot(snapshotWrapper);
+        if (!validateWrapperTest.ok) {
+          console.error('❌ FAIL: Adapter validateSessionSnapshot should accept wrapper');
+          hasErrors = true;
+        }
+
+        // Test validateSessionSnapshot with raw session
+        const validateRawTest = adapterObj.validateSessionSnapshot(snapshotWrapper.session);
+        if (!validateRawTest.ok) {
+          console.error('❌ FAIL: Adapter validateSessionSnapshot should accept raw session');
+          hasErrors = true;
+        }
+
+        // Test empty selected array
+        const emptySelectedResult = adapterObj.createSessionSnapshot({
+          shots: ['data:image/png;base64,test'],
+          selected: []
+        });
+        if (emptySelectedResult.session.selectedCuts.length !== 0) {
+          console.error('❌ FAIL: Empty selected array should not auto-select cuts');
+          hasErrors = true;
+        }
+
+        // Test invalid shot input is skipped
+        const invalidShotResult = adapterObj.createSessionSnapshot({
+          shots: [null, undefined, 123, true, { dataUrl: 'data:image/png;base64,valid' }]
+        });
+        if (invalidShotResult.session.shots.length !== 1) {
+          console.error('❌ FAIL: Invalid shot inputs not skipped correctly');
+          hasErrors = true;
+        }
+
+        // Test result asset invalid kind normalizes
+        const invalidKindAsset = adapterObj.createResultAssetContract({ kind: 'invalid' });
+        if (invalidKindAsset.kind !== 'image') {
+          console.error('❌ FAIL: Result asset invalid kind should normalize to image');
+          hasErrors = true;
+        }
+
+        // Test result asset video default mimeType
+        const videoAsset = adapterObj.createResultAssetContract({ kind: 'video' });
+        if (videoAsset.mimeType !== 'video/mp4') {
+          console.error('❌ FAIL: Result asset video should default to video/mp4');
           hasErrors = true;
         }
 
@@ -854,11 +936,11 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-')) {
-    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8 or v9)");
+  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-')) {
+    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9 or v10)");
     hasErrors = true;
   }
-  if (sw.includes('immm-cache-v1') || sw.includes('immm-cache-v4')) {
+  if (sw.includes('immm-cache-v1-') || sw.includes('immm-cache-v4-')) {
     console.error("❌ FAIL: sw.js contains legacy cache name");
     hasErrors = true;
   }
@@ -1854,8 +1936,8 @@ function checkBabelMigrationPlan() {
   // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8 or v9 series');
+    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9 or v10 series');
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {

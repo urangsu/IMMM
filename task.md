@@ -777,6 +777,30 @@ Phase 3.58 turns the self-test into an executed release gate.
 
 ---
 
+## Session Adapter Contract Hardening (Phase 3.60)
+- [x] validateSessionSnapshot supports snapshot wrapper and raw session
+- [x] RESULT_KINDS constant added and frozen
+- [x] ResultAsset kind contract normalized to valid values
+- [x] ResultAsset default mimeType logic (image/png, video/mp4)
+- [x] Unsupported shot inputs are skipped (null, undefined, number, boolean, function, array)
+- [x] Empty selected array does not auto-select cuts
+- [x] Adapter self-test strengthened with 11 test cases
+- [x] Phase 3.58 model negative tests restored
+- [x] Model validation guards re-enabled (mode, exportStatus, shareStatus)
+- [x] normalizeCaptureSession clone separation guards restored
+- [x] sanity-check.mjs negative test suite added
+- [x] dist/session-adapter.js regenerated
+- [x] sw.js cache bumped for adapter hardening (v10)
+- [x] Capture runtime untouched
+- [x] Result/Export untouched
+- [x] QR/Video remain disabled
+
+### Finding
+Phase 3.59 correctly added a read-only adapter, but sanity-check refactoring weakened some model regression tests.
+Phase 3.60 restores model guards and hardens the adapter contract before any runtime integration.
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안
