@@ -1634,6 +1634,7 @@ function ResultV2({
   var [showPrintIntro, setShowPrintIntro] = React.useState(false);
   var autoSavedRef = React.useRef(false);
   var [resultAssetRecord, setResultAssetRecord] = React.useState(null);
+  var [localSaveState, setLocalSaveState] = React.useState(null);
   var revokeSaveSheetUrl = () => {
     revokeBlobUrl(saveSheetUrlRef.current);
     saveSheetUrlRef.current = null;
@@ -1858,6 +1859,43 @@ function ResultV2({
       blob
     };
     return blob;
+  };
+  var persistResultAssetLocally = async (assetRecord, blob) => {
+    if (!assetRecord || !blob) return;
+    var Store = window.IMMMResultAssetStore;
+    if (!Store || typeof Store.saveResultAssetRecordToDb !== 'function') {
+      console.warn('[IMMM] ResultAssetStore persistence not available');
+      return;
+    }
+    try {
+      setLocalSaveState({
+        status: 'saving',
+        message: '로컬 저장 중...'
+      });
+      var blobId = `blob-${assetRecord.assetRecordId}`;
+      await Store.saveResultAssetRecordToDb(assetRecord);
+      await Store.saveResultAssetBlobToDb(blobId, blob);
+      setLocalSaveState({
+        status: 'saved',
+        message: '로컬 저장 완료',
+        assetRecordId: assetRecord.assetRecordId
+      });
+      setResultAssetRecord({
+        ...assetRecord,
+        blobId,
+        localSaved: true,
+        localSavedAt: new Date().toISOString()
+      });
+      addToast('사진이 갤러리에 저장되었어요');
+    } catch (e) {
+      console.error('[IMMM] Local persistence failed:', e);
+      setLocalSaveState({
+        status: 'error',
+        message: '저장 실패',
+        error: e.message
+      });
+      addToast('로컬 저장에 실패했어요');
+    }
   };
   React.useEffect(() => {
     if (autoSavedRef.current) return;
@@ -2284,6 +2322,23 @@ function ResultV2({
     if (containerRef.current) ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, [layout, mobile]);
+
+  // Local persistence: automatically persist result asset after build completes
+  React.useEffect(() => {
+    if (!resultAssetRecord || resultAssetRecord.localSaved) return;
+    var persistAsync = async () => {
+      try {
+        var blob = await getFinalResultBlob();
+        if (blob) {
+          await persistResultAssetLocally(resultAssetRecord, blob);
+        }
+      } catch (e) {
+        console.debug('[IMMM] Automatic local persistence skipped:', e);
+      }
+    };
+    var timer = setTimeout(persistAsync, 500);
+    return () => clearTimeout(timer);
+  }, [resultAssetRecord?.assetRecordId]);
   var resultOverlays = /*#__PURE__*/React.createElement(React.Fragment, null, saveSheetUrl && /*#__PURE__*/React.createElement("div", {
     onClick: revokeSaveSheetUrl,
     style: {
@@ -2585,7 +2640,18 @@ function ResultV2({
         paddingBottom: 'calc(var(--sab) + 24px)',
         position: 'relative'
       }
-    }, /*#__PURE__*/React.createElement("div", {
+    }, localSaveState && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 12,
+        padding: '10px 12px',
+        borderRadius: 12,
+        background: localSaveState.status === 'error' ? '#FDE8EA' : '#f0f0f0',
+        fontSize: 12,
+        color: localSaveState.status === 'error' ? T.pinkDeep : '#666',
+        textAlign: 'center',
+        fontWeight: 500
+      }
+    }, localSaveState.message), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 10,

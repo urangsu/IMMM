@@ -1023,6 +1023,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [showPrintIntro, setShowPrintIntro] = React.useState(false);
   const autoSavedRef = React.useRef(false);
   const [resultAssetRecord, setResultAssetRecord] = React.useState(null);
+  const [localSaveState, setLocalSaveState] = React.useState(null);
 
   const revokeSaveSheetUrl = () => {
     revokeBlobUrl(saveSheetUrlRef.current);
@@ -1230,6 +1231,38 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     const blob = await renderFinalResultBlob();
     exportBlobRef.current = { key, blob };
     return blob;
+  };
+
+  const persistResultAssetLocally = async (assetRecord, blob) => {
+    if (!assetRecord || !blob) return;
+
+    const Store = window.IMMMResultAssetStore;
+    if (!Store || typeof Store.saveResultAssetRecordToDb !== 'function') {
+      console.warn('[IMMM] ResultAssetStore persistence not available');
+      return;
+    }
+
+    try {
+      setLocalSaveState({ status: 'saving', message: '로컬 저장 중...' });
+
+      const blobId = `blob-${assetRecord.assetRecordId}`;
+      await Store.saveResultAssetRecordToDb(assetRecord);
+      await Store.saveResultAssetBlobToDb(blobId, blob);
+
+      setLocalSaveState({ status: 'saved', message: '로컬 저장 완료', assetRecordId: assetRecord.assetRecordId });
+      setResultAssetRecord({
+        ...assetRecord,
+        blobId,
+        localSaved: true,
+        localSavedAt: new Date().toISOString()
+      });
+
+      addToast('사진이 갤러리에 저장되었어요');
+    } catch (e) {
+      console.error('[IMMM] Local persistence failed:', e);
+      setLocalSaveState({ status: 'error', message: '저장 실패', error: e.message });
+      addToast('로컬 저장에 실패했어요');
+    }
   };
 
   React.useEffect(() => {
@@ -1626,6 +1659,25 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     return () => ro.disconnect();
   }, [layout, mobile]);
 
+  // Local persistence: automatically persist result asset after build completes
+  React.useEffect(() => {
+    if (!resultAssetRecord || resultAssetRecord.localSaved) return;
+
+    const persistAsync = async () => {
+      try {
+        const blob = await getFinalResultBlob();
+        if (blob) {
+          await persistResultAssetLocally(resultAssetRecord, blob);
+        }
+      } catch (e) {
+        console.debug('[IMMM] Automatic local persistence skipped:', e);
+      }
+    };
+
+    const timer = setTimeout(persistAsync, 500);
+    return () => clearTimeout(timer);
+  }, [resultAssetRecord?.assetRecordId]);
+
   const resultOverlays = (
     <>
       {saveSheetUrl && (
@@ -1709,6 +1761,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           </div>
           {/* Action buttons */}
           <div style={{ padding: '0 18px', paddingBottom: 'calc(var(--sab) + 24px)', position: 'relative' }}>
+            {localSaveState && (
+              <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: 12, background: localSaveState.status === 'error' ? '#FDE8EA' : '#f0f0f0', fontSize: 12, color: localSaveState.status === 'error' ? T.pinkDeep : '#666', textAlign: 'center', fontWeight: 500 }}>
+                {localSaveState.message}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 12 }}>
               <BtnPrimary T={T} size="lg" onClick={handleDownload} style={{ flex: 1, height: 52, opacity: downloading ? 0.6 : 1 }}>
                 {downloading ? 'Saving...' : 'Save · 저장'}

@@ -265,6 +265,167 @@
     };
   };
 
+  // --- IndexedDB Persistence ---
+
+  const DB_NAME = 'immm-result-assets';
+  const DB_VERSION = 1;
+  const STORE_RECORDS = 'records';
+  const STORE_BLOBS = 'blobs';
+
+  /**
+   * Opens the IndexedDB database for result assets.
+   * Creates object stores if they don't exist.
+   */
+  const openResultAssetDb = async () => {
+    if (typeof IndexedDB === 'undefined' && !window.indexedDB) {
+      throw new Error('IndexedDB not available');
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onerror = () => reject(request.error);
+
+      request.onsuccess = () => resolve(request.result);
+
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+
+        // Create records store: assetRecordId as keyPath
+        if (!db.objectStoreNames.contains(STORE_RECORDS)) {
+          db.createObjectStore(STORE_RECORDS, { keyPath: 'assetRecordId' });
+        }
+
+        // Create blobs store: blobId as keyPath
+        if (!db.objectStoreNames.contains(STORE_BLOBS)) {
+          db.createObjectStore(STORE_BLOBS, { keyPath: 'blobId' });
+        }
+      };
+    });
+  };
+
+  /**
+   * Saves a ResultAssetRecord to IndexedDB.
+   */
+  const saveResultAssetRecordToDb = async (record) => {
+    if (!record || typeof record.assetRecordId !== 'string') {
+      throw new Error('Invalid record for persistence');
+    }
+
+    const db = await openResultAssetDb();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_RECORDS], 'readwrite');
+      const store = transaction.objectStore(STORE_RECORDS);
+      const request = store.put(record);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(record);
+    });
+  };
+
+  /**
+   * Saves a blob to IndexedDB with associated blobId.
+   */
+  const saveResultAssetBlobToDb = async (blobId, blob) => {
+    if (!blobId || typeof blobId !== 'string' || !(blob instanceof Blob)) {
+      throw new Error('Invalid blobId or blob for persistence');
+    }
+
+    const db = await openResultAssetDb();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_BLOBS], 'readwrite');
+      const store = transaction.objectStore(STORE_BLOBS);
+      const request = store.put({ blobId, blob, savedAt: new Date().toISOString() });
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve({ blobId });
+    });
+  };
+
+  /**
+   * Loads a ResultAssetRecord from IndexedDB by assetRecordId.
+   */
+  const loadResultAssetRecordFromDb = async (assetRecordId) => {
+    if (typeof assetRecordId !== 'string') {
+      throw new Error('Invalid assetRecordId');
+    }
+
+    const db = await openResultAssetDb();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_RECORDS], 'readonly');
+      const store = transaction.objectStore(STORE_RECORDS);
+      const request = store.get(assetRecordId);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result || null);
+    });
+  };
+
+  /**
+   * Loads a blob from IndexedDB by blobId.
+   */
+  const loadResultAssetBlobFromDb = async (blobId) => {
+    if (typeof blobId !== 'string') {
+      throw new Error('Invalid blobId');
+    }
+
+    const db = await openResultAssetDb();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_BLOBS], 'readonly');
+      const store = transaction.objectStore(STORE_BLOBS);
+      const request = store.get(blobId);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const result = request.result;
+        resolve(result ? result.blob : null);
+      };
+    });
+  };
+
+  /**
+   * Lists all ResultAssetRecords from IndexedDB, optionally filtered by sessionId.
+   * Returns array of records, limited to specified count.
+   */
+  const listResultAssetRecordsFromDb = async (sessionId, limit = 50) => {
+    const db = await openResultAssetDb();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_RECORDS], 'readonly');
+      const store = transaction.objectStore(STORE_RECORDS);
+      const request = store.getAll();
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        let records = request.result || [];
+        if (sessionId) {
+          records = records.filter((r) => r.sessionId === sessionId);
+        }
+        resolve(records.slice(0, limit));
+      };
+    });
+  };
+
+  /**
+   * Deletes a ResultAssetRecord and associated blob from IndexedDB.
+   */
+  const deleteResultAssetFromDb = async (assetRecordId, blobId) => {
+    const db = await openResultAssetDb();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_RECORDS, STORE_BLOBS], 'readwrite');
+
+      const recordStore = transaction.objectStore(STORE_RECORDS);
+      const blobStore = transaction.objectStore(STORE_BLOBS);
+
+      const recordRequest = recordStore.delete(assetRecordId);
+      if (blobId) {
+        blobStore.delete(blobId);
+      }
+
+      recordRequest.onerror = () => reject(recordRequest.error);
+      recordRequest.onsuccess = () => resolve({ deleted: assetRecordId });
+    });
+  };
+
   // --- Self-Test ---
 
   const runResultAssetStoreSelfTest = () => {
@@ -381,12 +542,105 @@
     };
   };
 
+  /**
+   * Self-test for IndexedDB persistence (gracefully skips if unavailable).
+   */
+  const runResultAssetPersistenceSelfTest = async () => {
+    const errors = [];
+
+    // Skip if IndexedDB unavailable
+    if (!window.indexedDB) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: 'IndexedDB not available',
+        errors: []
+      };
+    }
+
+    try {
+      // Test 1: Open database
+      const db = await openResultAssetDb();
+      if (!db) {
+        errors.push('Test 1 FAIL: Could not open database');
+      } else {
+        db.close();
+      }
+
+      // Test 2: Save and load record
+      const testRecord = createResultAssetRecord({
+        sessionId: 'persist-test-session',
+        kind: 'image'
+      });
+      try {
+        await saveResultAssetRecordToDb(testRecord);
+        const loaded = await loadResultAssetRecordFromDb(testRecord.assetRecordId);
+        if (!loaded || loaded.assetRecordId !== testRecord.assetRecordId) {
+          errors.push('Test 2 FAIL: Record not persisted or loaded correctly');
+        }
+      } catch (e) {
+        errors.push(`Test 2 FAIL: Save/load record error: ${e.message}`);
+      }
+
+      // Test 3: Save and load blob
+      const testBlobId = `blob-${Date.now()}`;
+      const testBlob = new Blob(['test data'], { type: 'text/plain' });
+      try {
+        await saveResultAssetBlobToDb(testBlobId, testBlob);
+        const loadedBlob = await loadResultAssetBlobFromDb(testBlobId);
+        if (!loadedBlob || !(loadedBlob instanceof Blob)) {
+          errors.push('Test 3 FAIL: Blob not persisted or loaded correctly');
+        }
+      } catch (e) {
+        errors.push(`Test 3 FAIL: Save/load blob error: ${e.message}`);
+      }
+
+      // Test 4: List records by session
+      try {
+        const records = await listResultAssetRecordsFromDb('persist-test-session', 10);
+        if (!Array.isArray(records) || records.length === 0) {
+          errors.push('Test 4 FAIL: Records not listed or empty');
+        }
+      } catch (e) {
+        errors.push(`Test 4 FAIL: List records error: ${e.message}`);
+      }
+
+      // Test 5: Delete asset
+      try {
+        await deleteResultAssetFromDb(testRecord.assetRecordId, testBlobId);
+        const deleted = await loadResultAssetRecordFromDb(testRecord.assetRecordId);
+        if (deleted !== null) {
+          errors.push('Test 5 FAIL: Record not deleted');
+        }
+      } catch (e) {
+        errors.push(`Test 5 FAIL: Delete error: ${e.message}`);
+      }
+
+      // Clean up: Close any open databases
+      const dbCleanup = await openResultAssetDb();
+      if (dbCleanup) dbCleanup.close();
+
+    } catch (e) {
+      errors.push(`Test suite error: ${e.message}`);
+    }
+
+    return {
+      ok: errors.length === 0,
+      skipped: false,
+      errors
+    };
+  };
+
   // --- Export Namespace ---
 
   window.IMMMResultAssetStore = Object.freeze({
     STORE_VERSION,
     ASSET_KINDS,
     ASSET_STATUSES,
+    DB_NAME,
+    DB_VERSION,
+    STORE_RECORDS,
+    STORE_BLOBS,
     createResultAssetRecord,
     createResultAssetStoreState,
     addResultAssetRecord,
@@ -397,7 +651,15 @@
     listResultAssetsBySession,
     validateResultAssetRecord,
     validateResultAssetStoreState,
-    runResultAssetStoreSelfTest
+    openResultAssetDb,
+    saveResultAssetRecordToDb,
+    saveResultAssetBlobToDb,
+    loadResultAssetRecordFromDb,
+    loadResultAssetBlobFromDb,
+    listResultAssetRecordsFromDb,
+    deleteResultAssetFromDb,
+    runResultAssetStoreSelfTest,
+    runResultAssetPersistenceSelfTest
   });
 
 })();
