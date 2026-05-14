@@ -352,9 +352,42 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   };
   const onFile = (e) => {
     const f = e.target.files?.[0];
+    if (e.target) e.target.value = '';
     if (!f) return;
+    if (!f.type.startsWith('image/')) {
+      console.warn('[IMMM] Setup sticker import: not an image file', f.type);
+      return;
+    }
+    const MAX_EDGE = 2048;
     const rd = new FileReader();
-    rd.onload = () => addUpload(rd.result);
+    rd.onload = () => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const longEdge = Math.max(img.width, img.height);
+            if (longEdge <= MAX_EDGE) { addUpload(rd.result); return; }
+            const scale = MAX_EDGE / longEdge;
+            const w = Math.round(img.width * scale);
+            const h = Math.round(img.height * scale);
+            const cvs = document.createElement('canvas');
+            cvs.width = w; cvs.height = h;
+            const ctx2d = cvs.getContext('2d');
+            ctx2d.drawImage(img, 0, 0, w, h);
+            const mime = f.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            addUpload(cvs.toDataURL(mime, 0.92));
+          } catch (err) {
+            console.warn('[IMMM] Setup sticker resize failed, using original:', err);
+            addUpload(rd.result);
+          }
+        };
+        img.onerror = () => console.warn('[IMMM] Setup sticker: image load failed');
+        img.src = rd.result;
+      } catch (err) {
+        console.warn('[IMMM] Setup sticker import failed:', err);
+      }
+    };
+    rd.onerror = () => console.warn('[IMMM] Setup sticker: FileReader error');
     rd.readAsDataURL(f);
   };
 

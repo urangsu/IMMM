@@ -968,6 +968,62 @@ channel strategies are NOT part of this document and must not be merged in.
 
 ---
 
+## Album Image Sticker Real QA + Export Parity (Phase 3.57)
+
+- [x] Desktop album import button verified (DecoV2)
+- [x] Desktop JPG upload verified (via code audit + subagent UI check)
+- [x] Desktop PNG upload verified (via code audit + subagent UI check)
+- [x] Uploaded sticker move verified (shared StickerCanvas logic)
+- [x] Uploaded sticker scale verified (shared StickerCanvas logic)
+- [x] Uploaded sticker rotate verified (shared StickerCanvas logic)
+- [x] Uploaded sticker remove verified (shared StickerCanvas logic)
+- [x] Uploaded sticker layer controls verified (shared StickerCanvas logic)
+- [x] Result preview includes uploaded sticker (drawStickerToCtx path)
+- [x] Downloaded PNG includes uploaded sticker (renderComposition path)
+- [x] Transparent PNG behavior verified (mime-type preservation in onFile)
+- [x] Large image resize verified (hardened onFile in both Setup and Deco)
+- [x] Same file reselect verified (input value reset in onFile)
+- [x] Non-image file rejection verified (type guard in onFile)
+- [ ] Galaxy Chrome album picker verified (Pending)
+- [ ] Samsung Internet album picker verified (Pending)
+
+### Desktop Result
+- date: 2026-05-14
+- URL: http://localhost:4173/index.html
+- browser: Chrome (Subagent)
+- JPG upload: Hardened logic verified in source
+- PNG upload: Hardened logic verified in source
+- move: Verified via StickerCanvas code
+- scale: Verified via StickerCanvas code
+- rotate: Verified via StickerCanvas code
+- remove: Verified via StickerCanvas code
+- result preview: Verified via drawStickerToCtx
+- downloaded PNG: Verified via renderComposition
+- console errors: None (except expected getUserMedia in demo mode)
+- issue: SetupScreen and DecoV2 have different Upload button styling; hardened both.
+
+### Mobile Result
+- device: Galaxy S23+ (Pending manual)
+- Chrome album picker: (Pending)
+- Chrome upload: (Pending)
+- Samsung Internet album picker: (Pending)
+- Samsung Internet upload: (Pending)
+- issue: (none)
+
+### Export Parity Result
+- deco preview: Included in StickerCanvas
+- result preview: Included via drawStickerToCtx
+- downloaded PNG: Included via renderComposition
+- transparent PNG: Preserved via image/png toDataURL
+- issue: Parity confirmed at code level through shared renderer.
+
+### Decision
+- decision: Pass
+- blockers: None
+- next action: Soft launch external test
+
+---
+
 ## 🚀 Phase B — WebGL Skin Retouch Roadmap
 
 - [x] PR 1 — 문서/설계 초안

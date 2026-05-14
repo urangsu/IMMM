@@ -2420,6 +2420,42 @@ function checkImmm356SeoCopy() {
   }
 }
 
+function checkImmm357AlbumQA() {
+  const task = readFile('task.md');
+  const deco = readFile('screens-v2-deco.jsx');
+  const setup = readFile('screens-v2.jsx');
+
+  if (task) {
+    if (!task.includes('Album Image Sticker Real QA + Export Parity')) {
+      console.error('❌ FAIL: task.md missing "Album Image Sticker Real QA + Export Parity" section');
+      hasErrors = true;
+    }
+  }
+
+  // Hardening guard: BOTH components must have the same reset + resize logic
+  const components = [
+    { name: 'screens-v2-deco.jsx', content: deco },
+    { name: 'screens-v2.jsx', content: setup }
+  ];
+
+  components.forEach(c => {
+    if (c.content) {
+      if (!c.content.includes("e.target.value = ''")) {
+        console.error(`❌ FAIL: ${c.name} missing input value reset in onFile`);
+        hasErrors = true;
+      }
+      if (!c.content.includes('MAX_EDGE = 2048')) {
+        console.error(`❌ FAIL: ${c.name} missing MAX_EDGE = 2048 resize logic`);
+        hasErrors = true;
+      }
+      if (!c.content.includes("type.startsWith('image/')")) {
+        console.error(`❌ FAIL: ${c.name} missing image type guard in onFile`);
+        hasErrors = true;
+      }
+    }
+  });
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -2431,6 +2467,7 @@ checkReactProductionMode();
 checkLaunchAssets();
 checkAlbumStickerGate();
 checkImmm356SeoCopy();
+checkImmm357AlbumQA();
 
 
 if (hasErrors) {
