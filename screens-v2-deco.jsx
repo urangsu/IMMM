@@ -1,5 +1,42 @@
 // screens-v2-deco.jsx — Deco Studio + Result
 
+// MARK: - Debug Runtime Asset Registry (Phase 3.63)
+
+function publishDebugResultAssetRecord(input) {
+  if (!window.IMMM_DEBUG_SESSION) return null;
+
+  const Store = window.IMMMResultAssetStore;
+  if (!Store) return null;
+
+  try {
+    const current = window.__IMMM_RESULT_ASSET_STORE__ || Store.createResultAssetStoreState();
+
+    const record = Store.createResultAssetRecord({
+      sessionId: input.sessionId || 'debug_session',
+      kind: 'image',
+      status: input.remoteUrl ? 'cloud-ready' : 'local-ready',
+      objectUrl: input.objectUrl || null,
+      blobId: input.blobId || null,
+      remoteUrl: input.remoteUrl || null,
+      width: input.width || 0,
+      height: input.height || 0,
+      mimeType: input.mimeType || 'image/png',
+      metadata: {
+        source: 'result-debug',
+        label: input.label || 'final-result'
+      }
+    });
+
+    const next = Store.addResultAssetRecord(current, record);
+    window.__IMMM_RESULT_ASSET_STORE__ = next;
+    console.debug('[IMMM result asset]', record);
+    return record;
+  } catch (error) {
+    console.debug('[IMMM result asset failed]', error);
+    return null;
+  }
+}
+
 const ZoomMinusIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
     <path d="M4 9H14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
@@ -831,11 +868,82 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     return () => {
       revokeBlobUrl(resultPreviewUrlRef.current);
       resultPreviewUrlRef.current = null;
-      
+
       revokeBlobUrl(saveSheetUrlRef.current);
       saveSheetUrlRef.current = null;
     };
   }, []);
+
+  // Debug Runtime Readiness Publishing (Phase 3.63)
+  React.useEffect(() => {
+    if (!window.IMMM_DEBUG_SESSION) return;
+
+    try {
+      // Publish share readiness status
+      const publishShare = window.publishDebugShareReadiness;
+      if (typeof publishShare === 'function') {
+        publishShare({
+          shareState: { status: 'local-ready' },
+          resultAsset: {
+            status: 'local-ready',
+            objectUrl: resultPreviewUrlRef.current || null,
+            remoteUrl: null
+          }
+        });
+      }
+
+      // Publish motion readiness status
+      const publishMotion = window.publishDebugMotionReadiness;
+      if (typeof publishMotion === 'function') {
+        publishMotion({
+          layout,
+          selected,
+          renderRecipe: null
+        });
+      }
+
+      // Publish edit recipe snapshot
+      const createEditRecipe = window.createDebugEditRecipeSnapshot;
+      if (typeof createEditRecipe === 'function') {
+        createEditRecipe({ blur: 0, filterId: filter, intensity: 1 });
+      }
+    } catch (e) {
+      console.debug('[IMMM] Debug readiness publishing error:', e);
+    }
+  }, [layout, selected, filter]);
+
+  // Debug Result Entry Snapshot (Phase 3.63)
+  React.useEffect(() => {
+    if (!window.IMMM_DEBUG_SESSION) return;
+    const publishSnapshot = window.publishDebugSessionSnapshot;
+    if (typeof publishSnapshot !== 'function') return;
+
+    try {
+      publishSnapshot('result-entry', {
+        shots,
+        selected,
+        appState: {
+          layout,
+          frameTheme: 'default',
+          frameTemplateId: `frame_${layout}`,
+          stickers,
+          drawings: drawStrokes,
+          textLayers: [],
+          filterId: filter,
+          filter,
+          intensity: 1,
+          blur: 0,
+          crop: null
+        },
+        metadata: {
+          route: 'result',
+          source: 'runtime-debug'
+        }
+      });
+    } catch (e) {
+      console.debug('[IMMM] Result entry snapshot error:', e);
+    }
+  }, []); // Run once on mount
 
   const resultFrame = (scale) => (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'center', position: 'relative', transition: 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
@@ -1547,6 +1655,28 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           )}
         </div>
       </div>
+
+      {/* Debug Info Panel (Phase 3.63) */}
+      {window.IMMM_DEBUG_SESSION && (
+        <div style={{
+          marginTop: 20,
+          padding: '8px 12px',
+          background: 'rgba(0,0,0,0.04)',
+          borderRadius: 8,
+          fontSize: 10,
+          color: T.inkSoft,
+          fontFamily: 'Pretendard,monospace',
+          textAlign: 'left',
+          lineHeight: 1.4,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word'
+        }}>
+          Session: {window.__IMMM_LAST_SESSION_SNAPSHOT__ ? 'ok' : 'pending'}
+          AssetStore: {window.__IMMM_RESULT_ASSET_STORE__ ? `${window.__IMMM_RESULT_ASSET_STORE__.records?.length || 0}` : '0'}
+          QR: {window.__IMMM_LAST_SHARE_READINESS__?.qrShareReady?.ok ? 'ready' : 'not-ready'}
+          Motion: {window.__IMMM_LAST_MOTION_READINESS__?.isValid ? 'ready' : 'not-ready'}
+        </div>
+      )}
     </div>);
 
 }

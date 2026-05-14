@@ -1,5 +1,37 @@
 // screens-v2-deco.jsx — Deco Studio + Result
 
+// MARK: - Debug Runtime Asset Registry (Phase 3.63)
+
+function publishDebugResultAssetRecord(input) {
+  if (!window.IMMM_DEBUG_SESSION) return null;
+  var Store = window.IMMMResultAssetStore;
+  if (!Store) return null;
+  try {
+    var current = window.__IMMM_RESULT_ASSET_STORE__ || Store.createResultAssetStoreState();
+    var record = Store.createResultAssetRecord({
+      sessionId: input.sessionId || 'debug_session',
+      kind: 'image',
+      status: input.remoteUrl ? 'cloud-ready' : 'local-ready',
+      objectUrl: input.objectUrl || null,
+      blobId: input.blobId || null,
+      remoteUrl: input.remoteUrl || null,
+      width: input.width || 0,
+      height: input.height || 0,
+      mimeType: input.mimeType || 'image/png',
+      metadata: {
+        source: 'result-debug',
+        label: input.label || 'final-result'
+      }
+    });
+    var next = Store.addResultAssetRecord(current, record);
+    window.__IMMM_RESULT_ASSET_STORE__ = next;
+    console.debug('[IMMM result asset]', record);
+    return record;
+  } catch (error) {
+    console.debug('[IMMM result asset failed]', error);
+    return null;
+  }
+}
 var ZoomMinusIcon = () => /*#__PURE__*/React.createElement("svg", {
   width: "18",
   height: "18",
@@ -1403,6 +1435,82 @@ function ResultV2({
       saveSheetUrlRef.current = null;
     };
   }, []);
+
+  // Debug Runtime Readiness Publishing (Phase 3.63)
+  React.useEffect(() => {
+    if (!window.IMMM_DEBUG_SESSION) return;
+    try {
+      // Publish share readiness status
+      var publishShare = window.publishDebugShareReadiness;
+      if (typeof publishShare === 'function') {
+        publishShare({
+          shareState: {
+            status: 'local-ready'
+          },
+          resultAsset: {
+            status: 'local-ready',
+            objectUrl: resultPreviewUrlRef.current || null,
+            remoteUrl: null
+          }
+        });
+      }
+
+      // Publish motion readiness status
+      var publishMotion = window.publishDebugMotionReadiness;
+      if (typeof publishMotion === 'function') {
+        publishMotion({
+          layout,
+          selected,
+          renderRecipe: null
+        });
+      }
+
+      // Publish edit recipe snapshot
+      var createEditRecipe = window.createDebugEditRecipeSnapshot;
+      if (typeof createEditRecipe === 'function') {
+        createEditRecipe({
+          blur: 0,
+          filterId: filter,
+          intensity: 1
+        });
+      }
+    } catch (e) {
+      console.debug('[IMMM] Debug readiness publishing error:', e);
+    }
+  }, [layout, selected, filter]);
+
+  // Debug Result Entry Snapshot (Phase 3.63)
+  React.useEffect(() => {
+    if (!window.IMMM_DEBUG_SESSION) return;
+    var publishSnapshot = window.publishDebugSessionSnapshot;
+    if (typeof publishSnapshot !== 'function') return;
+    try {
+      publishSnapshot('result-entry', {
+        shots,
+        selected,
+        appState: {
+          layout,
+          frameTheme: 'default',
+          frameTemplateId: `frame_${layout}`,
+          stickers,
+          drawings: drawStrokes,
+          textLayers: [],
+          filterId: filter,
+          filter,
+          intensity: 1,
+          blur: 0,
+          crop: null
+        },
+        metadata: {
+          route: 'result',
+          source: 'runtime-debug'
+        }
+      });
+    } catch (e) {
+      console.debug('[IMMM] Result entry snapshot error:', e);
+    }
+  }, []); // Run once on mount
+
   var resultFrame = scale => /*#__PURE__*/React.createElement("div", {
     style: {
       transform: `scale(${scale})`,
@@ -2776,7 +2884,21 @@ function ResultV2({
       fontSize: 11,
       opacity: 0.6
     }
-  }, "(Preparing)")))))));
+  }, "(Preparing)")))))), window.IMMM_DEBUG_SESSION && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20,
+      padding: '8px 12px',
+      background: 'rgba(0,0,0,0.04)',
+      borderRadius: 8,
+      fontSize: 10,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,monospace',
+      textAlign: 'left',
+      lineHeight: 1.4,
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word'
+    }
+  }, "Session: ", window.__IMMM_LAST_SESSION_SNAPSHOT__ ? 'ok' : 'pending', "AssetStore: ", window.__IMMM_RESULT_ASSET_STORE__ ? `${window.__IMMM_RESULT_ASSET_STORE__.records?.length || 0}` : '0', "QR: ", window.__IMMM_LAST_SHARE_READINESS__?.qrShareReady?.ok ? 'ready' : 'not-ready', "Motion: ", window.__IMMM_LAST_MOTION_READINESS__?.isValid ? 'ready' : 'not-ready'));
 }
 Object.assign(window, {
   DecoV2,

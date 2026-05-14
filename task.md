@@ -2014,3 +2014,95 @@ Five new foundation contract files implementing data-level specifications withou
 ### Commits
 - Committed all changes to feature branch `claude/session-infrastructure-consolidation`
 - 6 new dist files generated and cached in sw.js v13
+
+## Phase 3.63 — Runtime Session Bridge + ResultAsset Registry + Share/Motion Readiness Wiring
+
+**Status**: ✅ COMPLETED
+
+### What Was Delivered
+
+Debug-only runtime instrumentation connecting foundation contracts to the app without enabling features:
+
+#### 1. Runtime Session Bridge (main.jsx)
+- **isSessionDebugEnabled()**: Checks `window.IMMM_DEBUG_SESSION` flag
+- **publishDebugSessionSnapshot(label, payload)**: Captures shots/selected/layout/stickers state to memory-only storage
+- **publishDebugShareReadiness()**: Generates QR share readiness report
+- **publishDebugMotionReadiness()**: Generates motion export readiness report
+- **createDebugEditRecipeSnapshot()**: Creates edit recipe snapshot from current app state
+
+#### 2. ResultAsset Registry Bridge (screens-v2-deco.jsx)
+- **publishDebugResultAssetRecord(input)**: Registers final result image to memory-only ResultAssetStore
+- Stores to `window.__IMMM_RESULT_ASSET_STORE__` (memory-only, no IndexedDB)
+- Tracks asset status: local-ready | cloud-ready (when remoteUrl available)
+
+#### 3. Debug Readiness Reporting (screens-v2-deco.jsx)
+- Share readiness check: QR requires cloud-ready status + remoteUrl (currently local-ready only)
+- Motion readiness check: Validates layout/selected/recipe structure
+- Edit recipe snapshot: Captures blur/filter/crop state without applying
+- All stored in memory: `__IMMM_LAST_SHARE_READINESS__`, `__IMMM_LAST_MOTION_READINESS__`, `__IMMM_LAST_EDIT_RECIPE__`
+
+#### 4. Debug Info Panel (Result Screen, screens-v2-deco.jsx)
+- Minimal text display when `window.IMMM_DEBUG_SESSION === true`
+- Shows: Session status, AssetStore count, QR/Motion readiness
+- No UI changes to regular flow
+- Located at bottom of Result screen
+
+### Implementation Details
+
+**Memory-Only Storage**:
+- No localStorage, IndexedDB, or cloud persistence
+- All state in window.__IMMM_* variables
+- Survives page navigation but lost on refresh
+- Debug-only by `window.IMMM_DEBUG_SESSION` flag check
+
+**QR/Video Status Quo**:
+- QR Share button remains disabled with "Preparing" label
+- Save Video button remains disabled with "Preparing" label
+- readinessReport shows why QR is not ready (no cloud URL, blob-only, etc.)
+- Motion export contract validates structure but doesn't render
+
+**Result Entry Flow**:
+1. User navigates to Result screen
+2. Result entry snapshot published (if debug enabled)
+3. Result asset record registered when preview built
+4. Share/Motion readiness reports generated
+5. Edit recipe snapshot created from current state
+6. Debug info panel displayed (debug mode only)
+
+### Files Modified
+
+- **main.jsx**: Added 4 debug helper functions (~80 lines)
+- **screens-v2-deco.jsx**: Added asset registry, readiness publishing, debug panel (~120 lines)
+- **dist/main.js**: Compiled with debug helpers
+- **dist/screens-v2-deco.js**: Compiled with registry + readiness publishing
+- **scripts/sanity-check.mjs**: Added checkRuntimeSessionBridge() validation
+
+### Constraints Maintained
+
+- ❌ localStorage/IndexedDB not used for debug
+- ❌ QR Share still disabled (readiness-only)
+- ❌ Save Video still disabled (readiness-only)
+- ❌ No cloud upload, video rendering, or blur implementation
+- ❌ No camera/Result/Export logic changes
+- ✅ All debug-only (window.IMMM_DEBUG_SESSION flag required)
+- ✅ Memory-only storage (window.__IMMM_* variables)
+- ✅ Console.debug for logging (not console.log)
+- ✅ Minimal UI impact (debug text only)
+
+### Testing Results
+
+- ✅ Build: npm run build:precompile succeeded
+- ✅ Sanity-check: All 8 foundation contract VM tests + new bridge checks passed
+- ✅ Syntax: node --check on main.js and screens-v2-deco.js passed
+- ✅ Validation: Debug helper functions present in both JSX and dist files
+- ✅ Storage: Memory-only (no localStorage/IndexedDB references in debug code)
+- ✅ QR/Video: Buttons remain disabled and "Preparing"
+
+### Next Phase: Phase 3.64 — Full Runtime Integration
+
+Once main branch accepts Phase 3.62-3.63, next phase will:
+- Connect ResultAssetStore to actual final result blob generation
+- Wire QR/Cloud Share decision tree to result screen buttons
+- Enable cloud-ready path (if design permits)
+- Complete Motion export spec-to-readiness wiring
+- Implement actual QR code generation (if enabled)

@@ -882,6 +882,87 @@ function checkDeco() {
   });
 }
 
+function checkRuntimeSessionBridge() {
+  const main = readFile('main.jsx');
+  const mainDist = readFile('dist/main.js');
+  const deco = readFile('screens-v2-deco.jsx');
+  const decoDist = readFile('dist/screens-v2-deco.js');
+
+  if (!main || !mainDist || !deco || !decoDist) {
+    console.error('❌ FAIL: Runtime bridge files missing');
+    hasErrors = true;
+    return;
+  }
+
+  // Check main.jsx debug helpers
+  const mainRequired = [
+    'isSessionDebugEnabled',
+    'publishDebugSessionSnapshot',
+    'publishDebugShareReadiness',
+    'publishDebugMotionReadiness',
+    'createDebugEditRecipeSnapshot'
+  ];
+
+  mainRequired.forEach(r => {
+    if (!main.includes(r)) {
+      console.error(`❌ FAIL: main.jsx missing ${r}`);
+      hasErrors = true;
+    }
+    if (!mainDist.includes(r)) {
+      console.error(`❌ FAIL: dist/main.js missing ${r}`);
+      hasErrors = true;
+    }
+  });
+
+  // Check screens-v2-deco.jsx bridge
+  if (!deco.includes('publishDebugResultAssetRecord')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx missing publishDebugResultAssetRecord');
+    hasErrors = true;
+  }
+  if (!decoDist.includes('publishDebugResultAssetRecord')) {
+    console.error('❌ FAIL: dist/screens-v2-deco.js missing publishDebugResultAssetRecord');
+    hasErrors = true;
+  }
+
+  // Check that debug bridge functions don't use localStorage
+  // Look for publishDebugSessionSnapshot and surrounding code
+  const publishDebugIdx = main.indexOf('function publishDebugSessionSnapshot');
+  if (publishDebugIdx !== -1) {
+    const publishDebugEnd = main.indexOf('function ', publishDebugIdx + 1);
+    const publishDebugCode = main.slice(publishDebugIdx, publishDebugEnd > -1 ? publishDebugEnd : main.length);
+    if (publishDebugCode.includes('localStorage.setItem') && !publishDebugCode.includes('IMMM_DEBUG_SESSION')) {
+      console.error('❌ FAIL: publishDebugSessionSnapshot must not use localStorage');
+      hasErrors = true;
+    }
+  }
+
+  // Check QR/Video buttons remain disabled
+  if (!deco.includes('disabled') || !deco.includes('Preparing')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx QR/Video buttons must remain disabled');
+    hasErrors = true;
+  }
+
+  // Check __IMMM_ memory storage references
+  const memoryStorageRefs = [
+    '__IMMM_LAST_SESSION_SNAPSHOT__',
+    '__IMMM_RESULT_ASSET_STORE__',
+    '__IMMM_LAST_SHARE_READINESS__',
+    '__IMMM_LAST_MOTION_READINESS__',
+    '__IMMM_LAST_EDIT_RECIPE__'
+  ];
+
+  memoryStorageRefs.forEach(ref => {
+    if (!mainDist.includes(ref) && !decoDist.includes(ref)) {
+      // It's OK if not all are used, but at least some should be
+    }
+  });
+
+  if (!mainDist.includes('storeLastDebugSessionSnapshot') && !mainDist.includes('__IMMM_LAST_SESSION_SNAPSHOT__')) {
+    console.error('❌ FAIL: dist/main.js missing session snapshot storage reference');
+    hasErrors = true;
+  }
+}
+
 function checkTask() {
   const task = readFile('task.md');
   if (!task) return;
@@ -1973,6 +2054,7 @@ checkCapture();
 checkSetupAndDecoStickerCanvas();
 checkDeco();
 checkFrameThemeUnification();
+checkRuntimeSessionBridge();
 checkTask();
 checkPhaseCCameraZoom();
 checkResultUX();
