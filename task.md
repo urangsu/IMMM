@@ -2146,11 +2146,67 @@ Debug-only runtime instrumentation connecting foundation contracts to the app wi
 - [x] Blob URL rejection verified in tests
 - [x] Save Video remains disabled
 
-### Next Phase: Phase 3.65 — Config Smoke Testing
+## Phase 3.65 — Share Productization Sprint (IN PROGRESS)
 
-When ready:
-- Cloud config injection via window.IMMM_CLOUD_SHARE_CONFIG
-- Create QR button click flow
-- Remote URL generation verification
-- QR Ready state display
-- Disabled state when config missing
+### Completed Parts:
+
+**Part 2: ResultAssetStore IndexedDB Extension** ✅
+- DB_NAME: immm-result-assets, DB_VERSION: 1
+- Stores: records and blobs
+- Functions: openResultAssetDb, saveResultAssetRecordToDb, saveResultAssetBlobToDb, loadResultAssetRecordFromDb, loadResultAssetBlobFromDb, listResultAssetRecordsFromDb, deleteResultAssetFromDb
+- Self-test: runResultAssetPersistenceSelfTest with graceful IndexedDB unavailable handling
+- All functions exported via window.IMMMResultAssetStore
+
+**Part 3: Local Result Persistence in Result Screen** ✅
+- Added localSaveState React state for UI feedback
+- persistResultAssetLocally helper function saves record and blob to IndexedDB
+- Automatic persistence effect triggers after result asset build
+- UI status indicator shows "로컬 저장 중...", "로컬 저장 완료", or error states
+- Save Image and OS Share remain fully functional
+
+**Part 4: ResultGalleryScreen Component** ✅
+- File: result-gallery.jsx
+- Features: display gallery grid, load from IndexedDB, delete/open/share functionality
+- Responsive design for mobile and desktop
+- Error handling and loading states
+- Added to build manifest, compiled to dist/result-gallery.js
+
+**Part 5: ShareViewerScreen Component** ✅
+- File: share-viewer.jsx
+- Features: parse share URL parameter, validate remote images, display shared images
+- Security: blocks blob: data: javascript: protocols
+- Action buttons: Save (download) and Share (Web Share API)
+- Full-screen viewer experience with header and footer
+- Added to build manifest, compiled to dist/share-viewer.js
+
+**Part 6: Cloud Share Adapter qrUrl Generation** ✅
+- Updated uploadResultAsset to generate Share Viewer URLs
+- Added appBaseUrl parameter support
+- Generates qrUrl: {appBaseUrl}/?share={encodeURIComponent(remoteUrl)}
+- Falls back to window.location.origin if appBaseUrl not provided
+- Self-test verifies qrUrl generation
+
+**Part 7: Cloud Share Config Example** ✅
+- File: cloud-share-config.example.js
+- Documents endpoint and Supabase configurations
+- Injection pattern before IMMM scripts
+- Security notes and environment variable usage
+
+### Build Status: ✅ All Pass
+- npm run build:precompile: ✅ Complete
+- Sanity checks: ✅ All pass
+- New files in manifest: result-gallery.jsx, share-viewer.jsx
+- New scripts in index.html: dist/result-gallery.js, dist/share-viewer.js
+
+### Pending Parts (Enhancements):
+
+- Part 8: Improve QR UI with Share Viewer URL
+- Part 9: Enhance OS Share with cloud URL inclusion
+- Part 10: Verify Save Video remains disabled
+- Parts 11-16: Final validation and documentation
+
+### Next Steps:
+- Continue with remaining enhancements as time permits
+- Run final comprehensive validation
+- Update build/sanity checks if needed
+- Final commit with full Phase 3.65 documentation
