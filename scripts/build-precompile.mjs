@@ -24,6 +24,7 @@ const manifest = [
   'edit-recipe-contract.jsx',
   'pwa-release-contract.jsx',
   'frame-system.jsx',
+  'session-tracing.jsx',
   'screens-v2.jsx',
   'screens-v2-rest.jsx',
   'screens-v2-deco.jsx',
