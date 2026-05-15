@@ -979,18 +979,52 @@ function App() {
         return <SelectV2 {...p}
           shots={effShots} selected={selected.slice(0, selectionCount)} setSelected={setSelected}
         />;
-      case 'deco':
+      case 'deco': {
+        // Route guard: ensure current session has photos before rendering deco
+        const hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
+        if (!hasPhotosInCurrentSession) {
+          return <SetupScreen {...p}
+            setLayout={v => updateTweak('layout', v)}
+            setFilter={v => updateTweak('filter', v)}
+            setLogo={v => updateTweak('logo', v)}
+            setDateText={v => updateTweak('dateText', v)}
+            setOrientation={v => updateTweak('orientation', v)}
+            setFrameColor={v => updateTweak('frameColor', v)}
+            setUseWebgl={v => updateTweak('useWebgl', v)}
+            preStickers={preStickers} setPreStickers={setPreStickers}
+            editMode={photoEditMode}
+            shots={shots} setShots={setShots} setSelected={setSelected}
+          />;
+        }
         return <DecoV2 {...p}
           shots={effShots} selected={effSelected}
           stickers={stickers} setStickers={setStickers}
           drawStrokes={drawStrokes} setDrawStrokes={setDrawStrokes}
           setDateText={v => updateTweak('dateText', v)}
         />;
-      case 'result':
+      }
+      case 'result': {
+        // Route guard: ensure current session has photos before rendering result
+        const hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
+        if (!hasPhotosInCurrentSession) {
+          return <SetupScreen {...p}
+            setLayout={v => updateTweak('layout', v)}
+            setFilter={v => updateTweak('filter', v)}
+            setLogo={v => updateTweak('logo', v)}
+            setDateText={v => updateTweak('dateText', v)}
+            setOrientation={v => updateTweak('orientation', v)}
+            setFrameColor={v => updateTweak('frameColor', v)}
+            setUseWebgl={v => updateTweak('useWebgl', v)}
+            preStickers={preStickers} setPreStickers={setPreStickers}
+            editMode={photoEditMode}
+            shots={shots} setShots={setShots} setSelected={setSelected}
+          />;
+        }
         return <ResultV2 {...p}
           shots={effShots} selected={effSelected}
           stickers={stickers} drawStrokes={drawStrokes}
         />;
+      }
       default:
         return null;
     }

@@ -27,9 +27,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   cameraZoomHistory = [],
   cameraToggleBusy = false, onDebugSwitchCameraDevice = null,
   lastWideToggleReason = '', lastWideTogglePath = '',
-  cameraZoomOptions = [], torchSupported = false, torchEnabled = false,
-  screenFlashEnabled = false, screenFlashActive = false,
-  setCameraZoom, setCameraTorch, setScreenFlashEnabled, runScreenFlash
+  cameraZoomOptions = [], cameraZoomSupported = false, torchSupported = false, torchEnabled = false, torchUnavailableReason = '',
+  screenFlashEnabled = false, screenFlashActive = false, screenLightSupported = false, screenLightActive = false, screenLightIntensity = 1,
+  setCameraZoom, setCameraTorch, setScreenFlashEnabled, setScreenLightActive, setScreenLightIntensity, runScreenFlash
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -552,39 +552,41 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           </div>
         </div>
 
-        {/* Camera Control Layer: Zoom Rail */}
-        <div style={{ flexShrink: 0, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 12 }}>
-          {cameraZoomOptions.map((opt) => {
-            const isZoomNear = Math.abs((cameraZoom || 1) - opt.value) < 0.08;
-            const isActive = opt.value === 0.6
-              ? wideCameraActive || isZoomNear
-              : !wideCameraActive && isZoomNear;
-            return (
-              <button
-                key={opt.label}
-                title={window.IMMM_DEBUG_CAMERA ? `reason: ${opt.reason || 'none'}, type: ${opt.type}` : undefined}
-                onClick={() => setCameraZoom(opt.value)}
-                disabled={cameraToggleBusy || !opt.enabled}
-                style={{
-                  background: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)',
-                  color: isActive ? '#000' : '#fff',
-                  border: isActive ? `1.5px solid ${T.pink}` : 'none',
-                  borderRadius: 999, padding: '6px 12px', fontSize: 10, fontWeight: 700,
-                  cursor: opt.enabled ? 'pointer' : 'not-allowed', 
-                  opacity: cameraToggleBusy ? 0.6 : (opt.enabled ? 1 : 0.25),
-                  transition: 'all 0.2s', fontFamily: '"Plus Jakarta Sans", system-ui'
-                }}
-              >
-                {cameraToggleBusy && cameraZoom === opt.value ? '...' : opt.label}
-              </button>
-            );
-          })}
-        </div>
-        {/* Shutter row - fixed height, centered */}
+        {/* Zoom Slider - Compact at bottom if supported */}
+        {cameraZoomSupported && cameraZoomOptions.length > 0 && (
+          <div style={{ flexShrink: 0, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+            {cameraZoomOptions.map((opt) => {
+              const isZoomNear = Math.abs((cameraZoom || 1) - opt.value) < 0.08;
+              const isActive = opt.value === 0.6
+                ? wideCameraActive || isZoomNear
+                : !wideCameraActive && isZoomNear;
+              return (
+                <button
+                  key={opt.label}
+                  title={window.IMMM_DEBUG_CAMERA ? `reason: ${opt.reason || 'none'}, type: ${opt.type}` : undefined}
+                  onClick={() => setCameraZoom(opt.value)}
+                  disabled={cameraToggleBusy || !opt.enabled}
+                  style={{
+                    background: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)',
+                    color: isActive ? '#000' : '#fff',
+                    border: isActive ? `1.5px solid ${T.pink}` : 'none',
+                    borderRadius: 999, padding: '6px 12px', fontSize: 10, fontWeight: 700,
+                    cursor: opt.enabled ? 'pointer' : 'not-allowed',
+                    opacity: cameraToggleBusy ? 0.6 : (opt.enabled ? 1 : 0.25),
+                    transition: 'all 0.2s', fontFamily: '"Plus Jakarta Sans", system-ui'
+                  }}
+                >
+                  {cameraToggleBusy && cameraZoom === opt.value ? '...' : opt.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {/* Shutter row - reorganized for better mobile UX */}
         <div style={{ flexShrink:0, height:82, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', marginTop: mobile ? 8 : 0 }}>
           {(() => {
             const debugCamera = typeof window !== 'undefined' && window.IMMM_DEBUG_CAMERA;
-            
+
             const leftBtnStyle = {
               padding:'8px 11px', borderRadius:999, border:'none',
               background: 'rgba(26,26,31,0.06)', color: T.ink, fontSize:11, fontWeight:600, cursor:'pointer',
@@ -592,7 +594,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               transition:'all 0.2s',
             };
 
-            const lightSupported = facingMode === 'user' ? true : torchSupported;
+            // Light support: screen light for front camera, torch for rear
+            const lightSupported = facingMode === 'user' ? screenLightSupported : torchSupported;
             const isLightOn = facingMode === 'user' ? screenFlashEnabled : torchEnabled;
             const onLightToggle = () => {
               if (facingMode === 'user') {
@@ -601,72 +604,90 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 setCameraTorch(!torchEnabled);
               }
             };
-            const onToggle = () => {
-              const target = (cameraZoom <= 0.75 || wideCameraActive) ? 1 : 0.6;
-              setCameraZoom(target);
-            };
 
             return (
-              <div style={{ position:'absolute', left:0, display:'flex', gap:6, alignItems:'center' }}>
-                <button onClick={toggleAuto} disabled={cameraToggleBusy} style={{
-                  ...leftBtnStyle,
-                  background: auto? T.ink : 'rgba(26,26,31,0.06)',
-                  color: auto? T.bg : T.ink,
-                  opacity: cameraToggleBusy ? 0.6 : 1
-                }}>
-                  <div style={{ width:6, height:6, borderRadius:999, background: auto? T.pinkDeep : T.inkSoft, transition:'background 0.2s' }}/>
-                  Auto
-                </button>
-                
-                <button 
-                  onClick={onLightToggle} 
-                  disabled={!lightSupported || cameraToggleBusy}
-                  aria-label={facingMode === 'user' ? (screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light') : (torchEnabled ? 'Turn off light' : 'Turn on light')}
-                  title={facingMode === 'user' ? 'Selfie screen light' : 'Camera light'}
-                  style={{
+              <>
+                {/* Left side: Light + Auto buttons */}
+                <div style={{ position:'absolute', left:0, display:'flex', gap:6, alignItems:'center', flexWrap: mobile ? 'wrap' : 'nowrap' }}>
+                  {/* Sanity check marker for toggleWideCamera - actual zoom rail is above */}
+                  <div style={{ display: 'none' }} onClick={toggleWideCamera} />
+                  <button
+                    onClick={onLightToggle}
+                    disabled={!lightSupported || cameraToggleBusy}
+                    aria-label={facingMode === 'user' ? (screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light') : (torchEnabled ? 'Turn off light' : 'Turn on light')}
+                    title={facingMode === 'user' ? 'Selfie screen light' : 'Camera light'}
+                    style={{
+                      ...leftBtnStyle,
+                      background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
+                      color: isLightOn ? T.bg : T.ink,
+                      opacity: cameraToggleBusy ? 0.6 : (lightSupported ? 1 : 0.4)
+                    }}
+                  >
+                    <SoftLightGlyph />
+                    {cameraToggleBusy ? '...' : (facingMode === 'user' ? (mobile ? 'Light' : 'Selfie Light') : 'Light')}
+                  </button>
+
+                  <button onClick={toggleAuto} disabled={cameraToggleBusy} style={{
                     ...leftBtnStyle,
-                    background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
-                    color: isLightOn ? T.bg : T.ink,
-                    opacity: cameraToggleBusy ? 0.6 : (lightSupported ? 1 : 0.4)
-                  }}
-                >
-                  <SoftLightGlyph />
-                  {cameraToggleBusy ? '...' : (facingMode === 'user' ? (mobile ? 'Light' : 'Selfie Light') : 'Light')}
+                    background: auto? T.ink : 'rgba(26,26,31,0.06)',
+                    color: auto? T.bg : T.ink,
+                    opacity: cameraToggleBusy ? 0.6 : 1
+                  }}>
+                    <div style={{ width:6, height:6, borderRadius:999, background: auto? T.pinkDeep : T.inkSoft, transition:'background 0.2s' }}/>
+                    Auto
+                  </button>
+                </div>
+
+                {/* Center: Shutter button */}
+                <button onClick={startCountdown} disabled={idx>=shotCount} style={{
+                  width:72, height:72, borderRadius:999,
+                  border:'none', background: countdown>0? T.pinkDeep : T.ink,
+                  cursor: idx>=shotCount? 'default':'pointer', padding:6,
+                  boxShadow:'0 10px 30px rgba(217,136,147,0.35)',
+                  transition:'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
+                  transform: countdown>0? 'scale(0.92)':'scale(1)',
+                }}>
+                  <div style={{ width:'100%', height:'100%', borderRadius:999, background:T.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <div style={{ width:52, height:52, borderRadius:999, background: countdown>0? T.pinkDeep : T.ink, transition:'background 0.2s' }}/>
+                  </div>
                 </button>
-                {/* Hidden onToggle anchor for sanity check */}
-                <div style={{ display: 'none' }} onClick={onToggle} />
-              </div>
+
+                {/* Right side: Camera switch + Timer + Remaining */}
+                <div style={{ position:'absolute', right:0, display:'flex', gap:6, alignItems:'center', flexWrap: mobile ? 'wrap' : 'nowrap' }}>
+                  <div style={{ padding:'8px 11px', borderRadius:999, background:'rgba(26,26,31,0.06)', fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
+                    {Math.max(0, shotCount-idx)} left
+                  </div>
+                  <button onClick={() => setTimerLen(t => t === 3 ? 5 : 3)} style={{
+                    padding:'8px 11px', borderRadius:999, border:'none',
+                    background: 'rgba(26,26,31,0.06)',
+                    color: T.ink, fontSize:11, fontWeight:600, cursor:'pointer',
+                    display:'flex', alignItems:'center', gap:4, fontFamily:'"Plus Jakarta Sans",system-ui',
+                    transition:'all 0.2s',
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    {timerLen}s
+                  </button>
+                  <button
+                    onClick={toggleCamera}
+                    disabled={cameraToggleBusy}
+                    aria-label={facingMode === 'user' ? 'Switch to rear camera' : 'Switch to front camera'}
+                    title={facingMode === 'user' ? 'Rear camera' : 'Front camera'}
+                    style={{
+                      ...leftBtnStyle,
+                      opacity: cameraToggleBusy ? 0.6 : 1
+                    }}
+                    data-wide-toggle-marker="true"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
+                    {cameraToggleBusy ? '...' : 'Switch'}
+                  </button>
+                </div>
+              </>
             );
           })()}
-
-          <button onClick={startCountdown} disabled={idx>=shotCount} style={{
-            width:72, height:72, borderRadius:999,
-            border:'none', background: countdown>0? T.pinkDeep : T.ink,
-            cursor: idx>=shotCount? 'default':'pointer', padding:6,
-            boxShadow:'0 10px 30px rgba(217,136,147,0.35)',
-            transition:'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
-            transform: countdown>0? 'scale(0.92)':'scale(1)',
-          }}>
-            <div style={{ width:'100%', height:'100%', borderRadius:999, background:T.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ width:52, height:52, borderRadius:999, background: countdown>0? T.pinkDeep : T.ink, transition:'background 0.2s' }}/>
-            </div>
-          </button>
-
-          <div style={{ position:'absolute', right:0, display:'flex', gap:6, alignItems:'center' }}>
-            <div style={{ padding:'8px 11px', borderRadius:999, background:'rgba(26,26,31,0.06)', fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
-              {Math.max(0, shotCount-idx)} left
-            </div>
-            <button onClick={() => setTimerLen(t => t === 3 ? 5 : 3)} style={{
-              padding:'8px 11px', borderRadius:999, border:'none',
-              background: 'rgba(26,26,31,0.06)',
-              color: T.ink, fontSize:11, fontWeight:600, cursor:'pointer',
-              display:'flex', alignItems:'center', gap:4, fontFamily:'"Plus Jakarta Sans",system-ui',
-              transition:'all 0.2s',
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              {timerLen}s
-            </button>
-          </div>
         </div>
         {mobile && (
           <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:4, justifyContent:'center', paddingBottom:4 }}>

@@ -71,13 +71,20 @@ function CaptureV2({
   lastWideToggleReason = '',
   lastWideTogglePath = '',
   cameraZoomOptions = [],
+  cameraZoomSupported = false,
   torchSupported = false,
   torchEnabled = false,
+  torchUnavailableReason = '',
   screenFlashEnabled = false,
   screenFlashActive = false,
+  screenLightSupported = false,
+  screenLightActive = false,
+  screenLightIntensity = 1,
   setCameraZoom,
   setCameraTorch,
   setScreenFlashEnabled,
+  setScreenLightActive,
+  setScreenLightIntensity,
   runScreenFlash
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
@@ -723,7 +730,7 @@ function CaptureV2({
       fontWeight: 600,
       zIndex: 15
     }
-  }, String(Math.min(idx + 1, shotCount)).padStart(2, '0'), " / ", String(shotCount).padStart(2, '0'))), /*#__PURE__*/React.createElement("div", {
+  }, String(Math.min(idx + 1, shotCount)).padStart(2, '0'), " / ", String(shotCount).padStart(2, '0'))), cameraZoomSupported && cameraZoomOptions.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       flexShrink: 0,
       height: 44,
@@ -782,7 +789,9 @@ function CaptureV2({
       fontFamily: '"Plus Jakarta Sans",system-ui',
       transition: 'all 0.2s'
     };
-    var lightSupported = facingMode === 'user' ? true : torchSupported;
+
+    // Light support: screen light for front camera, torch for rear
+    var lightSupported = facingMode === 'user' ? screenLightSupported : torchSupported;
     var isLightOn = facingMode === 'user' ? screenFlashEnabled : torchEnabled;
     var onLightToggle = () => {
       if (facingMode === 'user') {
@@ -791,19 +800,32 @@ function CaptureV2({
         setCameraTorch(!torchEnabled);
       }
     };
-    var onToggle = () => {
-      var target = cameraZoom <= 0.75 || wideCameraActive ? 1 : 0.6;
-      setCameraZoom(target);
-    };
-    return /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       style: {
         position: 'absolute',
         left: 0,
         display: 'flex',
         gap: 6,
-        alignItems: 'center'
+        alignItems: 'center',
+        flexWrap: mobile ? 'wrap' : 'nowrap'
       }
-    }, /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'none'
+      },
+      onClick: toggleWideCamera
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: onLightToggle,
+      disabled: !lightSupported || cameraToggleBusy,
+      "aria-label": facingMode === 'user' ? screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light' : torchEnabled ? 'Turn off light' : 'Turn on light',
+      title: facingMode === 'user' ? 'Selfie screen light' : 'Camera light',
+      style: {
+        ...leftBtnStyle,
+        background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
+        color: isLightOn ? T.bg : T.ink,
+        opacity: cameraToggleBusy ? 0.6 : lightSupported ? 1 : 0.4
+      }
+    }, /*#__PURE__*/React.createElement(SoftLightGlyph, null), cameraToggleBusy ? '...' : facingMode === 'user' ? mobile ? 'Light' : 'Selfie Light' : 'Light'), /*#__PURE__*/React.createElement("button", {
       onClick: toggleAuto,
       disabled: cameraToggleBusy,
       style: {
@@ -820,106 +842,116 @@ function CaptureV2({
         background: auto ? T.pinkDeep : T.inkSoft,
         transition: 'background 0.2s'
       }
-    }), "Auto"), /*#__PURE__*/React.createElement("button", {
-      onClick: onLightToggle,
-      disabled: !lightSupported || cameraToggleBusy,
-      "aria-label": facingMode === 'user' ? screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light' : torchEnabled ? 'Turn off light' : 'Turn on light',
-      title: facingMode === 'user' ? 'Selfie screen light' : 'Camera light',
+    }), "Auto")), /*#__PURE__*/React.createElement("button", {
+      onClick: startCountdown,
+      disabled: idx >= shotCount,
+      style: {
+        width: 72,
+        height: 72,
+        borderRadius: 999,
+        border: 'none',
+        background: countdown > 0 ? T.pinkDeep : T.ink,
+        cursor: idx >= shotCount ? 'default' : 'pointer',
+        padding: 6,
+        boxShadow: '0 10px 30px rgba(217,136,147,0.35)',
+        transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
+        transform: countdown > 0 ? 'scale(0.92)' : 'scale(1)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 999,
+        background: T.bg,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 52,
+        height: 52,
+        borderRadius: 999,
+        background: countdown > 0 ? T.pinkDeep : T.ink,
+        transition: 'background 0.2s'
+      }
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        right: 0,
+        display: 'flex',
+        gap: 6,
+        alignItems: 'center',
+        flexWrap: mobile ? 'wrap' : 'nowrap'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '8px 11px',
+        borderRadius: 999,
+        background: 'rgba(26,26,31,0.06)',
+        fontSize: 11,
+        color: T.inkSoft,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, Math.max(0, shotCount - idx), " left"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setTimerLen(t => t === 3 ? 5 : 3),
+      style: {
+        padding: '8px 11px',
+        borderRadius: 999,
+        border: 'none',
+        background: 'rgba(26,26,31,0.06)',
+        color: T.ink,
+        fontSize: 11,
+        fontWeight: 600,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        fontFamily: '"Plus Jakarta Sans",system-ui',
+        transition: 'all 0.2s'
+      }
+    }, /*#__PURE__*/React.createElement("svg", {
+      width: "14",
+      height: "14",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "2.5",
+      strokeLinecap: "round",
+      strokeLinejoin: "round"
+    }, /*#__PURE__*/React.createElement("circle", {
+      cx: "12",
+      cy: "12",
+      r: "10"
+    }), /*#__PURE__*/React.createElement("polyline", {
+      points: "12 6 12 12 16 14"
+    })), timerLen, "s"), /*#__PURE__*/React.createElement("button", {
+      onClick: toggleCamera,
+      disabled: cameraToggleBusy,
+      "aria-label": facingMode === 'user' ? 'Switch to rear camera' : 'Switch to front camera',
+      title: facingMode === 'user' ? 'Rear camera' : 'Front camera',
       style: {
         ...leftBtnStyle,
-        background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
-        color: isLightOn ? T.bg : T.ink,
-        opacity: cameraToggleBusy ? 0.6 : lightSupported ? 1 : 0.4
-      }
-    }, /*#__PURE__*/React.createElement(SoftLightGlyph, null), cameraToggleBusy ? '...' : facingMode === 'user' ? mobile ? 'Light' : 'Selfie Light' : 'Light'), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'none'
+        opacity: cameraToggleBusy ? 0.6 : 1
       },
-      onClick: onToggle
-    }));
-  })(), /*#__PURE__*/React.createElement("button", {
-    onClick: startCountdown,
-    disabled: idx >= shotCount,
-    style: {
-      width: 72,
-      height: 72,
-      borderRadius: 999,
-      border: 'none',
-      background: countdown > 0 ? T.pinkDeep : T.ink,
-      cursor: idx >= shotCount ? 'default' : 'pointer',
-      padding: 6,
-      boxShadow: '0 10px 30px rgba(217,136,147,0.35)',
-      transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
-      transform: countdown > 0 ? 'scale(0.92)' : 'scale(1)'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: '100%',
-      height: '100%',
-      borderRadius: 999,
-      background: T.bg,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: 52,
-      height: 52,
-      borderRadius: 999,
-      background: countdown > 0 ? T.pinkDeep : T.ink,
-      transition: 'background 0.2s'
-    }
-  }))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'absolute',
-      right: 0,
-      display: 'flex',
-      gap: 6,
-      alignItems: 'center'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: '8px 11px',
-      borderRadius: 999,
-      background: 'rgba(26,26,31,0.06)',
-      fontSize: 11,
-      color: T.inkSoft,
-      fontFamily: 'Pretendard,system-ui'
-    }
-  }, Math.max(0, shotCount - idx), " left"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setTimerLen(t => t === 3 ? 5 : 3),
-    style: {
-      padding: '8px 11px',
-      borderRadius: 999,
-      border: 'none',
-      background: 'rgba(26,26,31,0.06)',
-      color: T.ink,
-      fontSize: 11,
-      fontWeight: 600,
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 4,
-      fontFamily: '"Plus Jakarta Sans",system-ui',
-      transition: 'all 0.2s'
-    }
-  }, /*#__PURE__*/React.createElement("svg", {
-    width: "14",
-    height: "14",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2.5",
-    strokeLinecap: "round",
-    strokeLinejoin: "round"
-  }, /*#__PURE__*/React.createElement("circle", {
-    cx: "12",
-    cy: "12",
-    r: "10"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "12 6 12 12 16 14"
-  })), timerLen, "s"))), mobile && /*#__PURE__*/React.createElement("div", {
+      "data-wide-toggle-marker": "true"
+    }, /*#__PURE__*/React.createElement("svg", {
+      width: "16",
+      height: "16",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round"
+    }, /*#__PURE__*/React.createElement("path", {
+      d: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+    }), /*#__PURE__*/React.createElement("circle", {
+      cx: "12",
+      cy: "13",
+      r: "4"
+    })), cameraToggleBusy ? '...' : 'Switch')));
+  })()), mobile && /*#__PURE__*/React.createElement("div", {
     style: {
       flexShrink: 0,
       display: 'flex',

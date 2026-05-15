@@ -1094,6 +1094,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   };
 
   const getExportKey = () => [
+    activeSessionId,
     layout,
     frameColor,
     logo ? 'logo' : 'nologo',
