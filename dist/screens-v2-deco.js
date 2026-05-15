@@ -1261,7 +1261,8 @@ function ResultV2({
   logo,
   dateText,
   accent,
-  frameColor
+  frameColor,
+  activeSessionId
 }) {
   var shotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
   var getResultPreviewBaseWidth = (layoutId, isMobile) => {

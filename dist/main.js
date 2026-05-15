@@ -381,11 +381,11 @@ function App() {
   }, []);
 
   // Session reset helper: clears main app state without using localStorage.clear()
-  var resetSessionState = React.useCallback((reason = 'new-session') => {
-    console.debug(`[IMMM] Resetting session (${reason})`);
+  var resetSessionState = React.useCallback((reason = 'new-session', shotCount = 6) => {
+    console.debug(`[IMMM] Resetting session (${reason}, shotCount=${shotCount})`);
 
     // Clear capture state
-    setShots(Array(6).fill(null));
+    setShots(Array(shotCount).fill(null));
     setSelected([]);
 
     // Clear deco state
@@ -1091,16 +1091,30 @@ function App() {
       videoRef.current.play().catch(() => {});
     }
   }, [screen]);
+
+  // Protected route guard: redirect to setup if protected screen has no photos in current session
+  React.useEffect(() => {
+    var protectedScreens = ['select', 'deco', 'result'];
+    if (!protectedScreens.includes(screen)) return;
+    var hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
+    if (!hasPhotosInCurrentSession) {
+      setScreen('setup');
+      try {
+        localStorage.setItem('immm.v2.screen', 'setup');
+      } catch (e) {
+        console.warn('[IMMM] localStorage update failed:', e);
+      }
+    }
+  }, [screen, shots]);
   var go = s => {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
     }
-    // Reset shots + selected when starting a fresh capture session.
-    // This prevents previous roll's shots leaking into SelectV2 on re-capture.
+    // Hard reset session state when starting a fresh capture session.
+    // This ensures activeSessionId is new, preventing blob/cache reuse from previous session.
     if (s === 'capture') {
       var newShotCount = getCaptureShotCountForLayout(tweaks.layout);
-      setShots(Array(newShotCount).fill(null));
-      setSelected([]);
+      resetSessionState('go-capture', newShotCount);
     }
     setScreen(s);
   };
@@ -1111,8 +1125,11 @@ function App() {
   var frameShotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(tweaks.layout) : tweaks.layout === 'polaroid' ? 1 : tweaks.layout === 'trip' ? 3 : 4;
   var captureShotCount = getCaptureShotCountForLayout(tweaks.layout);
 
-  // Dummy-fill shots when jumping deep without capturing
-  var needsDummy = ['select', 'deco', 'result'].includes(screen) && shots.every(s => !s);
+  // Dummy-fill shots only when debug flag allows (prevents deep-link bypass)
+  // Protected routes (select/deco/result) should NOT render with dummy shots in production.
+  // Effect guard will redirect to setup if no real photos.
+  var allowDummyFill = typeof window !== 'undefined' && window.IMMM_ALLOW_DEEP_LINK_DUMMY === true;
+  var needsDummy = allowDummyFill && ['select', 'deco', 'result'].includes(screen) && shots.every(s => !s);
   var effShots = needsDummy ? Array.from({
     length: captureShotCount
   }, () => ({
