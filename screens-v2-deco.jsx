@@ -1031,6 +1031,25 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     setSaveSheetUrl(null);
   };
 
+  // Session cleanup: clear previous session's blob refs, preview URLs, and UI state
+  React.useEffect(() => {
+    return () => {
+      // Cleanup is called when component unmounts or activeSessionId changes
+      revokeBlobUrl(resultPreviewUrlRef.current);
+      resultPreviewUrlRef.current = null;
+      revokeBlobUrl(saveSheetUrlRef.current);
+      saveSheetUrlRef.current = null;
+      exportBlobRef.current = { key: null, blob: null };
+      setQrShare(null);
+      setQrBusy(false);
+      setShowMoreActions(false);
+      setToasts([]);
+      setShowPrintIntro(false);
+      setResultAssetRecord(null);
+      setLocalSaveState(null);
+    };
+  }, [activeSessionId]);
+
   React.useEffect(() => {
     if (!showPrintIntro) return;
     const prefersReducedMotion =
