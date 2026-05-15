@@ -242,6 +242,9 @@ function App() {
     useWebgl: window.innerWidth >= 640 // Default off on mobile for stability
   });
   var [screen, setScreen] = React.useState(() => location.hash.startsWith('#/s/') ? 'share' : localStorage.getItem('immm.v2.screen') || 'landing');
+
+  // Session tracking for state isolation
+  var [activeSessionId, setActiveSessionId] = React.useState(() => `${Date.now()}-${Math.random().toString(36).slice(2)}`);
   var [shots, setShots] = React.useState(() => Array(6).fill(null));
   var [selected, setSelected] = React.useState(() => {
     try {
@@ -361,6 +364,27 @@ function App() {
       ts: Date.now(),
       ...entry
     }, ...prev].slice(0, 10));
+  }, []);
+
+  // Session reset helper: clears main app state without using localStorage.clear()
+  var resetSessionState = React.useCallback((reason = 'new-session') => {
+    console.debug(`[IMMM] Resetting session (${reason})`);
+
+    // Clear capture state
+    setShots(Array(6).fill(null));
+    setSelected([]);
+
+    // Clear deco state
+    setStickers([]);
+    setDrawStrokes([]);
+    setPreStickers([]);
+
+    // Clear photo edit state
+    setPhotoEditMode(false);
+
+    // Generate new session ID for state isolation
+    var nextSessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setActiveSessionId(nextSessionId);
   }, []);
   var cameraZoomOptions = React.useMemo(() => deriveCameraZoomOptions({
     cameraCapabilities,
@@ -1082,7 +1106,9 @@ function App() {
     accent,
     tweaks,
     lang,
-    setLang
+    setLang,
+    activeSessionId,
+    resetSessionState
   };
   var renderScreen = () => {
     var p = {

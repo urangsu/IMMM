@@ -2717,6 +2717,7 @@ function ResultV2({
     }, "Retake"), /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         setShowMoreActions(false);
+        resetSessionState?.('new-session');
         go('landing');
       },
       style: {
@@ -2989,6 +2990,7 @@ function ResultV2({
   }, "Retake"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setShowMoreActions(false);
+      resetSessionState?.('new-session');
       go('landing');
     },
     style: {
