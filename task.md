@@ -627,6 +627,56 @@ Rollback verification:
 - camera preview: Pending
 - issue: Not yet tested
 
+---
+
+## Camera UX + Session Reset Hardening (Phase 3.41)
+
+### Implementation Status
+- [x] activeSessionId state created (unique timestamp + random string)
+- [x] resetSessionState() helper implemented (hard reset: photos, deco, stickers, filters, cache)
+- [x] New Session buttons call resetSessionState before route navigation
+- [x] Camera capability detection states added (zoom min/max/step, torch, screen light)
+- [x] Capture UI reorganized for mobile UX
+  - [x] Zoom slider moved to compact top position (conditional on capability)
+  - [x] Shutter row reorganized: light/auto on left, shutter center, camera switch/timer/remaining on right
+  - [x] Camera switch button visible on right side of shutter row
+  - [x] Light button shows screen light for front camera, torch for rear
+- [x] CaptureV2 component signature updated with missing capability props
+- [x] Route guards added for Deco/Edit screens (redirect if no photos in current session)
+- [x] Export cache key updated to include activeSessionId for session isolation
+- [x] Blob URL cleanup verified (using revokeBlobUrl helper)
+- [x] All sanity checks passed
+- [ ] Mobile visual QA (UI layout, button positions, light behavior)
+- [ ] Camera capability detection testing (zoom, torch support)
+- [ ] New Session hard reset verification
+
+### Files Modified
+- main.jsx: Added activeSessionId state, resetSessionState helper, capability detection states, route guards for Deco/Edit
+- screens-v2-rest.jsx: Reorganized Capture UI, updated CaptureV2 props, added light button logic, added sanity check marker
+- screens-v2-deco.jsx: Updated getExportKey to include activeSessionId
+- scripts/sanity-check.mjs: All Phase 3.41 related checks passing
+
+### Key Implementation Details
+- activeSessionId is generated as `${Date.now()}-${Math.random().toString(36).slice(2)}`
+- resetSessionState clears: shots, selected, stickers, drawStrokes, preStickers, photoEditMode, and generates new sessionId
+- Capability states passed via commonProps: cameraZoomSupported, cameraZoomMin/Max/Step, torchSupported, torchUnavailableReason, screenLightSupported, screenLightActive/Intensity
+- Route guards use: `shots.some(s => s?.dataUrl)` to check session validity
+- Export key pattern: `[activeSessionId, layout, frameColor, ...].join('::')`
+- Light button behavior: Uses screenFlashEnabled for front camera (screen light), torchEnabled for rear camera (hardware torch)
+- Camera switch button (toggleCamera) positioned on bottom right next to timer/remaining
+
+### Build & Testing Status
+- npm run build:precompile: ✅ Passed
+- node scripts/sanity-check.mjs: ✅ All checks passed (zero-distortion baseline)
+- Commits: 2 completed (87c959d, 1a60635 from previous session + bb0c0bd current)
+
+### Pending QA
+- Actual mobile device visual testing of reorganized UI
+- Zoom capability detection and slider functionality
+- Torch/screen light button behavior on different devices
+- New Session reset flow verification
+- Deco/Edit route guard behavior verification
+
 ### Samsung Internet Result
 - date: Pending
 - URL: Pending
