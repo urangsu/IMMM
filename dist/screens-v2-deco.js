@@ -1694,7 +1694,7 @@ function ResultV2({
       console.warn('[IMMM] Local gallery save failed:', e);
     }
   };
-  var getExportKey = () => [layout, frameColor, logo ? 'logo' : 'nologo', dateText ? 'date' : 'nodate', selected.map(i => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 32) || i).join('-'), stickers.map(s => `${s.id}:${s.x}:${s.y}:${s.scale}:${s.rotation}:${s.frameSlot ?? 'free'}`).join('|'), drawStrokes.length].join('::');
+  var getExportKey = () => [activeSessionId, layout, frameColor, logo ? 'logo' : 'nologo', dateText ? 'date' : 'nodate', selected.map(i => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 32) || i).join('-'), stickers.map(s => `${s.id}:${s.x}:${s.y}:${s.scale}:${s.rotation}:${s.frameSlot ?? 'free'}`).join('|'), drawStrokes.length].join('::');
   var drawCover = (ctx, img, x, y, w, h) => {
     var ar = img.width / img.height;
     var dar = w / h;

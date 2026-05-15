@@ -1244,22 +1244,64 @@ function App() {
           setSelected: setSelected
         }));
       case 'deco':
-        return /*#__PURE__*/React.createElement(DecoV2, _extends({}, p, {
-          shots: effShots,
-          selected: effSelected,
-          stickers: stickers,
-          setStickers: setStickers,
-          drawStrokes: drawStrokes,
-          setDrawStrokes: setDrawStrokes,
-          setDateText: v => updateTweak('dateText', v)
-        }));
+        {
+          // Route guard: ensure current session has photos before rendering deco
+          var hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
+          if (!hasPhotosInCurrentSession) {
+            return /*#__PURE__*/React.createElement(SetupScreen, _extends({}, p, {
+              setLayout: v => updateTweak('layout', v),
+              setFilter: v => updateTweak('filter', v),
+              setLogo: v => updateTweak('logo', v),
+              setDateText: v => updateTweak('dateText', v),
+              setOrientation: v => updateTweak('orientation', v),
+              setFrameColor: v => updateTweak('frameColor', v),
+              setUseWebgl: v => updateTweak('useWebgl', v),
+              preStickers: preStickers,
+              setPreStickers: setPreStickers,
+              editMode: photoEditMode,
+              shots: shots,
+              setShots: setShots,
+              setSelected: setSelected
+            }));
+          }
+          return /*#__PURE__*/React.createElement(DecoV2, _extends({}, p, {
+            shots: effShots,
+            selected: effSelected,
+            stickers: stickers,
+            setStickers: setStickers,
+            drawStrokes: drawStrokes,
+            setDrawStrokes: setDrawStrokes,
+            setDateText: v => updateTweak('dateText', v)
+          }));
+        }
       case 'result':
-        return /*#__PURE__*/React.createElement(ResultV2, _extends({}, p, {
-          shots: effShots,
-          selected: effSelected,
-          stickers: stickers,
-          drawStrokes: drawStrokes
-        }));
+        {
+          // Route guard: ensure current session has photos before rendering result
+          var _hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
+          if (!_hasPhotosInCurrentSession) {
+            return /*#__PURE__*/React.createElement(SetupScreen, _extends({}, p, {
+              setLayout: v => updateTweak('layout', v),
+              setFilter: v => updateTweak('filter', v),
+              setLogo: v => updateTweak('logo', v),
+              setDateText: v => updateTweak('dateText', v),
+              setOrientation: v => updateTweak('orientation', v),
+              setFrameColor: v => updateTweak('frameColor', v),
+              setUseWebgl: v => updateTweak('useWebgl', v),
+              preStickers: preStickers,
+              setPreStickers: setPreStickers,
+              editMode: photoEditMode,
+              shots: shots,
+              setShots: setShots,
+              setSelected: setSelected
+            }));
+          }
+          return /*#__PURE__*/React.createElement(ResultV2, _extends({}, p, {
+            shots: effShots,
+            selected: effSelected,
+            stickers: stickers,
+            drawStrokes: drawStrokes
+          }));
+        }
       default:
         return null;
     }
