@@ -711,6 +711,56 @@ Rollback verification:
 Phase 3.42 hotfixes resolve all P0 session isolation issues.
 Code is now safe for full integration testing before next phase.
 
+---
+
+## Session Reset Regression Audit & State Isolation Hardening (Phase 3.43)
+
+### P0 Regressions Fixed
+- [x] go('capture')무조건 reset 구조 분리
+  - New: startNewCaptureSession() function for explicit session reset
+  - go('capture') now performs screen navigation only (no reset)
+  - Prevents unintended activeSessionId change on simple screen re-entry
+  
+- [x] Route Guard 중복 제거
+  - Removed render-time guards from deco/result case blocks
+  - Single source of truth: effect redirects to 'setup' if no photos
+  - Prevents render/state divergence, deep-link bypass, localStorage mismatch
+  
+- [x] Selected LocalStorage Race 수정
+  - resetSessionState now removes immm.v2.sel (selected indices)
+  - Prevents old selection from being restored in new session
+  
+- [x] ResultV2 Session Cleanup Hardening
+  - New cleanup effect watches activeSessionId
+  - Clears blob refs, preview URLs, export cache, UI state on session change
+  - No localStorage.clear() - explicit cleanup only
+
+### Validation Status
+- ✅ go('capture') does NOT reset session
+- ✅ startNewCaptureSession() DOES reset on explicit call
+- ✅ Protected screens guarded by effect-only (no render fallback)
+- ✅ New session clears all previous blob refs
+- ✅ Selected indices not restored from localStorage
+- ✅ All sanity checks pass
+
+### Files Modified (Phase 3.43)
+- main.jsx: startNewCaptureSession added, go() simplified, route guard unified, resetSessionState updated
+- screens-v2-deco.jsx: ResultV2 cleanup effect added
+
+### Build & Test Status
+- npm run build:precompile: ✅ Passed
+- node scripts/sanity-check.mjs: ✅ All checks passed
+- Git commit: 1519a11 (Session Reset Regression Audit)
+
+### P1 Tasks (Future)
+- [ ] Torch/ScreenLight naming consistency audit (torchEnabled vs screenFlashActive vs screenLightActive)
+- [ ] Screen flash actual shutter timing verification
+- [ ] Session isolation QA matrix (new session, deep link, browser back, Samsung Internet)
+
+### Ready for Full Integration Testing
+Phase 3.43 eliminates session state leakage risks.
+All P0 regression tests pass. Safe to proceed to QA and subsequent phases.
+
 ### Samsung Internet Result
 - date: Pending
 - URL: Pending
