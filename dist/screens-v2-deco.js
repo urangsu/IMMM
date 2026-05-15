@@ -1645,6 +1645,13 @@ function ResultV2({
   React.useEffect(() => {
     return () => {
       // Cleanup is called when component unmounts or activeSessionId changes
+      if (window.SessionTracer && window.IMMM_DEBUG_SESSION) {
+        window.SessionTracer.trace('BLOB_CLEAR:sessionChanged', {
+          activeSessionId,
+          previewUrlCleared: resultPreviewUrlRef.current !== null,
+          saveSheetUrlCleared: saveSheetUrlRef.current !== null
+        });
+      }
       revokeBlobUrl(resultPreviewUrlRef.current);
       resultPreviewUrlRef.current = null;
       revokeBlobUrl(saveSheetUrlRef.current);
@@ -1717,7 +1724,18 @@ function ResultV2({
       console.warn('[IMMM] Local gallery save failed:', e);
     }
   };
-  var getExportKey = () => [activeSessionId, layout, frameColor, logo ? 'logo' : 'nologo', dateText ? 'date' : 'nodate', selected.map(i => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 32) || i).join('-'), stickers.map(s => `${s.id}:${s.x}:${s.y}:${s.scale}:${s.rotation}:${s.frameSlot ?? 'free'}`).join('|'), drawStrokes.length].join('::');
+  var getExportKey = () => {
+    var key = [activeSessionId, layout, frameColor, logo ? 'logo' : 'nologo', dateText ? 'date' : 'nodate', selected.map(i => shots[i]?.ts || shots[i]?.dataUrl?.slice(0, 32) || i).join('-'), stickers.map(s => `${s.id}:${s.x}:${s.y}:${s.scale}:${s.rotation}:${s.frameSlot ?? 'free'}`).join('|'), drawStrokes.length].join('::');
+    if (window.SessionTracer && window.IMMM_DEBUG_SESSION) {
+      window.SessionTracer.trace('EXPORT_KEY:generated', {
+        activeSessionId,
+        exportKey: key.split('::')[0] + '::...',
+        // Log first segment only
+        selectedLength: selected.length
+      });
+    }
+    return key;
+  };
   var drawCover = (ctx, img, x, y, w, h) => {
     var ar = img.width / img.height;
     var dar = w / h;
