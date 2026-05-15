@@ -205,9 +205,13 @@ function App() {
   );
 
   // Session tracking for state isolation
-  const [activeSessionId, setActiveSessionId] = React.useState(
-    () => `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  );
+  const [activeSessionId, setActiveSessionId] = React.useState(() => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    if (window.SessionTracer && window.IMMM_DEBUG_SESSION) {
+      window.SessionTracer.trace('SESSION_START:activeSessionId', { activeSessionId: id });
+    }
+    return id;
+  });
 
   const [shots, setShots] = React.useState(() => Array(6).fill(null));
   const [selected, setSelected] = React.useState(() => {
@@ -365,7 +369,16 @@ function App() {
     // Generate new session ID for state isolation
     const nextSessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setActiveSessionId(nextSessionId);
-  }, []);
+
+    if (window.SessionTracer && window.IMMM_DEBUG_SESSION) {
+      window.SessionTracer.trace('SESSION_RESET:sessionId', {
+        reason,
+        previousSessionId: activeSessionId,
+        newSessionId: nextSessionId,
+        shotCount,
+      });
+    }
+  }, [activeSessionId]);
 
   // Explicit new capture session start (called from New Session button, not from go)
   const startNewCaptureSession = React.useCallback(() => {
@@ -887,6 +900,15 @@ function App() {
   const go = (s) => {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
+    }
+    if (window.SessionTracer && window.IMMM_DEBUG_SESSION) {
+      window.SessionTracer.trace('SCREEN_CHANGE:navigation', {
+        from: screen,
+        to: s,
+        activeSessionId,
+        shotsLength: shots.filter(s => s).length,
+        selectedLength: selected.length,
+      });
     }
     // go() performs simple screen navigation only.
     // Do NOT reset session state here — use startNewCaptureSession() for explicit new session.
