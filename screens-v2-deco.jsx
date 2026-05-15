@@ -1787,7 +1787,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
                     <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', right: 0, width: 196, background: '#fff', borderRadius: 20, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', padding: '8px', zIndex: 10000, animation: 'popIn 0.2s ease-out' }}>
                       <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Redecorate</button>
                       <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Retake</button>
-                      <button onClick={() => { setShowMoreActions(false); go('landing'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>New Session</button>
+                      <button onClick={() => { setShowMoreActions(false); resetSessionState?.('new-session'); go('landing'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>New Session</button>
                       <div style={{ height: 1, background: T.line, margin: '6px 12px' }} />
                       {(() => {
                         const qrState = getQrShareState();
@@ -1867,7 +1867,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
               <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', right: 0, width: 200, background: '#fff', borderRadius: 20, boxShadow: '0 15px 50px rgba(0,0,0,0.2)', padding: '8px', zIndex: 10000, animation: 'popIn 0.2s ease-out' }}>
                 <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
                 <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
-                <button onClick={() => { setShowMoreActions(false); go('landing'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>New Session</button>
+                <button onClick={() => { setShowMoreActions(false); resetSessionState?.('new-session'); go('landing'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>New Session</button>
                 <div style={{ height: 1, background: T.line, margin: '6px 10px' }} />
                 {(() => {
                   const qrState = getQrShareState();
