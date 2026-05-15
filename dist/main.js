@@ -387,6 +387,11 @@ function App() {
     // Clear capture state
     setShots(Array(shotCount).fill(null));
     setSelected([]);
+    try {
+      localStorage.removeItem('immm.v2.sel');
+    } catch (e) {
+      console.warn('[IMMM] localStorage removeItem failed:', e);
+    }
 
     // Clear deco state
     setStickers([]);
@@ -400,6 +405,13 @@ function App() {
     var nextSessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setActiveSessionId(nextSessionId);
   }, []);
+
+  // Explicit new capture session start (called from New Session button, not from go)
+  var startNewCaptureSession = React.useCallback(() => {
+    var newShotCount = getCaptureShotCountForLayout(tweaks.layout);
+    resetSessionState('start-new-capture', newShotCount);
+    setScreen('capture');
+  }, [tweaks.layout]);
   var cameraZoomOptions = React.useMemo(() => deriveCameraZoomOptions({
     cameraCapabilities,
     facingMode,
@@ -1110,12 +1122,8 @@ function App() {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
     }
-    // Hard reset session state when starting a fresh capture session.
-    // This ensures activeSessionId is new, preventing blob/cache reuse from previous session.
-    if (s === 'capture') {
-      var newShotCount = getCaptureShotCountForLayout(tweaks.layout);
-      resetSessionState('go-capture', newShotCount);
-    }
+    // go() performs simple screen navigation only.
+    // Do NOT reset session state here — use startNewCaptureSession() for explicit new session.
     setScreen(s);
   };
   var updateTweak = (k, v) => setTweaks(prev => ({
@@ -1261,64 +1269,24 @@ function App() {
           setSelected: setSelected
         }));
       case 'deco':
-        {
-          // Route guard: ensure current session has photos before rendering deco
-          var hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
-          if (!hasPhotosInCurrentSession) {
-            return /*#__PURE__*/React.createElement(SetupScreen, _extends({}, p, {
-              setLayout: v => updateTweak('layout', v),
-              setFilter: v => updateTweak('filter', v),
-              setLogo: v => updateTweak('logo', v),
-              setDateText: v => updateTweak('dateText', v),
-              setOrientation: v => updateTweak('orientation', v),
-              setFrameColor: v => updateTweak('frameColor', v),
-              setUseWebgl: v => updateTweak('useWebgl', v),
-              preStickers: preStickers,
-              setPreStickers: setPreStickers,
-              editMode: photoEditMode,
-              shots: shots,
-              setShots: setShots,
-              setSelected: setSelected
-            }));
-          }
-          return /*#__PURE__*/React.createElement(DecoV2, _extends({}, p, {
-            shots: effShots,
-            selected: effSelected,
-            stickers: stickers,
-            setStickers: setStickers,
-            drawStrokes: drawStrokes,
-            setDrawStrokes: setDrawStrokes,
-            setDateText: v => updateTweak('dateText', v)
-          }));
-        }
+        // Guard moved to effect — screen should be 'setup' if no photos in current session
+        return /*#__PURE__*/React.createElement(DecoV2, _extends({}, p, {
+          shots: effShots,
+          selected: effSelected,
+          stickers: stickers,
+          setStickers: setStickers,
+          drawStrokes: drawStrokes,
+          setDrawStrokes: setDrawStrokes,
+          setDateText: v => updateTweak('dateText', v)
+        }));
       case 'result':
-        {
-          // Route guard: ensure current session has photos before rendering result
-          var _hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
-          if (!_hasPhotosInCurrentSession) {
-            return /*#__PURE__*/React.createElement(SetupScreen, _extends({}, p, {
-              setLayout: v => updateTweak('layout', v),
-              setFilter: v => updateTweak('filter', v),
-              setLogo: v => updateTweak('logo', v),
-              setDateText: v => updateTweak('dateText', v),
-              setOrientation: v => updateTweak('orientation', v),
-              setFrameColor: v => updateTweak('frameColor', v),
-              setUseWebgl: v => updateTweak('useWebgl', v),
-              preStickers: preStickers,
-              setPreStickers: setPreStickers,
-              editMode: photoEditMode,
-              shots: shots,
-              setShots: setShots,
-              setSelected: setSelected
-            }));
-          }
-          return /*#__PURE__*/React.createElement(ResultV2, _extends({}, p, {
-            shots: effShots,
-            selected: effSelected,
-            stickers: stickers,
-            drawStrokes: drawStrokes
-          }));
-        }
+        // Guard moved to effect — screen should be 'setup' if no photos in current session
+        return /*#__PURE__*/React.createElement(ResultV2, _extends({}, p, {
+          shots: effShots,
+          selected: effSelected,
+          stickers: stickers,
+          drawStrokes: drawStrokes
+        }));
       default:
         return null;
     }
