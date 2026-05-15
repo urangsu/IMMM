@@ -861,6 +861,7 @@ function App() {
           preStickers={preStickers} setPreStickers={setPreStickers}
           editMode={photoEditMode}
           shots={shots} setShots={setShots} setSelected={setSelected}
+          startNewCaptureSession={startNewCaptureSession}
         />;
       case 'capture':
         return <CaptureV2 {...p}

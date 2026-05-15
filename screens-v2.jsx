@@ -330,7 +330,7 @@ function getStickerPickerPacks() {
     : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
 }
 
-function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks }) {
+function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession }) {
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
@@ -764,7 +764,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     return (
       <div style={{ height: '100%', background: T.bg, padding: '50px 0 0', display: 'flex', flexDirection: 'column' }}>
         <TopBar step={0} back={() => go('landing')} T={T} mobile title={editMode ? '편집하기' : 'Setup · 세팅'}
-        right={<BtnPrimary T={T} size="sm" onClick={() => go(editMode ? 'deco' : 'capture')} disabled={editMode && uploadedCount < 4}>{editMode ? '편집 시작' : 'Next'}</BtnPrimary>} />
+        right={<BtnPrimary T={T} size="sm" onClick={() => editMode ? go('deco') : startNewCaptureSession()} disabled={editMode && uploadedCount < 4}>{editMode ? '편집 시작' : 'Next'}</BtnPrimary>} />
         <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
           {preview}
           <div style={{ position: 'absolute', bottom: 14, right: 14, display: 'flex', gap: 10, zIndex: 20 }}>
@@ -790,7 +790,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     <div style={{ height: '100%', background: 'transparent', display: 'grid', gridTemplateColumns: '1fr 380px' }}>
       <div style={{ padding: '24px 48px', display: 'flex', flexDirection: 'column' }}>
         <TopBar step={0} back={() => go('landing')} T={T} title={editMode ? '편집하기 · Upload & Edit' : 'Step 1 · Setup the booth'}
-        right={<BtnPrimary T={T} size="md" onClick={() => go(editMode ? 'deco' : 'capture')} disabled={editMode && uploadedCount < 4}>{editMode ? '편집 시작' : 'Continue · 다음'} {!editMode && I.arrowR(14, T.bg)}</BtnPrimary>} />
+        right={<BtnPrimary T={T} size="md" onClick={() => editMode ? go('deco') : startNewCaptureSession()} disabled={editMode && uploadedCount < 4}>{editMode ? '편집 시작' : 'Continue · 다음'} {!editMode && I.arrowR(14, T.bg)}</BtnPrimary>} />
         <div style={{ flex: 1, background: T.bgAlt, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', border: `1px solid ${T.line}`, boxShadow: '0 8px 32px rgba(0,0,0,0.04)' }}> {/* #F8F8F5 stageBackground, #E5E2DA frameCardBorder */}
           {preview}
           <div style={{ position: 'absolute', bottom: 16, left: 18, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1.5 }}>
