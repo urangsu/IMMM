@@ -306,8 +306,23 @@ function App() {
   const [lastWideToggleReason, setLastWideToggleReason] = React.useState('');
   const [lastWideTogglePath, setLastWideTogglePath] = React.useState('');
   const [cameraToggleBusy, setCameraToggleBusy] = React.useState(false);
+  // Zoom capability detection
+  const [cameraZoomSupported, setCameraZoomSupported] = React.useState(false);
+  const [cameraZoomMin, setCameraZoomMin] = React.useState(1);
+  const [cameraZoomMax, setCameraZoomMax] = React.useState(1);
+  const [cameraZoomStep, setCameraZoomStep] = React.useState(0.1);
+  const [cameraZoomUnavailableReason, setCameraZoomUnavailableReason] = React.useState(null);
+
+  // Torch capability detection
   const [torchSupported, setTorchSupported] = React.useState(false);
   const [torchEnabled, setTorchEnabled] = React.useState(false);
+  const [torchUnavailableReason, setTorchUnavailableReason] = React.useState(null);
+
+  // Screen light fallback for front camera
+  const [screenLightSupported, setScreenLightSupported] = React.useState(true);
+  const [screenLightActive, setScreenLightActive] = React.useState(false);
+  const [screenLightIntensity, setScreenLightIntensity] = React.useState(0.5);
+
   const [screenFlashEnabled, setScreenFlashEnabled] = React.useState(false);
   const [screenFlashActive, setScreenFlashActive] = React.useState(false);
   const [cameraZoomHistory, setCameraZoomHistory] = React.useState([]);
@@ -500,9 +515,30 @@ function App() {
             };
             console.info('[IMMM camera] capability snapshot:', snap);
           }
-          // torch support
-          setTorchSupported(!!capabilities.torch);
-          setTorchEnabled(settings.torch || false);
+          // Zoom capability detection
+          if (capabilities.zoom) {
+            setCameraZoomSupported(true);
+            setCameraZoomMin(capabilities.zoom.min ?? 1);
+            setCameraZoomMax(capabilities.zoom.max ?? 1);
+            setCameraZoomStep(capabilities.zoom.step ?? 0.1);
+            setCameraZoomUnavailableReason(null);
+          } else {
+            setCameraZoomSupported(false);
+            setCameraZoomMin(1);
+            setCameraZoomMax(1);
+            setCameraZoomUnavailableReason(facingMode === 'user' ? 'front-camera-no-zoom' : 'hardware-no-zoom');
+          }
+
+          // Torch capability detection
+          if (capabilities.torch) {
+            setTorchSupported(true);
+            setTorchUnavailableReason(null);
+            setTorchEnabled(settings.torch || false);
+          } else {
+            setTorchSupported(false);
+            setTorchUnavailableReason(facingMode === 'user' ? 'front-camera-no-torch' : 'hardware-no-torch');
+            setTorchEnabled(false);
+          }
 
           // enumerateDevices after permission granted to get labels for wide candidates
           await refreshCameraDevices();
@@ -863,6 +899,18 @@ function App() {
     lang, setLang,
     activeSessionId,
     resetSessionState,
+    cameraZoomSupported,
+    cameraZoomMin,
+    cameraZoomMax,
+    cameraZoomStep,
+    cameraZoomUnavailableReason,
+    torchSupported,
+    torchUnavailableReason,
+    screenLightSupported,
+    screenLightActive,
+    setScreenLightActive,
+    screenLightIntensity,
+    setScreenLightIntensity,
   };
 
   const renderScreen = () => {
