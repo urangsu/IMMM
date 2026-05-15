@@ -677,6 +677,40 @@ Rollback verification:
 - New Session reset flow verification
 - Deco/Edit route guard behavior verification
 
+---
+
+## Session Isolation Critical Hotfixes (Phase 3.42)
+
+### P0 Fixes Completed
+- [x] ResultV2 activeSessionId prop added (fixes ReferenceError in getExportKey)
+- [x] resetSessionState now accepts shotCount parameter
+- [x] go('capture') calls resetSessionState to regenerate activeSessionId
+- [x] Protected route guard moved to effect (proper screen state management)
+- [x] localStorage immm.v2.screen updated by guard effect
+- [x] Dummy fill gated behind IMMM_ALLOW_DEEP_LINK_DUMMY debug flag
+- [x] All sanity checks passing
+
+### Session Isolation Guarantees Verified
+- ✅ Each new capture session gets unique activeSessionId
+- ✅ export key includes activeSessionId as first element
+- ✅ protected screens (select/deco/result) redirect to setup if no photos
+- ✅ Route guard prevents deep-link bypass via dummy shots
+- ✅ stickers/drawStrokes/preStickers cleared on new session
+- ✅ Effect ensures screen state consistency with localStorage
+
+### Files Modified (Phase 3.42)
+- main.jsx: resetSessionState upgraded, go('capture') hardened, route guard moved to effect, dummy fill gated
+- screens-v2-deco.jsx: ResultV2 signature updated with activeSessionId
+
+### Build & Test Status
+- npm run build:precompile: ✅ Passed
+- node scripts/sanity-check.mjs: ✅ All checks passed
+- Git commit: 2cd159b (Session Isolation Critical Hotfixes)
+
+### Ready for QA
+Phase 3.42 hotfixes resolve all P0 session isolation issues.
+Code is now safe for full integration testing before next phase.
+
 ### Samsung Internet Result
 - date: Pending
 - URL: Pending
