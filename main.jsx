@@ -91,9 +91,12 @@ function deriveCameraZoomOptions({
 }
 
 function getCaptureShotCountForLayout(layout) {
-  if (layout === 'polaroid') return 3;
-  if (layout === 'trip') return 5;
-  return 6;
+  // Align with frame system shot counts via getShotCountForLayout
+  const getShotCount = window.getShotCountForFrameSafe || window.getShotCountForFrame || (typeof getShotCountForFrame === 'function' ? getShotCountForFrame : null);
+  if (getShotCount) return getShotCount(layout);
+  if (layout === 'polaroid') return 1;
+  if (layout === 'trip') return 4;
+  return 4;
 }
 
 // MARK: - Debug Runtime Session Bridge Helpers (Phase 3.63)
