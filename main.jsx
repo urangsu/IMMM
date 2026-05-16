@@ -91,8 +91,8 @@ function deriveCameraZoomOptions({
 }
 
 function getCaptureShotCountForLayout(layout) {
-  if (layout === 'polaroid') return 3;
-  if (layout === 'trip') return 5;
+  if (layout === 'polaroid') return 1;
+  if (layout === 'trip') return 3;
   return 6;
 }
 
@@ -339,29 +339,34 @@ function App() {
   }, []);
 
   // Session reset helper: clears main app state without using localStorage.clear()
-  const resetSessionState = React.useCallback((reason = 'new-session', shotCount = 6) => {
-    console.debug(`[IMMM] Resetting session (${reason}, shotCount=${shotCount})`);
-
-    // Clear capture state
-    setShots(Array(shotCount).fill(null));
-    setSelected([]);
+  const resetSessionState = React.useCallback((reason = 'manual', shotCount = 6) => {
+    console.debug(`[IMMM session] Resetting session state: ${reason}`);
+    
+    // 1. Storage cleanup
     try {
+      localStorage.removeItem('immm.v2.screen');
       localStorage.removeItem('immm.v2.sel');
     } catch (e) {
       console.warn('[IMMM] localStorage removeItem failed:', e);
     }
-
-    // Clear deco state
+    
+    // 2. React state cleanup
+    setShots(Array(shotCount).fill(null));
+    setSelected([]);
     setStickers([]);
     setDrawStrokes([]);
-    setPreStickers([]);
-
-    // Clear photo edit state
     setPhotoEditMode(false);
+    
+    // 3. Infrastructure cleanup
+    const nextSid = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+    setActiveSessionId(nextSid);
+    window.__IMMM_SESSION_ID__ = nextSid;
 
-    // Generate new session ID for state isolation
-    const nextSessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    setActiveSessionId(nextSessionId);
+    if (window.IMMMSessionTracer) {
+      window.IMMMSessionTracer.reset(nextSid, reason);
+    }
+
+    console.debug(`[IMMM session] New activeSessionId: ${nextSid}`);
   }, []);
 
   // Explicit new capture session start (called from New Session button, not from go)
@@ -568,6 +573,15 @@ function App() {
         setCamOk(false);
       }
     })();
+    if (isProtected && !hasPhotos) {
+      if (allowDummyFill) {
+        console.warn('[IMMM guard] No photos in session. Generating DEBUG DUMMY (deep-link bypass).');
+        generateDebugDummyShots();
+      } else {
+        console.error('[IMMM guard] Access denied: No active photos. Redirecting to setup.');
+        go('setup');
+      }
+    }
     return () => {
       active = false;
       stopStream(streamRef.current);
@@ -964,6 +978,7 @@ function App() {
           preStickers={preStickers} setPreStickers={setPreStickers}
           editMode={photoEditMode}
           shots={shots} setShots={setShots} setSelected={setSelected}
+          startNewCaptureSession={startNewCaptureSession}
         />;
       case 'capture':
         return <CaptureV2 {...p}

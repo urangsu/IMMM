@@ -2664,9 +2664,9 @@ function checkCameraModelAndBestCut() {
       console.error('❌ FAIL: main.jsx missing getCaptureShotCountForLayout helper');
       hasErrors = true;
     }
-    // Polaroid Best Cut: 3 shots instead of 1
-    if (main.match(/layout\s*===\s*'polaroid'\s*\?\s*1\s*:\s*6/) && main.includes('captureShotCount')) {
-      console.error('❌ FAIL: main.jsx polaroid captureShotCount must be 3 (Best Cut contract)');
+    // Phase 3.51: Polaroid is now 1 shot (Unified Layout Count)
+    if (main.match(/layout\s*===\s*'polaroid'\s*\?\s*3\s*:\s*6/)) {
+      console.error('❌ FAIL: main.jsx polaroid captureShotCount must be 1 (Phase 3.51 Unified Count)');
       hasErrors = true;
     }
     // Hotfix 3.42: 1x Return Path
@@ -2690,13 +2690,13 @@ function checkCameraModelAndBestCut() {
       hasErrors = true;
     }
 
-    // Capture Shot Count Policy
-    if (!main.includes("layout === 'polaroid') return 3")) {
-      console.error('❌ FAIL: main.jsx getCaptureShotCountForLayout missing polaroid=3 policy');
+    // Capture Shot Count Policy (Phase 3.51)
+    if (!main.includes("layout === 'polaroid') return 1")) {
+      console.error('❌ FAIL: main.jsx getCaptureShotCountForLayout missing polaroid=1 policy');
       hasErrors = true;
     }
-    if (!main.includes("layout === 'trip') return 5")) {
-      console.error('❌ FAIL: main.jsx getCaptureShotCountForLayout missing trip=5 policy');
+    if (!main.includes("layout === 'trip') return 3")) {
+      console.error('❌ FAIL: main.jsx getCaptureShotCountForLayout missing trip=3 policy');
       hasErrors = true;
     }
 
@@ -2753,6 +2753,41 @@ function checkCameraModelAndBestCut() {
   }
 }
 
+function checkImmm351SessionRouting() {
+  const main = readFile('main.jsx');
+  const screens = readFile('screens-v2.jsx');
+
+  if (!main.includes('const startNewCaptureSession =')) {
+    console.error("❌ FAIL: main.jsx missing startNewCaptureSession explicit entry point");
+    hasErrors = true;
+  }
+  
+  // Navigation 'go' function must NOT call resetSessionState (purity check)
+  const goFuncMatch = main.match(/const go = \((s, st)\) => \{([\s\S]*?)\};/);
+  if (goFuncMatch && goFuncMatch[2].includes('resetSessionState')) {
+    console.error("❌ FAIL: main.jsx go() function must be pure (no implicit session reset)");
+    hasErrors = true;
+  }
+
+  // SetupScreen start button must use startNewCaptureSession
+  if (!screens.includes('startNewCaptureSession()')) {
+    console.error("❌ FAIL: screens-v2.jsx SetupScreen button must use startNewCaptureSession instead of go('capture')");
+    hasErrors = true;
+  }
+
+  // Protected route guard dummy gate (Production safety)
+  if (!main.includes('console.error(\'[IMMM guard] Access denied: No active photos. Redirecting to setup.\')')) {
+    console.error("❌ FAIL: main.jsx missing production-grade protected route guard (Access Denied error)");
+    hasErrors = true;
+  }
+  
+  if (main.includes('go(\'setup\')') && !main.includes('allowDummyFill')) {
+     // Check if allowDummyFill is used within the protected route effect
+     console.error("❌ FAIL: main.jsx protected route guard missing allowDummyFill gate");
+     hasErrors = true;
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -2761,6 +2796,7 @@ checkCameraArchitecture();
 checkCameraModelAndBestCut();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
+checkImmm351SessionRouting();
 
 
 if (hasErrors) {

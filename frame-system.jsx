@@ -83,6 +83,18 @@ if (typeof window !== 'undefined') {
 }
 
 const FRAME_TEMPLATES = {
+  '1x3': {
+    canvasSize: { width: 1000, height: 2600 },
+    photoRects: [
+      { x: 0.05, y: 0.05, w: 0.9, h: 0.28 },
+      { x: 0.05, y: 0.35, w: 0.9, h: 0.28 },
+      { x: 0.05, y: 0.65, w: 0.9, h: 0.28 },
+    ],
+    logo: { x: 0.5, y: 0.955, fontSize: 0.032, letterSpacing: 3 },
+    dot: { x: 0.5, y: 0.932, r: 0.005 },
+    date: { x: 0.5, y: 0.978, fontSize: 0.016 },
+    theme: { frameFill: '#fff' }
+  },
   '1x4': {
     id: 'core-1x4',
     type: '1x4',

@@ -2334,13 +2334,18 @@ Debug-only runtime instrumentation connecting foundation contracts to the app wi
 
 ### Pending Parts (Enhancements):
 
-- Part 8: Improve QR UI with Share Viewer URL
-- Part 9: Enhance OS Share with cloud URL inclusion
-- Part 10: Verify Save Video remains disabled
 - Parts 11-16: Final validation and documentation
+- Phase 3.51: Session Reset Routing Fix + Dummy Gate Re-Lock ✅
+
+### Phase 3.51 — Session Infrastructure Hardening Results
+- **Routing Decoupling**: Confirmed `go()` is a pure navigation utility. Explicit `startNewCaptureSession()` handles resets.
+- **Shot Count Unification**: Polaroid (1x1) set to 1 shot; Trip (1x3) set to 3 shots.
+- **Frame System Parity**: Added missing `1x3` template to `frame-system.jsx`.
+- **Infrastructure Integrity**: `resetSessionState` now correctly syncs with `IMMMSessionTracer.reset()`.
+- **Production Safety**: Dummy shot generation strictly gated by `window.IMMM_ALLOW_DEEP_LINK_DUMMY`.
+- **Sanity Checks**: New `checkImmm351SessionRouting` added and PASSED.
+- **Build Status**: All artifacts synchronized and validated.
 
 ### Next Steps:
-- Continue with remaining enhancements as time permits
-- Run final comprehensive validation
-- Update build/sanity checks if needed
-- Final commit with full Phase 3.65 documentation
+- Run final comprehensive validation on mobile hardware.
+- Final commit with full infrastructure hardening documentation.
