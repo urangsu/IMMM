@@ -190,6 +190,42 @@ function App() {
   var [photoEditMode, setPhotoEditMode] = React.useState(false);
   var [lang, setLang] = React.useState('ko');
 
+  // --- SESSION INFRASTRUCTURE (Phase 3.48 Enforcement) ---
+  var SESSION_RESET = 'SESSION_RESET';
+  var EXPORT_KEY = 'immm.v2.export';
+  var BLOB_CLEAR = 'BLOB_CLEAR';
+  window.IMMMSessionTracer = {
+    trace: (event, data) => console.log(`[IMMMSession] ${event}:`, data),
+    reset: () => window.dispatchEvent(new CustomEvent(SESSION_RESET))
+  };
+  var [activeSessionId, setActiveSessionId] = React.useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  var resetSessionState = (isEdit = false) => {
+    var newId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setActiveSessionId(newId);
+    setPhotoEditMode(isEdit);
+
+    // Clear all capture/edit data
+    var shotCount = typeof getLayoutSlotCount === 'function' ? getLayoutSlotCount(tweaks.layout) : 4;
+    setShots(Array(shotCount).fill(null));
+    setSelected([]);
+    setStickers([]);
+    setDrawStrokes([]);
+    setPreStickers([]);
+
+    // Clear local storage and blobs
+    localStorage.removeItem('immm.v2.sel');
+    localStorage.removeItem(EXPORT_KEY);
+    window.dispatchEvent(new CustomEvent(BLOB_CLEAR));
+    window.IMMMSessionTracer.trace(SESSION_RESET, {
+      newId,
+      isEdit
+    });
+  };
+  var startNewCaptureSession = () => {
+    resetSessionState(false);
+    go('setup');
+  };
+
   // Responsive mobile detection
   var [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
   React.useEffect(() => {
@@ -976,12 +1012,13 @@ function App() {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
     }
-    // Reset shots + selected when starting a fresh capture session.
-    // This prevents previous roll's shots leaking into SelectV2 on re-capture.
     if (s === 'capture') {
-      var newShotCount = getCaptureShotCountForLayout(tweaks.layout);
-      setShots(Array(newShotCount).fill(null));
-      setSelected([]);
+      var currentShotsNotEmpty = shots.some(s => s?.dataUrl);
+      if (currentShotsNotEmpty) {
+        var newShotCount = getCaptureShotCountForLayout(tweaks.layout);
+        setShots(Array(newShotCount).fill(null));
+        setSelected([]);
+      }
     }
     setScreen(s);
   };
@@ -1022,7 +1059,9 @@ function App() {
     accent,
     tweaks,
     lang,
-    setLang
+    setLang,
+    activeSessionId,
+    startNewCaptureSession
   };
   var renderScreen = () => {
     var p = {
@@ -1031,12 +1070,9 @@ function App() {
     switch (screen) {
       case 'landing':
         return /*#__PURE__*/React.createElement(LandingV2, _extends({}, p, {
-          onStart: () => {
-            setPhotoEditMode(false);
-            go('setup');
-          },
+          onStart: startNewCaptureSession,
           onEdit: () => {
-            setPhotoEditMode(true);
+            resetSessionState(true);
             go('setup');
           },
           onGallery: () => go('gallery')

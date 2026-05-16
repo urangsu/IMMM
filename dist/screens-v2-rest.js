@@ -78,7 +78,8 @@ function CaptureV2({
   setCameraZoom,
   setCameraTorch,
   setScreenFlashEnabled,
-  runScreenFlash
+  runScreenFlash,
+  activeSessionId
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -448,7 +449,8 @@ function CaptureV2({
           mirrored: facingMode === 'user',
           width: rect?.width ? Math.round(rect.width) : 720,
           height: rect?.height ? Math.round(rect.height) : 720,
-          ts: Date.now()
+          ts: Date.now(),
+          sessionId: activeSessionId
         };
         return copy;
       });

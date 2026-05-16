@@ -2123,3 +2123,35 @@ QA steps:
 - [ ] Native exposure control implemented
 - [ ] Native camera permission flow implemented
 - [ ] App shell selected: Capacitor / React Native / Swift/Kotlin
+
+---
+
+## Phase 3.47 — Imported Photo Slot Clipping + Stale Thumbnail Fix
+- [x] SlotImagePreview enforced for all imported media
+- [x] `object-fit: cover` and strict clipping applied to slots
+- [x] SetupScreen file input reset on session change
+- [x] `activeSessionId` binding to captured/imported shots
+- [x] No stale thumbnail leakage between sessions
+
+## Phase 3.48 — Session Infrastructure & Build Parity Gate
+- [x] `activeSessionId` state and `resetSessionState` utility implemented
+- [x] `startNewCaptureSession` added as clean entry point
+- [x] `IMMMSessionTracer` and related constants defined
+- [x] `npm run build:precompile` synced with source changes
+- [x] Sanity checks passed for session isolation
+- [x] Slot count parity restored (1x4: 4, 1x3: 3, 2x2: 4, 1x1: 1)
+
+## Phase 3.49 — Frame-System Regression Audit + Working Tree Finalization
+- [x] Consolidated slot count helpers in `frame-system.jsx`
+- [x] Verified single source of truth for template slot counts
+- [x] Audited `main.jsx` for session tracing duplication (None found)
+- [x] Synchronized all `dist/*.js` artifacts via precompile
+- [x] Verified `photoRects` and `photoSlots` consistency
+- [x] Manual QA items documented (Pending browser verification)
+- [x] `git status` clean and build verified
+
+### Manual QA Checklist (Remaining)
+- [ ] Verify cross-session state clearing on mobile (Samsung Internet/iOS)
+- [ ] Validate 1x4 Strip rendering consistency (Capture -> Deco -> Result)
+- [ ] Confirm album image sticker import on real Galaxy device
+- [ ] Verify save reliability for high-res PNGs on mobile

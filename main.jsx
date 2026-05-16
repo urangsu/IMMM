@@ -139,6 +139,17 @@ function App() {
   const [drawStrokes, setDrawStrokes] = React.useState([]);
   const [photoEditMode, setPhotoEditMode] = React.useState(false);
   const [lang, setLang] = React.useState('ko');
+  
+  // --- SESSION INFRASTRUCTURE (Phase 3.48 Enforcement) ---
+  const SESSION_RESET = 'SESSION_RESET';
+  const EXPORT_KEY = 'immm.v2.export';
+  const BLOB_CLEAR = 'BLOB_CLEAR';
+  
+  window.IMMMSessionTracer = {
+    trace: (event, data) => console.log(`[IMMMSession] ${event}:`, data),
+    reset: () => window.dispatchEvent(new CustomEvent(SESSION_RESET))
+  };
+
   const [activeSessionId, setActiveSessionId] = React.useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
   const resetSessionState = (isEdit = false) => {
@@ -147,8 +158,8 @@ function App() {
     setPhotoEditMode(isEdit);
     
     // Clear all capture/edit data
-    const shotCount = typeof getShotCountForLayout === 'function' 
-      ? getShotCountForLayout(tweaks.layout) 
+    const shotCount = typeof getLayoutSlotCount === 'function' 
+      ? getLayoutSlotCount(tweaks.layout) 
       : 4;
     setShots(Array(shotCount).fill(null));
     setSelected([]);
@@ -156,8 +167,16 @@ function App() {
     setDrawStrokes([]);
     setPreStickers([]);
     
-    // Clear selected indices from local storage to prevent accidental recovery of old indices
+    // Clear local storage and blobs
     localStorage.removeItem('immm.v2.sel');
+    localStorage.removeItem(EXPORT_KEY);
+    window.dispatchEvent(new CustomEvent(BLOB_CLEAR));
+    window.IMMMSessionTracer.trace(SESSION_RESET, { newId, isEdit });
+  };
+
+  const startNewCaptureSession = () => {
+    resetSessionState(false);
+    go('setup');
   };
 
   // Responsive mobile detection
@@ -789,6 +808,7 @@ function App() {
     tweaks,
     lang, setLang,
     activeSessionId,
+    startNewCaptureSession,
   };
 
   const renderScreen = () => {
@@ -796,7 +816,7 @@ function App() {
     switch (screen) {
       case 'landing':
         return <LandingV2 {...p}
-          onStart={() => { resetSessionState(false); go('setup'); }}
+          onStart={startNewCaptureSession}
           onEdit={() => { resetSessionState(true); go('setup'); }}
           onGallery={() => go('gallery')}
         />;

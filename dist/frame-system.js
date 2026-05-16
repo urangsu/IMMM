@@ -256,12 +256,41 @@ Object.keys(FRAME_TEMPLATES).forEach(k => {
     }));
   }
 });
+
+/**
+ * Returns the number of photo slots for a given layout identifier.
+ */
+function getLayoutSlotCount(layoutId) {
+  var alias = FRAME_TEMPLATE_ALIASES[layoutId] || layoutId;
+  var template = FRAME_TEMPLATES[alias];
+  if (template && Array.isArray(template.photoRects)) {
+    return template.photoRects.length;
+  }
+  // Fallbacks based on common names
+  if (layoutId === 'polaroid') return 1;
+  if (layoutId === 'trip') return 3;
+  return 4;
+}
+if (typeof window !== 'undefined') {
+  window.getLayoutSlotCount = getLayoutSlotCount;
+}
+
+/**
+ * Robust version of getFrameTemplate that accounts for legacy names and aliases.
+ */
+function getFrameTemplateSafe(layoutId) {
+  var alias = FRAME_TEMPLATE_ALIASES[layoutId] || layoutId;
+  return FRAME_TEMPLATES[alias] || FRAME_TEMPLATES['1x4'];
+}
+if (typeof window !== 'undefined') {
+  window.getFrameTemplateSafe = getFrameTemplateSafe;
+}
 function getFrameTemplate(layoutOrType) {
   var type = FRAME_TEMPLATE_ALIASES[layoutOrType] || layoutOrType || '1x4';
   return FRAME_TEMPLATES[type] || FRAME_TEMPLATES['1x4'];
 }
 function getShotCountForFrame(layoutOrType) {
-  return getFrameTemplateSafe(layoutOrType).photoSlots.length;
+  return getLayoutSlotCount(layoutOrType);
 }
 function loadImageForCanvas(src) {
   return new Promise(resolve => {
@@ -948,19 +977,8 @@ function FrameThumb({
     }
   });
 }
-function getFrameTemplateSafe(layoutOrType) {
-  if (typeof getFrameTemplate === 'function') {
-    return getFrameTemplate(layoutOrType);
-  }
-  if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
-    return window.getFrameTemplate(layoutOrType);
-  }
-  console.error('[IMMM] getFrameTemplate unavailable; using emergency 1x4 fallback');
-  return FRAME_TEMPLATES?.['1x4'];
-}
 function getShotCountForFrameSafe(layoutOrType) {
-  var t = getFrameTemplateSafe(layoutOrType);
-  return t?.photoSlots?.length || 4;
+  return getLayoutSlotCount(layoutOrType);
 }
 Object.assign(window, {
   FRAME_TEMPLATES,

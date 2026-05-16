@@ -726,13 +726,22 @@ function SetupScreen({
   setShots,
   setSelected,
   setUseWebgl,
-  tweaks
+  tweaks,
+  activeSessionId
 }) {
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   var [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
   var [selStId, setSelStId] = uS(null);
   var [expandedPacks, setExpandedPacks] = uS({});
   var fileRef = uR(null);
+  var photoFileRefs = [React.useRef(null), React.useRef(null), React.useRef(null), React.useRef(null)];
+
+  // Clear file inputs on session change to prevent stale value blocking re-upload
+  React.useEffect(() => {
+    photoFileRefs.forEach(ref => {
+      if (ref.current) ref.current.value = '';
+    });
+  }, [activeSessionId]);
   var addPreset = libId => {
     var item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
     var sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
@@ -749,49 +758,62 @@ function SetupScreen({
       scale: 0.6
     })]);
   };
-  var onFile = e => {
+  function SlotImagePreview({
+    src
+  }) {
+    if (!src) return null;
+    return /*#__PURE__*/React.createElement("img", {
+      src: src,
+      alt: "",
+      draggable: false,
+      style: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        objectPosition: 'center',
+        display: 'block',
+        userSelect: 'none',
+        pointerEvents: 'none'
+      }
+    });
+  }
+  var onFile = async e => {
     var f = e.target.files?.[0];
     if (e.target) e.target.value = '';
     if (!f) return;
-    if (!f.type.startsWith('image/')) {
-      console.warn('[IMMM] Setup sticker import: not an image file', f.type);
-      return;
-    }
-    var MAX_EDGE = 2048;
-    var rd = new FileReader();
-    rd.onload = () => {
-      try {
-        var img = new Image();
-        img.onload = () => {
-          try {
-            var longEdge = Math.max(img.width, img.height);
-            if (longEdge <= MAX_EDGE) {
-              addUpload(rd.result);
-              return;
-            }
-            var scale = MAX_EDGE / longEdge;
-            var w = Math.round(img.width * scale);
-            var h = Math.round(img.height * scale);
-            var cvs = document.createElement('canvas');
-            cvs.width = w;
-            cvs.height = h;
-            var ctx2d = cvs.getContext('2d');
-            ctx2d.drawImage(img, 0, 0, w, h);
-            var mime = f.type === 'image/png' ? 'image/png' : 'image/jpeg';
-            addUpload(cvs.toDataURL(mime, 0.92));
-          } catch (err) {
-            console.warn('[IMMM] Setup sticker resize failed, using original:', err);
-            addUpload(rd.result);
-          }
+    var dataUrl = await window.readStickerImageFileAsDataUrl(f);
+    if (dataUrl) addUpload(dataUrl);
+  };
+  var maxUploadCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
+  var onPhotoUpload = async (idx, e) => {
+    var files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    var _loop = async function () {
+      var targetIdx = idx + i;
+      if (targetIdx >= maxUploadCount) return 1; // break
+      var f = files[i];
+      var dataUrl = await new Promise(res => {
+        var rd = new FileReader();
+        rd.onload = () => res(rd.result);
+        rd.readAsDataURL(f);
+      });
+      setShots(prev => {
+        var n = [...prev];
+        while (n.length <= targetIdx) n.push(null);
+        n[targetIdx] = {
+          dataUrl,
+          filter,
+          renderMode: 'upload',
+          capturedFilter: filter,
+          ts: Date.now(),
+          sessionId: activeSessionId
         };
-        img.onerror = () => console.warn('[IMMM] Setup sticker: image load failed');
-        img.src = rd.result;
-      } catch (err) {
-        console.warn('[IMMM] Setup sticker import failed:', err);
-      }
+        return n;
+      });
     };
-    rd.onerror = () => console.warn('[IMMM] Setup sticker: FileReader error');
-    rd.readAsDataURL(f);
+    for (var i = 0; i < files.length; i++) {
+      if (await _loop()) break;
+    }
   };
   var shotsPreview = Array.from({
     length: 4
@@ -856,9 +878,9 @@ function SetupScreen({
     canvasW: frameW,
     height: "auto"
   }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
-    key: frameColor,
+    key: `${frameColor}_${activeSessionId}`,
     layout: layout,
-    shots: [{
+    shots: editMode ? shots : [{
       filter
     }, {
       filter
@@ -867,7 +889,7 @@ function SetupScreen({
     }, {
       filter
     }],
-    selected: [0, 1, 2, 3],
+    selected: editMode ? [0, 1, 2, 3] : [0, 1, 2, 3],
     T: T,
     logo: logo,
     dateText: dateText,
@@ -1531,37 +1553,6 @@ function SetupScreen({
       overflow: 'hidden'
     }
   }, "+", pack.items.length - 5)))));
-  var photoFileRefs = [uR(null), uR(null), uR(null), uR(null)];
-  var maxUploadCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
-  var onPhotoUpload = async (idx, e) => {
-    var files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    var _loop = async function () {
-      var targetIdx = idx + i;
-      if (targetIdx >= maxUploadCount) return 1; // break
-      var f = files[i];
-      var dataUrl = await new Promise(res => {
-        var rd = new FileReader();
-        rd.onload = () => res(rd.result);
-        rd.readAsDataURL(f);
-      });
-      setShots(prev => {
-        var n = [...prev];
-        while (n.length <= targetIdx) n.push(null);
-        n[targetIdx] = {
-          dataUrl,
-          filter,
-          renderMode: 'upload',
-          capturedFilter: filter,
-          ts: Date.now()
-        };
-        return n;
-      });
-    };
-    for (var i = 0; i < files.length; i++) {
-      if (await _loop()) break;
-    }
-  };
   var photosTab = editMode ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
     T: T
   }, "\uC0AC\uC9C4 \uBD88\uB7EC\uC624\uAE30 \xB7 Upload Photos"), /*#__PURE__*/React.createElement("div", {
@@ -1582,19 +1573,14 @@ function SetupScreen({
         overflow: 'hidden',
         cursor: 'pointer',
         position: 'relative',
-        background: s?.dataUrl ? 'transparent' : 'rgba(26,26,31,0.05)',
-        border: s?.dataUrl ? 'none' : `1.5px dashed rgba(26,26,31,0.15)`,
+        background: s?.dataUrl && s.sessionId === activeSessionId ? 'transparent' : 'rgba(26,26,31,0.05)',
+        border: s?.dataUrl && s.sessionId === activeSessionId ? 'none' : `1.5px dashed rgba(26,26,31,0.15)`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
       }
-    }, s?.dataUrl ? /*#__PURE__*/React.createElement("img", {
-      src: s.dataUrl,
-      style: {
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover'
-      }
+    }, s?.dataUrl && s.sessionId === activeSessionId ? /*#__PURE__*/React.createElement(SlotImagePreview, {
+      src: s.dataUrl
     }) : /*#__PURE__*/React.createElement("div", {
       style: {
         textAlign: 'center',
@@ -1617,7 +1603,7 @@ function SetupScreen({
         fontFamily: '"Plus Jakarta Sans",system-ui',
         letterSpacing: 1
       }
-    }, "\uCEF7 ", i + 1)), s?.dataUrl && /*#__PURE__*/React.createElement("div", {
+    }, "\uCEF7 ", i + 1)), s?.dataUrl && s.sessionId === activeSessionId && /*#__PURE__*/React.createElement("div", {
       style: {
         position: 'absolute',
         top: 4,

@@ -385,6 +385,39 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     if (dataUrl) addUpload(dataUrl);
   };
 
+  const maxUploadCount = typeof getShotCountForLayout === 'function'
+    ? getShotCountForLayout(layout)
+    : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
+
+  const onPhotoUpload = async (idx, e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    
+    for (let i = 0; i < files.length; i++) {
+      const targetIdx = idx + i;
+      if (targetIdx >= maxUploadCount) break;
+      const f = files[i];
+      const dataUrl = await new Promise(res => {
+        const rd = new FileReader();
+        rd.onload = () => res(rd.result);
+        rd.readAsDataURL(f);
+      });
+      setShots((prev) => {
+        const n = [...prev];
+        while (n.length <= targetIdx) n.push(null);
+        n[targetIdx] = { 
+          dataUrl, 
+          filter, 
+          renderMode: 'upload', 
+          capturedFilter: filter, 
+          ts: Date.now(),
+          sessionId: activeSessionId 
+        };
+        return n;
+      });
+    }
+  };
+
   const shotsPreview = Array.from({ length: 4 }, () => ({ filter: 'original', dataUrl: null }));
   const setupContainerRef = React.useRef(null);
   const setupFrameRef = React.useRef(null);
@@ -717,39 +750,6 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     </div>;
 
 
-  const photoFileRefs = [uR(null), uR(null), uR(null), uR(null)];
-  const maxUploadCount = typeof getShotCountForLayout === 'function'
-    ? getShotCountForLayout(layout)
-    : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
-
-  const onPhotoUpload = async (idx, e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    
-    for (let i = 0; i < files.length; i++) {
-      const targetIdx = idx + i;
-      if (targetIdx >= maxUploadCount) break;
-      const f = files[i];
-      const dataUrl = await new Promise(res => {
-        const rd = new FileReader();
-        rd.onload = () => res(rd.result);
-        rd.readAsDataURL(f);
-      });
-      setShots((prev) => {
-        const n = [...prev];
-        while (n.length <= targetIdx) n.push(null);
-        n[targetIdx] = { 
-          dataUrl, 
-          filter, 
-          renderMode: 'upload', 
-          capturedFilter: filter, 
-          ts: Date.now(),
-          sessionId: activeSessionId 
-        };
-        return n;
-      });
-    }
-  };
 
   const photosTab = editMode ?
   <div>
