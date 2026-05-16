@@ -354,6 +354,7 @@ function App() {
     setShots(Array(shotCount).fill(null));
     setSelected([]);
     setStickers([]);
+    setPreStickers([]);
     setDrawStrokes([]);
     setPhotoEditMode(false);
     
@@ -573,15 +574,7 @@ function App() {
         setCamOk(false);
       }
     })();
-    if (isProtected && !hasPhotos) {
-      if (allowDummyFill) {
-        console.warn('[IMMM guard] No photos in session. Generating DEBUG DUMMY (deep-link bypass).');
-        generateDebugDummyShots();
-      } else {
-        console.error('[IMMM guard] Access denied: No active photos. Redirecting to setup.');
-        go('setup');
-      }
-    }
+
     return () => {
       active = false;
       stopStream(streamRef.current);
@@ -885,14 +878,20 @@ function App() {
     if (!protectedScreens.includes(screen)) return;
 
     const hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
-    if (!hasPhotosInCurrentSession) {
-      setScreen('setup');
-      try {
-        localStorage.setItem('immm.v2.screen', 'setup');
-      } catch (e) {
-        console.warn('[IMMM] localStorage update failed:', e);
-      }
+    if (hasPhotosInCurrentSession) return;
+
+    const allowDummyFill = typeof window !== 'undefined' && window.IMMM_ALLOW_DEEP_LINK_DUMMY === true;
+    if (allowDummyFill) {
+      // Debug mode fallback: if we ever implement dummy generation, it goes here.
+      // Currently using A-plan: no dummy generation, just redirect for production safety.
+      console.warn('[IMMM guard] No photos. Debug dummy bypass requested but generator is missing.');
     }
+
+    console.error('[IMMM guard] Access denied: No active photos. Redirecting to setup.');
+    setScreen('setup');
+    try {
+      localStorage.setItem('immm.v2.screen', 'setup');
+    } catch (e) {}
   }, [screen, shots]);
 
   const go = (s) => {

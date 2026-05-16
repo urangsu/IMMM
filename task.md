@@ -2336,15 +2336,19 @@ Debug-only runtime instrumentation connecting foundation contracts to the app wi
 
 - Parts 11-16: Final validation and documentation
 - Phase 3.51: Session Reset Routing Fix + Dummy Gate Re-Lock ✅
+- Phase 3.52: Session Guard Placement Hotfix ✅
 
-### Phase 3.51 — Session Infrastructure Hardening Results
-- **Routing Decoupling**: Confirmed `go()` is a pure navigation utility. Explicit `startNewCaptureSession()` handles resets.
-- **Shot Count Unification**: Polaroid (1x1) set to 1 shot; Trip (1x3) set to 3 shots.
-- **Frame System Parity**: Added missing `1x3` template to `frame-system.jsx`.
-- **Infrastructure Integrity**: `resetSessionState` now correctly syncs with `IMMMSessionTracer.reset()`.
-- **Production Safety**: Dummy shot generation strictly gated by `window.IMMM_ALLOW_DEEP_LINK_DUMMY`.
-- **Sanity Checks**: New `checkImmm351SessionRouting` added and PASSED.
-- **Build Status**: All artifacts synchronized and validated.
+### Phase 3.52 — Session Guard Placement Hotfix Results
+- [x] Protected route guard removed from camera stream effect (P0 isolation)
+- [x] Protected route guard isolated into screen/shots effect (Correct placement)
+- [x] Missing preStickers reset restored in resetSessionState
+- [x] generateDebugDummyShots undefined guarded (A-plan fallback)
+- [x] 1x3 trip template verified and parity confirmed
+- [x] trip alias to 1x3 verified
+- [x] legacy frame theme tokens forbidden and audited
+- [x] pgpt stray guard preserved and automated in sanity check
+- [x] Build artifacts synchronized (npm run build:precompile)
+- [x] Sanity checks PASSED (node scripts/sanity-check.mjs)
 
 ### Next Steps:
 - Run final comprehensive validation on mobile hardware.

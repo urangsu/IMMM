@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import vm from 'node:vm';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2788,6 +2789,56 @@ function checkImmm351SessionRouting() {
   }
 }
 
+function checkImmm352SessionGuardPlacement() {
+  const main = readFile('main.jsx');
+  const frame = readFile('frame-system.jsx');
+
+  // 1. Reset Session State integrity
+  if (!main.includes('setPreStickers([])')) {
+    console.error("❌ FAIL: main.jsx resetSessionState missing setPreStickers([]) cleanup");
+    hasErrors = true;
+  }
+
+  // 2. Isolated Guard Placement (must not be inside camera effect)
+  // The camera effect typically contains getUserMedia and dependencies on facingMode.
+  const cameraEffectMatch = main.match(/React\.useEffect\(\(\) => \{([\s\S]*?)facingMode\]\);/);
+  if (cameraEffectMatch && cameraEffectMatch[1].includes('protectedScreens')) {
+    console.error("❌ FAIL: main.jsx protected route guard found inside camera lifecycle effect");
+    hasErrors = true;
+  }
+
+  // 3. Isolated Guard Dependencies
+  const guardEffectMatch = main.match(/React\.useEffect\(\(\) => \{([\s\S]*?)screen, shots\]\);/);
+  if (!guardEffectMatch || !guardEffectMatch[1].includes('protectedScreens')) {
+    console.error("❌ FAIL: main.jsx missing isolated protected route guard with [screen, shots] dependencies");
+    hasErrors = true;
+  }
+
+  // 4. 1x3 Parity
+  if (!frame.includes("'1x3':") || !frame.includes("trip: '1x3'")) {
+    console.error("❌ FAIL: frame-system.jsx missing 1x3 template or trip alias");
+    hasErrors = true;
+  }
+  if (frame.includes('logoColor') || frame.includes('dotColor') || frame.includes('textColor')) {
+     // Check if they are in templates (legacy theme tokens)
+     const templatesBlock = frame.match(/const FRAME_TEMPLATES = \{([\s\S]*?)\};/);
+     if (templatesBlock && (templatesBlock[1].includes('logoColor') || templatesBlock[1].includes('dotColor'))) {
+       console.error("❌ FAIL: frame-system.jsx contains legacy theme tokens in FRAME_TEMPLATES");
+       hasErrors = true;
+     }
+  }
+
+  // 5. pgpt Stray Check
+  let pgptFiles = '';
+  try {
+    pgptFiles = execSync('find . -maxdepth 6 -name "pgpt*"').toString().trim();
+  } catch (e) {}
+  if (pgptFiles) {
+    console.error("❌ FAIL: Restricted pgpt files detected in workspace: " + pgptFiles);
+    hasErrors = true;
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -2797,6 +2848,7 @@ checkCameraModelAndBestCut();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
 checkImmm351SessionRouting();
+checkImmm352SessionGuardPlacement();
 
 
 if (hasErrors) {

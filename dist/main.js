@@ -381,9 +381,8 @@ function App() {
   }, []);
 
   // Session reset helper: clears main app state without using localStorage.clear()
-  // Session reset helper: clears main app state without using localStorage.clear()
   var resetSessionState = React.useCallback((reason = 'manual', shotCount = 6) => {
-    console.log(`[IMMM session] Resetting session state: ${reason}`);
+    console.debug(`[IMMM session] Resetting session state: ${reason}`);
 
     // 1. Storage cleanup
     try {
@@ -397,6 +396,7 @@ function App() {
     setShots(Array(shotCount).fill(null));
     setSelected([]);
     setStickers([]);
+    setPreStickers([]);
     setDrawStrokes([]);
     setPhotoEditMode(false);
 
@@ -407,7 +407,7 @@ function App() {
     if (window.IMMMSessionTracer) {
       window.IMMMSessionTracer.reset(nextSid, reason);
     }
-    console.log(`[IMMM session] New activeSessionId: ${nextSid}`);
+    console.debug(`[IMMM session] New activeSessionId: ${nextSid}`);
   }, []);
 
   // Explicit new capture session start (called from New Session button, not from go)
@@ -629,15 +629,6 @@ function App() {
         setCamOk(false);
       }
     })();
-    if (isProtected && !hasPhotos) {
-      if (allowDummyFill) {
-        console.warn('[IMMM guard] No photos in session. Generating DEBUG DUMMY (deep-link bypass).');
-        generateDebugDummyShots();
-      } else {
-        console.error('[IMMM guard] Access denied: No active photos. Redirecting to setup.');
-        go('setup');
-      }
-    }
     return () => {
       active = false;
       stopStream(streamRef.current);
@@ -1122,14 +1113,18 @@ function App() {
     var protectedScreens = ['select', 'deco', 'result'];
     if (!protectedScreens.includes(screen)) return;
     var hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
-    if (!hasPhotosInCurrentSession) {
-      setScreen('setup');
-      try {
-        localStorage.setItem('immm.v2.screen', 'setup');
-      } catch (e) {
-        console.warn('[IMMM] localStorage update failed:', e);
-      }
+    if (hasPhotosInCurrentSession) return;
+    var allowDummyFill = typeof window !== 'undefined' && window.IMMM_ALLOW_DEEP_LINK_DUMMY === true;
+    if (allowDummyFill) {
+      // Debug mode fallback: if we ever implement dummy generation, it goes here.
+      // Currently using A-plan: no dummy generation, just redirect for production safety.
+      console.warn('[IMMM guard] No photos. Debug dummy bypass requested but generator is missing.');
     }
+    console.error('[IMMM guard] Access denied: No active photos. Redirecting to setup.');
+    setScreen('setup');
+    try {
+      localStorage.setItem('immm.v2.screen', 'setup');
+    } catch (e) {}
   }, [screen, shots]);
   var go = s => {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
