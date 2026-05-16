@@ -316,7 +316,7 @@ function App() {
         backdropFilter: 'blur(4px)',
         WebkitBackdropFilter: 'blur(4px)'
       }
-    }, "IMMM ", window.IMMM_APP_VERSION, " \xB7 ", window.IMMM_RC_BASELINE, /*#__PURE__*/React.createElement("div", {
+    }, "IMMM ", window.IMMM_APP_VERSION, " \xB7 ", window.IMMM_RUNTIME || 'babel', " \xB7 ", window.IMMM_RC_BASELINE, /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 8,
         opacity: 0.8,

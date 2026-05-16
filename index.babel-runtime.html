@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>IMMM · Photobooth (Babel Runtime)</title>
+<meta name="description" content="나와 그리고 우리의 순간. 나만의 포토부스.">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Caveat:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+
+<style>
+  :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #FCFCFA;
+    font-family: 'Plus Jakarta Sans', Pretendard, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overscroll-behavior: none;
+  }
+  #root { display: block; }
+  button { font-family: inherit; touch-action: manipulation; }
+  #boot-error {
+    position: fixed; inset: 0; z-index: 99999; display: none;
+    padding: 24px; background: #fff; color: #111;
+  }
+</style>
+
+<script>
+  window.IMMM_APP_VERSION = '2026-05-16-rc2.4-babel';
+  window.IMMM_BUILD_LABEL = 'rc2.4-rollback-babel-runtime';
+  window.IMMM_RC_BASELINE = '1cfde96';
+  window.IMMM_RUNTIME = 'babel';
+</script>
+
+<!-- React 18 -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+
+<!-- Babel standalone -->
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<!-- Libraries -->
+<script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://twgljs.org/dist/4.x/twgl-full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+
+<script type="module">
+  try {
+    const { FaceLandmarker, FilesetResolver } = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
+    window.MediaPipeFaceLandmarker = FaceLandmarker;
+    window.MediaPipeFilesetResolver = FilesetResolver;
+    window.dispatchEvent(new Event('mediapipe-ready'));
+  } catch (e) {}
+</script>
+</head>
+<body>
+<div id="boot-error"></div>
+<div id="root"></div>
+
+<script type="text/babel" src="app.jsx"></script>
+<script type="text/babel" src="filters.jsx"></script>
+<script type="text/babel" src="webgl-engine.jsx"></script>
+<script type="text/babel" src="mediapipe-face.jsx"></script>
+<script type="text/babel" src="sticker-engine.jsx"></script>
+<script type="text/babel" src="session-model.jsx"></script>
+<script type="text/babel" src="session-adapter.jsx"></script>
+<script type="text/babel" src="result-asset-store.jsx"></script>
+<script type="text/babel" src="session-runtime-snapshot.jsx"></script>
+<script type="text/babel" src="cloud-share-adapter.jsx"></script>
+<script type="text/babel" src="share-contract.jsx"></script>
+<script type="text/babel" src="motion-export-contract.jsx"></script>
+<script type="text/babel" src="edit-recipe-contract.jsx"></script>
+<script type="text/babel" src="pwa-release-contract.jsx"></script>
+<script type="text/babel" src="frame-system.jsx"></script>
+<script type="text/babel" src="screens-v2.jsx"></script>
+<script type="text/babel" src="screens-v2-rest.jsx"></script>
+<script type="text/babel" src="screens-v2-deco.jsx"></script>
+<script type="text/babel" src="result-gallery.jsx"></script>
+<script type="text/babel" src="share-viewer.jsx"></script>
+<script type="text/babel" src="main.jsx"></script>
+</body>
+</html>

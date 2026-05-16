@@ -1353,6 +1353,12 @@ function ResultV2({
   var [resultPreviewSrc, setResultPreviewSrc] = React.useState(null);
   var [resultPreviewStatus, setResultPreviewStatus] = React.useState('idle'); // idle | building | ready | error
   var [resultPreviewError, setResultPreviewError] = React.useState('');
+  var [qrShareOpen, setQrShareOpen] = React.useState(false);
+  var [qrShareUrl, setQrShareUrl] = React.useState(null);
+  var [qrShareError, setQrShareError] = React.useState(null);
+  var [qrDataUrl, setQrDataUrl] = React.useState(null);
+  var qrCanvasRef = React.useRef(null);
+  var [qrBusy, setQrBusy] = React.useState(false);
   async function renderFinalResultBlob() {
     var resolveTpl = l => {
       if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
@@ -1459,14 +1465,30 @@ function ResultV2({
   }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
 
   // Consolidated Cleanup: ResultV2 unmount cleanup for preview and save sheet
+  // Consolidated Cleanup: ResultV2 session and unmount cleanup
   React.useEffect(() => {
-    return () => {
+    // Cleanup on session change or unmount
+    var cleanup = () => {
       revokeBlobUrl(resultPreviewUrlRef.current);
       resultPreviewUrlRef.current = null;
+      setResultPreviewSrc(null);
+      setResultPreviewStatus('idle');
+      setResultPreviewError('');
       revokeBlobUrl(saveSheetUrlRef.current);
       saveSheetUrlRef.current = null;
+      setSaveSheetUrl(null);
+      exportBlobRef.current = null;
+      setShowMoreActions(false);
+      setToasts([]);
+      setQrShareOpen(false);
+      setQrShareUrl(null);
+      setQrShareError(null);
+      setQrDataUrl(null);
+      setQrBusy(false);
     };
-  }, []);
+    cleanup(); // Initial cleanup when sid changes
+    return cleanup; // Cleanup on unmount
+  }, [activeSessionId]);
 
   // Debug Runtime Readiness Publishing (Phase 3.63)
   React.useEffect(() => {
@@ -1628,8 +1650,6 @@ function ResultV2({
   var [saveSheetUrl, setSaveSheetUrl] = React.useState(null);
   var resultPreviewUrlRef = React.useRef(null);
   var saveSheetUrlRef = React.useRef(null);
-  var [qrShare, setQrShare] = React.useState(null);
-  var [qrBusy, setQrBusy] = React.useState(false);
   var [showMoreActions, setShowMoreActions] = React.useState(false);
   var [toasts, setToasts] = React.useState([]);
   var [showPrintIntro, setShowPrintIntro] = React.useState(false);
@@ -2043,15 +2063,10 @@ function ResultV2({
       reason: 'busy',
       label: 'Creating QR...'
     };
-    if (qrShare?.ok) return {
+    if (qrShareUrl) return {
       ready: true,
       reason: 'ready',
       label: 'QR Ready'
-    };
-    if (qrShare?.ok === false) return {
-      ready: false,
-      reason: 'failed',
-      label: 'QR Failed'
     };
     return {
       ready: true,
@@ -2064,6 +2079,7 @@ function ResultV2({
     if (!state.ready) return;
     if (qrBusy) return;
     setQrBusy(true);
+    setQrShareError(null);
     try {
       var blob = await getFinalResultBlob();
       if (!blob) throw new Error('No blob available');
@@ -2072,7 +2088,7 @@ function ResultV2({
       var cloudShareResult = await Adapter.uploadResultAsset({
         blob,
         filename: getFormattedFilename(),
-        sessionId: window.__IMMM_SESSION_ID__ || 'session_result',
+        sessionId: activeSessionId || window.__IMMM_SESSION_ID__ || 'session_result',
         assetRecordId: resultAssetRecord?.id || null,
         metadata: {
           layout,
@@ -2084,65 +2100,33 @@ function ResultV2({
         throw new Error(cloudShareResult.error || 'Upload failed');
       }
 
-      // Generate QR code with client-side QRCode library
+      // Generate QR code with client-side node-qrcode library (window.QRCode)
       var QRCode = typeof window !== 'undefined' ? window.QRCode : null;
-      var qrDataUrl = null;
+      var dataUrl = null;
       if (QRCode && cloudShareResult.remoteUrl) {
         try {
-          var qrCanvas = document.createElement('canvas');
-          await new Promise((resolve, reject) => {
-            try {
-              new QRCode({
-                text: cloudShareResult.remoteUrl,
-                width: 220,
-                height: 220,
-                colorDark: '#111',
-                colorLight: '#fff',
-                correctLevel: QRCode.CorrectLevel.H,
-                useSVG: false,
-                canvas: qrCanvas,
-                onRenderingStart: () => {},
-                onRenderingEnd: () => resolve()
-              });
-            } catch (e) {
-              reject(e);
-            }
+          // Use node-qrcode API: toDataURL(text, options)
+          dataUrl = await QRCode.toDataURL(cloudShareResult.remoteUrl, {
+            width: 440,
+            // High res for display
+            margin: 2,
+            color: {
+              dark: '#111111',
+              light: '#ffffff'
+            },
+            errorCorrectionLevel: 'H'
           });
-          qrDataUrl = qrCanvas.toDataURL('image/png');
         } catch (e) {
-          console.debug('[IMMM] QR generation fallback:', e);
+          console.debug('[IMMM] QR generation error:', e);
         }
       }
-
-      // Update result asset record with cloud URL
-      if (resultAssetRecord && window.IMMMResultAssetStore) {
-        var Store = window.IMMMResultAssetStore;
-        var current = window.__IMMM_RESULT_ASSET_STORE__;
-        if (current && typeof Store.updateResultAssetRecord === 'function') {
-          var updated = Store.updateResultAssetRecord(current, resultAssetRecord.id, {
-            status: 'cloud-ready',
-            remoteUrl: cloudShareResult.remoteUrl,
-            expiresAt: cloudShareResult.expiresAt
-          });
-          window.__IMMM_RESULT_ASSET_STORE__ = updated;
-        }
-      }
-      setQrShare({
-        ok: true,
-        url: cloudShareResult.remoteUrl,
-        qrUrl: cloudShareResult.remoteUrl,
-        qrDataUrl,
-        provider: cloudShareResult.provider,
-        expiresAt: cloudShareResult.expiresAt,
-        mode: 'cloud-share'
-      });
+      setQrDataUrl(dataUrl);
+      setQrShareUrl(cloudShareResult.remoteUrl);
+      setQrShareOpen(true);
       addToast('QR 공유 준비 완료');
     } catch (err) {
       console.error('[IMMM] handleCreateQrShare error:', err);
-      setQrShare({
-        ok: false,
-        error: err.message || 'QR share failed'
-      });
+      setQrShareError(err.message || 'QR share failed');
       addToast('QR 공유에 실패했어요');
     } finally {
       setQrBusy(false);
@@ -2422,8 +2406,8 @@ function ResultV2({
       fontWeight: 800,
       cursor: 'pointer'
     }
-  }, "Close"))), qrShare && /*#__PURE__*/React.createElement("div", {
-    onClick: () => setQrShare(null),
+  }, "Close"))), qrShareOpen && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setQrShareOpen(false),
     style: {
       position: 'fixed',
       inset: 0,
@@ -2444,12 +2428,12 @@ function ResultV2({
       textAlign: 'center',
       boxShadow: '0 24px 80px rgba(0,0,0,0.35)'
     }
-  }, qrShare.qrDataUrl ? /*#__PURE__*/React.createElement("img", {
-    src: qrShare.qrDataUrl,
+  }, qrDataUrl ? /*#__PURE__*/React.createElement("img", {
+    src: qrDataUrl,
     style: {
       width: 220,
       height: 220,
-      imageRendering: 'pixelated'
+      imageRendering: 'auto'
     }
   }) : /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2466,7 +2450,7 @@ function ResultV2({
       wordBreak: 'break-all',
       padding: 14
     }
-  }, qrShare.qrUrl || qrShare.url), /*#__PURE__*/React.createElement("div", {
+  }, qrShareUrl), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
       fontSize: 15,
@@ -2482,11 +2466,11 @@ function ResultV2({
       lineHeight: 1.45,
       fontFamily: 'Pretendard,system-ui'
     }
-  }, qrShare.mode === 'local-preview' ? 'Supabase 설정 전이라 이 기기에서만 열리는 미리보기 링크입니다.' : '7일 동안 열 수 있는 공유 링크입니다.'), /*#__PURE__*/React.createElement("button", {
+  }, "7\uC77C \uB3D9\uC548 \uC5F4 \uC218 \uC788\uB294 \uACF5\uC720 \uB9C1\uD06C\uC785\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("button", {
     onClick: async () => {
-      var text = qrShare.qrUrl || qrShare.url;
       try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(qrShareUrl);
+        addToast('Link copied!');
       } catch (_) {}
     },
     style: {
@@ -2501,7 +2485,7 @@ function ResultV2({
       cursor: 'pointer'
     }
   }, "Copy Link"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setQrShare(null),
+    onClick: () => setQrShareOpen(false),
     style: {
       marginTop: 8,
       width: '100%',

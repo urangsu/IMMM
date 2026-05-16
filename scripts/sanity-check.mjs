@@ -609,9 +609,9 @@ function checkCaptureSessionSystem() {
       }
     });
 
-    // Check cache version is v14 (Phase 3.64)
-    if (!sw.includes('immm-cache-v14')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME must be bumped to v14');
+    // Check cache version is v15 (Phase 3.64)
+    if (!sw.includes('immm-cache-v15')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME must be bumped to v15');
       hasErrors = true;
     }
   }
@@ -1291,11 +1291,11 @@ function checkRuntimeVersion() {
   const main = fs.readFileSync('main.jsx', 'utf8');
   const sw = fs.readFileSync('sw.js', 'utf8');
 
-  if (!html.includes('IMMM_APP_VERSION = \'2026-05-12-rc2.3\'')) {
+  if (!html.includes('IMMM_APP_VERSION = \'2026-05-16-rc2.4\'')) {
     console.error("❌ FAIL: index.html missing or incorrect IMMM_APP_VERSION");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_BUILD_LABEL = \'rc2.3-precompiled-entry\'')) {
+  if (!html.includes('IMMM_BUILD_LABEL = \'rc2.4-precompiled-runtime-qr-share\'')) {
     console.error("❌ FAIL: index.html missing IMMM_BUILD_LABEL");
     hasErrors = true;
   }
@@ -1303,11 +1303,11 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: index.html contains misleading IMMM_COMMIT = '91bc1ba'");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_RC_BASELINE = \'b3f7f1c\'')) {
+  if (!html.includes('IMMM_RC_BASELINE = \'1cfde96\'')) {
     console.error("❌ FAIL: index.html missing or incorrect IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!html.includes('IMMM_STABLE_BASELINE = \'8b5e42c\'')) {
+  if (!html.includes('IMMM_STABLE_BASELINE = \'2917404\'')) {
     console.error("❌ FAIL: index.html missing IMMM_STABLE_BASELINE");
     hasErrors = true;
   }
@@ -1319,8 +1319,8 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-') && !sw.includes('immm-cache-v13-') && !sw.includes('immm-cache-v14-')) {
-    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9, v10, v11, v12, v13 or v14)");
+  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-') && !sw.includes('immm-cache-v13-') && !sw.includes('immm-cache-v14-') && !sw.includes('immm-cache-v15-')) {
+    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9, v10, v11, v12, v13, v14 or v15)");
     hasErrors = true;
   }
   if (sw.includes('immm-cache-v1-') || sw.includes('immm-cache-v4-')) {
@@ -2320,8 +2320,8 @@ function checkBabelMigrationPlan() {
   // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-') && !swJs.includes('v13-') && !swJs.includes('v14-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11, v12, v13 or v14 series');
+    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-') && !swJs.includes('v13-') && !swJs.includes('v14-') && !swJs.includes('v15-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11, v12, v13, v14 or v15 series');
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {
@@ -2843,6 +2843,58 @@ checkCameraArchitecture();
 checkCameraModelAndBestCut();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
+function checkImmm355RuntimeAndQr() {
+  const index = readFile('index.html');
+  const main = readFile('main.jsx');
+  const sw = readFile('sw.js');
+  const deco = readFile('screens-v2-deco.jsx');
+  const rollback = readFile('index.babel-runtime.html');
+
+  if (index) {
+    if (index.includes('@babel/standalone')) {
+      console.error("❌ FAIL: index.html still contains @babel/standalone");
+      hasErrors = true;
+    }
+    if (index.includes('type="text/babel"')) {
+      console.error("❌ FAIL: index.html still contains type=\"text/babel\"");
+      hasErrors = true;
+    }
+    if (!index.includes('window.IMMM_RUNTIME = \'precompiled\'')) {
+      console.error("❌ FAIL: index.html missing IMMM_RUNTIME metadata");
+      hasErrors = true;
+    }
+  }
+
+  if (!rollback || !rollback.includes('@babel/standalone')) {
+    console.error("❌ FAIL: index.babel-runtime.html rollback file missing or invalid");
+    hasErrors = true;
+  }
+
+  if (sw && !sw.includes('rc2.4-precompiled-runtime')) {
+    console.error("❌ FAIL: sw.js CACHE_NAME not bumped to rc2.4");
+    hasErrors = true;
+  }
+
+  if (deco) {
+    const required = ['qrShareOpen', 'qrShareUrl', 'qrDataUrl', 'setQrShareOpen(false)', 'setQrShareUrl(null)'];
+    required.forEach(req => {
+      if (!deco.includes(req)) {
+        console.error(`❌ FAIL: screens-v2-deco.jsx missing QR/Session state or cleanup: ${req}`);
+        hasErrors = true;
+      }
+    });
+    if (deco.includes('renderFinalResultBlob()') && deco.includes('handleCreateQrShare')) {
+       // ensure it uses getFinalResultBlob instead of renderFinalResultBlob directly
+       const handleQrSection = deco.substring(deco.indexOf('handleCreateQrShare'), deco.indexOf('handleVideoDownload'));
+       if (handleQrSection.includes('renderFinalResultBlob()')) {
+         console.error("❌ FAIL: handleCreateQrShare should use getFinalResultBlob, not renderFinalResultBlob directly");
+         hasErrors = true;
+       }
+    }
+  }
+}
+
+checkImmm355RuntimeAndQr();
 checkImmm351SessionRouting();
 checkImmm352SessionGuardPlacement();
 

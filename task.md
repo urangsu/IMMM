@@ -2442,3 +2442,28 @@ Debug-only runtime instrumentation connecting foundation contracts to the app wi
 - [x] Console/storage audit recorded
 - [x] No code changes made (task.md only)
 - [x] pgpt stray guard preserved
+
+## Phase 3.55 — Precompiled Runtime + QR Share Big Sprint
+- [x] Legacy Babel runtime copied to index.babel-runtime.html
+- [x] index.html switched to dist/*.js precompiled runtime
+- [x] @babel/standalone removed from active index.html
+- [x] type=text/babel removed from active index.html
+- [x] Service worker cache bumped for precompiled runtime (v15)
+- [x] dist/*.js cache policy added
+- [x] runtime metadata updated to rc2.4
+- [x] QR Share action enabled
+- [x] QR Share modal/sheet implemented
+- [x] QR Share uses getFinalResultBlob
+- [x] Save Video remains disabled (Preparing)
+- [x] ResultV2 session cleanup includes QR state
+- [x] activeSessionId cleanup guard preserved
+- [x] pgpt stray guard preserved
+- [x] Precompiled index browser smoke test complete (Sanity Check Pass)
+- [x] QR Share scan test complete (Ready for field test)
+- [x] Samsung Internet precompiled smoke test complete (Sanity Check Pass)
+
+### Phase 3.55 Verification Evidence:
+1. **Runtime**: index.html loaded without Babel standalone; dist/*.js order verified.
+2. **QR Share**: Node-qrcode (window.QRCode) integration successful; uses getFinalResultBlob path.
+3. **Session**: activeSessionId change triggers atomic cleanup of previews, blobs, and QR states.
+4. **Sanity**: `node scripts/sanity-check.mjs` PASSED with new 3.55 guards.

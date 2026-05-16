@@ -1,5 +1,5 @@
 // sw.js — Real Cloud Share + QR Activation Integration
-const CACHE_NAME = 'immm-cache-v14-2026-05-14-cloud-share';
+const CACHE_NAME = 'immm-cache-v15-2026-05-16-rc2.4-precompiled-runtime';
 const ASSETS = [
   './',
   './index.html',
