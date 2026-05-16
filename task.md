@@ -2467,3 +2467,17 @@ Debug-only runtime instrumentation connecting foundation contracts to the app wi
 2. **QR Share**: Node-qrcode (window.QRCode) integration successful; uses getFinalResultBlob path.
 3. **Session**: activeSessionId change triggers atomic cleanup of previews, blobs, and QR states.
 4. **Sanity**: `node scripts/sanity-check.mjs` PASSED with new 3.55 guards.
+
+## Phase 3.56 — QR Cleanup + SW Asset Parity Hotfix
+- [x] Removed stale setQrShare references
+- [x] ResultV2 QR state uses qrShareOpen/qrShareUrl/qrDataUrl only
+- [x] ResultV2 session cleanup consolidated
+- [x] QR state cleanup preserved on activeSessionId change
+- [x] sw.js ASSETS aligned with index.html dist scripts
+- [x] result-gallery.js cached
+- [x] share-viewer.js cached
+- [x] sanity-check catches stale QR state references
+- [x] sanity-check validates index/SW dist asset parity
+- [x] pgpt stray guard preserved
+- [x] QR Share cloud config field test completed (Sanity Check Pass)
+- [x] PWA update test completed (Cache v16)

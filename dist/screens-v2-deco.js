@@ -1465,29 +1465,33 @@ function ResultV2({
   }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
 
   // Consolidated Cleanup: ResultV2 unmount cleanup for preview and save sheet
-  // Consolidated Cleanup: ResultV2 session and unmount cleanup
-  React.useEffect(() => {
-    // Cleanup on session change or unmount
-    var cleanup = () => {
-      revokeBlobUrl(resultPreviewUrlRef.current);
-      resultPreviewUrlRef.current = null;
-      setResultPreviewSrc(null);
-      setResultPreviewStatus('idle');
-      setResultPreviewError('');
-      revokeBlobUrl(saveSheetUrlRef.current);
-      saveSheetUrlRef.current = null;
-      setSaveSheetUrl(null);
-      exportBlobRef.current = null;
-      setShowMoreActions(false);
-      setToasts([]);
-      setQrShareOpen(false);
-      setQrShareUrl(null);
-      setQrShareError(null);
-      setQrDataUrl(null);
-      setQrBusy(false);
+  var cleanupResultRuntime = React.useCallback(() => {
+    revokeBlobUrl(resultPreviewUrlRef.current);
+    resultPreviewUrlRef.current = null;
+    setResultPreviewSrc(null);
+    setResultPreviewStatus('idle');
+    setResultPreviewError('');
+    revokeBlobUrl(saveSheetUrlRef.current);
+    saveSheetUrlRef.current = null;
+    setSaveSheetUrl(null);
+    exportBlobRef.current = {
+      key: null,
+      blob: null
     };
-    cleanup(); // Initial cleanup when sid changes
-    return cleanup; // Cleanup on unmount
+    setShowMoreActions(false);
+    setToasts([]);
+    setShowPrintIntro(false);
+    setResultAssetRecord(null);
+    setLocalSaveState(null);
+    setQrShareOpen(false);
+    setQrShareUrl(null);
+    setQrShareError(null);
+    setQrDataUrl(null);
+    setQrBusy(false);
+  }, [activeSessionId]);
+  React.useEffect(() => {
+    cleanupResultRuntime();
+    return cleanupResultRuntime;
   }, [activeSessionId]);
 
   // Debug Runtime Readiness Publishing (Phase 3.63)
@@ -1661,28 +1665,6 @@ function ResultV2({
     saveSheetUrlRef.current = null;
     setSaveSheetUrl(null);
   };
-
-  // Session cleanup: clear previous session's blob refs, preview URLs, and UI state
-  React.useEffect(() => {
-    return () => {
-      // Cleanup is called when component unmounts or activeSessionId changes
-      revokeBlobUrl(resultPreviewUrlRef.current);
-      resultPreviewUrlRef.current = null;
-      revokeBlobUrl(saveSheetUrlRef.current);
-      saveSheetUrlRef.current = null;
-      exportBlobRef.current = {
-        key: null,
-        blob: null
-      };
-      setQrShare(null);
-      setQrBusy(false);
-      setShowMoreActions(false);
-      setToasts([]);
-      setShowPrintIntro(false);
-      setResultAssetRecord(null);
-      setLocalSaveState(null);
-    };
-  }, [activeSessionId]);
   React.useEffect(() => {
     if (!showPrintIntro) return;
     var prefersReducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
