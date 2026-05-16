@@ -727,7 +727,8 @@ function SetupScreen({
   setSelected,
   setUseWebgl,
   tweaks,
-  activeSessionId
+  activeSessionId,
+  startNewCaptureSession
 }) {
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   var [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
@@ -1690,7 +1691,7 @@ function SetupScreen({
       right: /*#__PURE__*/React.createElement(BtnPrimary, {
         T: T,
         size: "sm",
-        onClick: () => go(editMode ? 'deco' : 'capture'),
+        onClick: () => editMode ? go('deco') : startNewCaptureSession(),
         disabled: editMode && uploadedCount < 4
       }, editMode ? '편집 시작' : 'Next')
     }), /*#__PURE__*/React.createElement("div", {
@@ -1760,7 +1761,7 @@ function SetupScreen({
     right: /*#__PURE__*/React.createElement(BtnPrimary, {
       T: T,
       size: "md",
-      onClick: () => go(editMode ? 'deco' : 'capture'),
+      onClick: () => editMode ? go('deco') : startNewCaptureSession(),
       disabled: editMode && uploadedCount < 4
     }, editMode ? '편집 시작' : 'Continue · 다음', " ", !editMode && I.arrowR(14, T.bg))
   }), /*#__PURE__*/React.createElement("div", {

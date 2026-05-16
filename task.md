@@ -2150,6 +2150,23 @@ QA steps:
 - [x] Manual QA items documented (Pending browser verification)
 - [x] `git status` clean and build verified
 
+## Phase 3.51 — Session Reset Routing Fix + Dummy Gate Re-Lock
+- [x] Linked `IMMMSessionTracer.reset()` to actual `resetSessionState()`
+- [x] Isolated Landing `onStart` to only perform navigation (no reset)
+- [x] Moved `startNewCaptureSession` (with reset) to the actual capture start button in Setup
+- [x] Removed redundant `shots`/`selected` reset logic from `go('capture')`
+- [x] Hardened `needsDummy` gate with `window.IMMM_ALLOW_DEEP_LINK_DUMMY` flag
+- [x] Implemented protected route guard redirecting invalid sessions to Setup
+- [x] Updated `scripts/sanity-check.mjs` with session routing & dummy gate rules
+- [x] Verified build parity and sanity check PASS
+
+### Manual QA Checklist (Remaining)
+- [ ] Verify cross-session state clearing on mobile (Samsung Internet/iOS)
+- [ ] Validate 1x4 Strip rendering consistency (Capture -> Deco -> Result)
+- [ ] Confirm album image sticker import on real Galaxy device
+- [ ] Verify save reliability for high-res PNGs on mobile
+- [ ] QA 1-5 (Session Routing, Dummy Gate, Stale Thumbnails) documented in Phase 3.51 instructions
+
 ### Manual QA Checklist (Remaining)
 - [ ] Verify cross-session state clearing on mobile (Samsung Internet/iOS)
 - [ ] Validate 1x4 Strip rendering consistency (Capture -> Deco -> Result)

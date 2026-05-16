@@ -2565,6 +2565,94 @@ function checkImmm347SessionIsolation() {
   }
 }
 
+function checkImmm351SessionRouting() {
+  const main = readFile('main.jsx');
+  const v2 = readFile('screens-v2.jsx');
+
+  if (main) {
+    // 1. Landing onStart isolation
+    const landingMatch = main.match(/case\s*'landing':[\s\S]*?onStart=\{([\s\S]*?)\}/);
+    if (landingMatch) {
+      const body = landingMatch[1];
+      if (body.includes('startNewCaptureSession') || body.includes('resetSessionState')) {
+        console.error('❌ FAIL: main.jsx Landing onStart must NOT call startNewCaptureSession or resetSessionState directly');
+        hasErrors = true;
+      }
+      if (!body.includes("go('setup')")) {
+        console.error('❌ FAIL: main.jsx Landing onStart missing go(\'setup\')');
+        hasErrors = true;
+      }
+    }
+
+    // 2. startNewCaptureSession implementation
+    if (!main.includes('const startNewCaptureSession = () => {')) {
+      console.error('❌ FAIL: main.jsx missing startNewCaptureSession definition');
+      hasErrors = true;
+    } else {
+      const startBlock = main.match(/const\s+startNewCaptureSession\s*=\s*\(\)\s*=>\s*\{([\s\S]*?)\};/);
+      if (startBlock) {
+        const body = startBlock[1];
+        if (!body.includes('resetSessionState(false') || !body.includes("go('capture')")) {
+          console.error('❌ FAIL: startNewCaptureSession must call resetSessionState(false) and go(\'capture\')');
+          hasErrors = true;
+        }
+        if (body.includes("go('setup')")) {
+          console.error('❌ FAIL: startNewCaptureSession must NOT call go(\'setup\')');
+          hasErrors = true;
+        }
+      }
+    }
+
+    // 3. go function routing purity
+    const goBlock = main.match(/const\s+go\s*=\s*\(s\)\s*=>\s*\{([\s\S]*?)\};/);
+    if (goBlock) {
+      const body = goBlock[1];
+      if (body.includes('setShots') || body.includes('setSelected') || body.includes('resetSessionState')) {
+        console.error('❌ FAIL: main.jsx go() function must NOT contain setShots/setSelected/resetSessionState logic');
+        hasErrors = true;
+      }
+    }
+
+    // 4. Dummy shot gate logic
+    if (!main.includes('IMMM_ALLOW_DEEP_LINK_DUMMY')) {
+      console.error('❌ FAIL: main.jsx missing IMMM_ALLOW_DEEP_LINK_DUMMY gate check');
+      hasErrors = true;
+    }
+    if (!main.includes('debugDummy: true')) {
+      console.error('❌ FAIL: main.jsx missing debugDummy identifier for dummy shots');
+      hasErrors = true;
+    }
+    if (!main.includes('useEffect') || !main.includes("setScreen('setup')")) {
+      const guardMatch = main.match(/React\.useEffect\(\(\)\s*=>\s*\{([\s\S]*?setScreen\('setup'\)[\s\S]*?)\},\s*\[screen, hasValidShots, allowDeepLinkDummy\]\)/);
+      if (!guardMatch) {
+        console.error('❌ FAIL: main.jsx missing protected route guard for invalid sessions');
+        hasErrors = true;
+      }
+    }
+
+    // 5. IMMMSessionTracer linkage
+    if (main.includes('IMMMSessionTracer.reset')) {
+       const resetLineMatch = main.match(/reset:\s*\(isEdit\s*=\s*false\)\s*=>\s*resetSessionState\(isEdit/);
+       if (!resetLineMatch) {
+         console.error('❌ FAIL: main.jsx IMMMSessionTracer.reset must call resetSessionState');
+         hasErrors = true;
+       }
+    }
+  }
+
+  if (v2) {
+    // 6. SetupScreen button wiring
+    if (v2.includes('onClick={() => go(\'capture\')}') || v2.includes('onClick={() => go("capture")}')) {
+      console.error('❌ FAIL: screens-v2.jsx SetupScreen next button calling go(\'capture\') directly');
+      hasErrors = true;
+    }
+    if (!v2.includes('startNewCaptureSession()')) {
+      console.error('❌ FAIL: screens-v2.jsx SetupScreen next button must call startNewCaptureSession()');
+      hasErrors = true;
+    }
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -2579,7 +2667,7 @@ checkImmm356SeoCopy();
 checkImmm357AlbumQA();
 checkImmm358Parity();
 checkImmm347SessionIsolation();
-
+checkImmm351SessionRouting();
 
 if (hasErrors) {
   console.error('\n💥 Sanity check failed! DO NOT REMOVE GUARDS. FIX THE CODE.');

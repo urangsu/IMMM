@@ -140,19 +140,13 @@ function App() {
   const [photoEditMode, setPhotoEditMode] = React.useState(false);
   const [lang, setLang] = React.useState('ko');
   
-  // --- SESSION INFRASTRUCTURE (Phase 3.48 Enforcement) ---
   const SESSION_RESET = 'SESSION_RESET';
   const EXPORT_KEY = 'immm.v2.export';
   const BLOB_CLEAR = 'BLOB_CLEAR';
-  
-  window.IMMMSessionTracer = {
-    trace: (event, data) => console.log(`[IMMMSession] ${event}:`, data),
-    reset: () => window.dispatchEvent(new CustomEvent(SESSION_RESET))
-  };
 
   const [activeSessionId, setActiveSessionId] = React.useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
-  const resetSessionState = (isEdit = false) => {
+  const resetSessionState = (isEdit = false, reason = 'manual') => {
     const newId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setActiveSessionId(newId);
     setPhotoEditMode(isEdit);
@@ -171,12 +165,24 @@ function App() {
     localStorage.removeItem('immm.v2.sel');
     localStorage.removeItem(EXPORT_KEY);
     window.dispatchEvent(new CustomEvent(BLOB_CLEAR));
-    window.IMMMSessionTracer.trace(SESSION_RESET, { newId, isEdit });
+    
+    if (window.IMMMSessionTracer) {
+      window.IMMMSessionTracer.trace(SESSION_RESET, { newId, isEdit, reason });
+    }
+  };
+
+  window.IMMMSessionTracer = {
+    trace: (event, data) => {
+      if (typeof window !== 'undefined' && window.IMMM_DEBUG_SESSION) {
+        console.info(`[IMMMSession] ${event}:`, data);
+      }
+    },
+    reset: (isEdit = false) => resetSessionState(isEdit, 'tracer-reset')
   };
 
   const startNewCaptureSession = () => {
-    resetSessionState(false);
-    go('setup');
+    resetSessionState(false, 'start-capture');
+    go('capture');
   };
 
   // Responsive mobile detection
@@ -766,14 +772,6 @@ function App() {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
     }
-    if (s === 'capture') {
-      const currentShotsNotEmpty = shots.some(s => s?.dataUrl);
-      if (currentShotsNotEmpty) {
-        const newShotCount = getCaptureShotCountForLayout(tweaks.layout);
-        setShots(Array(newShotCount).fill(null));
-        setSelected([]);
-      }
-    }
     setScreen(s);
   };
   const updateTweak = (k, v) => setTweaks(prev => ({ ...prev, [k]: v }));
@@ -783,11 +781,29 @@ function App() {
     : (tweaks.layout === 'polaroid' ? 1 : tweaks.layout === 'trip' ? 3 : 4);
   const captureShotCount = getCaptureShotCountForLayout(tweaks.layout);
 
-  // Dummy-fill shots when jumping deep without capturing
-  const needsDummy = ['select', 'deco', 'result'].includes(screen) && shots.every(s => !s);
+  // Dummy-fill shots only when explicitly allowed via debug flag
+  const allowDeepLinkDummy = typeof window !== 'undefined' && window.IMMM_ALLOW_DEEP_LINK_DUMMY === true;
+  const protectedScreen = ['select', 'deco', 'result'].includes(screen);
+  const hasValidShots = shots.some(s => s?.dataUrl && (!s.sessionId || s.sessionId === activeSessionId));
+  
+  const needsDummy = allowDeepLinkDummy && protectedScreen && !hasValidShots;
   const effShots = needsDummy
-    ? Array.from({ length: captureShotCount }, () => ({ dataUrl: null, filter: safeFilter }))
+    ? Array.from({ length: captureShotCount }, () => ({ 
+        dataUrl: null, 
+        filter: safeFilter,
+        sessionId: activeSessionId,
+        debugDummy: true
+      }))
     : shots;
+
+  // Protected route guard: redirect to setup if invalid entry without dummy flag
+  React.useEffect(() => {
+    if (protectedScreen && !hasValidShots && !allowDeepLinkDummy) {
+      console.warn('[IMMM] Protected screen access denied: missing valid session shots. Redirecting to setup.');
+      setScreen('setup');
+      localStorage.setItem('immm.v2.screen', 'setup');
+    }
+  }, [screen, hasValidShots, allowDeepLinkDummy]);
   const selectionCount = frameShotCount;
   const defaultSelected = Array.from({ length: selectionCount }, (_, i) => i);
   const effSelected = selected.length === selectionCount ? selected : defaultSelected;
@@ -816,8 +832,8 @@ function App() {
     switch (screen) {
       case 'landing':
         return <LandingV2 {...p}
-          onStart={startNewCaptureSession}
-          onEdit={() => { resetSessionState(true); go('setup'); }}
+          onStart={() => { setPhotoEditMode(false); go('setup'); }}
+          onEdit={() => { resetSessionState(true, 'start-edit'); go('setup'); }}
           onGallery={() => go('gallery')}
         />;
       case 'gallery':

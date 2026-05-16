@@ -189,17 +189,11 @@ function App() {
   var [drawStrokes, setDrawStrokes] = React.useState([]);
   var [photoEditMode, setPhotoEditMode] = React.useState(false);
   var [lang, setLang] = React.useState('ko');
-
-  // --- SESSION INFRASTRUCTURE (Phase 3.48 Enforcement) ---
   var SESSION_RESET = 'SESSION_RESET';
   var EXPORT_KEY = 'immm.v2.export';
   var BLOB_CLEAR = 'BLOB_CLEAR';
-  window.IMMMSessionTracer = {
-    trace: (event, data) => console.log(`[IMMMSession] ${event}:`, data),
-    reset: () => window.dispatchEvent(new CustomEvent(SESSION_RESET))
-  };
   var [activeSessionId, setActiveSessionId] = React.useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-  var resetSessionState = (isEdit = false) => {
+  var resetSessionState = (isEdit = false, reason = 'manual') => {
     var newId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setActiveSessionId(newId);
     setPhotoEditMode(isEdit);
@@ -216,14 +210,25 @@ function App() {
     localStorage.removeItem('immm.v2.sel');
     localStorage.removeItem(EXPORT_KEY);
     window.dispatchEvent(new CustomEvent(BLOB_CLEAR));
-    window.IMMMSessionTracer.trace(SESSION_RESET, {
-      newId,
-      isEdit
-    });
+    if (window.IMMMSessionTracer) {
+      window.IMMMSessionTracer.trace(SESSION_RESET, {
+        newId,
+        isEdit,
+        reason
+      });
+    }
+  };
+  window.IMMMSessionTracer = {
+    trace: (event, data) => {
+      if (typeof window !== 'undefined' && window.IMMM_DEBUG_SESSION) {
+        console.info(`[IMMMSession] ${event}:`, data);
+      }
+    },
+    reset: (isEdit = false) => resetSessionState(isEdit, 'tracer-reset')
   };
   var startNewCaptureSession = () => {
-    resetSessionState(false);
-    go('setup');
+    resetSessionState(false, 'start-capture');
+    go('capture');
   };
 
   // Responsive mobile detection
@@ -1012,14 +1017,6 @@ function App() {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
     }
-    if (s === 'capture') {
-      var currentShotsNotEmpty = shots.some(s => s?.dataUrl);
-      if (currentShotsNotEmpty) {
-        var newShotCount = getCaptureShotCountForLayout(tweaks.layout);
-        setShots(Array(newShotCount).fill(null));
-        setSelected([]);
-      }
-    }
     setScreen(s);
   };
   var updateTweak = (k, v) => setTweaks(prev => ({
@@ -1029,14 +1026,28 @@ function App() {
   var frameShotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(tweaks.layout) : tweaks.layout === 'polaroid' ? 1 : tweaks.layout === 'trip' ? 3 : 4;
   var captureShotCount = getCaptureShotCountForLayout(tweaks.layout);
 
-  // Dummy-fill shots when jumping deep without capturing
-  var needsDummy = ['select', 'deco', 'result'].includes(screen) && shots.every(s => !s);
+  // Dummy-fill shots only when explicitly allowed via debug flag
+  var allowDeepLinkDummy = typeof window !== 'undefined' && window.IMMM_ALLOW_DEEP_LINK_DUMMY === true;
+  var protectedScreen = ['select', 'deco', 'result'].includes(screen);
+  var hasValidShots = shots.some(s => s?.dataUrl && (!s.sessionId || s.sessionId === activeSessionId));
+  var needsDummy = allowDeepLinkDummy && protectedScreen && !hasValidShots;
   var effShots = needsDummy ? Array.from({
     length: captureShotCount
   }, () => ({
     dataUrl: null,
-    filter: safeFilter
+    filter: safeFilter,
+    sessionId: activeSessionId,
+    debugDummy: true
   })) : shots;
+
+  // Protected route guard: redirect to setup if invalid entry without dummy flag
+  React.useEffect(() => {
+    if (protectedScreen && !hasValidShots && !allowDeepLinkDummy) {
+      console.warn('[IMMM] Protected screen access denied: missing valid session shots. Redirecting to setup.');
+      setScreen('setup');
+      localStorage.setItem('immm.v2.screen', 'setup');
+    }
+  }, [screen, hasValidShots, allowDeepLinkDummy]);
   var selectionCount = frameShotCount;
   var defaultSelected = Array.from({
     length: selectionCount
@@ -1070,9 +1081,12 @@ function App() {
     switch (screen) {
       case 'landing':
         return /*#__PURE__*/React.createElement(LandingV2, _extends({}, p, {
-          onStart: startNewCaptureSession,
+          onStart: () => {
+            setPhotoEditMode(false);
+            go('setup');
+          },
           onEdit: () => {
-            resetSessionState(true);
+            resetSessionState(true, 'start-edit');
             go('setup');
           },
           onGallery: () => go('gallery')
