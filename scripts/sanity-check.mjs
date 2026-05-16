@@ -2828,13 +2828,9 @@ function checkImmm352SessionGuardPlacement() {
      }
   }
 
-  // 5. pgpt Stray Check
-  let pgptFiles = '';
-  try {
-    pgptFiles = execSync('find . -maxdepth 6 -name "pgpt*"').toString().trim();
-  } catch (e) {}
-  if (pgptFiles) {
-    console.error("❌ FAIL: Restricted pgpt files detected in workspace: " + pgptFiles);
+  // 5. Forbidden calls
+  if (main.includes('generateDebugDummyShots()')) {
+    console.error("❌ FAIL: main.jsx contains direct call to forbidden generateDebugDummyShots()");
     hasErrors = true;
   }
 }

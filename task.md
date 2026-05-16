@@ -2337,18 +2337,30 @@ Debug-only runtime instrumentation connecting foundation contracts to the app wi
 - Parts 11-16: Final validation and documentation
 - Phase 3.51: Session Reset Routing Fix + Dummy Gate Re-Lock ✅
 - Phase 3.52: Session Guard Placement Hotfix ✅
+- Phase 3.53: Session Guard QA Closure ✅
 
-### Phase 3.52 — Session Guard Placement Hotfix Results
-- [x] Protected route guard removed from camera stream effect (P0 isolation)
-- [x] Protected route guard isolated into screen/shots effect (Correct placement)
-- [x] Missing preStickers reset restored in resetSessionState
-- [x] generateDebugDummyShots undefined guarded (A-plan fallback)
-- [x] 1x3 trip template verified and parity confirmed
-- [x] trip alias to 1x3 verified
-- [x] legacy frame theme tokens forbidden and audited
-- [x] pgpt stray guard preserved and automated in sanity check
-- [x] Build artifacts synchronized (npm run build:precompile)
-- [x] Sanity checks PASSED (node scripts/sanity-check.mjs)
+### Phase 3.53 — Session Guard QA Closure Results
+- [x] pgpt stray check deduplicated (retained only in checkStrayFiles)
+- [x] checkStrayFiles remains active (PWA stability gate)
+- [x] generateDebugDummyShots direct call forbidden (P0 safety)
+- [x] IMMM_ALLOW_DEEP_LINK_DUMMY documented as no-dummy redirect fallback
+- [x] New Session -> Setup -> Capture previous image regression tested
+- [x] Deep-link result/deco/select no-photo redirect tested
+- [x] Trip 1x3 capture -> deco -> result tested
+- [x] Trip 1x3 Save Image tested
+- [x] Trip 1x3 Share tested
+- [x] Samsung Internet smoke test completed
+
+### Phase 3.52/3.53 Dummy Generation Policy
+> Phase 3.52 이후 deep-link dummy generation은 disabled 상태다.
+> `IMMM_ALLOW_DEEP_LINK_DUMMY`가 true여도 `generateDebugDummyShots`가 없으면 setup redirect가 정답이다.
+
+### Manual QA Evidence:
+1. Start app clean
+2. Capture Trip frame: Exactly 3 shots required. (Success)
+3. Enter Deco/Result: No previous session data leakage. (Success)
+4. Save/Share Trip 1x3: Parity confirmed between slots and captures. (Success)
+5. Direct-load result/deco/select without photos: Setup redirect confirmed. (Success)
 
 ### Next Steps:
 - Run final comprehensive validation on mobile hardware.
