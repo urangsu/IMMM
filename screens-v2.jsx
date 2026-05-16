@@ -330,7 +330,7 @@ function getStickerPickerPacks() {
     : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
 }
 
-function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks }) {
+function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, activeSessionId }) {
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
@@ -339,6 +339,13 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const [selStId, setSelStId] = uS(null);
   const [expandedPacks, setExpandedPacks] = uS({});
   const fileRef = uR(null);
+
+  const photoFileRefs = [React.useRef(null), React.useRef(null), React.useRef(null), React.useRef(null)];
+
+  // Clear file inputs on session change to prevent stale value blocking re-upload
+  React.useEffect(() => {
+    photoFileRefs.forEach(ref => { if (ref.current) ref.current.value = ''; });
+  }, [activeSessionId]);
 
   const addPreset = (libId) => {
     const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
@@ -350,45 +357,32 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const addUpload = (dataUrl) => {
     setPreStickers((prev) => [...prev, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
   };
-  const onFile = (e) => {
+
+  function SlotImagePreview({ src }) {
+    if (!src) return null;
+    return (
+      <img
+        src={src}
+        alt=""
+        draggable={false}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center',
+          display: 'block',
+          userSelect: 'none',
+          pointerEvents: 'none'
+        }}
+      />
+    );
+  }
+  const onFile = async (e) => {
     const f = e.target.files?.[0];
     if (e.target) e.target.value = '';
     if (!f) return;
-    if (!f.type.startsWith('image/')) {
-      console.warn('[IMMM] Setup sticker import: not an image file', f.type);
-      return;
-    }
-    const MAX_EDGE = 2048;
-    const rd = new FileReader();
-    rd.onload = () => {
-      try {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const longEdge = Math.max(img.width, img.height);
-            if (longEdge <= MAX_EDGE) { addUpload(rd.result); return; }
-            const scale = MAX_EDGE / longEdge;
-            const w = Math.round(img.width * scale);
-            const h = Math.round(img.height * scale);
-            const cvs = document.createElement('canvas');
-            cvs.width = w; cvs.height = h;
-            const ctx2d = cvs.getContext('2d');
-            ctx2d.drawImage(img, 0, 0, w, h);
-            const mime = f.type === 'image/png' ? 'image/png' : 'image/jpeg';
-            addUpload(cvs.toDataURL(mime, 0.92));
-          } catch (err) {
-            console.warn('[IMMM] Setup sticker resize failed, using original:', err);
-            addUpload(rd.result);
-          }
-        };
-        img.onerror = () => console.warn('[IMMM] Setup sticker: image load failed');
-        img.src = rd.result;
-      } catch (err) {
-        console.warn('[IMMM] Setup sticker import failed:', err);
-      }
-    };
-    rd.onerror = () => console.warn('[IMMM] Setup sticker: FileReader error');
-    rd.readAsDataURL(f);
+    const dataUrl = await window.readStickerImageFileAsDataUrl(f);
+    if (dataUrl) addUpload(dataUrl);
   };
 
   const shotsPreview = Array.from({ length: 4 }, () => ({ filter: 'original', dataUrl: null }));
@@ -439,8 +433,19 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           height="auto"
         >
           {WFrameThumb ? (
-            <WFrameThumb key={frameColor} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
-              logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} />
+            <WFrameThumb 
+              key={`${frameColor}_${activeSessionId}`} 
+              layout={layout} 
+              shots={editMode ? shots : [{ filter }, { filter }, { filter }, { filter }]} 
+              selected={editMode ? [0, 1, 2, 3] : [0, 1, 2, 3]} 
+              T={T}
+              logo={logo} 
+              dateText={dateText} 
+              accent={accent} 
+              scale={1} 
+              orientation={orientation} 
+              frameColor={frameColor} 
+            />
           ) : (
             <div style={{ position: 'relative', display: 'grid', placeItems: 'center' }}>
               <FramePickerFallback layout={layout} T={T} size="lg" />
@@ -733,7 +738,14 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
       setShots((prev) => {
         const n = [...prev];
         while (n.length <= targetIdx) n.push(null);
-        n[targetIdx] = { dataUrl, filter, renderMode: 'upload', capturedFilter: filter, ts: Date.now() };
+        n[targetIdx] = { 
+          dataUrl, 
+          filter, 
+          renderMode: 'upload', 
+          capturedFilter: filter, 
+          ts: Date.now(),
+          sessionId: activeSessionId 
+        };
         return n;
       });
     }
@@ -748,17 +760,17 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         return (
           <div key={i} onClick={() => photoFileRefs[i].current?.click()}
           style={{ aspectRatio: '4/3', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', position: 'relative',
-            background: s?.dataUrl ? 'transparent' : 'rgba(26,26,31,0.05)',
-            border: s?.dataUrl ? 'none' : `1.5px dashed rgba(26,26,31,0.15)`,
+            background: s?.dataUrl && s.sessionId === activeSessionId ? 'transparent' : 'rgba(26,26,31,0.05)',
+            border: s?.dataUrl && s.sessionId === activeSessionId ? 'none' : `1.5px dashed rgba(26,26,31,0.15)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {s?.dataUrl ?
-            <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
+              {s?.dataUrl && s.sessionId === activeSessionId ?
+            <SlotImagePreview src={s.dataUrl} /> :
             <div style={{ textAlign: 'center', color: T.inkSoft }}>
                     <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 4v14M4 11h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                     <div style={{ fontSize: 10, marginTop: 4, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1 }}>컷 {i + 1}</div>
                   </div>
             }
-              {s?.dataUrl &&
+              {s?.dataUrl && s.sessionId === activeSessionId &&
             <div style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 999,
               background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2L2 8" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" /></svg>

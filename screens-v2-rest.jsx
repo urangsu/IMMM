@@ -29,7 +29,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   lastWideToggleReason = '', lastWideTogglePath = '',
   cameraZoomOptions = [], torchSupported = false, torchEnabled = false,
   screenFlashEnabled = false, screenFlashActive = false,
-  setCameraZoom, setCameraTorch, setScreenFlashEnabled, runScreenFlash
+  setCameraZoom, setCameraTorch, setScreenFlashEnabled, runScreenFlash,
+  activeSessionId
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -382,6 +383,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           width: rect?.width ? Math.round(rect.width) : 720,
           height: rect?.height ? Math.round(rect.height) : 720,
           ts: Date.now(),
+          sessionId: activeSessionId
         };
         return copy;
       });

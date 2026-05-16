@@ -139,6 +139,26 @@ function App() {
   const [drawStrokes, setDrawStrokes] = React.useState([]);
   const [photoEditMode, setPhotoEditMode] = React.useState(false);
   const [lang, setLang] = React.useState('ko');
+  const [activeSessionId, setActiveSessionId] = React.useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+
+  const resetSessionState = (isEdit = false) => {
+    const newId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setActiveSessionId(newId);
+    setPhotoEditMode(isEdit);
+    
+    // Clear all capture/edit data
+    const shotCount = typeof getShotCountForLayout === 'function' 
+      ? getShotCountForLayout(tweaks.layout) 
+      : 4;
+    setShots(Array(shotCount).fill(null));
+    setSelected([]);
+    setStickers([]);
+    setDrawStrokes([]);
+    setPreStickers([]);
+    
+    // Clear selected indices from local storage to prevent accidental recovery of old indices
+    localStorage.removeItem('immm.v2.sel');
+  };
 
   // Responsive mobile detection
   const [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
@@ -727,12 +747,13 @@ function App() {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
     }
-    // Reset shots + selected when starting a fresh capture session.
-    // This prevents previous roll's shots leaking into SelectV2 on re-capture.
     if (s === 'capture') {
-      const newShotCount = getCaptureShotCountForLayout(tweaks.layout);
-      setShots(Array(newShotCount).fill(null));
-      setSelected([]);
+      const currentShotsNotEmpty = shots.some(s => s?.dataUrl);
+      if (currentShotsNotEmpty) {
+        const newShotCount = getCaptureShotCountForLayout(tweaks.layout);
+        setShots(Array(newShotCount).fill(null));
+        setSelected([]);
+      }
     }
     setScreen(s);
   };
@@ -767,6 +788,7 @@ function App() {
     accent,
     tweaks,
     lang, setLang,
+    activeSessionId,
   };
 
   const renderScreen = () => {
@@ -774,8 +796,8 @@ function App() {
     switch (screen) {
       case 'landing':
         return <LandingV2 {...p}
-          onStart={() => { setPhotoEditMode(false); go('setup'); }}
-          onEdit={() => { setPhotoEditMode(true); go('setup'); }}
+          onStart={() => { resetSessionState(false); go('setup'); }}
+          onEdit={() => { resetSessionState(true); go('setup'); }}
           onGallery={() => go('gallery')}
         />;
       case 'gallery':

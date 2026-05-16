@@ -2444,12 +2444,16 @@ function checkImmm357AlbumQA() {
         console.error(`❌ FAIL: ${c.name} missing input value reset in onFile`);
         hasErrors = true;
       }
-      if (!c.content.includes('MAX_EDGE = 2048')) {
-        console.error(`❌ FAIL: ${c.name} missing MAX_EDGE = 2048 resize logic`);
+      const hasExplicitResize = c.content.includes('MAX_EDGE = 2048');
+      const hasSharedHelper = c.content.includes('readStickerImageFileAsDataUrl');
+      
+      if (!hasExplicitResize && !hasSharedHelper) {
+        console.error(`❌ FAIL: ${c.name} missing MAX_EDGE = 2048 resize logic or shared helper`);
         hasErrors = true;
       }
-      if (!c.content.includes("type.startsWith('image/')")) {
-        console.error(`❌ FAIL: ${c.name} missing image type guard in onFile`);
+
+      if (!c.content.includes("type.startsWith('image/')") && !hasSharedHelper) {
+        console.error(`❌ FAIL: ${c.name} missing image type guard in onFile or shared helper`);
         hasErrors = true;
       }
     }
@@ -2526,6 +2530,41 @@ function checkImmm358Parity() {
   }
 }
 
+function checkImmm347SessionIsolation() {
+  const main = readFile('main.jsx');
+  const screens = readFile('screens-v2.jsx');
+  const rest = readFile('screens-v2-rest.jsx');
+
+  if (main) {
+    if (!main.includes('activeSessionId') || !main.includes('resetSessionState')) {
+      console.error('❌ FAIL: main.jsx missing activeSessionId or resetSessionState');
+      hasErrors = true;
+    }
+  }
+
+  if (screens) {
+    if (!screens.includes('SlotImagePreview') || !screens.includes('activeSessionId')) {
+      console.error('❌ FAIL: screens-v2.jsx missing SlotImagePreview or activeSessionId prop usage');
+      hasErrors = true;
+    }
+    if (!screens.includes('sessionId: activeSessionId')) {
+      console.error('❌ FAIL: screens-v2.jsx missing sessionId assignment for uploads');
+      hasErrors = true;
+    }
+    if (!screens.includes('overflow: \'hidden\'')) {
+      console.error('❌ FAIL: screens-v2.jsx missing overflow: hidden for slot clipping');
+      hasErrors = true;
+    }
+  }
+
+  if (rest) {
+    if (!rest.includes('sessionId: activeSessionId')) {
+      console.error('❌ FAIL: screens-v2-rest.jsx missing sessionId assignment for captures');
+      hasErrors = true;
+    }
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -2539,6 +2578,7 @@ checkAlbumStickerGate();
 checkImmm356SeoCopy();
 checkImmm357AlbumQA();
 checkImmm358Parity();
+checkImmm347SessionIsolation();
 
 
 if (hasErrors) {
