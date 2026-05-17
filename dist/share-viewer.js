@@ -1,138 +1,98 @@
-// share-viewer.jsx — Share Link Viewer Screen
+// share-viewer.jsx — Share Link Viewer Screen (Production)
 
 function ShareViewerScreen({
   go,
   T = {},
-  mobile = false,
-  I = {}
+  mobile = false
 }) {
   var [imageUrl, setImageUrl] = React.useState(null);
   var [loading, setLoading] = React.useState(true);
   var [error, setError] = React.useState(null);
   React.useEffect(() => {
-    var loadSharedImage = () => {
+    var params = new URLSearchParams(window.location.search);
+    var hash = window.location.hash;
+    var id = params.get('id') || params.get('share') || params.get('asset');
+    var url = params.get('url');
+
+    // Handle hash-based routing #/share?id=...
+    if (!id && hash.includes('id=')) {
+      id = hash.split('id=')[1].split('&')[0];
+    }
+    var load = async () => {
       try {
-        // Parse URL parameters
-        var params = new URLSearchParams(window.location.search);
-        var shareUrl = params.get('share');
-        if (!shareUrl) {
-          setError('공유 링크가 없습니다');
+        if (url) {
+          if (!url.startsWith('http')) throw Object.assign(new Error('Invalid URL'), {
+            reason: 'asset-resolve-failed'
+          });
+          setImageUrl(url);
           setLoading(false);
           return;
         }
-
-        // Validate URL: only http/https allowed
-        if (!shareUrl.match(/^https?:\/\//)) {
-          setError('유효하지 않은 공유 링크입니다');
-          setLoading(false);
-          return;
+        if (id) {
+          var Adapter = window.IMMMCloudShareAdapter;
+          if (Adapter && typeof Adapter.resolveShareUrl === 'function') {
+            var resolved = await Adapter.resolveShareUrl(id);
+            if (resolved) {
+              setImageUrl(resolved);
+              setLoading(false);
+              return;
+            }
+          }
+          var Store = window.IMMMResultAssetStore;
+          if (Store) {
+            var blob = await Store.loadResultAssetBlobFromDb(id);
+            if (blob) {
+              var _url = URL.createObjectURL(blob);
+              setImageUrl(_url);
+              setLoading(false);
+              return;
+            }
+          }
+          throw Object.assign(new Error('Cloud share resolver unavailable or image not found'), {
+            reason: 'asset-resolve-failed'
+          });
         }
-
-        // Validate URL is not a data URI, blob URL, or javascript protocol
-        if (shareUrl.match(/^(data:|blob:|javascript:)/)) {
-          setError('안전하지 않은 링크입니다');
-          setLoading(false);
-          return;
-        }
-
-        // Use the URL directly - server should handle CORS
-        setImageUrl(shareUrl);
-        setError(null);
-        setLoading(false);
+        throw Object.assign(new Error('No asset ID or URL provided'), {
+          reason: 'asset-resolve-failed'
+        });
       } catch (e) {
-        console.error('[IMMM] Share viewer load failed:', e);
-        setError('이미지를 불러올 수 없습니다');
+        setError({
+          message: e.message,
+          reason: e.reason || 'network-failed'
+        });
         setLoading(false);
       }
     };
-    loadSharedImage();
+    load();
   }, []);
   var handleDownload = () => {
     if (!imageUrl) return;
     var a = document.createElement('a');
     a.href = imageUrl;
-    a.download = `IMMM_${Date.now()}.png`;
+    a.download = `IMMM_SHARE_${Date.now()}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
-  var handleShare = async () => {
-    if (!imageUrl) return;
-    try {
-      var response = await fetch(imageUrl);
-      var blob = await response.blob();
-      var file = new File([blob], `IMMM_${Date.now()}.png`, {
-        type: 'image/png'
-      });
-      if (navigator.share && navigator.canShare && navigator.canShare({
-        files: [file]
-      })) {
-        await navigator.share({
-          files: [file],
-          title: 'IMMM · Photobooth',
-          text: '한 장에 담는 순간들. 나만의 포토부스 IMMM.'
-        });
-      } else {
-        handleDownload();
-      }
-    } catch (e) {
-      console.error('[IMMM] Share failed:', e);
-      alert('공유에 실패했습니다');
-    }
-  };
-  var defaultT = {
-    bg: '#FCFCFA',
-    ink: '#111',
-    inkSoft: '#777',
-    line: '#e8e8e8',
-    pinkDeep: '#D98893'
-  };
   var theme = {
-    ...defaultT,
-    ...T
+    bg: T.bg || '#FCFCFA',
+    ink: T.ink || '#111',
+    inkSoft: T.inkSoft || '#777',
+    line: T.line || '#E5E2DA',
+    pink: T.pinkDeep || '#D98893'
   };
-  if (loading) {
-    return /*#__PURE__*/React.createElement("div", {
-      style: {
-        height: '100dvh',
-        background: theme.bg,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        textAlign: 'center'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 14,
-        color: theme.inkSoft,
-        marginBottom: 12
-      }
-    }, "\uACF5\uC720 \uC774\uBBF8\uC9C0\uB97C \uBD88\uB7EC\uC624\uB294 \uC911..."), /*#__PURE__*/React.createElement("svg", {
-      width: "24",
-      height: "24",
-      viewBox: "0 0 24 24",
-      style: {
-        animation: 'spin 1s linear infinite',
-        margin: '0 auto'
-      }
-    }, /*#__PURE__*/React.createElement("circle", {
-      cx: "12",
-      cy: "12",
-      r: "10",
-      stroke: theme.line,
-      strokeWidth: "2",
-      fill: "none"
-    }), /*#__PURE__*/React.createElement("path", {
-      d: "M12 2a10 10 0 0110 10",
-      stroke: theme.ink,
-      strokeWidth: "2",
-      fill: "none"
-    }))));
-  }
-  if (error) {
+  if (loading) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: '100dvh',
+      background: theme.bg,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: theme.inkSoft
+    }
+  }, "Loading moment...");
+  if (error || !imageUrl) {
+    var isFieldTest = window.IMMM_FIELD_TEST === true || new URLSearchParams(window.location.search).has('fieldTest');
     return /*#__PURE__*/React.createElement("div", {
       style: {
         height: '100dvh',
@@ -141,38 +101,41 @@ function ShareViewerScreen({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 20
+        padding: 40,
+        textAlign: 'center'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        textAlign: 'center',
-        color: theme.pinkDeep
+        fontSize: 20,
+        fontWeight: 700,
+        color: theme.pink,
+        marginBottom: 12
       }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 16,
-        fontWeight: 600,
-        marginBottom: 8
-      }
-    }, "\uACF5\uC720 \uC774\uBBF8\uC9C0\uB97C \uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4"), /*#__PURE__*/React.createElement("div", {
+    }, "Image not found"), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 13,
         color: theme.inkSoft,
         marginBottom: 24
       }
-    }, error), /*#__PURE__*/React.createElement("button", {
+    }, "The share link may have expired or is invalid.", isFieldTest && error?.reason && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 8,
+        fontSize: 11,
+        fontFamily: 'monospace',
+        color: '#f00'
+      }
+    }, "[", error.reason, "] ", error.message)), /*#__PURE__*/React.createElement("button", {
       onClick: () => window.location.href = '/',
       style: {
-        padding: '10px 20px',
-        borderRadius: 8,
-        border: 'none',
+        padding: '12px 24px',
         background: theme.ink,
-        color: '#fff',
-        cursor: 'pointer',
-        fontSize: 12,
-        fontWeight: 600
+        color: theme.bg,
+        border: 'none',
+        borderRadius: 8,
+        fontWeight: 700,
+        cursor: 'pointer'
       }
-    }, "\uD648\uC73C\uB85C \uC774\uB3D9")));
+    }, "Go to IMMM"));
   }
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -185,84 +148,85 @@ function ShareViewerScreen({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       flexShrink: 0,
+      padding: '16px 20px',
       borderBottom: `1px solid ${theme.line}`,
-      padding: mobile ? '12px 16px' : '16px 32px',
-      background: theme.bg,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: mobile ? 18 : 24,
-      fontWeight: 600,
+      fontSize: 12,
+      fontWeight: 800,
+      letterSpacing: 2,
       color: theme.ink
     }
-  }, "\uACF5\uC720 \uC774\uBBF8\uC9C0"), /*#__PURE__*/React.createElement("button", {
+  }, "IMMM SHARE"), /*#__PURE__*/React.createElement("button", {
     onClick: () => window.location.href = '/',
     style: {
       background: 'transparent',
       border: 'none',
-      cursor: 'pointer',
       color: theme.inkSoft,
-      fontSize: 12,
-      fontFamily: 'Pretendard,system-ui'
+      fontSize: 11,
+      fontWeight: 600,
+      cursor: 'pointer'
     }
-  }, "\uB2EB\uAE30")), /*#__PURE__*/React.createElement("div", {
+  }, "Close")), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
+      overflow: 'auto',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      overflow: 'auto',
-      padding: mobile ? 12 : 24
+      padding: 20,
+      background: '#F1F1F3'
     }
-  }, imageUrl && /*#__PURE__*/React.createElement("img", {
+  }, /*#__PURE__*/React.createElement("img", {
     src: imageUrl,
     style: {
       maxWidth: '100%',
       maxHeight: '100%',
-      objectFit: 'contain',
-      borderRadius: 8
+      borderRadius: 4,
+      boxShadow: '0 20px 60px rgba(0,0,0,0.12)'
     },
-    alt: "Shared IMMM Photo"
+    crossOrigin: "anonymous",
+    onError: () => setError({
+      message: 'CORS or Network Error',
+      reason: 'cors-failed'
+    })
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       flexShrink: 0,
-      padding: mobile ? '12px 16px calc(var(--sab) + 12px)' : '20px 32px',
+      padding: '20px 20px calc(var(--sab) + 20px)',
       borderTop: `1px solid ${theme.line}`,
-      background: theme.bg,
       display: 'flex',
-      gap: 10,
-      justifyContent: 'center'
+      gap: 10
     }
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleDownload,
     style: {
       flex: 1,
-      padding: mobile ? '12px 16px' : '14px 20px',
-      borderRadius: 8,
-      border: 'none',
+      padding: '16px',
       background: theme.ink,
-      color: '#fff',
-      cursor: 'pointer',
-      fontSize: 13,
-      fontWeight: 600
+      color: theme.bg,
+      border: 'none',
+      borderRadius: 10,
+      fontWeight: 700,
+      cursor: 'pointer'
     }
-  }, "\uC800\uC7A5\uD558\uAE30"), /*#__PURE__*/React.createElement("button", {
-    onClick: handleShare,
+  }, "Download"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.location.href = '/',
     style: {
       flex: 1,
-      padding: mobile ? '12px 16px' : '14px 20px',
-      borderRadius: 8,
-      border: `1.5px solid ${theme.line}`,
+      padding: '16px',
+      border: `1px solid ${theme.ink}`,
       background: 'transparent',
       color: theme.ink,
-      cursor: 'pointer',
-      fontSize: 13,
-      fontWeight: 600
+      borderRadius: 10,
+      fontWeight: 700,
+      cursor: 'pointer'
     }
-  }, "\uACF5\uC720\uD558\uAE30")));
+  }, "Open in IMMM")));
 }
 Object.assign(window, {
   ShareViewerScreen

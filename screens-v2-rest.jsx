@@ -552,9 +552,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           </div>
         </div>
 
-        {/* Zoom Slider - Compact at bottom if supported */}
+        {/* Zoom Slider - Production Optimized */}
         {cameraZoomSupported && cameraZoomOptions.length > 0 && (
-          <div style={{ flexShrink: 0, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+          <div style={{ flexShrink: 0, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12 }}>
             {cameraZoomOptions.map((opt) => {
               const isZoomNear = Math.abs((cameraZoom || 1) - opt.value) < 0.08;
               const isActive = opt.value === 0.6
@@ -563,25 +563,26 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               return (
                 <button
                   key={opt.label}
-                  title={window.IMMM_DEBUG_CAMERA ? `reason: ${opt.reason || 'none'}, type: ${opt.type}` : undefined}
                   onClick={() => setCameraZoom(opt.value)}
                   disabled={cameraToggleBusy || !opt.enabled}
                   style={{
-                    background: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)',
-                    color: isActive ? '#000' : '#fff',
-                    border: isActive ? `1.5px solid ${T.pink}` : 'none',
-                    borderRadius: 999, padding: '6px 12px', fontSize: 10, fontWeight: 700,
+                    background: isActive ? T.ink : 'rgba(255,255,255,0.15)',
+                    color: isActive ? T.bg : T.ink,
+                    border: 'none',
+                    borderRadius: 999, padding: '6px 14px', fontSize: 11, fontWeight: 800,
                     cursor: opt.enabled ? 'pointer' : 'not-allowed',
                     opacity: cameraToggleBusy ? 0.6 : (opt.enabled ? 1 : 0.25),
-                    transition: 'all 0.2s', fontFamily: '"Plus Jakarta Sans", system-ui'
+                    transition: 'all 0.2s', fontFamily: '"Plus Jakarta Sans", system-ui',
+                    boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.12)' : 'none'
                   }}
                 >
-                  {cameraToggleBusy && cameraZoom === opt.value ? '...' : opt.label}
+                  {opt.label}
                 </button>
               );
             })}
           </div>
         )}
+
         {/* Shutter row - reorganized for better mobile UX */}
         <div style={{ flexShrink:0, height:82, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', marginTop: mobile ? 8 : 0 }}>
           {(() => {
@@ -608,14 +609,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             return (
               <>
                 {/* Left side: Light + Auto buttons */}
-                <div style={{ position:'absolute', left:0, display:'flex', gap:6, alignItems:'center', flexWrap: mobile ? 'wrap' : 'nowrap' }}>
-                  {/* Sanity check marker for toggleWideCamera - actual zoom rail is above */}
+                <div style={{ position:'absolute', left:0, display:'flex', gap:6, alignItems:'center' }}>
                   <div style={{ display: 'none' }} onClick={toggleWideCamera} />
                   <button
                     onClick={onLightToggle}
                     disabled={!lightSupported || cameraToggleBusy}
-                    aria-label={facingMode === 'user' ? (screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light') : (torchEnabled ? 'Turn off light' : 'Turn on light')}
-                    title={facingMode === 'user' ? 'Selfie screen light' : 'Camera light'}
+                    aria-label={facingMode === 'user' ? 'Selfie light' : 'Torch'}
                     style={{
                       ...leftBtnStyle,
                       background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
@@ -624,10 +623,10 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                     }}
                   >
                     <SoftLightGlyph />
-                    {cameraToggleBusy ? '...' : (facingMode === 'user' ? (mobile ? 'Light' : 'Selfie Light') : 'Light')}
+                    {mobile ? '' : (facingMode === 'user' ? 'Selfie' : 'Torch')}
                   </button>
 
-                  <button onClick={toggleAuto} disabled={cameraToggleBusy} style={{
+                  <button onClick={toggleAuto} disabled={cameraToggleBusy} aria-label="Auto capture" style={{
                     ...leftBtnStyle,
                     background: auto? T.ink : 'rgba(26,26,31,0.06)',
                     color: auto? T.bg : T.ink,
@@ -637,6 +636,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                     Auto
                   </button>
                 </div>
+
 
                 {/* Center: Shutter button */}
                 <button onClick={startCountdown} disabled={idx>=shotCount} style={{

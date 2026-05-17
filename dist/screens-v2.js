@@ -1191,10 +1191,16 @@ function SetupScreen({
     name: 'Pink'
   }, {
     id: '#A6C8DE',
-    name: 'Sky Blue'
+    name: 'Blue'
   }, {
     id: '#E6C8BE',
     name: 'Beige'
+  }, {
+    id: '#D9D7C9',
+    name: 'Sage'
+  }, {
+    id: '#2D3436',
+    name: 'Coal'
   }, {
     id: '#A2352B',
     name: 'Red'

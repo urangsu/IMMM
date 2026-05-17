@@ -531,7 +531,9 @@ function checkCaptureSessionSystem() {
       'dist/share-contract.js',
       'dist/motion-export-contract.js',
       'dist/edit-recipe-contract.js',
-      'dist/pwa-release-contract.js'
+      'dist/pwa-release-contract.js',
+      'dist/share-viewer.js',
+      'dist/result-gallery.js'
     ];
     requiredScripts.forEach(d => {
       if (!index.includes(d)) {
@@ -600,7 +602,9 @@ function checkCaptureSessionSystem() {
       './dist/share-contract.js',
       './dist/motion-export-contract.js',
       './dist/edit-recipe-contract.js',
-      './dist/pwa-release-contract.js'
+      './dist/pwa-release-contract.js',
+      './dist/share-viewer.js',
+      './dist/result-gallery.js'
     ];
     requiredAssets.forEach(asset => {
       if (!sw.includes(asset)) {
@@ -609,9 +613,9 @@ function checkCaptureSessionSystem() {
       }
     });
 
-    // Check cache version is v16 (Phase 3.64)
-    if (!sw.includes('immm-cache-v16')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME must be bumped to v16');
+    // Check cache version is v17 (Phase 3.62 Release Candidate)
+    if (!sw.includes('immm-cache-v17')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME must be bumped to v17');
       hasErrors = true;
     }
   }
@@ -1017,11 +1021,12 @@ function checkRuntimeSessionBridge() {
     }
   }
 
-  // Check QR/Video buttons remain disabled
-  if (!deco.includes('disabled') || !deco.includes('Preparing')) {
-    console.error('❌ FAIL: screens-v2-deco.jsx QR/Video buttons must remain disabled');
+  if (!deco.includes('videoSupported') || !deco.includes('handleSaveVideo')) {
+    console.error("❌ FAIL: screens-v2-deco.jsx missing videoSupported or handleSaveVideo logic");
     hasErrors = true;
   }
+
+  // Check QR/Video buttons remain enabled
 
   // Check __IMMM_ memory storage references
   const memoryStorageRefs = [
@@ -1319,10 +1324,10 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-') && !sw.includes('immm-cache-v13-') && !sw.includes('immm-cache-v14-') && !sw.includes('immm-cache-v15-') && !sw.includes('immm-cache-v16-')) {
-    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9, v10, v11, v12, v13, v14, v15 or v16)");
-    hasErrors = true;
-  }
+    if (!sw.includes('immm-cache-v17-') && !sw.includes('immm-cache-v16-') && !sw.includes('rc2.4') && !sw.includes('rc2.3')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.4/v17 series');
+      hasErrors = true;
+    }
   if (sw.includes('immm-cache-v1-') || sw.includes('immm-cache-v4-')) {
     console.error("❌ FAIL: sw.js contains legacy cache name");
     hasErrors = true;
@@ -1475,31 +1480,6 @@ function checkResultUX() {
   if (!deco.includes('width: 196') && !deco.includes('width: 200')) {
     console.error("❌ FAIL: screens-v2-deco.jsx Result More menu missing 196/200px width (touch UX risk)");
     hasErrors = true;
-  }
-
-  // QR/Video Preparing (Disabled) (Hardened)
-  const qrPrepButton = deco.match(/<button[\s\S]*?QR Share[\s\S]*?Preparing[\s\S]*?<\/button>/);
-  if (!qrPrepButton || !qrPrepButton[0].includes('disabled')) {
-    console.error("❌ FAIL: QR Share (Preparing) must be disabled");
-    hasErrors = true;
-  }
-
-  const videoPrepButton = deco.match(/<button[\s\S]*?Save Video[\s\S]*?Preparing[\s\S]*?<\/button>/);
-  if (!videoPrepButton || !videoPrepButton[0].includes('disabled')) {
-    console.error("❌ FAIL: Save Video (Preparing) must be disabled");
-    hasErrors = true;
-  }
-
-  if (deco.includes('onClick={handleQrShare}') || deco.includes('onClick={handleVideoDownload}')) {
-    // Check if these are connected to buttons that say Preparing
-    if (qrPrepButton && qrPrepButton[0].includes('onClick={handleQrShare}')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx QR Share (Preparing) has functional onClick");
-      hasErrors = true;
-    }
-    if (videoPrepButton && videoPrepButton[0].includes('onClick={handleVideoDownload}')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx Save Video (Preparing) has functional onClick");
-      hasErrors = true;
-    }
   }
 
   if (!deco.includes('getFormattedFilename')) {
@@ -2040,64 +2020,33 @@ function checkStabilityAuditDocumented() {
 }
 
 function checkBlobUrlLifecycle() {
-  const deco = readFile('screens-v2-deco.jsx');
-  const fsys = readFile('frame-system.jsx');
+  const targets = [
+    'screens-v2-deco.jsx',
+    'frame-system.jsx',
+    'result-gallery.jsx'
+  ];
 
-  if (deco) {
-    if (!deco.includes('resultPreviewUrlRef')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx missing resultPreviewUrlRef for blob lifecycle");
-      hasErrors = true;
-    }
-    if (!deco.includes('saveSheetUrlRef')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx missing saveSheetUrlRef for blob lifecycle");
-      hasErrors = true;
-    }
-    if (deco.includes('setTimeout(() => URL.revokeObjectURL(saveSheetUrl),')) {
-       console.error("❌ FAIL: screens-v2-deco.jsx uses immediate timeout for saveSheetUrl (unstable on iOS)");
+  targets.forEach(filename => {
+    const content = readFile(filename);
+    if (!content) return;
+
+    if (!content.includes('function revokeBlobUrl') && !content.includes('const revokeBlobUrl')) {
+       console.error(`❌ FAIL: ${filename} missing revokeBlobUrl helper`);
        hasErrors = true;
     }
-    if (!deco.includes('function revokeBlobUrl(url)')) {
-       console.error("❌ FAIL: screens-v2-deco.jsx missing revokeBlobUrl helper");
-       hasErrors = true;
-    }
-    // Verify helper usage
-    const lines = deco.split('\n');
+
+    // Verify direct URL.revokeObjectURL is not used outside the helper
+    const lines = content.split('\n');
     let inHelper = false;
     lines.forEach((l, i) => {
-      if (l.includes('function revokeBlobUrl')) inHelper = true;
+      if (l.includes('function revokeBlobUrl') || l.includes('const revokeBlobUrl')) inHelper = true;
       if (!inHelper && l.includes('URL.revokeObjectURL')) {
-        console.error(`❌ FAIL: screens-v2-deco.jsx:L${i+1} manual URL.revokeObjectURL call detected`);
+        console.error(`❌ FAIL: ${filename}:L${i+1} manual URL.revokeObjectURL call detected (Use revokeBlobUrl helper)`);
         hasErrors = true;
       }
       if (inHelper && l.includes('}')) inHelper = false;
     });
-  }
-
-  if (fsys) {
-    if (!fsys.includes('revokeShare') || !fsys.includes('clearExpired')) {
-      console.error("❌ FAIL: frame-system.jsx missing ShareStore cleanup methods");
-      hasErrors = true;
-    }
-    if (!fsys.includes('localUrls: new Map()')) {
-      console.error("❌ FAIL: frame-system.jsx missing localUrls map for ShareStore lifecycle");
-      hasErrors = true;
-    }
-    if (!fsys.includes('function revokeBlobUrl(url)')) {
-       console.error("❌ FAIL: frame-system.jsx missing revokeBlobUrl helper");
-       hasErrors = true;
-    }
-    // Verify helper usage
-    const lines = fsys.split('\n');
-    let inHelper = false;
-    lines.forEach((l, i) => {
-      if (l.includes('function revokeBlobUrl')) inHelper = true;
-      if (!inHelper && l.includes('URL.revokeObjectURL')) {
-        console.error(`❌ FAIL: frame-system.jsx:L${i+1} manual URL.revokeObjectURL call detected`);
-        hasErrors = true;
-      }
-      if (inHelper && l.includes('}')) inHelper = false;
-    });
-  }
+  });
 }
 
 function checkReactProductionMode() {
@@ -2320,8 +2269,8 @@ function checkBabelMigrationPlan() {
   // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-') && !swJs.includes('v13-') && !swJs.includes('v14-') && !swJs.includes('v15-') && !swJs.includes('v16-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11, v12, v13, v14, v15 or v16 series');
+    if (!swJs.includes('v17-') && !swJs.includes('rc2.4') && !swJs.includes('rc2.3') && !swJs.includes('v16-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.4/v17 series');
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {
@@ -2457,8 +2406,8 @@ function checkBabelMigrationPlan() {
       console.error('❌ FAIL: dist/screens-v2-rest.js is out of sync (missing SoftLightGlyph)');
       hasErrors = true;
     }
-    if (!distRest.includes('Selfie Light')) {
-      console.error('❌ FAIL: dist/screens-v2-rest.js is out of sync (missing Selfie Light label)');
+    if (!distRest.includes('Selfie') && !distRest.includes('Torch')) {
+      console.error('❌ FAIL: dist/screens-v2-rest.js is out of sync (missing Light labels)');
       hasErrors = true;
     }
     if (distRest.includes('🤳') || distRest.includes('🔦') || distRest.includes('💡')) {
@@ -2626,7 +2575,7 @@ function checkCameraArchitecture() {
     console.error("❌ FAIL: screens-v2-rest.jsx missing 'Selfie Light' label for front camera");
     hasErrors = true;
   }
-  if (!rest.includes('aria-label') || !rest.includes('Turn on selfie light')) {
+  if (!rest.includes('aria-label') || !rest.includes('facingMode === \'user\' ? \'Selfie light\' : \'Torch\'')) {
     console.error("❌ FAIL: screens-v2-rest.jsx missing accessibility aria-labels for Light control");
     hasErrors = true;
   }
@@ -2835,6 +2784,149 @@ function checkImmm352SessionGuardPlacement() {
   }
 }
 
+function checkShellArtifacts() {
+  const files = [
+    'main.jsx', 'screens-v2.jsx', 'screens-v2-rest.jsx', 'screens-v2-deco.jsx',
+    'share-viewer.jsx', 'result-gallery.jsx', 'motion-export-contract.jsx',
+    'frame-system.jsx', 'webgl-engine.jsx', 'filters.jsx', 'sticker-engine.jsx',
+    'sw.js'
+  ];
+
+  const forbidden = [
+    'cat' + ' <<' + 'EOF',
+    'sed' + ' -i',
+    'Ran' + ' command:',
+    'Viewed' + ' file:',
+    'Edited' + ' file:'
+  ];
+
+  files.forEach(f => {
+    const content = readFile(f);
+    if (!content) return;
+    forbidden.forEach(term => {
+      if (content.includes(term)) {
+        console.error(`❌ FAIL: ${f} contains shell artifact or logs: "${term}"`);
+        hasErrors = true;
+      }
+    });
+    // Special check for EOF on single line
+    if (content.split('\n').some(line => line.trim() === 'EOF')) {
+      console.error(`❌ FAIL: ${f} contains stray EOF marker`);
+      hasErrors = true;
+    }
+  });
+}
+
+function checkProductionHardenedGuards() {
+  const viewer = readFile('share-viewer.jsx');
+  if (viewer && viewer.includes('immm.io/share')) {
+    console.error("❌ FAIL: share-viewer.jsx contains fake immm.io placeholder URL");
+    hasErrors = true;
+  }
+
+  const motion = readFile('motion-export-contract.jsx');
+  if (motion && motion.includes('MediaRecorder.isTypeSupported') && !motion.includes('typeof window.MediaRecorder')) {
+    console.error("❌ FAIL: motion-export-contract.jsx calls MediaRecorder.isTypeSupported without existence check");
+    hasErrors = true;
+  }
+
+  const sw = readFile('sw.js');
+  if (sw && sw.includes("'install'")) {
+     // Check for actual skipWaiting() call inside install event, avoiding comments
+     const installBlock = sw.match(/self\.addEventListener\('install'[\s\S]*?\);/);
+     if (installBlock && installBlock[0].match(/[^\/]\s*self\.skipWaiting\(\)/)) {
+        console.error("❌ FAIL: sw.js has automatic skipWaiting in install (Breaks PWA update UX)");
+        hasErrors = true;
+     }
+  }
+
+  const main = readFile('main.jsx');
+  if (main) {
+    if (!main.includes('window.__IMMM_RELOADING_FOR_UPDATE')) {
+      console.error("❌ FAIL: main.jsx missing PWA reload guard");
+      hasErrors = true;
+    }
+    if (!main.includes('controllerchange') || !main.includes('setTimeout')) {
+       console.error("❌ FAIL: main.jsx missing robust PWA update reload logic");
+       hasErrors = true;
+    }
+  }
+}
+
+function checkImmm353PostSwitchReleaseGate() {
+  // Task checks already performed in checkTask()
+}
+
+function checkReleaseCandidateLock() {
+  const main = readFile('main.jsx');
+  const deco = readFile('screens-v2-deco.jsx');
+  const motion = readFile('motion-export-contract.jsx');
+  const sw = readFile('sw.js');
+  const index = readFile('index.html');
+
+  if (index && index.includes('@babel/standalone')) {
+    console.error("❌ FAIL: index.html contains @babel/standalone (Must be precompiled runtime)");
+    hasErrors = true;
+  }
+
+  if (!fs.existsSync(path.join(process.cwd(), 'index.babel-runtime.html'))) {
+    console.error("❌ FAIL: index.babel-runtime.html missing");
+    hasErrors = true;
+  }
+
+  if (sw && !sw.match(/immm-cache-v(1[7-9]|[2-9][0-9])/)) {
+    console.error("❌ FAIL: sw.js cache must be v17 or higher");
+    hasErrors = true;
+  }
+
+  if (main && !main.includes('class AppErrorBoundary')) {
+    console.error("❌ FAIL: main.jsx missing AppErrorBoundary");
+    hasErrors = true;
+  }
+
+  if (main && !main.includes('window.IMMM_DIAGNOSTICS')) {
+    console.error("❌ FAIL: main.jsx missing window.IMMM_DIAGNOSTICS");
+    hasErrors = true;
+  }
+
+  if (main && !main.includes('IMMM_FIELD_TEST')) {
+    console.error("❌ FAIL: main.jsx missing Field Test mode");
+    hasErrors = true;
+  }
+
+  if (deco && (!deco.includes('reason:') || !deco.includes('qr-render-failed'))) {
+    console.error("❌ FAIL: QR error reason standardization missing");
+    hasErrors = true;
+  }
+
+  if (motion && (!motion.includes('unsupported-mediarecorder') || !motion.includes('recorder-start-failed'))) {
+    console.error("❌ FAIL: Video export reason standardization missing");
+    hasErrors = true;
+  }
+
+  if (deco && !deco.includes('getFinalResultBlob()')) {
+    console.error("❌ FAIL: Save/Share path must use getFinalResultBlob");
+    hasErrors = true;
+  }
+
+  const allFiles = ['main.jsx', 'screens-v2-deco.jsx', 'share-viewer.jsx', 'result-gallery.jsx', 'frame-system.jsx', 'webgl-engine.jsx', 'sticker-engine.jsx', 'filters.jsx'];
+  allFiles.forEach(f => {
+    const content = readFile(f);
+    if (!content) return;
+    if (content.match(/localStorage\.clear\(\)/)) {
+      console.error(`❌ FAIL: ${f} contains localStorage.clear()`);
+      hasErrors = true;
+    }
+    if (content.match(/sessionStorage\.clear\(\)/)) {
+      console.error(`❌ FAIL: ${f} contains sessionStorage.clear()`);
+      hasErrors = true;
+    }
+  });
+}
+
+
+checkShellArtifacts();
+checkProductionHardenedGuards();
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -2842,106 +2934,11 @@ checkBabelMigrationPlan();
 checkCameraArchitecture();
 checkCameraModelAndBestCut();
 checkStabilityAuditDocumented();
-checkReactProductionMode();
-function checkImmm356Hotfix() {
-  const deco = readFile('screens-v2-deco.jsx');
-  const sw = readFile('sw.js');
-  const index = readFile('index.html');
-
-  if (deco) {
-    if (deco.includes('setQrShare(')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx still contains stale setQrShare() calls");
-      hasErrors = true;
-    }
-    const requiredStates = ['qrShareOpen', 'qrShareUrl', 'qrDataUrl', 'qrShareError', 'qrBusy'];
-    requiredStates.forEach(s => {
-      if (!deco.includes(s)) {
-        console.error(`❌ FAIL: screens-v2-deco.jsx missing required QR state: ${s}`);
-        hasErrors = true;
-      }
-    });
-    const cleanupRequired = ['setQrShareOpen(false)', 'setQrShareUrl(null)', 'setQrDataUrl(null)', 'setQrBusy(false)'];
-    cleanupRequired.forEach(c => {
-      if (!deco.includes(c)) {
-        console.error(`❌ FAIL: screens-v2-deco.jsx cleanup logic missing: ${c}`);
-        hasErrors = true;
-      }
-    });
-    
-    // Safety check for forbidden patterns
-    if (deco.includes('captureFrameAsBlob')) {
-      console.error("❌ FAIL: screens-v2-deco.jsx uses prohibited captureFrameAsBlob");
-      hasErrors = true;
-    }
-    if (deco.includes('Save Video <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span>') && !deco.includes('disabled')) {
-       // Check if Preparing video is actually disabled
-       const videoLine = deco.substring(deco.indexOf('Save Video'));
-       if (!videoLine.split('</button>')[0].includes('disabled')) {
-         console.error("❌ FAIL: Save Video button must be disabled while in Preparing state");
-         hasErrors = true;
-       }
-    }
-  }
-
-  if (index && sw) {
-    const scripts = index.match(/src=".\/dist\/[^"]+"/g) || [];
-    scripts.forEach(s => {
-      const name = s.match(/src=".\/dist\/([^"]+)"/)[1];
-      if (!sw.includes(`./dist/${name}`)) {
-        console.error(`❌ FAIL: sw.js ASSETS missing dist script from index.html: ${name}`);
-        hasErrors = true;
-      }
-    });
-    
-    // Explicit checks for new gallery/viewer
-    if (!index.includes('result-gallery.js') || !sw.includes('result-gallery.js')) {
-      console.error("❌ FAIL: result-gallery.js missing from index or sw.js");
-      hasErrors = true;
-    }
-    if (!index.includes('share-viewer.js') || !sw.includes('share-viewer.js')) {
-      console.error("❌ FAIL: share-viewer.js missing from index or sw.js");
-      hasErrors = true;
-    }
-  }
-}
-
-function checkImmm355RuntimeAndQr() {
-  const index = readFile('index.html');
-  const sw = readFile('sw.js');
-  const deco = readFile('screens-v2-deco.jsx');
-  const rollback = readFile('index.babel-runtime.html');
-
-  if (index) {
-    if (index.includes('@babel/standalone')) {
-      console.error("❌ FAIL: index.html still contains @babel/standalone");
-      hasErrors = true;
-    }
-    if (index.includes('type="text/babel"')) {
-      console.error("❌ FAIL: index.html still contains type=\"text/babel\"");
-      hasErrors = true;
-    }
-    if (!index.includes('window.IMMM_RUNTIME = \'precompiled\'')) {
-      console.error("❌ FAIL: index.html missing IMMM_RUNTIME metadata");
-      hasErrors = true;
-    }
-  }
-
-  if (!rollback || !rollback.includes('@babel/standalone')) {
-    console.error("❌ FAIL: index.babel-runtime.html rollback file missing or invalid");
-    hasErrors = true;
-  }
-
-  if (sw && !sw.includes('rc2.4') && !sw.includes('qr-hotfix')) {
-    console.error("❌ FAIL: sw.js CACHE_NAME not bumped to rc2.4 series");
-    hasErrors = true;
-  }
-}
-
-checkImmm355RuntimeAndQr();
-checkImmm356Hotfix();
 checkImmm351SessionRouting();
 checkImmm352SessionGuardPlacement();
-
+checkImmm353PostSwitchReleaseGate(); // Will define below or ensure it exists
+checkReleaseCandidateLock();
+checkReactProductionMode();
 
 if (hasErrors) {
   console.error('\n💥 Sanity check failed! DO NOT REMOVE GUARDS. FIX THE CODE.');

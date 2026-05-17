@@ -21,6 +21,9 @@ class AppErrorBoundary extends React.Component {
   }
   render() {
     if (this.state.error) {
+      var snap = window.IMMM_DIAGNOSTICS ? window.IMMM_DIAGNOSTICS.getSnapshot() : {};
+      var screenInfo = snap.currentScreen || 'unknown';
+      var versionInfo = window.IMMM_APP_VERSION || 'unknown';
       return /*#__PURE__*/React.createElement("div", {
         style: {
           minHeight: '100vh',
@@ -40,20 +43,79 @@ class AppErrorBoundary extends React.Component {
           color: '#666',
           lineHeight: 1.5
         }
-      }, "\uBE0C\uB77C\uC6B0\uC800 \uD638\uD658\uC131 \uB610\uB294 \uC2A4\uD06C\uB9BD\uD2B8 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("pre", {
+      }, "\uBE0C\uB77C\uC6B0\uC800 \uD638\uD658\uC131 \uB610\uB294 \uC2A4\uD06C\uB9BD\uD2B8 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.", /*#__PURE__*/React.createElement("br", null), "Screen: ", screenInfo, " | Version: ", versionInfo), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 12,
+          marginBottom: 16
+        }
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: () => window.location.reload(),
+        style: {
+          padding: '8px 16px',
+          background: '#111',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 6,
+          fontWeight: 600,
+          cursor: 'pointer'
+        }
+      }, "Reload App"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => {
+          if (window.IMMM_DIAGNOSTICS) window.IMMM_DIAGNOSTICS.copySnapshot();else alert('Diagnostics not ready');
+        },
+        style: {
+          padding: '8px 16px',
+          background: '#f4f4f4',
+          color: '#111',
+          border: '1px solid #ddd',
+          borderRadius: 6,
+          fontWeight: 600,
+          cursor: 'pointer'
+        }
+      }, "Copy Diagnostic Info")), /*#__PURE__*/React.createElement("pre", {
         style: {
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           background: '#f4f4f4',
           padding: 12,
           borderRadius: 8,
-          fontSize: 12
+          fontSize: 12,
+          maxHeight: '50vh',
+          overflow: 'auto'
         }
       }, this.state.error?.stack || this.state.error?.message || String(this.state.error)));
     }
     return this.props.children;
   }
 }
+window.AppErrorBoundary = AppErrorBoundary;
+window.IMMM_DIAGNOSTICS = {
+  states: {},
+  getSnapshot() {
+    return {
+      appVersion: window.IMMM_APP_VERSION,
+      buildLabel: window.IMMM_BUILD_LABEL,
+      runtime: window.IMMM_RUNTIME || 'babel',
+      swController: navigator.serviceWorker?.controller?.state || 'none',
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+      ...this.states
+    };
+  },
+  copySnapshot() {
+    var data = JSON.stringify(this.getSnapshot(), null, 2);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(data).then(() => alert('Diagnostic info copied to clipboard')).catch(() => {
+        console.log('Diagnostic Info:\n', data);
+        alert('Failed to copy. Logged to console.');
+      });
+    } else {
+      console.log('Diagnostic Info:\n', data);
+      alert('Clipboard API not available. Logged to console.');
+    }
+  }
+};
 
 // EMERGENCY BOOT GUARD:
 // Check if critical frame system globals are available before rendering.
@@ -241,7 +303,59 @@ function App() {
     frameColor: '#ffffff',
     useWebgl: window.innerWidth >= 640 // Default off on mobile for stability
   });
-  var [screen, setScreen] = React.useState(() => location.hash.startsWith('#/s/') ? 'share' : localStorage.getItem('immm.v2.screen') || 'landing');
+  var [screen, setScreen] = React.useState(() => {
+    var hash = location.hash;
+    if (hash.startsWith('#/s/') || hash.startsWith('#/share')) return 'share';
+    if (hash === '#/gallery') return 'gallery';
+    var params = new URLSearchParams(window.location.search);
+    if (params.has('share') || params.has('asset') || params.has('url')) return 'share';
+    return localStorage.getItem('immm.v2.screen') || 'landing';
+  });
+  var [pwaUpdateAvailable, setPwaUpdateAvailable] = React.useState(false);
+  var [swWaiting, setSwWaiting] = React.useState(null);
+
+  // PWA Update Detection
+  React.useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(registration => {
+        registration.addEventListener('updatefound', () => {
+          var newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              setSwWaiting(newWorker);
+              setPwaUpdateAvailable(true);
+            }
+          });
+        });
+      });
+
+      // Check for already waiting worker
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg?.waiting) {
+          setSwWaiting(reg.waiting);
+          setPwaUpdateAvailable(true);
+        }
+      });
+    }
+  }, []);
+  var handlePwaUpdate = () => {
+    if (window.__IMMM_RELOADING_FOR_UPDATE) return;
+    window.__IMMM_RELOADING_FOR_UPDATE = true;
+    if (swWaiting) {
+      swWaiting.postMessage('SKIP_WAITING');
+
+      // Use a timeout fallback for controllerchange
+      var timer = setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        clearTimeout(timer);
+        window.location.reload();
+      });
+    } else {
+      window.location.reload();
+    }
+  };
 
   // Session tracking for state isolation
   var [activeSessionId, setActiveSessionId] = React.useState(() => `${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -258,6 +372,23 @@ function App() {
   var [drawStrokes, setDrawStrokes] = React.useState([]);
   var [photoEditMode, setPhotoEditMode] = React.useState(false);
   var [lang, setLang] = React.useState('ko');
+  React.useEffect(() => {
+    if (window.IMMM_DIAGNOSTICS) {
+      window.IMMM_DIAGNOSTICS.states = {
+        currentScreen: screen,
+        activeSessionId: activeSessionId ? activeSessionId.slice(-6) : 'none',
+        shotsCount: shots.filter(Boolean).length,
+        selectedCount: selected.length,
+        layout: tweaks.layout,
+        facingMode: 'sync-below',
+        // Sync'd inside CaptureV2 mostly or keep here if we have state
+        cameraZoomSupported: false,
+        torchSupported: false,
+        screenLightActive: false,
+        videoSupported: false // Updated from Deco
+      };
+    }
+  }, [screen, activeSessionId, shots, selected, tweaks.layout]);
 
   // Responsive mobile detection
   var [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
@@ -380,7 +511,7 @@ function App() {
     }, ...prev].slice(0, 10));
   }, []);
 
-  // Session reset helper: clears main app state without using localStorage.clear()
+  // Session reset helper: clears main app state without wiping all local storage
   var resetSessionState = React.useCallback((reason = 'manual', shotCount = 6) => {
     console.debug(`[IMMM session] Resetting session state: ${reason}`);
 
@@ -406,6 +537,12 @@ function App() {
     window.__IMMM_SESSION_ID__ = nextSid;
     if (window.IMMMSessionTracer) {
       window.IMMMSessionTracer.reset(nextSid, reason);
+    }
+
+    // 4. Asset cleanup (blobs, previews)
+    if (window.revokeBlobUrl) {
+      revokeBlobUrl(window.__IMMM_LAST_EXPORT_URL__);
+      window.__IMMM_LAST_EXPORT_URL__ = null;
     }
     console.debug(`[IMMM session] New activeSessionId: ${nextSid}`);
   }, []);
@@ -1208,9 +1345,23 @@ function App() {
           onGallery: () => go('gallery')
         }));
       case 'gallery':
-        return /*#__PURE__*/React.createElement(GalleryV2, p);
+        return /*#__PURE__*/React.createElement(AppErrorBoundary, {
+          key: "gallery"
+        }, window.ResultGalleryScreen ? /*#__PURE__*/React.createElement(window.ResultGalleryScreen, p) : /*#__PURE__*/React.createElement("div", {
+          style: {
+            padding: 40,
+            color: '#fff'
+          }
+        }, "Gallery Loading..."));
       case 'share':
-        return /*#__PURE__*/React.createElement(SharedPhotoV2, p);
+        return /*#__PURE__*/React.createElement(AppErrorBoundary, {
+          key: "share"
+        }, window.ShareViewerScreen ? /*#__PURE__*/React.createElement(window.ShareViewerScreen, p) : /*#__PURE__*/React.createElement("div", {
+          style: {
+            padding: 40,
+            color: '#fff'
+          }
+        }, "Share Viewer Loading..."));
       case 'setup':
         return /*#__PURE__*/React.createElement(SetupScreen, _extends({}, p, {
           setLayout: v => updateTweak('layout', v),
@@ -1229,7 +1380,9 @@ function App() {
           startNewCaptureSession: startNewCaptureSession
         }));
       case 'capture':
-        return /*#__PURE__*/React.createElement(CaptureV2, _extends({}, p, {
+        return /*#__PURE__*/React.createElement(AppErrorBoundary, {
+          key: "capture"
+        }, /*#__PURE__*/React.createElement(CaptureV2, _extends({}, p, {
           shots: shots,
           setShots: setShots,
           preStickers: preStickers,
@@ -1270,7 +1423,7 @@ function App() {
           lastWideTogglePath: lastWideTogglePath,
           cameraZoomHistory: cameraZoomHistory,
           onDebugSwitchCameraDevice: onDebugSwitchCameraDevice
-        }));
+        })));
       case 'select':
         return /*#__PURE__*/React.createElement(SelectV2, _extends({}, p, {
           shots: effShots,
@@ -1290,12 +1443,14 @@ function App() {
         }));
       case 'result':
         // Guard moved to effect — screen should be 'setup' if no photos in current session
-        return /*#__PURE__*/React.createElement(ResultV2, _extends({}, p, {
+        return /*#__PURE__*/React.createElement(AppErrorBoundary, {
+          key: "result"
+        }, /*#__PURE__*/React.createElement(ResultV2, _extends({}, p, {
           shots: effShots,
           selected: effSelected,
           stickers: stickers,
           drawStrokes: drawStrokes
-        }));
+        })));
       default:
         return null;
     }
@@ -1363,6 +1518,122 @@ function App() {
     }
   })), /*#__PURE__*/React.createElement(ScreenTransition, {
     id: screen
-  }, renderScreen()), /*#__PURE__*/React.createElement(BuildPill, null));
+  }, renderScreen()), pwaUpdateAvailable && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      bottom: mobile ? 20 : 30,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: '#1A1A1F',
+      color: '#fff',
+      padding: '12px 20px',
+      borderRadius: 12,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 16,
+      zIndex: 10000,
+      boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
+      width: mobile ? 'calc(100% - 32px)' : 'auto'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 600
+    }
+  }, "\uC0C8\uB85C\uC6B4 \uBC84\uC804\uC774 \uC900\uBE44\uB418\uC5C8\uC2B5\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("button", {
+    onClick: handlePwaUpdate,
+    style: {
+      background: '#fff',
+      color: '#1A1A1F',
+      border: 'none',
+      borderRadius: 6,
+      padding: '6px 12px',
+      fontSize: 11,
+      fontWeight: 800,
+      cursor: 'pointer'
+    }
+  }, "\uC0C8\uB85C\uACE0\uCE68")), /*#__PURE__*/React.createElement(BuildPill, null), (window.IMMM_FIELD_TEST === true || new URLSearchParams(window.location.search).has('fieldTest')) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      top: 20,
+      right: 20,
+      zIndex: 10000
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var el = document.getElementById('field-test-menu');
+      if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+    },
+    style: {
+      background: '#FF3B30',
+      color: '#fff',
+      fontSize: 10,
+      padding: '4px 8px',
+      borderRadius: 12,
+      fontWeight: 800,
+      border: 'none',
+      cursor: 'pointer',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+    }
+  }, "Field Test"), /*#__PURE__*/React.createElement("div", {
+    id: "field-test-menu",
+    style: {
+      display: 'none',
+      position: 'absolute',
+      top: 28,
+      right: 0,
+      background: 'rgba(20,20,20,0.9)',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      padding: 12,
+      borderRadius: 12,
+      width: 180,
+      flexDirection: 'column',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.IMMM_DIAGNOSTICS?.copySnapshot(),
+    style: {
+      background: '#333',
+      color: '#fff',
+      border: 'none',
+      padding: '8px 12px',
+      borderRadius: 6,
+      fontSize: 11,
+      cursor: 'pointer',
+      fontWeight: 600
+    }
+  }, "Copy Diagnostics"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (window.IMMMResultAssetStore) {
+        window.IMMMResultAssetStore.clearTemporaryBlobs?.();
+        alert('Gallery/Session noncritical caches cleared');
+      } else {
+        alert('Store not initialized');
+      }
+    },
+    style: {
+      background: '#333',
+      color: '#fff',
+      border: 'none',
+      padding: '8px 12px',
+      borderRadius: 6,
+      fontSize: 11,
+      cursor: 'pointer',
+      fontWeight: 600
+    }
+  }, "Clear Caches"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.location.reload(),
+    style: {
+      background: '#333',
+      color: '#fff',
+      border: 'none',
+      padding: '8px 12px',
+      borderRadius: 6,
+      fontSize: 11,
+      cursor: 'pointer',
+      fontWeight: 600
+    }
+  }, "Reload"))));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(AppErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));

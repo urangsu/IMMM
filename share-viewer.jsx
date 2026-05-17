@@ -1,152 +1,118 @@
-// share-viewer.jsx — Share Link Viewer Screen
+// share-viewer.jsx — Share Link Viewer Screen (Production)
 
-function ShareViewerScreen({ go, T = {}, mobile = false, I = {} }) {
+function ShareViewerScreen({ go, T = {}, mobile = false }) {
   const [imageUrl, setImageUrl] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
 
   React.useEffect(() => {
-    const loadSharedImage = () => {
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash;
+    
+    let id = params.get('id') || params.get('share') || params.get('asset');
+    let url = params.get('url');
+
+    // Handle hash-based routing #/share?id=...
+    if (!id && hash.includes('id=')) {
+      id = hash.split('id=')[1].split('&')[0];
+    }
+
+    const load = async () => {
       try {
-        // Parse URL parameters
-        const params = new URLSearchParams(window.location.search);
-        const shareUrl = params.get('share');
-
-        if (!shareUrl) {
-          setError('공유 링크가 없습니다');
+        if (url) {
+          if (!url.startsWith('http')) throw Object.assign(new Error('Invalid URL'), { reason: 'asset-resolve-failed' });
+          setImageUrl(url);
           setLoading(false);
           return;
         }
 
-        // Validate URL: only http/https allowed
-        if (!shareUrl.match(/^https?:\/\//)) {
-          setError('유효하지 않은 공유 링크입니다');
-          setLoading(false);
-          return;
+        if (id) {
+          const Adapter = window.IMMMCloudShareAdapter;
+          if (Adapter && typeof Adapter.resolveShareUrl === 'function') {
+            const resolved = await Adapter.resolveShareUrl(id);
+            if (resolved) {
+              setImageUrl(resolved);
+              setLoading(false);
+              return;
+            }
+          }
+
+          const Store = window.IMMMResultAssetStore;
+          if (Store) {
+             const blob = await Store.loadResultAssetBlobFromDb(id);
+             if (blob) {
+                const url = URL.createObjectURL(blob);
+                setImageUrl(url);
+                setLoading(false);
+                return;
+             }
+          }
+
+          throw Object.assign(new Error('Cloud share resolver unavailable or image not found'), { reason: 'asset-resolve-failed' });
         }
 
-        // Validate URL is not a data URI, blob URL, or javascript protocol
-        if (shareUrl.match(/^(data:|blob:|javascript:)/)) {
-          setError('안전하지 않은 링크입니다');
-          setLoading(false);
-          return;
-        }
-
-        // Use the URL directly - server should handle CORS
-        setImageUrl(shareUrl);
-        setError(null);
-        setLoading(false);
+        throw Object.assign(new Error('No asset ID or URL provided'), { reason: 'asset-resolve-failed' });
       } catch (e) {
-        console.error('[IMMM] Share viewer load failed:', e);
-        setError('이미지를 불러올 수 없습니다');
+        setError({ message: e.message, reason: e.reason || 'network-failed' });
         setLoading(false);
       }
     };
 
-    loadSharedImage();
+    load();
   }, []);
 
   const handleDownload = () => {
     if (!imageUrl) return;
-
     const a = document.createElement('a');
     a.href = imageUrl;
-    a.download = `IMMM_${Date.now()}.png`;
+    a.download = `IMMM_SHARE_${Date.now()}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
 
-  const handleShare = async () => {
-    if (!imageUrl) return;
-
-    try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const file = new File([blob], `IMMM_${Date.now()}.png`, { type: 'image/png' });
-
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'IMMM · Photobooth',
-          text: '한 장에 담는 순간들. 나만의 포토부스 IMMM.',
-        });
-      } else {
-        handleDownload();
-      }
-    } catch (e) {
-      console.error('[IMMM] Share failed:', e);
-      alert('공유에 실패했습니다');
-    }
+  const theme = {
+    bg: T.bg || '#FCFCFA',
+    ink: T.ink || '#111',
+    inkSoft: T.inkSoft || '#777',
+    line: T.line || '#E5E2DA',
+    pink: T.pinkDeep || '#D98893'
   };
 
-  const defaultT = {
-    bg: '#FCFCFA',
-    ink: '#111',
-    inkSoft: '#777',
-    line: '#e8e8e8',
-    pinkDeep: '#D98893',
-  };
+  if (loading) return (
+    <div style={{ height:'100dvh', background:theme.bg, display:'flex', alignItems:'center', justifyContent:'center', color:theme.inkSoft }}>
+      Loading moment...
+    </div>
+  );
 
-  const theme = { ...defaultT, ...T };
-
-  if (loading) {
+  if (error || !imageUrl) {
+    const isFieldTest = window.IMMM_FIELD_TEST === true || new URLSearchParams(window.location.search).has('fieldTest');
     return (
-      <div style={{ height: '100dvh', background: theme.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 14, color: theme.inkSoft, marginBottom: 12 }}>공유 이미지를 불러오는 중...</div>
-          <svg width="24" height="24" viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }}>
-            <circle cx="12" cy="12" r="10" stroke={theme.line} strokeWidth="2" fill="none" />
-            <path d="M12 2a10 10 0 0110 10" stroke={theme.ink} strokeWidth="2" fill="none" />
-          </svg>
+      <div style={{ height:'100dvh', background:theme.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:40, textAlign:'center' }}>
+        <div style={{ fontSize:20, fontWeight:700, color:theme.pink, marginBottom:12 }}>Image not found</div>
+        <div style={{ fontSize:13, color:theme.inkSoft, marginBottom:24 }}>
+          The share link may have expired or is invalid.
+          {isFieldTest && error?.reason && <div style={{marginTop: 8, fontSize: 11, fontFamily: 'monospace', color: '#f00'}}>[{error.reason}] {error.message}</div>}
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ height: '100dvh', background: theme.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div style={{ textAlign: 'center', color: theme.pinkDeep }}>
-          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>공유 이미지를 불러올 수 없습니다</div>
-          <div style={{ fontSize: 13, color: theme.inkSoft, marginBottom: 24 }}>{error}</div>
-          <button onClick={() => window.location.href = '/'} style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: theme.ink, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-            홈으로 이동
-          </button>
-        </div>
+        <button onClick={() => window.location.href = '/'} style={{ padding:'12px 24px', background:theme.ink, color:theme.bg, border:'none', borderRadius:8, fontWeight:700, cursor:'pointer' }}>Go to IMMM</button>
       </div>
     );
   }
 
   return (
-    <div style={{ height: '100dvh', background: theme.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{ flexShrink: 0, borderBottom: `1px solid ${theme.line}`, padding: mobile ? '12px 16px' : '16px 32px', background: theme.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: mobile ? 18 : 24, fontWeight: 600, color: theme.ink }}>공유 이미지</div>
-        <button onClick={() => window.location.href = '/'} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: theme.inkSoft, fontSize: 12, fontFamily: 'Pretendard,system-ui' }}>
-          닫기
-        </button>
+    <div style={{ height:'100dvh', background:theme.bg, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      <div style={{ flexShrink:0, padding:'16px 20px', borderBottom:`1px solid ${theme.line}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ fontSize:12, fontWeight:800, letterSpacing:2, color:theme.ink }}>IMMM SHARE</div>
+        <button onClick={() => window.location.href = '/'} style={{ background:'transparent', border:'none', color:theme.inkSoft, fontSize:11, fontWeight:600, cursor:'pointer' }}>Close</button>
+      </div>
+      
+      <div style={{ flex:1, overflow:'auto', display:'flex', alignItems:'center', justifyContent:'center', padding:20, background:'#F1F1F3' }}>
+        <img src={imageUrl} style={{ maxWidth:'100%', maxHeight:'100%', borderRadius:4, boxShadow:'0 20px 60px rgba(0,0,0,0.12)' }} crossOrigin="anonymous" onError={() => setError({ message: 'CORS or Network Error', reason: 'cors-failed' })} />
       </div>
 
-      {/* Image viewer */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto', padding: mobile ? 12 : 24 }}>
-        {imageUrl && (
-          <img
-            src={imageUrl}
-            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8 }}
-            alt="Shared IMMM Photo"
-          />
-        )}
-      </div>
-
-      {/* Action buttons */}
-      <div style={{ flexShrink: 0, padding: mobile ? '12px 16px calc(var(--sab) + 12px)' : '20px 32px', borderTop: `1px solid ${theme.line}`, background: theme.bg, display: 'flex', gap: 10, justifyContent: 'center' }}>
-        <button onClick={handleDownload} style={{ flex: 1, padding: mobile ? '12px 16px' : '14px 20px', borderRadius: 8, border: 'none', background: theme.ink, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-          저장하기
-        </button>
-        <button onClick={handleShare} style={{ flex: 1, padding: mobile ? '12px 16px' : '14px 20px', borderRadius: 8, border: `1.5px solid ${theme.line}`, background: 'transparent', color: theme.ink, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-          공유하기
-        </button>
+      <div style={{ flexShrink:0, padding:'20px 20px calc(var(--sab) + 20px)', borderTop:`1px solid ${theme.line}`, display:'flex', gap:10 }}>
+        <button onClick={handleDownload} style={{ flex:1, padding:'16px', background:theme.ink, color:theme.bg, border:'none', borderRadius:10, fontWeight:700, cursor:'pointer' }}>Download</button>
+        <button onClick={() => window.location.href = '/'} style={{ flex:1, padding:'16px', border:`1px solid ${theme.ink}`, background:'transparent', color:theme.ink, borderRadius:10, fontWeight:700, cursor:'pointer' }}>Open in IMMM</button>
       </div>
     </div>
   );

@@ -903,28 +903,36 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   // Consolidated Cleanup: ResultV2 unmount cleanup for preview and save sheet
   const cleanupResultRuntime = React.useCallback(() => {
     revokeBlobUrl(resultPreviewUrlRef.current);
+    revokeBlobUrl(saveSheetUrlRef.current);
+    
     resultPreviewUrlRef.current = null;
+    saveSheetUrlRef.current = null;
+    exportBlobRef.current = { key: null, blob: null };
+    
     setResultPreviewSrc(null);
     setResultPreviewStatus('idle');
     setResultPreviewError('');
-
-    revokeBlobUrl(saveSheetUrlRef.current);
-    saveSheetUrlRef.current = null;
     setSaveSheetUrl(null);
-
-    exportBlobRef.current = { key: null, blob: null };
+    setLocalSaveState(null);
     setShowMoreActions(false);
     setToasts([]);
     setShowPrintIntro(false);
     setResultAssetRecord(null);
-    setLocalSaveState(null);
 
     setQrShareOpen(false);
     setQrShareUrl(null);
     setQrShareError(null);
     setQrDataUrl(null);
     setQrBusy(false);
+
+    setRecordingVideo(false);
+
+    // Deep cleanup for session isolation
+    if (window.IMMMResultAssetStore) {
+      window.IMMMResultAssetStore.clearTemporaryBlobs?.();
+    }
   }, [activeSessionId]);
+
 
   React.useEffect(() => {
     cleanupResultRuntime();
@@ -1410,206 +1418,114 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     setQrShareError(null);
     try {
       const blob = await getFinalResultBlob();
-      if (!blob) throw new Error('No blob available');
+      if (!blob) throw Object.assign(new Error('No blob available'), { reason: 'qr-render-failed' });
 
       const Adapter = window.IMMMCloudShareAdapter;
-      if (!Adapter) throw new Error('CloudShareAdapter not available');
+      if (!Adapter) throw Object.assign(new Error('CloudShareAdapter not available'), { reason: 'cloud-config-missing' });
 
       const cloudShareResult = await Adapter.uploadResultAsset({
         blob,
         filename: getFormattedFilename(),
         sessionId: activeSessionId || window.__IMMM_SESSION_ID__ || 'session_result',
         assetRecordId: resultAssetRecord?.id || null,
-        metadata: { layout, filter, frameColor }
+        metadata: { layout, filter, frameColor, source: 'qr-share-v1' }
       });
 
       if (!cloudShareResult.ok) {
-        throw new Error(cloudShareResult.error || 'Upload failed');
+        throw Object.assign(new Error(cloudShareResult.error || 'Upload failed'), { reason: 'upload-failed' });
       }
 
-      // Generate QR code with client-side node-qrcode library (window.QRCode)
       const QRCode = typeof window !== 'undefined' ? window.QRCode : null;
+      if (!QRCode && cloudShareResult.remoteUrl) {
+         throw Object.assign(new Error('QRCode library missing'), { reason: 'qr-library-missing' });
+      }
       let dataUrl = null;
       if (QRCode && cloudShareResult.remoteUrl) {
         try {
-          // Use node-qrcode API: toDataURL(text, options)
           dataUrl = await QRCode.toDataURL(cloudShareResult.remoteUrl, {
-            width: 440, // High res for display
-            margin: 2,
+            width: 512,
+            margin: 1,
             color: { dark: '#111111', light: '#ffffff' },
-            errorCorrectionLevel: 'H'
+            errorCorrectionLevel: 'M'
           });
         } catch (e) {
-          console.debug('[IMMM] QR generation error:', e);
+          throw Object.assign(e, { reason: 'qr-render-failed' });
         }
       }
 
       setQrDataUrl(dataUrl);
       setQrShareUrl(cloudShareResult.remoteUrl);
       setQrShareOpen(true);
-      addToast('QR 공유 준비 완료');
-    } catch (err) {
-      console.error('[IMMM] handleCreateQrShare error:', err);
-      setQrShareError(err.message || 'QR share failed');
-      addToast('QR 공유에 실패했어요');
+      addToast('QR 링크가 생성되었습니다');
+    } catch (e) {
+      console.error('QR Share failed:', e);
+      const reason = e.reason || 'network-failed';
+      setQrShareError({ message: e.message || 'QR 생성에 실패했습니다', reason });
+      
+      const isFieldTest = window.IMMM_FIELD_TEST === true || new URLSearchParams(window.location.search).has('fieldTest');
+      addToast(`QR 공유에 실패했습니다${isFieldTest ? ` [${reason}]` : ''}`);
     } finally {
       setQrBusy(false);
     }
   };
 
-  // ── video download — current frame shots, flash transitions, 24fps film feel ──
-  const [videoRecording, setVideoRecording] = React.useState(false);
-  const videoSupported = typeof MediaRecorder !== 'undefined' &&
-    (typeof HTMLCanvasElement.prototype.captureStream !== 'undefined' ||
-     typeof HTMLCanvasElement.prototype.mozCaptureStream !== 'undefined');
-
-  const handleVideoDownload = async () => {
-    if (videoRecording) return;
-    if (!videoSupported) {
-      alert('이 브라우저에서는 영상 저장이 지원되지 않아요. (Chrome 권장)');
+  const [recordingVideo, setRecordingVideo] = React.useState(false);
+  const handleSaveVideo = async () => {
+    if (recordingVideo) return;
+    const Motion = window.IMMMMotionExportContract;
+    if (!Motion || !Motion.isSupported()) {
+      addToast('이 브라우저에서는 비디오 저장을 지원하지 않습니다');
       return;
     }
-    const selectedShots = selected.map((shotIndex) => shots[shotIndex]).filter(s => s?.dataUrl);
-    if (!selectedShots.length) { alert('먼저 사진을 촬영해주세요'); return; }
-    setVideoRecording(true);
 
-    const resolveFrameTemplate = (layout) => {
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
-        return window.getFrameTemplateSafe(layout);
-      }
-      if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
-        return window.getFrameTemplate(layout);
-      }
-      console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
-      return null;
-    };
-    const template = resolveFrameTemplate(layout);
-    if (!template) {
-      console.warn('[IMMM] skip draw: frame template unavailable', layout);
-      return;
-    }
-    const baseW = template?.canvasSize?.width || 720;
-    const baseH = template?.canvasSize?.height || 960;
-    const W = 720;
-    const H = Math.round(W * (baseH / baseW));
-    const cvs = document.createElement('canvas');
-    cvs.width = W; cvs.height = H;
-    const ctx = cvs.getContext('2d');
+    setRecordingVideo(true);
+    addToast('비디오를 제작하는 중...');
+    try {
+      const canvas = document.createElement('canvas');
+      const template = window.getFrameTemplateSafe(layout);
+      canvas.width = template.canvasSize.width / 2;
+      canvas.height = template.canvasSize.height / 2;
+      const ctx = canvas.getContext('2d');
+      
+      const renderComp = window.renderComposition;
+      const data = { layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation };
+      
+      let stopped = false;
+      let start = Date.now();
+      const anim = async () => {
+        if (stopped) return;
+        const p = Math.min(1, (Date.now() - start) / 3000);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        await renderComp(ctx, data, { scale: 0.5, motionProgress: p });
+        requestAnimationFrame(anim);
+      };
+      anim();
 
-    const mimeTypes = ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-    const mimeType = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
-    const stream = cvs.captureStream(24);
-    const rec = new MediaRecorder(stream, { mimeType });
-    const chunks = [];
-    rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    rec.onstop = async () => {
-      if (!chunks.length) { setVideoRecording(false); return; }
-      const blob = new Blob(chunks, { type: mimeType });
-      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-      const fname = `IMMM_${Date.now()}.${ext}`;
-      // Mobile: try Web Share API first
-      if (navigator.share && navigator.canShare) {
-        const file = new File([blob], fname, { type: mimeType });
-        if (navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], title: 'IMMM Video' });
-            setVideoRecording(false); return;
-          } catch(e2) {
-            if (e2.name === 'AbortError') { setVideoRecording(false); return; }
-          }
-        }
-      }
+      const blob = await Motion.recordCanvas(canvas, 3000);
+      stopped = true;
+      
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => revokeBlobUrl(url), 30000);
-      setVideoRecording(false);
-    };
-
-    const drawCanvasCover = (source) => {
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, W, H);
-      const scale = Math.min(W / source.width, H / source.height);
-      const dw = source.width * scale;
-      const dh = source.height * scale;
-      ctx.drawImage(source, (W - dw) / 2, (H - dh) / 2, dw, dh);
-    };
-
-    const renderProgressFrame = async (count) => {
-      const engine = window.FrameRenderEngine || (typeof FrameRenderEngine !== 'undefined' ? FrameRenderEngine : null);
-      if (engine) {
-        const progressiveShots = shots.map((shot, index) => {
-          const order = selected.indexOf(index);
-          return order >= 0 && order < count ? shot : null;
-        });
-        return engine.renderToCanvas({
-          layout,
-          shots: progressiveShots,
-          selected,
-          stickers: count >= selected.length ? stickers : [],
-          drawStrokes: count >= selected.length ? drawStrokes : [],
-          logo,
-          dateText,
-          accent,
-          frameColor,
-          scale: 1.5,
-        });
-      }
-      const fallback = document.createElement('canvas');
-      fallback.width = W;
-      fallback.height = H;
-      const fctx = fallback.getContext('2d');
-      fctx.fillStyle = frameColor || '#fff';
-      fctx.fillRect(0, 0, W, H);
-      return fallback;
-    };
-
-    const paintWait = async ms => {
-      const end = Date.now() + ms;
-      while (Date.now() < end) {
-        ctx.fillStyle = `rgba(0,0,0,0.001)`;
-        ctx.fillRect(0,0,1,1); // Force repaint
-        const track = stream.getVideoTracks()[0];
-        if (track && track.requestFrame) track.requestFrame();
-        await new Promise(r => requestAnimationFrame(r));
-      }
-    };
-
-    rec.start(200); // 200ms timeslice — collect chunks progressively
-
-    for (let i = 0; i < selected.length; i++) {
-      // white flash in
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, W, H);
-      await paintWait(60);
-
-      const frameCanvas = await renderProgressFrame(i + 1);
-      drawCanvasCover(frameCanvas);
-
-      // shot number badge
-      ctx.fillStyle = 'rgba(0,0,0,0.72)';
-      ctx.font = '700 18px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(`${String(i+1).padStart(2,'0')} / ${String(selected.length).padStart(2,'0')}`, 18, 18);
-
-      await paintWait(1200);
-
-      // brief white flash out before next
-      if (i < selected.length - 1) {
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.fillRect(0, 0, W, H);
-        await paintWait(50);
-      }
+      a.href = url;
+      a.download = getFormattedFilename().replace('.png', '.webm');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => revokeBlobUrl(url), 10000);
+      addToast('비디오 저장 완료');
+    } catch (e) {
+      console.error('Video Export failed:', e);
+      const reason = e.reason || 'render-failed';
+      const isFieldTest = window.IMMM_FIELD_TEST === true || new URLSearchParams(window.location.search).has('fieldTest');
+      addToast(`Video export failed. Image save is still available.${isFieldTest ? ` [${reason}]` : ''}`);
+    } finally {
+      setRecordingVideo(false);
     }
-
-    const finalFrame = await renderProgressFrame(selected.length);
-    drawCanvasCover(finalFrame);
-    await paintWait(800);
-
-    rec.stop();
   };
+
+
+  const videoSupported = window.IMMMMotionExportContract?.isSupported() || false;
+
 
   React.useEffect(() => {
     const compute = () => {
@@ -1798,7 +1714,19 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
                           </button>
                         );
                       })()}
-                      <button disabled style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 500, cursor: 'not-allowed', opacity: 0.6 }}>Save Video <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
+                      <button 
+                        onClick={() => { setShowMoreActions(false); handleSaveVideo(); }}
+                        disabled={!videoSupported || recordingVideo} 
+                        style={{ 
+                          width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', 
+                          background: 'transparent', textAlign: 'left', 
+                          color: videoSupported ? T.ink : T.inkSoft, fontSize: 14, fontWeight: 600, 
+                          cursor: videoSupported ? 'pointer' : 'not-allowed', 
+                          opacity: videoSupported ? 1 : 0.6 
+                        }}
+                      >
+                        Save Video {!videoSupported && <span style={{fontSize:11, opacity:0.6}}>(Unsupported)</span>}
+                      </button>
                     </div>
                   </>
                 )}
@@ -1878,7 +1806,19 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
                     </button>
                   );
                 })()}
-                <button disabled style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.inkSoft, fontSize: 14, fontWeight: 600, cursor: 'not-allowed', opacity: 0.6 }}>Save Video <span style={{fontSize:11, opacity:0.6}}>(Preparing)</span></button>
+                <button 
+                  onClick={() => { setShowMoreActions(false); handleSaveVideo(); }}
+                  disabled={!videoSupported || recordingVideo} 
+                  style={{ 
+                    width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', 
+                    background: 'transparent', textAlign: 'left', 
+                    color: videoSupported ? T.ink : T.inkSoft, fontSize: 14, fontWeight: 700, 
+                    cursor: videoSupported ? 'pointer' : 'not-allowed', 
+                    opacity: videoSupported ? 1 : 0.6 
+                  }}
+                >
+                  Save Video {!videoSupported && <span style={{fontSize:11, opacity:0.6}}>(Unsupported)</span>}
+                </button>
               </div>
             </>
           )}

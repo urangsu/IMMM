@@ -737,7 +737,7 @@ function CaptureV2({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 12,
+      gap: 10,
       marginTop: 12
     }
   }, cameraZoomOptions.map(opt => {
@@ -745,23 +745,23 @@ function CaptureV2({
     var isActive = opt.value === 0.6 ? wideCameraActive || isZoomNear : !wideCameraActive && isZoomNear;
     return /*#__PURE__*/React.createElement("button", {
       key: opt.label,
-      title: window.IMMM_DEBUG_CAMERA ? `reason: ${opt.reason || 'none'}, type: ${opt.type}` : undefined,
       onClick: () => setCameraZoom(opt.value),
       disabled: cameraToggleBusy || !opt.enabled,
       style: {
-        background: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)',
-        color: isActive ? '#000' : '#fff',
-        border: isActive ? `1.5px solid ${T.pink}` : 'none',
+        background: isActive ? T.ink : 'rgba(255,255,255,0.15)',
+        color: isActive ? T.bg : T.ink,
+        border: 'none',
         borderRadius: 999,
-        padding: '6px 12px',
-        fontSize: 10,
-        fontWeight: 700,
+        padding: '6px 14px',
+        fontSize: 11,
+        fontWeight: 800,
         cursor: opt.enabled ? 'pointer' : 'not-allowed',
         opacity: cameraToggleBusy ? 0.6 : opt.enabled ? 1 : 0.25,
         transition: 'all 0.2s',
-        fontFamily: '"Plus Jakarta Sans", system-ui'
+        fontFamily: '"Plus Jakarta Sans", system-ui',
+        boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.12)' : 'none'
       }
-    }, cameraToggleBusy && cameraZoom === opt.value ? '...' : opt.label);
+    }, opt.label);
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       flexShrink: 0,
@@ -806,8 +806,7 @@ function CaptureV2({
         left: 0,
         display: 'flex',
         gap: 6,
-        alignItems: 'center',
-        flexWrap: mobile ? 'wrap' : 'nowrap'
+        alignItems: 'center'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -817,17 +816,17 @@ function CaptureV2({
     }), /*#__PURE__*/React.createElement("button", {
       onClick: onLightToggle,
       disabled: !lightSupported || cameraToggleBusy,
-      "aria-label": facingMode === 'user' ? screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light' : torchEnabled ? 'Turn off light' : 'Turn on light',
-      title: facingMode === 'user' ? 'Selfie screen light' : 'Camera light',
+      "aria-label": facingMode === 'user' ? 'Selfie light' : 'Torch',
       style: {
         ...leftBtnStyle,
         background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
         color: isLightOn ? T.bg : T.ink,
         opacity: cameraToggleBusy ? 0.6 : lightSupported ? 1 : 0.4
       }
-    }, /*#__PURE__*/React.createElement(SoftLightGlyph, null), cameraToggleBusy ? '...' : facingMode === 'user' ? mobile ? 'Light' : 'Selfie Light' : 'Light'), /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement(SoftLightGlyph, null), mobile ? '' : facingMode === 'user' ? 'Selfie' : 'Torch'), /*#__PURE__*/React.createElement("button", {
       onClick: toggleAuto,
       disabled: cameraToggleBusy,
+      "aria-label": "Auto capture",
       style: {
         ...leftBtnStyle,
         background: auto ? T.ink : 'rgba(26,26,31,0.06)',

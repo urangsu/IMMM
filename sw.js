@@ -1,5 +1,5 @@
-// sw.js — Real Cloud Share + QR Activation Integration
-const CACHE_NAME = 'immm-cache-v16-2026-05-16-rc2.4-qr-hotfix';
+// sw.js — Real Cloud Share + QR Activation Integration + PWA Update Handling
+const CACHE_NAME = 'immm-cache-v17-2026-05-16-rc2.4';
 const ASSETS = [
   './',
   './index.html',
@@ -30,7 +30,7 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  self.skipWaiting();
+  // We do NOT call skipWaiting automatically here to allow user-triggered reload
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
@@ -44,6 +44,12 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   const isCode =
@@ -53,7 +59,6 @@ self.addEventListener('fetch', (e) => {
     url.pathname.endsWith('.js');
 
   if (isCode) {
-    // NETWORK-FIRST strategy for code files to prevent stale ReferenceErrors
     e.respondWith(
       fetch(e.request).catch(() => caches.match(e.request))
     );

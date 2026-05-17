@@ -562,8 +562,10 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                 { id: '#ffffff', name: 'White' },
                 { id: '#111111', name: 'Black' },
                 { id: '#F1C0C5', name: 'Pink' },
-                { id: '#A6C8DE', name: 'Sky Blue' },
+                { id: '#A6C8DE', name: 'Blue' },
                 { id: '#E6C8BE', name: 'Beige' },
+                { id: '#D9D7C9', name: 'Sage' },
+                { id: '#2D3436', name: 'Coal' },
                 { id: '#A2352B', name: 'Red' },
               ].map(c => (
                 <button key={c.id} onClick={() => setFrameColor && setFrameColor(c.id)} style={{
@@ -576,6 +578,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                   {frameColor === c.id && <div style={{ position: 'absolute', top: 38, left: '50%', transform: 'translateX(-50%)', fontSize: 9, fontWeight: 700, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui', whiteSpace: 'nowrap' }}>{c.name}</div>}
                 </button>
               ))}
+
             </div>
           </div>
         </div>

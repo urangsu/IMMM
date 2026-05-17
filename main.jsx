@@ -19,11 +19,22 @@ class AppErrorBoundary extends React.Component {
 
   render() {
     if (this.state.error) {
+      const snap = window.IMMM_DIAGNOSTICS ? window.IMMM_DIAGNOSTICS.getSnapshot() : {};
+      const screenInfo = snap.currentScreen || 'unknown';
+      const versionInfo = window.IMMM_APP_VERSION || 'unknown';
+      
       return (
         <div style={{ minHeight:'100vh', padding:24, background:'#fff', color:'#111', fontFamily:'Pretendard,system-ui' }}>
           <h1 style={{ margin:'0 0 8px', fontSize:20 }}>앱을 불러오지 못했어요.</h1>
-          <p style={{ margin:'0 0 16px', color:'#666', lineHeight:1.5 }}>브라우저 호환성 또는 스크립트 오류가 발생했습니다.</p>
-          <pre style={{ whiteSpace:'pre-wrap', wordBreak:'break-word', background:'#f4f4f4', padding:12, borderRadius:8, fontSize:12 }}>
+          <p style={{ margin:'0 0 16px', color:'#666', lineHeight:1.5 }}>브라우저 호환성 또는 스크립트 오류가 발생했습니다.<br/>Screen: {screenInfo} | Version: {versionInfo}</p>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <button onClick={() => window.location.reload()} style={{ padding: '8px 16px', background: '#111', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}>Reload App</button>
+            <button onClick={() => {
+              if (window.IMMM_DIAGNOSTICS) window.IMMM_DIAGNOSTICS.copySnapshot();
+              else alert('Diagnostics not ready');
+            }} style={{ padding: '8px 16px', background: '#f4f4f4', color: '#111', border: '1px solid #ddd', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}>Copy Diagnostic Info</button>
+          </div>
+          <pre style={{ whiteSpace:'pre-wrap', wordBreak:'break-word', background:'#f4f4f4', padding:12, borderRadius:8, fontSize:12, maxHeight: '50vh', overflow: 'auto' }}>
             {this.state.error?.stack || this.state.error?.message || String(this.state.error)}
           </pre>
         </div>
@@ -32,6 +43,34 @@ class AppErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+window.AppErrorBoundary = AppErrorBoundary;
+
+window.IMMM_DIAGNOSTICS = {
+  states: {},
+  getSnapshot() {
+    return {
+      appVersion: window.IMMM_APP_VERSION,
+      buildLabel: window.IMMM_BUILD_LABEL,
+      runtime: window.IMMM_RUNTIME || 'babel',
+      swController: navigator.serviceWorker?.controller?.state || 'none',
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+      ...this.states
+    };
+  },
+  copySnapshot() {
+    const data = JSON.stringify(this.getSnapshot(), null, 2);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(data).then(() => alert('Diagnostic info copied to clipboard')).catch(() => {
+        console.log('Diagnostic Info:\n', data);
+        alert('Failed to copy. Logged to console.');
+      });
+    } else {
+      console.log('Diagnostic Info:\n', data);
+      alert('Clipboard API not available. Logged to console.');
+    }
+  }
+};
 
 // EMERGENCY BOOT GUARD:
 // Check if critical frame system globals are available before rendering.
@@ -198,8 +237,65 @@ function App() {
   });
 
   const [screen, setScreen] = React.useState(
-    () => location.hash.startsWith('#/s/') ? 'share' : (localStorage.getItem('immm.v2.screen') || 'landing')
+    () => {
+      const hash = location.hash;
+      if (hash.startsWith('#/s/') || hash.startsWith('#/share')) return 'share';
+      if (hash === '#/gallery') return 'gallery';
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('share') || params.has('asset') || params.has('url')) return 'share';
+      return localStorage.getItem('immm.v2.screen') || 'landing';
+    }
   );
+
+  const [pwaUpdateAvailable, setPwaUpdateAvailable] = React.useState(false);
+  const [swWaiting, setSwWaiting] = React.useState(null);
+
+  // PWA Update Detection
+  React.useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(registration => {
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              setSwWaiting(newWorker);
+              setPwaUpdateAvailable(true);
+            }
+          });
+        });
+      });
+      
+      // Check for already waiting worker
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg?.waiting) {
+          setSwWaiting(reg.waiting);
+          setPwaUpdateAvailable(true);
+        }
+      });
+    }
+  }, []);
+
+  const handlePwaUpdate = () => {
+    if (window.__IMMM_RELOADING_FOR_UPDATE) return;
+    window.__IMMM_RELOADING_FOR_UPDATE = true;
+
+    if (swWaiting) {
+      swWaiting.postMessage('SKIP_WAITING');
+      
+      // Use a timeout fallback for controllerchange
+      const timer = setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        clearTimeout(timer);
+        window.location.reload();
+      });
+    } else {
+      window.location.reload();
+    }
+  };
+
 
   // Session tracking for state isolation
   const [activeSessionId, setActiveSessionId] = React.useState(
@@ -216,6 +312,23 @@ function App() {
   const [drawStrokes, setDrawStrokes] = React.useState([]);
   const [photoEditMode, setPhotoEditMode] = React.useState(false);
   const [lang, setLang] = React.useState('ko');
+
+  React.useEffect(() => {
+    if (window.IMMM_DIAGNOSTICS) {
+      window.IMMM_DIAGNOSTICS.states = {
+        currentScreen: screen,
+        activeSessionId: activeSessionId ? activeSessionId.slice(-6) : 'none',
+        shotsCount: shots.filter(Boolean).length,
+        selectedCount: selected.length,
+        layout: tweaks.layout,
+        facingMode: 'sync-below', // Sync'd inside CaptureV2 mostly or keep here if we have state
+        cameraZoomSupported: false,
+        torchSupported: false,
+        screenLightActive: false,
+        videoSupported: false // Updated from Deco
+      };
+    }
+  }, [screen, activeSessionId, shots, selected, tweaks.layout]);
 
   // Responsive mobile detection
   const [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
@@ -338,7 +451,7 @@ function App() {
     ].slice(0, 10));
   }, []);
 
-  // Session reset helper: clears main app state without using localStorage.clear()
+  // Session reset helper: clears main app state without wiping all local storage
   const resetSessionState = React.useCallback((reason = 'manual', shotCount = 6) => {
     console.debug(`[IMMM session] Resetting session state: ${reason}`);
     
@@ -365,6 +478,12 @@ function App() {
 
     if (window.IMMMSessionTracer) {
       window.IMMMSessionTracer.reset(nextSid, reason);
+    }
+    
+    // 4. Asset cleanup (blobs, previews)
+    if (window.revokeBlobUrl) {
+       revokeBlobUrl(window.__IMMM_LAST_EXPORT_URL__);
+       window.__IMMM_LAST_EXPORT_URL__ = null;
     }
 
     console.debug(`[IMMM session] New activeSessionId: ${nextSid}`);
@@ -962,9 +1081,9 @@ function App() {
           onGallery={() => go('gallery')}
         />;
       case 'gallery':
-        return <GalleryV2 {...p} />;
+        return <AppErrorBoundary key="gallery">{window.ResultGalleryScreen ? <window.ResultGalleryScreen {...p} /> : <div style={{padding:40, color:'#fff'}}>Gallery Loading...</div>}</AppErrorBoundary>;
       case 'share':
-        return <SharedPhotoV2 {...p} />;
+        return <AppErrorBoundary key="share">{window.ShareViewerScreen ? <window.ShareViewerScreen {...p} /> : <div style={{padding:40, color:'#fff'}}>Share Viewer Loading...</div>}</AppErrorBoundary>;
       case 'setup':
         return <SetupScreen {...p}
           setLayout={v => updateTweak('layout', v)}
@@ -980,7 +1099,7 @@ function App() {
           startNewCaptureSession={startNewCaptureSession}
         />;
       case 'capture':
-        return <CaptureV2 {...p}
+        return <AppErrorBoundary key="capture"><CaptureV2 {...p}
           shots={shots} setShots={setShots}
           preStickers={preStickers} muted={!tweaks.sound}
           videoRef={videoRef} canvasRef={canvasRef}
@@ -1014,7 +1133,7 @@ function App() {
           lastWideTogglePath={lastWideTogglePath}
           cameraZoomHistory={cameraZoomHistory}
           onDebugSwitchCameraDevice={onDebugSwitchCameraDevice}
-        />;
+        /></AppErrorBoundary>;
       case 'select':
         return <SelectV2 {...p}
           shots={effShots} selected={selected.slice(0, selectionCount)} setSelected={setSelected}
@@ -1029,10 +1148,10 @@ function App() {
         />;
       case 'result':
         // Guard moved to effect — screen should be 'setup' if no photos in current session
-        return <ResultV2 {...p}
+        return <AppErrorBoundary key="result"><ResultV2 {...p}
           shots={effShots} selected={effSelected}
           stickers={stickers} drawStrokes={drawStrokes}
-        />;
+        /></AppErrorBoundary>;
       default:
         return null;
     }
@@ -1084,7 +1203,49 @@ function App() {
       <ScreenTransition id={screen}>
         {renderScreen()}
       </ScreenTransition>
+
+      {pwaUpdateAvailable && (
+        <div style={{
+          position: 'fixed', bottom: mobile ? 20 : 30, left: '50%', transform: 'translateX(-50%)',
+          background: '#1A1A1F', color: '#fff', padding: '12px 20px', borderRadius: 12,
+          display: 'flex', alignItems: 'center', gap: 16, zIndex: 10000,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.3)', width: mobile ? 'calc(100% - 32px)' : 'auto',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>새로운 버전이 준비되었습니다.</div>
+          <button onClick={handlePwaUpdate} style={{
+            background: '#fff', color: '#1A1A1F', border: 'none', borderRadius: 6,
+            padding: '6px 12px', fontSize: 11, fontWeight: 800, cursor: 'pointer'
+          }}>새로고침</button>
+        </div>
+      )}
+
       <BuildPill />
+
+      {(window.IMMM_FIELD_TEST === true || new URLSearchParams(window.location.search).has('fieldTest')) && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 10000 }}>
+          <button 
+            onClick={() => {
+              const el = document.getElementById('field-test-menu');
+              if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+            }} 
+            style={{ background: '#FF3B30', color: '#fff', fontSize: 10, padding: '4px 8px', borderRadius: 12, fontWeight: 800, border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+          >
+            Field Test
+          </button>
+          <div id="field-test-menu" style={{ display: 'none', position: 'absolute', top: 28, right: 0, background: 'rgba(20,20,20,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', padding: 12, borderRadius: 12, width: 180, flexDirection: 'column', gap: 8 }}>
+            <button onClick={() => window.IMMM_DIAGNOSTICS?.copySnapshot()} style={{ background: '#333', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Copy Diagnostics</button>
+            <button onClick={() => {
+              if (window.IMMMResultAssetStore) {
+                window.IMMMResultAssetStore.clearTemporaryBlobs?.();
+                alert('Gallery/Session noncritical caches cleared');
+              } else {
+                alert('Store not initialized');
+              }
+            }} style={{ background: '#333', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Clear Caches</button>
+            <button onClick={() => window.location.reload()} style={{ background: '#333', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Reload</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
