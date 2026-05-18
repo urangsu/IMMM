@@ -73,18 +73,14 @@ function CaptureV2({
   cameraZoomOptions = [],
   cameraZoomSupported = false,
   torchSupported = false,
-  torchEnabled = false,
+  torchActive = false,
   torchUnavailableReason = '',
-  screenFlashEnabled = false,
-  screenFlashActive = false,
+  screenFlashOverlay = false,
   screenLightSupported = false,
   screenLightActive = false,
-  screenLightIntensity = 1,
   setCameraZoom,
   setCameraTorch,
-  setScreenFlashEnabled,
   setScreenLightActive,
-  setScreenLightIntensity,
   runScreenFlash
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
@@ -372,7 +368,7 @@ function CaptureV2({
     setTimeout(() => setFlashing(false), 140);
     var doCapture = async () => {
       // Screen flash logic for front camera
-      if (facingMode === 'user' && screenFlashEnabled) {
+      if (facingMode === 'user' && screenLightActive) {
         await runScreenFlash();
       }
       var dataUrl = null;
@@ -705,7 +701,7 @@ function CaptureV2({
       animation: 'flash 0.14s ease-out',
       zIndex: 30
     }
-  }), screenFlashActive && /*#__PURE__*/React.createElement("div", {
+  }), screenFlashOverlay && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       inset: 0,
@@ -792,12 +788,12 @@ function CaptureV2({
 
     // Light support: screen light for front camera, torch for rear
     var lightSupported = facingMode === 'user' ? screenLightSupported : torchSupported;
-    var isLightOn = facingMode === 'user' ? screenFlashEnabled : torchEnabled;
+    var isLightOn = facingMode === 'user' ? screenLightActive : torchActive;
     var onLightToggle = () => {
       if (facingMode === 'user') {
-        setScreenFlashEnabled(!screenFlashEnabled);
+        setScreenLightActive(!screenLightActive);
       } else {
-        setCameraTorch(!torchEnabled);
+        setCameraTorch(!torchActive);
       }
     };
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
@@ -817,7 +813,7 @@ function CaptureV2({
     }), /*#__PURE__*/React.createElement("button", {
       onClick: onLightToggle,
       disabled: !lightSupported || cameraToggleBusy,
-      "aria-label": facingMode === 'user' ? screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light' : torchEnabled ? 'Turn off light' : 'Turn on light',
+      "aria-label": facingMode === 'user' ? screenLightActive ? 'Turn off selfie light' : 'Turn on selfie light' : torchActive ? 'Turn off light' : 'Turn on light',
       title: facingMode === 'user' ? 'Selfie screen light' : 'Camera light',
       style: {
         ...leftBtnStyle,

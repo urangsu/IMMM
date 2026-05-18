@@ -322,16 +322,13 @@ function App() {
 
   // Torch capability detection
   const [torchSupported, setTorchSupported] = React.useState(false);
-  const [torchEnabled, setTorchEnabled] = React.useState(false);
+  const [torchActive, setTorchActive] = React.useState(false);
   const [torchUnavailableReason, setTorchUnavailableReason] = React.useState(null);
 
-  // Screen light fallback for front camera
+  // Screen light for front camera (selfie flash)
   const [screenLightSupported, setScreenLightSupported] = React.useState(true);
-  const [screenLightActive, setScreenLightActive] = React.useState(false);
-  const [screenLightIntensity, setScreenLightIntensity] = React.useState(0.5);
-
-  const [screenFlashEnabled, setScreenFlashEnabled] = React.useState(false);
-  const [screenFlashActive, setScreenFlashActive] = React.useState(false);
+  const [screenLightActive, setScreenLightActive] = React.useState(false);   // user toggle: selfie flash mode on/off
+  const [screenFlashOverlay, setScreenFlashOverlay] = React.useState(false); // white overlay currently rendering
   const [cameraZoomHistory, setCameraZoomHistory] = React.useState([]);
 
   const pushCameraZoomHistory = React.useCallback((entry) => {
@@ -561,11 +558,11 @@ function App() {
           if (capabilities.torch) {
             setTorchSupported(true);
             setTorchUnavailableReason(null);
-            setTorchEnabled(settings.torch || false);
+            setTorchActive(settings.torch || false);
           } else {
             setTorchSupported(false);
             setTorchUnavailableReason(facingMode === 'user' ? 'front-camera-no-torch' : 'hardware-no-torch');
-            setTorchEnabled(false);
+            setTorchActive(false);
           }
 
           // enumerateDevices after permission granted to get labels for wide candidates
@@ -705,7 +702,7 @@ function App() {
     if (!track || !torchSupported) return false;
     try {
       await track.applyConstraints({ advanced: [{ torch: enabled }] });
-      setTorchEnabled(enabled);
+      setTorchActive(enabled);
       return true;
     } catch (e) {
       console.warn('[IMMM camera] torch failed:', e);
@@ -714,11 +711,11 @@ function App() {
   }, [torchSupported]);
 
   const runScreenFlash = React.useCallback(async () => {
-    if (!screenFlashEnabled || facingMode !== 'user') return;
-    setScreenFlashActive(true);
+    if (!screenLightActive || facingMode !== 'user') return;
+    setScreenFlashOverlay(true);
     await new Promise(r => setTimeout(r, 450));
-    setScreenFlashActive(false);
-  }, [screenFlashEnabled, facingMode]);
+    setScreenFlashOverlay(false);
+  }, [screenLightActive, facingMode]);
 
   const setCameraZoom = React.useCallback(async (val) => {
     if (cameraToggleBusy) return false;
@@ -960,8 +957,6 @@ function App() {
     screenLightSupported,
     screenLightActive,
     setScreenLightActive,
-    screenLightIntensity,
-    setScreenLightIntensity,
   };
 
   const renderScreen = () => {
@@ -1006,12 +1001,10 @@ function App() {
           cameraZoomOptions={cameraZoomOptions}
           cameraToggleBusy={cameraToggleBusy}
           torchSupported={torchSupported}
-          torchEnabled={torchEnabled}
-          screenFlashEnabled={screenFlashEnabled}
-          screenFlashActive={screenFlashActive}
+          torchActive={torchActive}
+          screenFlashOverlay={screenFlashOverlay}
           setCameraZoom={setCameraZoom}
           setCameraTorch={setCameraTorch}
-          setScreenFlashEnabled={setScreenFlashEnabled}
           runScreenFlash={runScreenFlash}
           applyCameraZoom={applyCameraZoom}
           switchCameraDevice={switchCameraDevice}

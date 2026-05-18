@@ -1393,12 +1393,16 @@ function ResultV2({
   }
   var buildFinalResultAsset = async () => {
     if (resultPreviewStatus === 'building') return;
+    var capturedSessionId = sessionIdRef.current;
     setResultPreviewStatus('building');
     setResultPreviewError('');
     try {
       // 1. Generate high-quality blob using direct offscreen render
       var blob = await renderFinalResultBlob();
       if (!blob) throw new Error('결과물을 생성하지 못했습니다');
+
+      // Guard: drop result if session changed during async render (stale session)
+      if (sessionIdRef.current !== capturedSessionId) return;
 
       // 2. Create local URL for preview <img>
       var url = URL.createObjectURL(blob);
@@ -1635,6 +1639,12 @@ function ResultV2({
   var [showPrintIntro, setShowPrintIntro] = React.useState(false);
   var autoSavedRef = React.useRef(false);
   var [resultAssetRecord, setResultAssetRecord] = React.useState(null);
+
+  // Async orphan guard: tracks active session so stale async tasks can self-abort
+  var sessionIdRef = React.useRef(activeSessionId);
+  React.useEffect(() => {
+    sessionIdRef.current = activeSessionId;
+  }, [activeSessionId]);
   var revokeSaveSheetUrl = () => {
     revokeBlobUrl(saveSheetUrlRef.current);
     saveSheetUrlRef.current = null;

@@ -27,9 +27,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   cameraZoomHistory = [],
   cameraToggleBusy = false, onDebugSwitchCameraDevice = null,
   lastWideToggleReason = '', lastWideTogglePath = '',
-  cameraZoomOptions = [], cameraZoomSupported = false, torchSupported = false, torchEnabled = false, torchUnavailableReason = '',
-  screenFlashEnabled = false, screenFlashActive = false, screenLightSupported = false, screenLightActive = false, screenLightIntensity = 1,
-  setCameraZoom, setCameraTorch, setScreenFlashEnabled, setScreenLightActive, setScreenLightIntensity, runScreenFlash
+  cameraZoomOptions = [], cameraZoomSupported = false, torchSupported = false, torchActive = false, torchUnavailableReason = '',
+  screenFlashOverlay = false, screenLightSupported = false, screenLightActive = false,
+  setCameraZoom, setCameraTorch, setScreenLightActive, runScreenFlash
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -315,7 +315,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
     const doCapture = async () => {
       // Screen flash logic for front camera
-      if (facingMode === 'user' && screenFlashEnabled) {
+      if (facingMode === 'user' && screenLightActive) {
         await runScreenFlash();
       }
       let dataUrl = null;
@@ -541,7 +541,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           {flashing && <div style={{ position:'absolute', inset:0, background:'#fff', animation:'flash 0.14s ease-out', zIndex:30 }}/>}
           
           {/* Screen Flash Overlay (Selfie Light) */}
-          {screenFlashActive && (
+          {screenFlashOverlay && (
             <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: 1, zIndex: 40 }} />
           )}
 
@@ -596,12 +596,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
 
             // Light support: screen light for front camera, torch for rear
             const lightSupported = facingMode === 'user' ? screenLightSupported : torchSupported;
-            const isLightOn = facingMode === 'user' ? screenFlashEnabled : torchEnabled;
+            const isLightOn = facingMode === 'user' ? screenLightActive : torchActive;
             const onLightToggle = () => {
               if (facingMode === 'user') {
-                setScreenFlashEnabled(!screenFlashEnabled);
+                setScreenLightActive(!screenLightActive);
               } else {
-                setCameraTorch(!torchEnabled);
+                setCameraTorch(!torchActive);
               }
             };
 
@@ -614,7 +614,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   <button
                     onClick={onLightToggle}
                     disabled={!lightSupported || cameraToggleBusy}
-                    aria-label={facingMode === 'user' ? (screenFlashEnabled ? 'Turn off selfie light' : 'Turn on selfie light') : (torchEnabled ? 'Turn off light' : 'Turn on light')}
+                    aria-label={facingMode === 'user' ? (screenLightActive ? 'Turn off selfie light' : 'Turn on selfie light') : (torchActive ? 'Turn off light' : 'Turn on light')}
                     title={facingMode === 'user' ? 'Selfie screen light' : 'Camera light'}
                     style={{
                       ...leftBtnStyle,

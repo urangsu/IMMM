@@ -830,12 +830,16 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   const buildFinalResultAsset = async () => {
     if (resultPreviewStatus === 'building') return;
+    const capturedSessionId = sessionIdRef.current;
     setResultPreviewStatus('building');
     setResultPreviewError('');
     try {
       // 1. Generate high-quality blob using direct offscreen render
       const blob = await renderFinalResultBlob();
       if (!blob) throw new Error('결과물을 생성하지 못했습니다');
+
+      // Guard: drop result if session changed during async render (stale session)
+      if (sessionIdRef.current !== capturedSessionId) return;
 
       // 2. Create local URL for preview <img>
       const url = URL.createObjectURL(blob);
@@ -1023,6 +1027,10 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [showPrintIntro, setShowPrintIntro] = React.useState(false);
   const autoSavedRef = React.useRef(false);
   const [resultAssetRecord, setResultAssetRecord] = React.useState(null);
+
+  // Async orphan guard: tracks active session so stale async tasks can self-abort
+  const sessionIdRef = React.useRef(activeSessionId);
+  React.useEffect(() => { sessionIdRef.current = activeSessionId; }, [activeSessionId]);
 
   const revokeSaveSheetUrl = () => {
     revokeBlobUrl(saveSheetUrlRef.current);
