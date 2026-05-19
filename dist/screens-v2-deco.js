@@ -196,11 +196,24 @@ function DecoV2({
       scale: 1
     })]);
   };
-  var addUpload = dataUrl => setStickers(p => [...p, makeSticker('upload', {
-    dataUrl
-  }, {
-    scale: 0.6
-  })]);
+  var addUpload = dataUrl => {
+    var img = new Image();
+    img.onload = () => {
+      setStickers(p => [...p, makeSticker('upload', {
+        dataUrl,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height
+      }, {
+        scale: 0.6
+      })]);
+    };
+    img.onerror = () => setStickers(p => [...p, makeSticker('upload', {
+      dataUrl
+    }, {
+      scale: 0.6
+    })]);
+    img.src = dataUrl;
+  };
   var addText = () => {
     if (!textInput.trim()) return;
     var rect = frameNativeRef.current?.getBoundingClientRect();
@@ -472,6 +485,7 @@ function DecoV2({
     width: "100%",
     height: "100%",
     canvasW: frameW,
+    layout: layout,
     style: {
       position: 'absolute',
       inset: 0

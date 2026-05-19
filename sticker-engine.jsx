@@ -203,6 +203,13 @@ function getCatalogStickerBaseSize(item) {
   return { w: 64, h: 64 };
 }
 
+function getUploadStickerBaseSize(sticker) {
+  const w = Number(sticker?.payload?.width) || Number(sticker?.payload?.naturalWidth) || 120;
+  const h = Number(sticker?.payload?.height) || Number(sticker?.payload?.naturalHeight) || 120;
+  const aspect = w > 0 && h > 0 ? h / w : 1;
+  return { w: 120, h: Math.max(24, 120 * aspect) };
+}
+
 function getStickerHitboxSize(sticker) {
   if (!sticker) return { w: 64, h: 64 };
 
@@ -212,7 +219,7 @@ function getStickerHitboxSize(sticker) {
   }
 
   if (sticker.kind === 'upload') {
-    return { w: 120, h: 120 };
+    return getUploadStickerBaseSize(sticker);
   }
 
   if (sticker.kind === 'text') {
@@ -239,7 +246,7 @@ function getStickerVisualBounds(sticker) {
     return getCatalogStickerBaseSize(item);
   }
 
-  if (sticker.kind === 'upload') return { w:120, h:120 };
+  if (sticker.kind === 'upload') return getUploadStickerBaseSize(sticker);
 
   if (sticker.kind === 'text') {
     const size = sticker.payload?.size || 32;
@@ -289,17 +296,44 @@ function getStickerNormScale(sticker, canvasW) {
 }
 
 // ─────────────────────────────────────────────────────────────
-function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T, hideVisuals = false, mode = 'default', style = {}, decoScale = { x: 1, y: 1 }, canvasW = null }) {
+function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T, hideVisuals = false, mode = 'default', style = {}, decoScale = { x: 1, y: 1 }, canvasW = null, layout = null }) {
   const canvasRef = useRR(null);
   const [dragState, setDragState] = useSE(null);
   const [snapMode, setSnapMode] = useSE(false);
   const [slotClips, setSlotClips] = useSE({}); // slotIndex -> {top,right,bottom,left} in % of canvas
 
+  const getVirtualSlotRects = useCB(() => {
+    if (!canvasRef.current || !layout) return [];
+    const getTpl = typeof window !== 'undefined'
+      ? (window.getFrameTemplateSafe || window.getFrameTemplate)
+      : null;
+    const template = typeof getTpl === 'function' ? getTpl(layout) : null;
+    const slots = template?.photoSlots || [];
+    const baseW = template?.canvasSize?.width || 0;
+    const baseH = template?.canvasSize?.height || 0;
+    if (!slots.length || !baseW || !baseH) return [];
+
+    const localW = canvasRef.current.offsetWidth || canvasRef.current.getBoundingClientRect().width || 1;
+    const localH = canvasRef.current.offsetHeight || canvasRef.current.getBoundingClientRect().height || 1;
+    return slots.map((slot, index) => ({
+      index,
+      left: (slot.x / baseW) * localW,
+      top: (slot.y / baseH) * localH,
+      width: (slot.width / baseW) * localW,
+      height: (slot.height / baseH) * localH,
+      minX: (slot.x / baseW) * 100,
+      maxX: ((slot.x + slot.width) / baseW) * 100,
+      minY: (slot.y / baseH) * 100,
+      maxY: ((slot.y + slot.height) / baseH) * 100,
+    }));
+  }, [layout]);
+
   const measureSlots = useCB(() => {
     if (!canvasRef.current) return;
     const cRect = canvasRef.current.getBoundingClientRect();
     const clips = {};
-    canvasRef.current.querySelectorAll('[data-frame-slot]').forEach(el => {
+    const domSlots = Array.from(canvasRef.current.querySelectorAll('[data-frame-slot]'));
+    domSlots.forEach(el => {
       const i = parseInt(el.dataset.frameSlot);
       const r = el.getBoundingClientRect();
       clips[i] = {
@@ -314,8 +348,22 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         maxY: (r.bottom - cRect.top)    / cRect.height * 100,
       };
     });
+    if (domSlots.length === 0) {
+      getVirtualSlotRects().forEach((slot) => {
+        clips[slot.index] = {
+          top: slot.minY,
+          left: slot.minX,
+          right: 100 - slot.maxX,
+          bottom: 100 - slot.maxY,
+          minX: slot.minX,
+          maxX: slot.maxX,
+          minY: slot.minY,
+          maxY: slot.maxY,
+        };
+      });
+    }
     setSlotClips(clips);
-  }, []);
+  }, [getVirtualSlotRects]);
 
   useEE(() => {
     measureSlots();
@@ -328,9 +376,15 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
     if (!canvasRef.current) return;
     measureSlots();
     const cRect = canvasRef.current.getBoundingClientRect();
-    const sRect = slotEl.getBoundingClientRect();
-    const cx = ((sRect.left - cRect.left) + sRect.width / 2) / cRect.width * 100;
-    const cy = ((sRect.top - cRect.top) + sRect.height / 2) / cRect.height * 100;
+    const sRect = slotEl.getBoundingClientRect
+      ? slotEl.getBoundingClientRect()
+      : null;
+    const cx = sRect
+      ? ((sRect.left - cRect.left) + sRect.width / 2) / cRect.width * 100
+      : slotEl.minX + (slotEl.maxX - slotEl.minX) / 2;
+    const cy = sRect
+      ? ((sRect.top - cRect.top) + sRect.height / 2) / cRect.height * 100
+      : slotEl.minY + (slotEl.maxY - slotEl.minY) / 2;
     setStickers(prev => prev.map(s => s.id === selectedId ? { ...s, x: cx, y: cy, frameSlot: slotIndex, slotX: 50, slotY: 50 } : s));
     setSnapMode(false);
   };
@@ -341,7 +395,9 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
 
   const getSlotOverlays = () => {
     if (!canvasRef.current) return [];
-    return Array.from(canvasRef.current.querySelectorAll('[data-frame-slot]'));
+    const domSlots = Array.from(canvasRef.current.querySelectorAll('[data-frame-slot]'));
+    if (domSlots.length > 0) return domSlots;
+    return getVirtualSlotRects();
   };
 
   const onPointerDown = (e, s, mode='move') => {
@@ -491,14 +547,16 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           if (!cRect) return null;
           const cssScale = cRect.width / (canvasRef.current.offsetWidth || 1);
           return slots.map((el, i) => {
-            const sRect = el.getBoundingClientRect();
-            const left = (sRect.left - cRect.left) / cssScale;
-            const top  = (sRect.top  - cRect.top)  / cssScale;
-            const w    = sRect.width  / cssScale;
-            const h    = sRect.height / cssScale;
+            const isVirtual = !el.getBoundingClientRect;
+            const sRect = isVirtual ? null : el.getBoundingClientRect();
+            const left = isVirtual ? el.left : (sRect.left - cRect.left) / cssScale;
+            const top  = isVirtual ? el.top : (sRect.top  - cRect.top)  / cssScale;
+            const w    = isVirtual ? el.width : sRect.width  / cssScale;
+            const h    = isVirtual ? el.height : sRect.height / cssScale;
+            const slotIndex = isVirtual ? el.index : i;
             return (
               <div key={i}
-                onPointerDown={(e) => { e.stopPropagation(); snapToSlot(el, i); }}
+                onPointerDown={(e) => { e.stopPropagation(); snapToSlot(el, slotIndex); }}
                 style={{ position:'absolute', left, top, width:w, height:h,
                   background:'rgba(0,0,0,0.35)', border:'1.5px solid rgba(255,255,255,0.7)',
                   borderRadius:3, zIndex:100,

@@ -348,7 +348,16 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     setPreStickers((prev) => [...prev, makeSticker('preset', { libId }, { sizeNorm })]);
   };
   const addUpload = (dataUrl) => {
-    setPreStickers((prev) => [...prev, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
+    const img = new Image();
+    img.onload = () => {
+      setPreStickers((prev) => [...prev, makeSticker('upload', {
+        dataUrl,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height,
+      }, { scale: 0.6 })]);
+    };
+    img.onerror = () => setPreStickers((prev) => [...prev, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
+    img.src = dataUrl;
   };
   const onFile = (e) => {
     const f = e.target.files?.[0];
@@ -404,6 +413,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           width={frameW}
           canvasW={frameW}
           height="auto"
+          layout={layout}
         >
           {WFrameThumb ? (
             <WFrameThumb key={frameColor} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}

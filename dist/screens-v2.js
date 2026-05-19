@@ -744,11 +744,22 @@ function SetupScreen({
     })]);
   };
   var addUpload = dataUrl => {
-    setPreStickers(prev => [...prev, makeSticker('upload', {
+    var img = new Image();
+    img.onload = () => {
+      setPreStickers(prev => [...prev, makeSticker('upload', {
+        dataUrl,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height
+      }, {
+        scale: 0.6
+      })]);
+    };
+    img.onerror = () => setPreStickers(prev => [...prev, makeSticker('upload', {
       dataUrl
     }, {
       scale: 0.6
     })]);
+    img.src = dataUrl;
   };
   var onFile = e => {
     var f = e.target.files?.[0];
@@ -818,7 +829,8 @@ function SetupScreen({
     setSelectedId: setSelStId,
     width: frameW,
     canvasW: frameW,
-    height: "auto"
+    height: "auto",
+    layout: layout
   }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
     key: frameColor,
     layout: layout,

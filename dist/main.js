@@ -644,7 +644,7 @@ function App() {
     var newShotCount = getCaptureShotCountForLayout(tweaks.layout);
     resetSessionState('start-new-capture', newShotCount);
     setScreen('capture');
-  }, [tweaks.layout]);
+  }, [tweaks.layout, resetSessionState]);
   var cameraZoomOptions = React.useMemo(() => deriveCameraZoomOptions({
     cameraCapabilities,
     facingMode,
@@ -1326,8 +1326,23 @@ function App() {
     if (screen !== 'share') localStorage.setItem('immm.v2.screen', screen);
   }, [screen]);
   React.useEffect(() => {
-    localStorage.setItem('immm.v2.sel', JSON.stringify(selected));
-  }, [selected]);
+    try {
+      if (selected.length > 0) {
+        localStorage.setItem('immm.v2.sel', JSON.stringify(selected));
+      } else {
+        localStorage.removeItem('immm.v2.sel');
+      }
+    } catch (e) {
+      console.warn('[IMMM] localStorage selected sync failed:', e);
+    }
+    if (window.SessionTracer && window.IMMM_DEBUG_SESSION) {
+      window.SessionTracer.trace('STATE_UPDATE:selected', {
+        activeSessionId,
+        selectedLength: selected.length,
+        selected: selected.slice()
+      });
+    }
+  }, [selected, activeSessionId]);
 
   // Samsung Internet suspends background video (opacity:0, zIndex:-1 screens).
   // Force-resume when user enters capture so the camera feed is guaranteed live.

@@ -169,7 +169,18 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       : undefined;
     setStickers((p) => [...p, makeSticker('preset', { libId }, { sizeNorm, scale: 1 })]);
   };
-  const addUpload = (dataUrl) => setStickers((p) => [...p, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
+  const addUpload = (dataUrl) => {
+    const img = new Image();
+    img.onload = () => {
+      setStickers((p) => [...p, makeSticker('upload', {
+        dataUrl,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height,
+      }, { scale: 0.6 })]);
+    };
+    img.onerror = () => setStickers((p) => [...p, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
+    img.src = dataUrl;
+  };
   const addText = () => {
     if (!textInput.trim()) return;
     const rect = frameNativeRef.current?.getBoundingClientRect();
@@ -391,7 +402,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         <canvas ref={compositionCanvasRef} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} />
 
         <StickerCanvas T={T} stickers={stickers} setStickers={setStickers} selectedId={selStId} setSelectedId={setSelStId}
-          mode="deco-overlay" hideVisuals={true} decoScale={decoScale} width="100%" height="100%" canvasW={frameW} style={{ position: 'absolute', inset: 0 }}>
+          mode="deco-overlay" hideVisuals={true} decoScale={decoScale} width="100%" height="100%" canvasW={frameW} layout={layout} style={{ position: 'absolute', inset: 0 }}>
         </StickerCanvas>
       </div>
       {zoomControls}
