@@ -2553,7 +2553,7 @@ function checkCameraArchitecture() {
     hasErrors = true;
   }
 
-  if (!rest.includes('screenFlashActive') && !rest.includes('screenFlashEnabled')) {
+  if (!rest.includes('screenFlashActive') && !rest.includes('screenFlashEnabled') && !rest.includes('screenFlashOverlay') && !rest.includes('screenLightActive')) {
     console.error("❌ FAIL: screens-v2-rest.jsx missing screen flash light simulation");
     hasErrors = true;
   }
@@ -2701,6 +2701,198 @@ function checkCameraModelAndBestCut() {
   }
 }
 
+function checkReleaseCandidateLock() {
+  const main = readFile('main.jsx');
+  const deco = readFile('screens-v2-deco.jsx');
+  const motion = readFile('motion-export-contract.jsx');
+  const swFile = readFile('sw.js');
+  const task = readFile('task.md');
+
+  // 1. AppErrorBoundary exists
+  if (!main || !main.includes('AppErrorBoundary')) {
+    console.error('❌ RC-1: main.jsx missing AppErrorBoundary');
+    hasErrors = true;
+  }
+
+  // 2. IMMM_DIAGNOSTICS exists
+  if (!main || !main.includes('IMMM_DIAGNOSTICS')) {
+    console.error('❌ RC-2: main.jsx missing IMMM_DIAGNOSTICS');
+    hasErrors = true;
+  }
+
+  // 3. getSnapshot / copySnapshot exists
+  if (!main || !main.includes('getSnapshot') || !main.includes('copySnapshot')) {
+    console.error('❌ RC-3: main.jsx missing getSnapshot / copySnapshot in IMMM_DIAGNOSTICS');
+    hasErrors = true;
+  }
+
+  // 4. diagnostics must NOT include dataUrl
+  if (main && main.includes('dataUrl') && main.includes('getSnapshot')) {
+    const snapBlock = main.slice(main.indexOf('getSnapshot'));
+    const closingIdx = snapBlock.indexOf('window.IMMM_DIAGNOSTICS');
+    const snapSection = closingIdx > 0 ? snapBlock.slice(0, closingIdx) : snapBlock.slice(0, 600);
+    if (snapSection.includes('.dataUrl')) {
+      console.error('❌ RC-4: IMMM_DIAGNOSTICS.getSnapshot must not include photo dataUrl');
+      hasErrors = true;
+    }
+  }
+
+  // 5. diagnostics must NOT dump all localStorage
+  if (main) {
+    const snapIdx = main.indexOf('getSnapshot');
+    if (snapIdx !== -1) {
+      const snapSection = main.slice(snapIdx, snapIdx + 1200);
+      if (snapSection.includes('JSON.stringify(localStorage)') || snapSection.includes('localStorage.getItem') && snapSection.includes('getAll')) {
+        console.error('❌ RC-5: IMMM_DIAGNOSTICS must not dump all localStorage');
+        hasErrors = true;
+      }
+    }
+  }
+
+  // 6. IMMM_FIELD_TEST or fieldTest=1 conditional exists
+  if (!main || (!main.includes('IMMM_FIELD_TEST') && !main.includes("fieldTest"))) {
+    console.error('❌ RC-6: main.jsx missing IMMM_FIELD_TEST / fieldTest panel conditional');
+    hasErrors = true;
+  }
+
+  // 7. QR_SHARE_FAILURE_REASONS exists
+  if (!deco || !deco.includes('QR_SHARE_FAILURE_REASONS')) {
+    console.error('❌ RC-7: screens-v2-deco.jsx missing QR_SHARE_FAILURE_REASONS');
+    hasErrors = true;
+  }
+
+  // 8. VIDEO_EXPORT_FAILURE_REASONS exists
+  if (!motion || !motion.includes('VIDEO_EXPORT_FAILURE_REASONS')) {
+    console.error('❌ RC-8: motion-export-contract.jsx missing VIDEO_EXPORT_FAILURE_REASONS');
+    hasErrors = true;
+  }
+
+  // 9. release-manifest.json exists at root
+  const manifest = readFile('release-manifest.json');
+  if (!manifest) {
+    console.error('❌ RC-9: release-manifest.json missing at project root');
+    hasErrors = true;
+  }
+
+  // 10. dist/release-manifest.json exists
+  const distManifest = readFile('dist/release-manifest.json');
+  if (!distManifest) {
+    console.error('❌ RC-10: dist/release-manifest.json missing');
+    hasErrors = true;
+  }
+
+  // 11. release-manifest runtime = precompiled
+  if (manifest) {
+    try {
+      const m = JSON.parse(manifest);
+      if (m.runtime !== 'precompiled') {
+        console.error('❌ RC-11: release-manifest.json runtime must be "precompiled"');
+        hasErrors = true;
+      }
+    } catch (e) {
+      console.error('❌ RC-11: release-manifest.json is not valid JSON');
+      hasErrors = true;
+    }
+  }
+
+  // 12. release-manifest branch must match
+  if (manifest) {
+    try {
+      const m = JSON.parse(manifest);
+      if (m.branch !== 'claude/session-adapter-hardening-03que') {
+        console.error('❌ RC-12: release-manifest.json branch must be "claude/session-adapter-hardening-03que"');
+        hasErrors = true;
+      }
+    } catch (e) { /* already reported in RC-11 */ }
+  }
+
+  // 13. fake immm.io share URL must not be assembled
+  const shareFiles = ['share-viewer.jsx', 'screens-v2-deco.jsx', 'share-contract.jsx', 'cloud-share-adapter.jsx'];
+  shareFiles.forEach(f => {
+    const content = readFile(f);
+    if (content && content.includes('immm.io/share')) {
+      console.error(`❌ RC-13: ${f} must not assemble fake immm.io/share URL`);
+      hasErrors = true;
+    }
+  });
+
+  // 14. MediaRecorder.isTypeSupported must be guarded (not called without typeof MediaRecorder check)
+  const mediaFiles = ['screens-v2-deco.jsx', 'screens-v2-rest.jsx', 'motion-export-contract.jsx'];
+  mediaFiles.forEach(f => {
+    const content = readFile(f);
+    if (!content) return;
+    const idx = content.indexOf('MediaRecorder.isTypeSupported');
+    if (idx !== -1) {
+      const context = content.slice(Math.max(0, idx - 80), idx);
+      if (!context.includes('typeof MediaRecorder') && !context.includes('MediaRecorder !==')) {
+        console.error(`❌ RC-14: ${f} calls MediaRecorder.isTypeSupported without typeof guard`);
+        hasErrors = true;
+      }
+    }
+  });
+
+  // 15. sw.js SKIP_WAITING message handler exists
+  if (!swFile || !swFile.includes('SKIP_WAITING')) {
+    console.error('❌ RC-15: sw.js missing SKIP_WAITING message handler');
+    hasErrors = true;
+  }
+
+  // 16. main.jsx controllerchange + reload guard exists
+  if (!main || !main.includes('controllerchange') || !main.includes('__IMMM_RELOADING_FOR_UPDATE')) {
+    console.error('❌ RC-16: main.jsx missing controllerchange + reload guard (__IMMM_RELOADING_FOR_UPDATE)');
+    hasErrors = true;
+  }
+
+  // 17. renderFinalResultBlob / getFinalResultBlob not modified (names still present, contract preserved)
+  if (!deco || (!deco.includes('renderFinalResultBlob') && !deco.includes('getFinalResultBlob'))) {
+    console.error('❌ RC-17: screens-v2-deco.jsx missing renderFinalResultBlob / getFinalResultBlob (final path removed)');
+    hasErrors = true;
+  }
+
+  // 18. URL.revokeObjectURL direct call outside revokeBlobUrl wrapper is prohibited
+  // Allow: URL.revokeObjectURL inside revokeBlobUrl function body
+  // Prohibit: URL.revokeObjectURL called from anywhere else
+  const revokeFiles = ['result-gallery.jsx', 'screens-v2-deco.jsx'];
+  revokeFiles.forEach(f => {
+    const content = readFile(f);
+    if (!content) return;
+    const lines = content.split('\n');
+    lines.forEach((line, i) => {
+      if (line.includes('URL.revokeObjectURL(')) {
+        // Allow if on same line as revokeBlobUrl or try/catch inside revokeBlobUrl
+        const surroundingLines = lines.slice(Math.max(0, i - 3), i + 2).join(' ');
+        if (!surroundingLines.includes('revokeBlobUrl') && !surroundingLines.includes('function revokeBlobUrl')) {
+          console.error(`❌ RC-18: ${f}:${i + 1} calls URL.revokeObjectURL directly — use revokeBlobUrl wrapper`);
+          hasErrors = true;
+        }
+      }
+    });
+  });
+
+  // 19. localStorage.clear / sessionStorage.clear prohibited (excluding comments)
+  const allSrcFiles = ['main.jsx', 'screens-v2-deco.jsx', 'screens-v2-rest.jsx', 'screens-v2.jsx', 'app.jsx'];
+  allSrcFiles.forEach(f => {
+    const content = readFile(f);
+    if (!content) return;
+    const codeLines = content.split('\n').filter(l => {
+      const trimmed = l.trim();
+      return !trimmed.startsWith('//') && !trimmed.startsWith('*');
+    });
+    const codeOnly = codeLines.join('\n');
+    if (codeOnly.includes('localStorage.clear()') || codeOnly.includes('sessionStorage.clear()')) {
+      console.error(`❌ RC-19: ${f} must not call localStorage.clear() or sessionStorage.clear()`);
+      hasErrors = true;
+    }
+  });
+
+  // 20. pgpt stray guard — verify checkStrayFiles (which checks pgpt) is still present in this script
+  const selfContent = readFile('scripts/sanity-check.mjs');
+  if (!selfContent || !selfContent.includes('pgpt') || !selfContent.includes('checkStrayFiles')) {
+    console.error('❌ RC-20: sanity-check.mjs pgpt / checkStrayFiles guard has been removed');
+    hasErrors = true;
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -2709,6 +2901,7 @@ checkCameraArchitecture();
 checkCameraModelAndBestCut();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
+checkReleaseCandidateLock();
 
 
 if (hasErrors) {

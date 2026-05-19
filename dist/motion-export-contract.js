@@ -7,6 +7,15 @@
 
 (function () {
   var MOTION_CONTRACT_VERSION = '1.0.0';
+  var VIDEO_EXPORT_FAILURE_REASONS = Object.freeze({
+    UNSUPPORTED_MEDIARECORDER: 'unsupported-mediarecorder',
+    UNSUPPORTED_CANVAS_STREAM: 'unsupported-canvas-stream',
+    UNSUPPORTED_MIME: 'unsupported-mime',
+    RECORDER_START_FAILED: 'recorder-start-failed',
+    RECORDER_TIMEOUT: 'recorder-timeout',
+    RECORDER_EMPTY_BLOB: 'recorder-empty-blob',
+    RENDER_FAILED: 'render-failed'
+  });
   var MOTION_OUTPUT_TYPES = Object.freeze(['webm', 'mp4', 'gif', 'preview-only']);
   var MOTION_SLOT_TYPES = Object.freeze(['still', 'transition', 'motion']);
   var isPlainObject = value => {
@@ -244,6 +253,7 @@
     MOTION_CONTRACT_VERSION,
     MOTION_OUTPUT_TYPES,
     MOTION_SLOT_TYPES,
+    VIDEO_EXPORT_FAILURE_REASONS,
     createMotionExportRecipe,
     createMotionSlotProvider,
     validateMotionExportRecipe,

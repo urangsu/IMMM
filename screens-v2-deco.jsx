@@ -1,5 +1,18 @@
 // screens-v2-deco.jsx — Deco Studio + Result
 
+// MARK: - QR / Share failure reason constants
+const QR_SHARE_FAILURE_REASONS = Object.freeze({
+  CLOUD_CONFIG_MISSING: 'cloud-config-missing',
+  UPLOAD_FAILED: 'upload-failed',
+  QR_LIBRARY_MISSING: 'qr-library-missing',
+  QR_RENDER_FAILED: 'qr-render-failed',
+  ASSET_RESOLVE_FAILED: 'asset-resolve-failed',
+  NETWORK_FAILED: 'network-failed',
+  CORS_FAILED: 'cors-failed',
+  EXPIRED_OR_MISSING: 'expired-or-missing',
+  INVALID_URL: 'invalid-url'
+});
+
 // MARK: - Debug Runtime Asset Registry (Phase 3.63)
 
 function publishDebugResultAssetRecord(input) {
@@ -1395,10 +1408,10 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     setQrBusy(true);
     try {
       const blob = await getFinalResultBlob();
-      if (!blob) throw new Error('No blob available');
+      if (!blob) throw Object.assign(new Error('No blob available'), { reason: QR_SHARE_FAILURE_REASONS.ASSET_RESOLVE_FAILED });
 
       const Adapter = window.IMMMCloudShareAdapter;
-      if (!Adapter) throw new Error('CloudShareAdapter not available');
+      if (!Adapter) throw Object.assign(new Error('CloudShareAdapter not available'), { reason: QR_SHARE_FAILURE_REASONS.CLOUD_CONFIG_MISSING });
 
       const cloudShareResult = await Adapter.uploadResultAsset({
         blob,
@@ -1413,7 +1426,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       });
 
       if (!cloudShareResult.ok) {
-        throw new Error(cloudShareResult.error || 'Upload failed');
+        throw Object.assign(new Error(cloudShareResult.error || 'Upload failed'), { reason: QR_SHARE_FAILURE_REASONS.UPLOAD_FAILED });
       }
 
       // Generate QR code with client-side QRCode library
@@ -1472,9 +1485,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
       addToast('QR 공유 준비 완료');
     } catch (err) {
-      console.error('[IMMM] handleCreateQrShare error:', err);
+      const failReason = err.reason || QR_SHARE_FAILURE_REASONS.NETWORK_FAILED;
+      console.error('[IMMM] handleCreateQrShare error:', failReason, err);
       setQrShare({
         ok: false,
+        reason: failReason,
         error: err.message || 'QR share failed'
       });
       addToast('QR 공유에 실패했어요');
@@ -1523,7 +1538,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     const ctx = cvs.getContext('2d');
 
     const mimeTypes = ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-    const mimeType = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+    const mimeType = (typeof MediaRecorder !== 'undefined' && mimeTypes.find(m => MediaRecorder.isTypeSupported(m))) || 'video/webm';
     const stream = cvs.captureStream(24);
     const rec = new MediaRecorder(stream, { mimeType });
     const chunks = [];

@@ -17,15 +17,42 @@ class AppErrorBoundary extends React.Component {
     }
   }
 
+  handleReload() {
+    location.reload();
+  }
+
+  handleCopyDiagnostics() {
+    const snap = (window.IMMM_DIAGNOSTICS && typeof window.IMMM_DIAGNOSTICS.getSnapshot === 'function')
+      ? window.IMMM_DIAGNOSTICS.getSnapshot()
+      : { error: 'IMMM_DIAGNOSTICS not available', timestamp: new Date().toISOString() };
+    const text = JSON.stringify(snap, null, 2);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => alert('진단 정보 복사됨')).catch(() => prompt('진단 정보:', text));
+    } else {
+      prompt('진단 정보:', text);
+    }
+  }
+
   render() {
     if (this.state.error) {
+      const version = window.IMMM_APP_VERSION || 'unknown';
+      const buildLabel = window.IMMM_BUILD_LABEL || '';
       return (
         <div style={{ minHeight:'100vh', padding:24, background:'#fff', color:'#111', fontFamily:'Pretendard,system-ui' }}>
           <h1 style={{ margin:'0 0 8px', fontSize:20 }}>앱을 불러오지 못했어요.</h1>
-          <p style={{ margin:'0 0 16px', color:'#666', lineHeight:1.5 }}>브라우저 호환성 또는 스크립트 오류가 발생했습니다.</p>
-          <pre style={{ whiteSpace:'pre-wrap', wordBreak:'break-word', background:'#f4f4f4', padding:12, borderRadius:8, fontSize:12 }}>
+          <p style={{ margin:'0 0 4px', color:'#666', lineHeight:1.5 }}>브라우저 호환성 또는 스크립트 오류가 발생했습니다.</p>
+          <p style={{ margin:'0 0 16px', color:'#999', fontSize:11 }}>버전: {version}{buildLabel ? ` · ${buildLabel}` : ''} · 런타임: precompiled</p>
+          <pre style={{ whiteSpace:'pre-wrap', wordBreak:'break-word', background:'#f4f4f4', padding:12, borderRadius:8, fontSize:12, marginBottom:16 }}>
             {this.state.error?.stack || this.state.error?.message || String(this.state.error)}
           </pre>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={() => this.handleReload()} style={{ padding:'10px 20px', background:'#007AFF', color:'#fff', border:'none', borderRadius:8, fontSize:14, cursor:'pointer' }}>
+              앱 재시작
+            </button>
+            <button onClick={() => this.handleCopyDiagnostics()} style={{ padding:'10px 20px', background:'#555', color:'#fff', border:'none', borderRadius:8, fontSize:14, cursor:'pointer' }}>
+              진단 복사
+            </button>
+          </div>
         </div>
       );
     }
@@ -94,9 +121,9 @@ function getCaptureShotCountForLayout(layout) {
   // Align with frame system shot counts via getShotCountForLayout
   const getShotCount = window.getShotCountForFrameSafe || window.getShotCountForFrame || (typeof getShotCountForFrame === 'function' ? getShotCountForFrame : null);
   if (getShotCount) return getShotCount(layout);
-  if (layout === 'polaroid') return 1;
-  if (layout === 'trip') return 4;
-  return 4;
+  if (layout === 'polaroid') return 3;
+  if (layout === 'trip') return 5;
+  return 6;
 }
 
 // MARK: - Debug Runtime Session Bridge Helpers (Phase 3.63)
@@ -279,6 +306,100 @@ function App() {
       }}>
         IMMM {window.IMMM_APP_VERSION} · {window.IMMM_RC_BASELINE}
         <div style={{ fontSize: 8, opacity: 0.8, marginTop: 2 }}>{window.IMMM_BUILD_LABEL}</div>
+      </div>
+    );
+  };
+
+  // IMMM_DIAGNOSTICS — functional API, updated on key state changes
+  React.useEffect(() => {
+    const getSnapshot = () => ({
+      appVersion: window.IMMM_APP_VERSION || 'unknown',
+      buildLabel: window.IMMM_BUILD_LABEL || 'unknown',
+      runtime: 'precompiled',
+      screen: screen,
+      sessionIdTail: activeSessionId ? activeSessionId.slice(-8) : 'none',
+      shotsCount: shots.filter(s => s?.dataUrl).length,
+      selectedCount: selected.length,
+      stickersCount: stickers.length,
+      drawStrokesCount: drawStrokes.length,
+      layout: tweaks.layout,
+      frameColor: tweaks.frameColor,
+      facingMode: facingMode,
+      cameraZoomSupported: cameraZoomSupported,
+      cameraZoomCurrent: cameraZoom,
+      torchSupported: torchSupported,
+      torchActive: torchActive,
+      screenLightActive: screenLightActive,
+      serviceWorkerControlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString()
+    });
+    const copySnapshot = async () => {
+      const snap = getSnapshot();
+      const text = JSON.stringify(snap, null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    };
+    window.IMMM_DIAGNOSTICS = { getSnapshot, copySnapshot };
+  }, [screen, activeSessionId, shots, selected, stickers, drawStrokes, tweaks.layout, tweaks.frameColor, facingMode, cameraZoomSupported, cameraZoom, torchSupported, torchActive, screenLightActive]);
+
+  // PWA update one-shot reload guard
+  React.useEffect(() => {
+    if (!navigator.serviceWorker) return;
+    let reloadScheduled = false;
+    const onControllerChange = () => {
+      if (!reloadScheduled && !window.__IMMM_RELOADING_FOR_UPDATE) {
+        reloadScheduled = true;
+        window.__IMMM_RELOADING_FOR_UPDATE = true;
+        setTimeout(() => location.reload(), 500);
+      }
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+    return () => navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+  }, []);
+
+  // Field Test Panel — visible when window.IMMM_FIELD_TEST or ?fieldTest=1
+  const [showFieldTest, setShowFieldTest] = React.useState(false);
+  const [fieldTestOpen, setFieldTestOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (window.IMMM_FIELD_TEST === true || new URLSearchParams(location.search).get('fieldTest') === '1') {
+      setShowFieldTest(true);
+    }
+  }, []);
+  const FieldTestPanel = () => {
+    if (!showFieldTest) return null;
+    const lsSize = (() => { try { return JSON.stringify(localStorage).length; } catch(e) { return 'n/a'; } })();
+    return (
+      <div style={{ position:'fixed', bottom:10, left:10, zIndex:9990 }}>
+        <button
+          onClick={() => setFieldTestOpen(o => !o)}
+          style={{ padding:'4px 10px', background:'rgba(0,80,0,0.85)', color:'#0f0', border:'none', borderRadius:6, fontSize:11, fontFamily:'monospace', cursor:'pointer' }}
+        >
+          FT
+        </button>
+        {fieldTestOpen && (
+          <div style={{ position:'absolute', bottom:28, left:0, background:'rgba(0,0,0,0.88)', color:'#0f0', fontSize:11, fontFamily:'monospace', padding:10, borderRadius:8, minWidth:240, maxHeight:260, overflow:'auto' }}>
+            <div style={{ marginBottom:4, fontWeight:'bold' }}>Field Test Panel</div>
+            <div>screen: {screen}</div>
+            <div>session: …{activeSessionId ? activeSessionId.slice(-8) : 'none'}</div>
+            <div>shots: {shots.filter(s => s?.dataUrl).length} / {shots.length}</div>
+            <div>selected: {selected.length}</div>
+            <div>stickers: {stickers.length}</div>
+            <div>camera: {facingMode} zoom:{cameraZoom}</div>
+            <div>torch: {torchActive ? 'on' : 'off'} | screenLight: {screenLightActive ? 'on' : 'off'}</div>
+            <div>SW: {(navigator.serviceWorker && navigator.serviceWorker.controller) ? 'active' : 'none'}</div>
+            <div>LS: {lsSize} chars</div>
+            <div style={{ marginTop:6, display:'flex', gap:6, flexWrap:'wrap' }}>
+              <button onClick={async () => { if (window.IMMM_DIAGNOSTICS) { const r = await window.IMMM_DIAGNOSTICS.copySnapshot(); alert(r.ok ? 'Copied' : r.error); } }} style={{ padding:'3px 8px', background:'#003300', color:'#0f0', border:'1px solid #0f0', borderRadius:4, fontSize:10, cursor:'pointer' }}>Copy Diag</button>
+              <button onClick={() => location.reload()} style={{ padding:'3px 8px', background:'#003300', color:'#0f0', border:'1px solid #0f0', borderRadius:4, fontSize:10, cursor:'pointer' }}>Reload</button>
+              <button onClick={() => setFieldTestOpen(false)} style={{ padding:'3px 8px', background:'#003300', color:'#0f0', border:'1px solid #0f0', borderRadius:4, fontSize:10, cursor:'pointer' }}>Close</button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1090,6 +1211,7 @@ function App() {
         {renderScreen()}
       </ScreenTransition>
       <BuildPill />
+      <FieldTestPanel />
     </div>
   );
 }

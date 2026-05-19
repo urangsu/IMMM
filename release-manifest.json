@@ -1,0 +1,23 @@
+{
+  "app": "IMMM",
+  "version": "2026-05-16-rc2.4",
+  "runtime": "precompiled",
+  "cache": "v17",
+  "branch": "claude/session-adapter-hardening-03que",
+  "commit": "pending-current-commit",
+  "features": {
+    "qrShare": true,
+    "shareViewer": true,
+    "resultGallery": true,
+    "videoExport": "capability-gated",
+    "fieldDiagnostics": true,
+    "errorBoundary": true,
+    "sessionIsolation": true
+  },
+  "pendingFieldQa": [
+    "QR second-device scan",
+    "Samsung Internet camera/video field test",
+    "iPhone Safari video fallback",
+    "PWA update flow"
+  ]
+}

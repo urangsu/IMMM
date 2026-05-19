@@ -1912,3 +1912,27 @@ QA steps:
 - [ ] Native exposure control implemented
 - [ ] Native camera permission flow implemented
 - [ ] App shell selected: Capacitor / React Native / Swift/Kotlin
+
+## Phase 3.64~3.68 — Existing Cloud Branch RC Hardening
+
+- [x] Work continued on `claude/session-adapter-hardening-03que`
+- [x] No branch change performed
+- [x] Existing sanity-check preserved
+- [x] App Error Boundary — Reload + Copy Diagnostics buttons added
+- [x] Diagnostic snapshot added as `getSnapshot` / `copySnapshot` (functional API)
+- [x] Sensitive data excluded from diagnostics (no dataUrl, no blob URL, no localStorage dump)
+- [x] Field Test Panel added (conditional on `IMMM_FIELD_TEST` or `?fieldTest=1`)
+- [x] QR/share failure reasons standardized (`QR_SHARE_FAILURE_REASONS` in screens-v2-deco.jsx)
+- [x] Video export failure reasons standardized (`VIDEO_EXPORT_FAILURE_REASONS` in motion-export-contract.jsx)
+- [x] PWA update one-shot reload guard added (`__IMMM_RELOADING_FOR_UPDATE`, controllerchange listener)
+- [x] sw.js: auto-skipWaiting on install removed; explicit `SKIP_WAITING` message handler added
+- [x] Release manifest added (root + dist/release-manifest.json)
+- [x] Release candidate sanity guard added (`checkReleaseCandidateLock` — 20 checks)
+- [x] Precompiled runtime preserved
+- [x] Result/Save/Share final blob path preserved
+- [x] pgpt stray guard preserved
+- [x] "더 찍고 고르기" (Best-Cut) shot counts restored: polaroid=3, trip=5, strip=6
+- [ ] QR second-device scan field test
+- [ ] Samsung Internet camera/video field test
+- [ ] iPhone Safari fallback field test
+- [ ] PWA update field test

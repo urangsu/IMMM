@@ -19,8 +19,25 @@ class AppErrorBoundary extends React.Component {
       window.__showBootError(error?.message || String(error), null, null, null, error);
     }
   }
+  handleReload() {
+    location.reload();
+  }
+  handleCopyDiagnostics() {
+    var snap = window.IMMM_DIAGNOSTICS && typeof window.IMMM_DIAGNOSTICS.getSnapshot === 'function' ? window.IMMM_DIAGNOSTICS.getSnapshot() : {
+      error: 'IMMM_DIAGNOSTICS not available',
+      timestamp: new Date().toISOString()
+    };
+    var text = JSON.stringify(snap, null, 2);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => alert('진단 정보 복사됨')).catch(() => prompt('진단 정보:', text));
+    } else {
+      prompt('진단 정보:', text);
+    }
+  }
   render() {
     if (this.state.error) {
+      var version = window.IMMM_APP_VERSION || 'unknown';
+      var buildLabel = window.IMMM_BUILD_LABEL || '';
       return /*#__PURE__*/React.createElement("div", {
         style: {
           minHeight: '100vh',
@@ -36,20 +53,55 @@ class AppErrorBoundary extends React.Component {
         }
       }, "\uC571\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC5B4\uC694."), /*#__PURE__*/React.createElement("p", {
         style: {
-          margin: '0 0 16px',
+          margin: '0 0 4px',
           color: '#666',
           lineHeight: 1.5
         }
-      }, "\uBE0C\uB77C\uC6B0\uC800 \uD638\uD658\uC131 \uB610\uB294 \uC2A4\uD06C\uB9BD\uD2B8 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("pre", {
+      }, "\uBE0C\uB77C\uC6B0\uC800 \uD638\uD658\uC131 \uB610\uB294 \uC2A4\uD06C\uB9BD\uD2B8 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("p", {
+        style: {
+          margin: '0 0 16px',
+          color: '#999',
+          fontSize: 11
+        }
+      }, "\uBC84\uC804: ", version, buildLabel ? ` · ${buildLabel}` : '', " \xB7 \uB7F0\uD0C0\uC784: precompiled"), /*#__PURE__*/React.createElement("pre", {
         style: {
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           background: '#f4f4f4',
           padding: 12,
           borderRadius: 8,
-          fontSize: 12
+          fontSize: 12,
+          marginBottom: 16
         }
-      }, this.state.error?.stack || this.state.error?.message || String(this.state.error)));
+      }, this.state.error?.stack || this.state.error?.message || String(this.state.error)), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 8,
+          flexWrap: 'wrap'
+        }
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: () => this.handleReload(),
+        style: {
+          padding: '10px 20px',
+          background: '#007AFF',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 8,
+          fontSize: 14,
+          cursor: 'pointer'
+        }
+      }, "\uC571 \uC7AC\uC2DC\uC791"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => this.handleCopyDiagnostics(),
+        style: {
+          padding: '10px 20px',
+          background: '#555',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 8,
+          fontSize: 14,
+          cursor: 'pointer'
+        }
+      }, "\uC9C4\uB2E8 \uBCF5\uC0AC")));
     }
     return this.props.children;
   }
@@ -139,9 +191,9 @@ function getCaptureShotCountForLayout(layout) {
   // Align with frame system shot counts via getShotCountForLayout
   var getShotCount = window.getShotCountForFrameSafe || window.getShotCountForFrame || (typeof getShotCountForFrame === 'function' ? getShotCountForFrame : null);
   if (getShotCount) return getShotCount(layout);
-  if (layout === 'polaroid') return 1;
-  if (layout === 'trip') return 4;
-  return 4;
+  if (layout === 'polaroid') return 3;
+  if (layout === 'trip') return 5;
+  return 6;
 }
 
 // MARK: - Debug Runtime Session Bridge Helpers (Phase 3.63)
@@ -334,6 +386,170 @@ function App() {
         marginTop: 2
       }
     }, window.IMMM_BUILD_LABEL));
+  };
+
+  // IMMM_DIAGNOSTICS — functional API, updated on key state changes
+  React.useEffect(() => {
+    var getSnapshot = () => ({
+      appVersion: window.IMMM_APP_VERSION || 'unknown',
+      buildLabel: window.IMMM_BUILD_LABEL || 'unknown',
+      runtime: 'precompiled',
+      screen: screen,
+      sessionIdTail: activeSessionId ? activeSessionId.slice(-8) : 'none',
+      shotsCount: shots.filter(s => s?.dataUrl).length,
+      selectedCount: selected.length,
+      stickersCount: stickers.length,
+      drawStrokesCount: drawStrokes.length,
+      layout: tweaks.layout,
+      frameColor: tweaks.frameColor,
+      facingMode: facingMode,
+      cameraZoomSupported: cameraZoomSupported,
+      cameraZoomCurrent: cameraZoom,
+      torchSupported: torchSupported,
+      torchActive: torchActive,
+      screenLightActive: screenLightActive,
+      serviceWorkerControlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString()
+    });
+    var copySnapshot = async () => {
+      var snap = getSnapshot();
+      var text = JSON.stringify(snap, null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+        return {
+          ok: true
+        };
+      } catch (e) {
+        return {
+          ok: false,
+          error: e.message
+        };
+      }
+    };
+    window.IMMM_DIAGNOSTICS = {
+      getSnapshot,
+      copySnapshot
+    };
+  }, [screen, activeSessionId, shots, selected, stickers, drawStrokes, tweaks.layout, tweaks.frameColor, facingMode, cameraZoomSupported, cameraZoom, torchSupported, torchActive, screenLightActive]);
+
+  // PWA update one-shot reload guard
+  React.useEffect(() => {
+    if (!navigator.serviceWorker) return;
+    var reloadScheduled = false;
+    var onControllerChange = () => {
+      if (!reloadScheduled && !window.__IMMM_RELOADING_FOR_UPDATE) {
+        reloadScheduled = true;
+        window.__IMMM_RELOADING_FOR_UPDATE = true;
+        setTimeout(() => location.reload(), 500);
+      }
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+    return () => navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+  }, []);
+
+  // Field Test Panel — visible when window.IMMM_FIELD_TEST or ?fieldTest=1
+  var [showFieldTest, setShowFieldTest] = React.useState(false);
+  var [fieldTestOpen, setFieldTestOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (window.IMMM_FIELD_TEST === true || new URLSearchParams(location.search).get('fieldTest') === '1') {
+      setShowFieldTest(true);
+    }
+  }, []);
+  var FieldTestPanel = () => {
+    if (!showFieldTest) return null;
+    var lsSize = (() => {
+      try {
+        return JSON.stringify(localStorage).length;
+      } catch (e) {
+        return 'n/a';
+      }
+    })();
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'fixed',
+        bottom: 10,
+        left: 10,
+        zIndex: 9990
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setFieldTestOpen(o => !o),
+      style: {
+        padding: '4px 10px',
+        background: 'rgba(0,80,0,0.85)',
+        color: '#0f0',
+        border: 'none',
+        borderRadius: 6,
+        fontSize: 11,
+        fontFamily: 'monospace',
+        cursor: 'pointer'
+      }
+    }, "FT"), fieldTestOpen && /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        bottom: 28,
+        left: 0,
+        background: 'rgba(0,0,0,0.88)',
+        color: '#0f0',
+        fontSize: 11,
+        fontFamily: 'monospace',
+        padding: 10,
+        borderRadius: 8,
+        minWidth: 240,
+        maxHeight: 260,
+        overflow: 'auto'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 4,
+        fontWeight: 'bold'
+      }
+    }, "Field Test Panel"), /*#__PURE__*/React.createElement("div", null, "screen: ", screen), /*#__PURE__*/React.createElement("div", null, "session: \u2026", activeSessionId ? activeSessionId.slice(-8) : 'none'), /*#__PURE__*/React.createElement("div", null, "shots: ", shots.filter(s => s?.dataUrl).length, " / ", shots.length), /*#__PURE__*/React.createElement("div", null, "selected: ", selected.length), /*#__PURE__*/React.createElement("div", null, "stickers: ", stickers.length), /*#__PURE__*/React.createElement("div", null, "camera: ", facingMode, " zoom:", cameraZoom), /*#__PURE__*/React.createElement("div", null, "torch: ", torchActive ? 'on' : 'off', " | screenLight: ", screenLightActive ? 'on' : 'off'), /*#__PURE__*/React.createElement("div", null, "SW: ", navigator.serviceWorker && navigator.serviceWorker.controller ? 'active' : 'none'), /*#__PURE__*/React.createElement("div", null, "LS: ", lsSize, " chars"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 6,
+        display: 'flex',
+        gap: 6,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: async () => {
+        if (window.IMMM_DIAGNOSTICS) {
+          var r = await window.IMMM_DIAGNOSTICS.copySnapshot();
+          alert(r.ok ? 'Copied' : r.error);
+        }
+      },
+      style: {
+        padding: '3px 8px',
+        background: '#003300',
+        color: '#0f0',
+        border: '1px solid #0f0',
+        borderRadius: 4,
+        fontSize: 10,
+        cursor: 'pointer'
+      }
+    }, "Copy Diag"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => location.reload(),
+      style: {
+        padding: '3px 8px',
+        background: '#003300',
+        color: '#0f0',
+        border: '1px solid #0f0',
+        borderRadius: 4,
+        fontSize: 10,
+        cursor: 'pointer'
+      }
+    }, "Reload"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setFieldTestOpen(false),
+      style: {
+        padding: '3px 8px',
+        background: '#003300',
+        color: '#0f0',
+        border: '1px solid #0f0',
+        borderRadius: 4,
+        fontSize: 10,
+        cursor: 'pointer'
+      }
+    }, "Close"))));
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -1377,6 +1593,6 @@ function App() {
     }
   })), /*#__PURE__*/React.createElement(ScreenTransition, {
     id: screen
-  }, renderScreen()), /*#__PURE__*/React.createElement(BuildPill, null));
+  }, renderScreen()), /*#__PURE__*/React.createElement(BuildPill, null), /*#__PURE__*/React.createElement(FieldTestPanel, null));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(AppErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));
