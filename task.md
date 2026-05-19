@@ -1943,7 +1943,9 @@ QA steps:
 - [x] sw.js CACHE_NAME updated to v17-2026-05-16-rc2.4-rc-final
 - [x] release-manifest.json cache parity verified (v17)
 - [x] dist/release-manifest.json cache parity verified
-- [x] commit hash updated (db2c7bc)
+- [x] RC base commit pinned: 8caef463b9e4613549037c351c0bda253b61e1e7 (Phase 3.69-3.75 RC Finalization Mega Sprint completion)
+- [x] release-manifest.json: changed "commit" field to "rcBaseCommit" for explicit RC phase tracking
+- [x] RELEASE_NOTES_RC.md: updated RC Base Commit reference
 - [x] sanity-check cache alignment added (RC-A)
 
 ### Part B: Diagnostics Privacy Hardening
@@ -2005,13 +2007,30 @@ QA steps:
 
 ---
 
-## Field QA Blockers (Must Pass Before Production)
+## Part C: Antigravity Field QA Execution (Phase 3.76)
 
-- [ ] QR second-device scan test
-- [ ] Samsung Internet camera/video test  
-- [ ] iPhone Safari video fallback test
-- [ ] PWA update flow test
+### Part B Continued: Field QA Results
+- [ ] QR second-device scan: NOT TESTED (requires 2 physical devices + cross-device QR flow)
+- [ ] Samsung Internet camera/video: NOT TESTED (requires Samsung device + Samsung Internet browser)
+- [ ] iPhone Safari video fallback: NOT TESTED (requires iPhone + Safari)
+- [ ] PWA update flow: NOT TESTED (requires live SW deployment simulation)
+
+**Reason**: Physical device access unavailable in this session. Code-level guards implemented:
+- QR Share uses cloud-only policy (blob URL prohibited)
+- VIDEO_EXPORT_FAILURE_REASONS enum finalized with 7 failure modes
+- MediaRecorder/captureStream guards in place
+- PWA update one-shot reload guard with __IMMM_RELOADING_FOR_UPDATE flag
+- Service Worker SKIP_WAITING message handler implemented
 
 ---
 
-**RC Status**: Code-level complete. Production declaration pending field QA (4 tests).
+## Field QA Blockers (Must Pass Before Production)
+
+- [ ] QR second-device scan test (NOT TESTED)
+- [ ] Samsung Internet camera/video test (NOT TESTED)
+- [ ] iPhone Safari video fallback test (NOT TESTED)
+- [ ] PWA update flow test (NOT TESTED)
+
+---
+
+**RC Status**: Code-level finalized. Field QA blockers documented as NOT TESTED pending physical device execution.

@@ -101,6 +101,15 @@ async function build() {
   });
 
   fs.writeFileSync('index.precompiled.html', html);
+
+  // 4. Copy release-manifest.json to dist/
+  const manifestSrc = path.resolve('release-manifest.json');
+  const manifestDest = path.join(distDir, 'release-manifest.json');
+  if (fs.existsSync(manifestSrc)) {
+    fs.copyFileSync(manifestSrc, manifestDest);
+    console.log('Copied release-manifest.json to dist/');
+  }
+
   console.log('✅ Precompile complete. Output: index.precompiled.html + dist/*.js');
 }
 

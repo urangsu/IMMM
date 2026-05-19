@@ -4,7 +4,7 @@
 - **Version**: 2026-05-16-rc2.4
 - **Runtime**: Precompiled (no @babel/standalone)
 - **Branch**: claude/session-adapter-hardening-03que
-- **Commit**: db2c7bc
+- **RC Base Commit**: 8caef463b9e4613549037c351c0bda253b61e1e7 (Phase 3.69-3.75 RC Finalization Mega Sprint)
 - **Cache**: v17
 
 ---
@@ -58,10 +58,10 @@
 ## Known Pending Field QA (Blocking Production)
 
 ### 🔴 Must Test Before Release
-1. **QR second-device scan** — Cross-device QR code opening
-2. **Samsung Internet camera/video** — Specific browser capture flow
-3. **iPhone Safari video fallback** — Video export on unsupported Safari
-4. **PWA update flow** — Full update & reload cycle with real SW
+1. **QR second-device scan** — Cross-device QR code opening — **NOT TESTED**
+2. **Samsung Internet camera/video** — Specific browser capture flow — **NOT TESTED**
+3. **iPhone Safari video fallback** — Video export on unsupported Safari — **NOT TESTED**
+4. **PWA update flow** — Full update & reload cycle with real SW — **NOT TESTED**
 
 ### Impact
 - Do not declare production-ready until all 4 pass
@@ -70,6 +70,13 @@
   - Video codec compatibility issues
   - PWA caching edge cases
   - QR URL accessibility issues
+
+### Test Evidence Required
+All 4 field QA items must be executed on actual physical devices:
+- QR test requires 2+ devices with QR app/camera
+- Samsung Internet test requires Samsung Galaxy device with Samsung Internet browser
+- iPhone Safari test requires iPhone with Safari browser
+- PWA update test requires live Service Worker deployment with controlled update cycle
 
 ---
 
