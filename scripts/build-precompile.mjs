@@ -23,6 +23,7 @@ const manifest = [
   'motion-export-contract.jsx',
   'edit-recipe-contract.jsx',
   'pwa-release-contract.jsx',
+  'frame-presets.jsx',
   'frame-system.jsx',
   'session-tracing.jsx',
   'screens-v2.jsx',

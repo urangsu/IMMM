@@ -330,15 +330,42 @@ function getStickerPickerPacks() {
     : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
 }
 
-function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession }) {
+function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, framePresets = [], customFrames = [], selectedFramePresetId, applyFramePreset, saveCustomFrame }) {
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
 
   const [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
+  const [frameStoreOpen, setFrameStoreOpen] = uS(true);
+  const [frameCategory, setFrameCategory] = uS('basic');
   const [selStId, setSelStId] = uS(null);
   const [expandedPacks, setExpandedPacks] = uS({});
   const fileRef = uR(null);
+  const frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
+  const savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter((preset) => !preset.deletedAt), [customFrames]);
+  const allStorePresets = uM(() => Array.isArray(framePresets) ? framePresets : [], [framePresets]);
+  const categoryTabs = uM(() => {
+    if (frameApi && typeof frameApi.getFramePresetCategories === 'function') {
+      return frameApi.getFramePresetCategories(savedFrames);
+    }
+    return [
+      { id: 'basic', label: 'Basic' },
+      { id: 'character', label: 'Character' },
+      { id: 'travel', label: 'Travel' },
+      { id: 'birthday', label: 'Birthday' },
+      { id: 'couple', label: 'Couple' },
+      { id: 'my-frames', label: 'My Frames', count: savedFrames.length },
+    ];
+  }, [frameApi, savedFrames]);
+  const selectedFramePreset = uM(() => {
+    if (!selectedFramePresetId) return framePreset || null;
+    return allStorePresets.find((preset) => preset.id === selectedFramePresetId) || framePreset || null;
+  }, [allStorePresets, framePreset, selectedFramePresetId]);
+  const visibleFramePresets = uM(() => {
+    if (frameCategory === 'my-frames') return savedFrames;
+    return allStorePresets.filter((preset) => preset.category === frameCategory && preset.source !== 'custom');
+  }, [allStorePresets, frameCategory, savedFrames]);
+  const recommendedFramePresets = uM(() => allStorePresets.filter((preset) => preset.category === 'basic' || preset.category === 'character').slice(0, 6), [allStorePresets]);
 
   const addPreset = (libId) => {
     const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
@@ -416,8 +443,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           layout={layout}
         >
           {WFrameThumb ? (
-            <WFrameThumb key={frameColor} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
-              logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} />
+            <WFrameThumb key={`${frameColor}-${selectedFramePreset?.id || 'base'}`} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
+              logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} framePreset={selectedFramePreset} />
           ) : (
             <div style={{ position: 'relative', display: 'grid', placeItems: 'center' }}>
               <FramePickerFallback layout={layout} T={T} size="lg" />
@@ -441,12 +468,12 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           { id: 'grid',     en: '2×2 Grid',  ko: '그리드' },
           { id: 'polaroid', en: '1×1',       ko: '폴라로이드' },
         ].map((o) => {
-          const resolveFrameTemplate = (layout) => {
+          const resolveFrameTemplate = (layoutId) => {
             if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
-              return window.getFrameTemplateSafe(layout);
+              return window.getFrameTemplateSafe(layoutId);
             }
             if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
-              return window.getFrameTemplate(layout);
+              return window.getFrameTemplate(layoutId);
             }
             return null;
           };
@@ -454,6 +481,9 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           const tpl = resolveFrameTemplate(o.id);
           const canRenderRealThumb = Boolean(WFrameThumb && tpl);
           const pickerThumbScale = mobile ? 0.235 : 0.28;
+          const layoutPreset = selectedFramePreset?.layout === o.id
+            ? selectedFramePreset
+            : allStorePresets.find((preset) => preset.layout === o.id) || null;
 
           if (typeof window !== 'undefined' && window.IMMM_DEBUG_BUILD) {
             console.warn('[IMMM frame picker]', {
@@ -469,51 +499,252 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
               style={{
                 padding: '14px 8px 10px', background: layout === o.id ? T.card : '#FFFFFF',
                 border: 'none', borderRadius: 16, cursor: 'pointer',
-                boxShadow: layout === o.id ? `0 1px 4px rgba(0,0,0,0.06), 0 0 0 2px ${T.ink} inset` : `0 0 0 1px ${T.line} inset`, // #E5E2DA frameCardBorder
+                boxShadow: layout === o.id ? `0 1px 4px rgba(0,0,0,0.06), 0 0 0 2px ${T.ink} inset` : `0 0 0 1px ${T.line} inset`,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.25s',
               }}>
               <div style={{ position: 'relative', width: '100%', height: 84, overflow: 'hidden', pointerEvents: 'none', display: 'grid', placeItems: 'center' }}>
                 {canRenderRealThumb ? (
                   <div style={{ position: 'absolute', top: '50%', left: '50%', transform: `translate(-50%, -50%) scale(${pickerThumbScale})`, zIndex: 2 }}>
-                    <WFrameThumb key={frameColor} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
+                    <WFrameThumb key={`${frameColor}-${o.id}`} layout={o.id} shots={shotsPreview} selected={[0, 1, 2, 3]} T={T}
                       logo={false} dateText={false} accent={accent} scale={1}
-                      orientation="portrait" frameColor={frameColor} />
+                      orientation="portrait" frameColor={frameColor} framePreset={layoutPreset} />
                   </div>
                 ) : (
                   <FramePickerFallback layout={o.id} T={T} size="sm" />
                 )}
                 {tpl?.recommended && <div style={{ position: 'absolute', top: 4, left: 5, zIndex: 5 }}><StoreBadge T={T}>Pick</StoreBadge></div>}
               </div>
-            <div style={{ fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
-              {o.en}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4, fontFamily: 'Pretendard,system-ui' }}>{o.ko}</span>
-            </div>
-          </button>
-        );
-      })}
+              <div style={{ fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>
+                {o.en}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4, fontFamily: 'Pretendard,system-ui' }}>{o.ko}</span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       <div style={{ marginTop: 16, padding: 14, borderRadius: 18, background: T.softSurface, border: `1px solid ${T.line}` }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
-          <Kick T={T}>Frame Store · 추천 프레임</Kick>
-          <StoreBadge T={T} tone="light">Soon</StoreBadge>
+          <Kick T={T}>Frame Store</Kick>
+          <button
+            onClick={() => setFrameStoreOpen((v) => !v)}
+            style={{
+              border: 'none',
+              background: frameStoreOpen ? T.ink : 'rgba(26,26,31,0.06)',
+              color: frameStoreOpen ? T.bg : T.ink,
+              borderRadius: 999,
+              padding: '6px 10px',
+              fontSize: 10,
+              fontWeight: 800,
+              cursor: 'pointer',
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              fontFamily: '"Plus Jakarta Sans",system-ui'
+            }}
+          >
+            {frameStoreOpen ? 'Close' : 'Open'}
+          </button>
         </div>
-        <div style={{ marginTop:10, display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8 }}>
-          {Object.values(typeof FRAME_TEMPLATES !== 'undefined' ? FRAME_TEMPLATES : {}).filter(t => t.recommended).slice(0, 2).map((tpl) => (
-            <button key={tpl.id} onClick={() => setLayout(({ '1x4':'strip', '2x2':'grid', '1x3':'trip', '1x1':'polaroid' })[tpl.type] || 'strip')} style={{
-              border:'none', borderRadius:14, padding:10, background:T.card, cursor:'pointer',
-              boxShadow: `0 0 0 1px ${T.line}, 0 12px 28px rgba(0,0,0,0.04)`,
-              textAlign:'left'
-            }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
-                <div style={{ fontSize:12, fontWeight:900, color:T.ink, fontFamily:'Pretendard,system-ui' }}>{tpl.ko}</div>
-                {tpl.recommended && <StoreBadge T={T} tone="light">Pick</StoreBadge>}
+
+        {frameStoreOpen && (
+          <>
+            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {categoryTabs.map((tabItem) => (
+                <button
+                  key={tabItem.id}
+                  onClick={() => setFrameCategory(tabItem.id)}
+                  style={{
+                    border: 'none',
+                    borderRadius: 999,
+                    padding: '7px 10px',
+                    background: frameCategory === tabItem.id ? T.ink : 'rgba(26,26,31,0.06)',
+                    color: frameCategory === tabItem.id ? T.bg : T.inkSoft,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    letterSpacing: 0.8,
+                    fontFamily: '"Plus Jakarta Sans",system-ui',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {tabItem.label}
+                  {typeof tabItem.count === 'number' ? ` ${tabItem.count}` : ''}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+              {recommendedFramePresets.map((preset) => {
+                const isSelected = selectedFramePresetId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => applyFramePreset && applyFramePreset(preset)}
+                    style={{
+                      border: 'none',
+                      borderRadius: 14,
+                      padding: 10,
+                      background: isSelected ? T.card : '#FFFFFF',
+                      cursor: 'pointer',
+                      boxShadow: isSelected ? `0 0 0 2px ${T.ink} inset, 0 10px 28px rgba(0,0,0,0.04)` : `0 0 0 1px ${T.line}, 0 10px 22px rgba(0,0,0,0.03)`,
+                      textAlign: 'left',
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>{preset.name}</div>
+                      {isSelected && <StoreBadge T={T} tone="light">Active</StoreBadge>}
+                    </div>
+                    <div style={{ marginTop: 7, display: 'grid', placeItems: 'center', minHeight: 114 }}>
+                      {WFrameThumb ? (
+                        <WFrameThumb
+                          key={`${preset.id}-${preset.updatedAt || 'builtin'}`}
+                          layout={preset.layout}
+                          shots={shotsPreview}
+                          selected={[0, 1, 2, 3]}
+                          T={T}
+                          logo={false}
+                          dateText={false}
+                          accent={accent}
+                          scale={0.8}
+                          orientation="portrait"
+                          frameColor={frameColor}
+                          framePreset={preset}
+                        />
+                      ) : (
+                        <FramePickerFallback layout={preset.layout} T={T} size="sm" />
+                      )}
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                      {preset.layout} · {preset.photoSlots.length}컷
+                    </div>
+                    <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>{preset.category}</div>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: T.ink, fontFamily: '"Plus Jakarta Sans",system-ui', textTransform: 'uppercase' }}>Select</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+              {frameCategory === 'my-frames' && savedFrames.length === 0 && (
+                <div style={{
+                  padding: 14,
+                  borderRadius: 14,
+                  background: 'rgba(26,26,31,0.04)',
+                  border: `1px dashed ${T.line}`,
+                  color: T.inkSoft,
+                  fontSize: 12,
+                  fontFamily: 'Pretendard,system-ui',
+                }}>
+                  No saved frames yet. Save a decorated setup or deco state to build your library.
+                </div>
+              )}
+
+              {visibleFramePresets.map((preset) => {
+                const isSelected = selectedFramePresetId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => applyFramePreset && applyFramePreset(preset)}
+                    style={{
+                      border: 'none',
+                      borderRadius: 14,
+                      padding: 12,
+                      background: isSelected ? T.card : '#FFFFFF',
+                      cursor: 'pointer',
+                      boxShadow: isSelected ? `0 0 0 2px ${T.ink} inset` : `0 0 0 1px ${T.line} inset`,
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(86px, 104px) 1fr',
+                      gap: 12,
+                      alignItems: 'center',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ minWidth: 0, display: 'grid', placeItems: 'center' }}>
+                      {WFrameThumb ? (
+                        <WFrameThumb
+                          key={`${preset.id}-${preset.updatedAt || 'thumb'}`}
+                          layout={preset.layout}
+                          shots={shotsPreview}
+                          selected={[0, 1, 2, 3]}
+                          T={T}
+                          logo={false}
+                          dateText={false}
+                          accent={accent}
+                          scale={0.7}
+                          orientation="portrait"
+                          frameColor={frameColor}
+                          framePreset={preset}
+                        />
+                      ) : (
+                        <FramePickerFallback layout={preset.layout} T={T} size="sm" />
+                      )}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>{preset.name}</div>
+                        {isSelected && <StoreBadge T={T} tone="light">Active</StoreBadge>}
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                        {preset.layout} · {preset.category} · {preset.photoSlots.length}컷
+                      </div>
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 10, color: T.inkSoft, fontFamily: 'Plus Jakarta Sans,system-ui', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                          {preset.source === 'custom' ? 'My Frame' : 'Preset'}
+                        </span>
+                        <span style={{ fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                          {preset.watermark?.text || 'IMMM'}
+                        </span>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: T.ink, fontFamily: 'Plus Jakarta Sans,system-ui', textTransform: 'uppercase' }}>Select</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {saveCustomFrame && (
+              <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => {
+                    const suggested = selectedFramePreset?.name ? `${selectedFramePreset.name} Copy` : 'My Frame';
+                    const name = window.prompt('Save frame as', suggested);
+                    if (!name || !name.trim()) return;
+                    saveCustomFrame({
+                      name: name.trim(),
+                      layout,
+                      frameColor,
+                      stickers: preStickers,
+                      drawStrokes: [],
+                      background: framePreset?.background,
+                      photoSlots: framePreset?.photoSlots,
+                      watermark: framePreset?.watermark,
+                      canvasSize: framePreset?.canvasSize,
+                    });
+                    setFrameCategory('my-frames');
+                    setFrameStoreOpen(true);
+                  }}
+                  style={{
+                    border: 'none',
+                    borderRadius: 999,
+                    padding: '10px 14px',
+                    background: T.ink,
+                    color: T.bg,
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                    fontFamily: '"Plus Jakarta Sans",system-ui',
+                  }}
+                >
+                  Save current setup
+                </button>
               </div>
-              <div style={{ marginTop:4, fontSize:10.5, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
-                {tpl.canvasSize.width}×{tpl.canvasSize.height} · {tpl.photoSlots.length}컷
-              </div>
-            </button>
-          ))}
-        </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Frame options */}

@@ -82,6 +82,11 @@ if (typeof window !== 'undefined') {
   window.getFrameTheme = getFrameTheme;
 }
 
+function getFramePresetApiSafe() {
+  if (typeof window === 'undefined') return null;
+  return window.IMMMFramePresets || null;
+}
+
 const FRAME_TEMPLATES = {
   '1x4': {
     id: 'core-1x4',
@@ -482,12 +487,21 @@ async function renderComposition(ctx, data, options = {}) {
   const scale = options.scale || 1;
   const w = template.canvasSize.width * scale;
   const h = template.canvasSize.height * scale;
+  const framePreset = data.framePreset || null;
 
   const theme = getFrameTheme(template, data);
+  const presetApi = getFramePresetApiSafe();
+  const drawPresetBackground = presetApi?.drawFramePresetBackground || window.drawFramePresetBackground || null;
+  const drawPresetLayer = presetApi?.drawFramePresetLayer || window.drawFramePresetLayer || null;
+  const drawPresetWatermark = presetApi?.drawFramePresetWatermark || window.drawFramePresetWatermark || null;
 
   // 1. Background
-  ctx.fillStyle = theme.frameBg;
-  ctx.fillRect(0, 0, w, h);
+  if (framePreset && typeof drawPresetBackground === 'function') {
+    drawPresetBackground(ctx, framePreset, w, h);
+  } else {
+    ctx.fillStyle = theme.frameBg;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   // 1b. Preload Stickers (parallel)
   const tPreloadStart = nowMs();
@@ -500,15 +514,19 @@ async function renderComposition(ctx, data, options = {}) {
   const selected = data.selected || [];
   const shots = data.shots || [];
   const tPhotoStart = nowMs();
-  const images = await Promise.all(template.photoSlots.map((_, i) => {
+  const photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : template.photoSlots;
+  const images = await Promise.all(photoSlots.map((_, i) => {
     const shot = shots[selected[i]];
     return loadImageForCanvas(shot?.dataUrl);
   }));
   logExportPerf('photo-slots', { ms: nowMs() - tPhotoStart, count: images.length });
 
   const tStickerDrawStart = nowMs();
-  for (let i = 0; i < template.photoSlots.length; i++) {
-    const slot = template.photoSlots[i];
+  if (framePreset && typeof drawPresetLayer === 'function') {
+    drawPresetLayer(ctx, framePreset, w, h, 'back');
+  }
+  for (let i = 0; i < photoSlots.length; i++) {
+    const slot = photoSlots[i];
     const sx = slot.x * scale;
     const sy = slot.y * scale;
     const sw = slot.width * scale;
@@ -579,6 +597,10 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.restore();
   });
 
+  if (framePreset && typeof drawPresetLayer === 'function') {
+    drawPresetLayer(ctx, framePreset, w, h, 'front');
+  }
+
   // 5. Unified Overlay (Logo, Dot, Date)
   renderFrameOverlay(ctx, template, w, h, {
     frameColor: data.frameColor,
@@ -586,6 +608,10 @@ async function renderComposition(ctx, data, options = {}) {
     dateText: data.dateText,
     accent: data.accent
   });
+
+  if (framePreset && typeof drawPresetWatermark === 'function') {
+    drawPresetWatermark(ctx, framePreset, w, h);
+  }
 }
 
 async function renderFrameToCanvas(input) {
@@ -752,7 +778,7 @@ function generateQrDataUrl(text) {
 /**
  * A consistent, canvas-based preview component.
  */
-function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = [], drawStrokes = [], logo, dateText, accent, scale = 1, orientation }) {
+function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = [], drawStrokes = [], logo, dateText, accent, scale = 1, orientation, framePreset = null }) {
   const canvasRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -776,11 +802,14 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
         layout, shots, selected, filter, frameColor,
         stickers, drawStrokes, logo, dateText, accent, orientation
       };
+      if (framePreset) {
+        data.framePreset = framePreset;
+      }
       const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) await renderComp(ctx, data, { scale: 1 });
     };
     draw();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
 
   return (
     <canvas 

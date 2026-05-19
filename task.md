@@ -2037,3 +2037,17 @@ QA steps:
 ---
 
 **RC Status**: Code-level finalized. Field QA blockers documented as NOT TESTED pending physical device execution.
+
+## Phase 3.84 — Frame Store + Custom Frame Builder Foundation
+- [x] Frame preset data model added
+- [x] Frame Store entry added
+- [x] Basic frame pack added
+- [x] Character-style frame pack added without copyrighted assets
+- [x] My Frames local storage added
+- [x] Custom frame save added
+- [x] selectedFramePresetId applied to setup/deco flow
+- [x] Existing basic frames preserved
+- [x] render/export/share path preserved
+- [x] sanity-check guards added
+- [ ] Field QA with custom frame
+- [ ] Samsung Internet custom frame save/load test

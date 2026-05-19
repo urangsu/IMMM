@@ -29,7 +29,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   lastWideToggleReason = '', lastWideTogglePath = '',
   cameraZoomOptions = [], cameraZoomSupported = false, torchSupported = false, torchActive = false, torchUnavailableReason = '',
   screenFlashOverlay = false, screenLightSupported = false, screenLightActive = false,
-  setCameraZoom, setCameraTorch, setScreenLightActive, runScreenFlash
+  setCameraZoom, setCameraTorch, setScreenLightActive, runScreenFlash, framePreset
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -523,6 +523,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 accent={accent}
                 frameColor={safeFrameColor}
                 viewfinderAspect={viewfinderAspect}
+                framePreset={framePreset}
               />
             );
           })()}
@@ -1256,4 +1257,3 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
 }
 
 Object.assign(window, { CaptureV2, SelectV2, GalleryV2, SharedPhotoV2, CaptureOverlay });
-

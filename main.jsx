@@ -250,6 +250,25 @@ function App() {
   const [drawStrokes, setDrawStrokes] = React.useState([]);
   const [photoEditMode, setPhotoEditMode] = React.useState(false);
   const [lang, setLang] = React.useState('ko');
+  const [customFrames, setCustomFrames] = React.useState(() => {
+    try {
+      const api = window.IMMMFramePresets;
+      if (api && typeof api.loadCustomFramePresets === 'function') {
+        return api.loadCustomFramePresets();
+      }
+      return JSON.parse(localStorage.getItem('immm.v2.customFrames') || '[]');
+    } catch (e) {
+      console.warn('[IMMM] custom frame load failed:', e);
+      return [];
+    }
+  });
+  const [selectedFramePresetId, setSelectedFramePresetId] = React.useState(() => {
+    try {
+      return localStorage.getItem('immm.v2.selectedFramePresetId') || '';
+    } catch (e) {
+      return '';
+    }
+  });
 
   // Responsive mobile detection
   const [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
@@ -259,6 +278,26 @@ function App() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const safeFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
+  const framePresetApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
+  const framePresetList = React.useMemo(() => {
+    if (framePresetApi && typeof framePresetApi.listFramePresets === 'function') {
+      return framePresetApi.listFramePresets(customFrames);
+    }
+    return customFrames;
+  }, [framePresetApi, customFrames]);
+  const activeFramePreset = React.useMemo(() => {
+    if (framePresetApi && typeof framePresetApi.getFramePresetById === 'function') {
+      return framePresetApi.getFramePresetById(selectedFramePresetId, customFrames);
+    }
+    return framePresetList.find((preset) => preset.id === selectedFramePresetId) || null;
+  }, [framePresetApi, selectedFramePresetId, customFrames, framePresetList]);
+  const defaultFramePresetId = React.useMemo(() => {
+    if (framePresetApi && typeof framePresetApi.getDefaultFramePresetIdForLayout === 'function') {
+      return framePresetApi.getDefaultFramePresetIdForLayout(tweaks.layout, customFrames);
+    }
+    const first = framePresetList.find((preset) => preset.layout === tweaks.layout);
+    return first ? first.id : '';
+  }, [framePresetApi, tweaks.layout, customFrames, framePresetList]);
 
   // EMERGENCY FACE SHAPE SAFETY:
   // Disabling ALL face-tracked filters and geometry warp to prevent distortion on Galaxy/Samsung Internet.
@@ -991,6 +1030,41 @@ function App() {
   }, [screen]);
   React.useEffect(() => {
     try {
+      if (customFrames.length > 0) {
+        localStorage.setItem('immm.v2.customFrames', JSON.stringify(customFrames));
+      } else {
+        localStorage.removeItem('immm.v2.customFrames');
+      }
+    } catch (e) {
+      console.warn('[IMMM] custom frame sync failed:', e);
+    }
+  }, [customFrames]);
+  React.useEffect(() => {
+    try {
+      if (selectedFramePresetId) {
+        localStorage.setItem('immm.v2.selectedFramePresetId', selectedFramePresetId);
+      } else {
+        localStorage.removeItem('immm.v2.selectedFramePresetId');
+      }
+    } catch (e) {
+      console.warn('[IMMM] selected frame sync failed:', e);
+    }
+  }, [selectedFramePresetId]);
+  React.useEffect(() => {
+    if (!defaultFramePresetId) return;
+    const hasSelected = selectedFramePresetId && framePresetList.some((preset) => preset.id === selectedFramePresetId);
+    if (!hasSelected) {
+      setSelectedFramePresetId(defaultFramePresetId);
+    }
+  }, [defaultFramePresetId, framePresetList, selectedFramePresetId]);
+  React.useEffect(() => {
+    if (!activeFramePreset?.layout) return;
+    if (tweaks.layout !== activeFramePreset.layout) {
+      updateTweak('layout', activeFramePreset.layout);
+    }
+  }, [activeFramePreset?.id, activeFramePreset?.layout, tweaks.layout]);
+  React.useEffect(() => {
+    try {
       if (selected.length > 0) {
         localStorage.setItem('immm.v2.sel', JSON.stringify(selected));
       } else {
@@ -1051,6 +1125,64 @@ function App() {
     setScreen(s);
   };
   const updateTweak = (k, v) => setTweaks(prev => ({ ...prev, [k]: v }));
+  const applyFramePreset = React.useCallback((presetOrId, options = {}) => {
+    const preset = typeof presetOrId === 'string'
+      ? (framePresetApi?.getFramePresetById?.(presetOrId, customFrames) || framePresetList.find((p) => p.id === presetOrId) || null)
+      : presetOrId;
+    if (!preset) return null;
+
+    setSelectedFramePresetId(preset.id);
+    if (preset.layout && preset.layout !== tweaks.layout) {
+      updateTweak('layout', preset.layout);
+    }
+    if (options.syncFrameColor !== false && preset.frameColor && preset.background?.type === 'solid') {
+      updateTweak('frameColor', preset.frameColor);
+    }
+    if (typeof options.onApply === 'function') {
+      options.onApply(preset);
+    }
+    return preset;
+  }, [customFrames, framePresetApi, framePresetList, tweaks.layout]);
+  const saveCustomFrame = React.useCallback((input = {}) => {
+    if (!framePresetApi || typeof framePresetApi.createCustomFramePresetFromAppState !== 'function') return null;
+    const preset = framePresetApi.createCustomFramePresetFromAppState({
+      name: input.name || 'My Frame',
+      layout: input.layout || tweaks.layout,
+      frameColor: input.frameColor || tweaks.frameColor,
+      background: input.background || (activeFramePreset?.background || { type: 'solid', value: input.frameColor || tweaks.frameColor || '#FFFFFF' }),
+      stickers: input.stickers || [],
+      drawStrokes: input.drawStrokes || [],
+      photoSlots: input.photoSlots || activeFramePreset?.photoSlots,
+      watermark: input.watermark || activeFramePreset?.watermark,
+      canvasSize: input.canvasSize || activeFramePreset?.canvasSize,
+    });
+    const next = [...customFrames.filter((item) => item.id !== preset.id), preset];
+    if (typeof framePresetApi.saveCustomFramePresets === 'function') {
+      framePresetApi.saveCustomFramePresets(next);
+    } else {
+      localStorage.setItem('immm.v2.customFrames', JSON.stringify(next));
+    }
+    setCustomFrames(next);
+    setSelectedFramePresetId(preset.id);
+    updateTweak('layout', preset.layout);
+    if (preset.frameColor) {
+      updateTweak('frameColor', preset.frameColor);
+    }
+    return preset;
+  }, [activeFramePreset, customFrames, framePresetApi, tweaks.frameColor, tweaks.layout]);
+  const setLayoutAndPreset = React.useCallback((layoutId) => {
+    updateTweak('layout', layoutId);
+    const nextPresetId = framePresetApi?.getDefaultFramePresetIdForLayout?.(layoutId, customFrames)
+      || framePresetList.find((preset) => preset.layout === layoutId)?.id
+      || '';
+    setSelectedFramePresetId(nextPresetId || '');
+    if (nextPresetId) {
+      const preset = framePresetApi?.getFramePresetById?.(nextPresetId, customFrames) || framePresetList.find((preset) => preset.id === nextPresetId) || null;
+      if (preset?.frameColor && preset.background?.type === 'solid') {
+        updateTweak('frameColor', preset.frameColor);
+      }
+    }
+  }, [customFrames, framePresetApi, framePresetList]);
 
   const frameShotCount = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(tweaks.layout)
@@ -1086,6 +1218,15 @@ function App() {
     lang, setLang,
     activeSessionId,
     resetSessionState,
+    selectedFramePresetId,
+    setSelectedFramePresetId,
+    framePresetList,
+    customFrames,
+    setCustomFrames,
+    activeFramePreset,
+    applyFramePreset,
+    saveCustomFrame,
+    setLayoutAndPreset,
     cameraZoomSupported,
     cameraZoomMin,
     cameraZoomMax,
@@ -1113,7 +1254,7 @@ function App() {
         return <SharedPhotoV2 {...p} />;
       case 'setup':
         return <SetupScreen {...p}
-          setLayout={v => updateTweak('layout', v)}
+          setLayout={setLayoutAndPreset}
           setFilter={v => updateTweak('filter', v)}
           setLogo={v => updateTweak('logo', v)}
           setDateText={v => updateTweak('dateText', v)}
@@ -1121,6 +1262,11 @@ function App() {
           setFrameColor={v => updateTweak('frameColor', v)}
           setUseWebgl={v => updateTweak('useWebgl', v)}
           preStickers={preStickers} setPreStickers={setPreStickers}
+          framePreset={activeFramePreset}
+          framePresets={framePresetList}
+          customFrames={customFrames}
+          applyFramePreset={applyFramePreset}
+          saveCustomFrame={saveCustomFrame}
           editMode={photoEditMode}
           shots={shots} setShots={setShots} setSelected={setSelected}
           startNewCaptureSession={startNewCaptureSession}
@@ -1158,6 +1304,7 @@ function App() {
           lastWideTogglePath={lastWideTogglePath}
           cameraZoomHistory={cameraZoomHistory}
           onDebugSwitchCameraDevice={onDebugSwitchCameraDevice}
+          framePreset={activeFramePreset}
         />;
       case 'select':
         return <SelectV2 {...p}
@@ -1170,12 +1317,15 @@ function App() {
           stickers={stickers} setStickers={setStickers}
           drawStrokes={drawStrokes} setDrawStrokes={setDrawStrokes}
           setDateText={v => updateTweak('dateText', v)}
+          framePreset={activeFramePreset}
+          saveCustomFrame={saveCustomFrame}
         />;
       case 'result':
         // Guard moved to effect — screen should be 'setup' if no photos in current session
         return <ResultV2 {...p}
           shots={effShots} selected={effSelected}
           stickers={stickers} drawStrokes={drawStrokes}
+          framePreset={activeFramePreset}
         />;
       default:
         return null;

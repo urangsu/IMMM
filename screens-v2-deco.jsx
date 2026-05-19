@@ -107,7 +107,7 @@ function getStickerPickerPacks() {
 }
 
 function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation,
-  stickers, setStickers, drawStrokes, setDrawStrokes, logo, dateText, setDateText, accent, frameColor }) {
+  stickers, setStickers, drawStrokes, setDrawStrokes, logo, dateText, setDateText, accent, frameColor, framePreset, saveCustomFrame }) {
   const [tab, setTab] = React.useState('stickers'); // stickers | draw | text
   const [selStId, setSelStId] = React.useState(null);
   const [drawColor, setDrawColor] = React.useState('#D98893');
@@ -288,6 +288,23 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const zoomIn = () => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)));
   const zoomOut = () => setZoom((z) => Math.max(0.2, +(z - 0.15).toFixed(2)));
+  const saveCurrentFrame = React.useCallback(() => {
+    if (typeof saveCustomFrame !== 'function') return;
+    const suggested = framePreset?.name ? `${framePreset.name} Copy` : 'My Frame';
+    const name = window.prompt('Save frame as', suggested);
+    if (!name || !name.trim()) return;
+    saveCustomFrame({
+      name: name.trim(),
+      layout,
+      frameColor,
+      stickers,
+      drawStrokes,
+      background: framePreset?.background,
+      photoSlots: framePreset?.photoSlots,
+      watermark: framePreset?.watermark,
+      canvasSize: framePreset?.canvasSize,
+    });
+  }, [drawStrokes, frameColor, framePreset, layout, saveCustomFrame, stickers]);
 
   const resolveFrameTemplate = (layout) => {
     if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
@@ -342,7 +359,8 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       const data = {
         layout, shots, selected, filter, frameColor,
         stickers, drawStrokes: [...drawStrokes, curStrokeRef.current],
-        logo, dateText, accent, orientation
+        logo, dateText, accent, orientation,
+        framePreset,
       };
 
       // Render to offscreen canvas to prevent tearing/flickering
@@ -369,7 +387,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     // RAF-only: avoids double render per dependency change
     const raf = requestAnimationFrame(draw);
     return () => { cancelled = true; cancelAnimationFrame(raf); };
-  }, [fontsReady, layout, shots, selected, filter, frameColor, stickers, drawStrokes, drawVersion, logo, dateText, accent, orientation, drawMode]);
+  }, [fontsReady, layout, shots, selected, filter, frameColor, stickers, drawStrokes, drawVersion, logo, dateText, accent, orientation, drawMode, framePreset]);
 
   const frameW = layout === 'strip' || layout === 'trip' ? 180 : 220;
 
@@ -581,6 +599,29 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const tabContent = tab === 'stickers' ? stickerTab : tab === 'draw' ? drawTab : textTab;
 
+  const saveFrameBar = saveCustomFrame ? (
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+      <button
+        onClick={saveCurrentFrame}
+        style={{
+          border: 'none',
+          borderRadius: 999,
+          padding: '8px 12px',
+          background: T.ink,
+          color: T.bg,
+          cursor: 'pointer',
+          fontSize: 10,
+          fontWeight: 800,
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          fontFamily: '"Plus Jakarta Sans",system-ui',
+        }}
+      >
+        Save frame
+      </button>
+    </div>
+  ) : null;
+
   const tabBar =
   <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${T.line}`, marginBottom: 16 }}>
       {[['stickers', 'Stickers'], ['draw', 'Draw'], ['text', 'Text']].map(([k, en]) =>
@@ -624,6 +665,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
           {/* Tools panel */}
           <div style={{ background: T.bg, padding: '0 16px 60px' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'rgba(0,0,0,0.1)', margin: '10px auto 0' }} />
+            {saveFrameBar}
             {tabBar}
             {tabContent}
           </div>
@@ -644,6 +686,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         </div>
       </div>
       <div style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', borderLeft: '1px solid rgba(0,0,0,0.07)', padding: '24px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {saveFrameBar}
         {tabBar}
         <div style={{ flex: 1 }}>{tabContent}</div>
       </div>
@@ -736,7 +779,7 @@ function ResultPrintIntro({ T, mobile, layout, previewSrc }) {
 // ═══════════════════════════════════════════════════════════════
 // RESULT
 // ═══════════════════════════════════════════════════════════════
-function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation, stickers, drawStrokes, logo, dateText, accent, frameColor, activeSessionId }) {
+function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation, stickers, drawStrokes, logo, dateText, accent, frameColor, framePreset, activeSessionId }) {
   const shotCount = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(layout)
     : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
@@ -839,7 +882,8 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
     const data = {
       layout, shots, selected, filter, frameColor,
-      stickers, drawStrokes, logo, dateText, accent, orientation
+      stickers, drawStrokes, logo, dateText, accent, orientation,
+      framePreset,
     };
 
     await renderComp(ctx, data, { scale: 1 });
@@ -920,7 +964,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
   React.useEffect(() => {
     buildFinalResultAsset();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
 
   // Consolidated Cleanup: ResultV2 unmount cleanup for preview and save sheet
   React.useEffect(() => {
@@ -1605,6 +1649,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
           dateText,
           accent,
           frameColor,
+          framePreset,
           scale: 1.5,
         });
       }

@@ -752,6 +752,109 @@ function checkEmergencyFrameGlobals() {
   }
 }
 
+function checkFrameStoreFoundation() {
+  const framePresets = readFile('frame-presets.jsx');
+  const main = readFile('main.jsx');
+  const setup = readFile('screens-v2.jsx');
+  const deco = readFile('screens-v2-deco.jsx');
+  const frameSystem = readFile('frame-system.jsx');
+
+  if (!framePresets) {
+    console.error('❌ FAIL: frame-presets.jsx missing');
+    hasErrors = true;
+    return;
+  }
+
+  const requiredStrings = [
+    'FRAME_PRESET_STORAGE_KEY',
+    'immm.v2.customFrames',
+    'getBuiltinFramePresets',
+    'createCustomFramePresetFromAppState',
+    'sanitizeCustomFramePreset',
+    'drawFramePresetOverlay',
+  ];
+  requiredStrings.forEach((needle) => {
+    if (!framePresets.includes(needle)) {
+      console.error(`❌ FAIL: frame-presets.jsx missing ${needle}`);
+      hasErrors = true;
+    }
+  });
+
+  try {
+    const sandbox = {
+      console,
+      Math,
+      Date,
+      JSON,
+      localStorage: {
+        _store: {},
+        getItem(key) { return Object.prototype.hasOwnProperty.call(this._store, key) ? this._store[key] : null; },
+        setItem(key, value) { this._store[key] = String(value); },
+        removeItem(key) { delete this._store[key]; },
+      },
+      window: null,
+    };
+    sandbox.window = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(framePresets, sandbox);
+    const api = sandbox.window.IMMMFramePresets;
+    if (!api) throw new Error('window.IMMMFramePresets not found');
+
+    const builtins = api.getBuiltinFramePresets();
+    if (!Array.isArray(builtins) || builtins.length < 8) {
+      throw new Error(`expected at least 8 builtins, got ${builtins?.length || 0}`);
+    }
+    if (builtins.some((preset) => !preset?.id || !preset?.layout || !preset?.background)) {
+      throw new Error('builtin frame preset normalization failed');
+    }
+
+    const sample = api.createCustomFramePresetFromAppState({
+      name: 'Sanity Frame',
+      layout: '1x4',
+      frameColor: '#ffffff',
+      stickers: [
+        { kind: 'preset', payload: { libId: 'm-heart-1' }, x: 12, y: 12, rotation: 0, scale: 1 },
+        { kind: 'upload', payload: { dataUrl: 'data:image/png;base64,AAAA' }, x: 30, y: 30, rotation: 0, scale: 1 },
+      ],
+      drawStrokes: [
+        { points: [[0, 0], [10, 10]], color: '#111', width: 3, seed: 1 },
+      ],
+      background: { type: 'solid', value: '#fff' },
+    });
+    const sampleJson = JSON.stringify(sample);
+    if (sampleJson.includes('dataUrl')) {
+      throw new Error('custom frame save leaked dataUrl');
+    }
+    if (!sampleJson.includes('drawStrokes') || !sampleJson.includes('stickers')) {
+      throw new Error('custom frame save missing stickers or drawStrokes');
+    }
+  } catch (err) {
+    console.error('❌ FAIL: frame-presets.jsx runtime validation failed:', err.message);
+    hasErrors = true;
+  }
+
+  if (main && !main.includes('selectedFramePresetId')) {
+    console.error('❌ FAIL: main.jsx missing selectedFramePresetId state');
+    hasErrors = true;
+  }
+  if (setup && !setup.includes('No saved frames yet')) {
+    console.error('❌ FAIL: screens-v2.jsx missing My Frames empty state');
+    hasErrors = true;
+  }
+  if (deco && !deco.includes('saveCustomFrame')) {
+    console.error('❌ FAIL: screens-v2-deco.jsx missing custom frame save hook');
+    hasErrors = true;
+  }
+  if (frameSystem && !frameSystem.includes('framePreset')) {
+    console.error('❌ FAIL: frame-system.jsx missing framePreset integration');
+    hasErrors = true;
+  }
+  if (frameSystem && !frameSystem.includes('FRAME_TEMPLATES')) {
+    console.error('❌ FAIL: frame-system.jsx FRAME_TEMPLATES missing');
+    hasErrors = true;
+  }
+}
+
 function checkEmergencyServiceWorker() {
   const sw = readFile('sw.js');
   if (!sw) return;
@@ -2071,6 +2174,7 @@ checkVisibleFilters();
 checkWebglVisiblePipelines();
 checkEmergencyFaceSafety();
 checkEmergencyFrameGlobals();
+checkFrameStoreFoundation();
 checkEmergencyServiceWorker();
 checkAppStability();
 checkCameraCapabilityHarden();
