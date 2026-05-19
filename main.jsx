@@ -372,7 +372,7 @@ function App() {
   }, []);
   const FieldTestPanel = () => {
     if (!showFieldTest) return null;
-    const lsSize = (() => { try { return JSON.stringify(localStorage).length; } catch(e) { return 'n/a'; } })();
+    const lsSize = (() => { try { return localStorage.length; } catch(e) { return 'n/a'; } })();
     return (
       <div style={{ position:'fixed', bottom:10, left:10, zIndex:9990 }}>
         <button
@@ -392,7 +392,7 @@ function App() {
             <div>camera: {facingMode} zoom:{cameraZoom}</div>
             <div>torch: {torchActive ? 'on' : 'off'} | screenLight: {screenLightActive ? 'on' : 'off'}</div>
             <div>SW: {(navigator.serviceWorker && navigator.serviceWorker.controller) ? 'active' : 'none'}</div>
-            <div>LS: {lsSize} chars</div>
+            <div>LS keys: {lsSize}</div>
             <div style={{ marginTop:6, display:'flex', gap:6, flexWrap:'wrap' }}>
               <button onClick={async () => { if (window.IMMM_DIAGNOSTICS) { const r = await window.IMMM_DIAGNOSTICS.copySnapshot(); alert(r.ok ? 'Copied' : r.error); } }} style={{ padding:'3px 8px', background:'#003300', color:'#0f0', border:'1px solid #0f0', borderRadius:4, fontSize:10, cursor:'pointer' }}>Copy Diag</button>
               <button onClick={() => location.reload()} style={{ padding:'3px 8px', background:'#003300', color:'#0f0', border:'1px solid #0f0', borderRadius:4, fontSize:10, cursor:'pointer' }}>Reload</button>

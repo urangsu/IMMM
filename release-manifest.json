@@ -4,7 +4,7 @@
   "runtime": "precompiled",
   "cache": "v17",
   "branch": "claude/session-adapter-hardening-03que",
-  "commit": "pending-current-commit",
+  "commit": "db2c7bc",
   "features": {
     "qrShare": true,
     "shareViewer": true,

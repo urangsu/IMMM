@@ -1936,3 +1936,82 @@ QA steps:
 - [ ] Samsung Internet camera/video field test
 - [ ] iPhone Safari fallback field test
 - [ ] PWA update field test
+
+## Phase 3.69~3.75 — RC Finalization Mega Sprint
+
+### Part A: RC Metadata / Service Worker Alignment
+- [x] sw.js CACHE_NAME updated to v17-2026-05-16-rc2.4-rc-final
+- [x] release-manifest.json cache parity verified (v17)
+- [x] dist/release-manifest.json cache parity verified
+- [x] commit hash updated (db2c7bc)
+- [x] sanity-check cache alignment added (RC-A)
+
+### Part B: Diagnostics Privacy Hardening
+- [x] JSON.stringify(localStorage) removed from Field Test Panel
+- [x] localStorage.length used instead of JSON.stringify
+- [x] LS display label updated to "LS keys:"
+- [x] sanity-check forbidden patterns added (RC-B1, RC-B2, RC-B3)
+
+### Part C: QR Share / Share Viewer Contract Finalization
+- [x] QR_SHARE_FAILURE_REASONS enum verified
+- [x] fake immm.io URL prohibition verified
+- [x] QR Share uses getFinalResultBlob confirmed
+- [x] Modal UI elements (Copy/Open/Retry/Close) requirement documented
+- [x] sanity-check Part C checks added (RC-C1, RC-C2, RC-C3)
+
+### Part D: Video Export RC Hardening
+- [x] VIDEO_EXPORT_FAILURE_REASONS enum verified
+- [x] MediaRecorder existence guard verified
+- [x] canvas.captureStream guard verified
+- [x] sanity-check capability guards added (RC-D1, RC-D2, RC-D3)
+
+### Part E: Result / Gallery / Blob Lifecycle Final Lock
+- [x] activeSessionId cleanup effect verified
+- [x] URL.revokeObjectURL wrapper enforcement verified
+- [x] exportBlobRef reset in cleanup verified
+- [x] sanity-check blob lifecycle checks added (RC-E1, RC-E2, RC-E3)
+
+### Part F: PWA Update UX Final Lock
+- [x] sw.js SKIP_WAITING message handler verified
+- [x] main.jsx controllerchange listener verified
+- [x] __IMMM_RELOADING_FOR_UPDATE guard verified
+- [x] sanity-check PWA checks added (RC-F1, RC-F2, RC-F3)
+
+### Part G: RC Smoke Automation
+- [x] scripts/rc-smoke.mjs created (10-point smoke test)
+- [x] Smoke tests:
+  - [x] 1. release-manifest.json valid JSON
+  - [x] 2. dist/release-manifest.json valid JSON
+  - [x] 3. Cache version alignment
+  - [x] 4. No @babel/standalone in index.html
+  - [x] 5. dist main files exist
+  - [x] 6. No fake immm.io URLs
+  - [x] 7. No localStorage.clear() calls
+  - [x] 8. No pgpt stray files
+  - [x] 9. dist/main.js syntax valid
+  - [x] 10. dist/screens-v2-deco.js syntax valid
+
+### Part H: Release Notes / Known Issues
+- [x] RELEASE_NOTES_RC.md created
+- [x] Included features documented
+- [x] Known pending field QA documented (4 items)
+- [x] Not included items documented
+- [x] Migration notes added
+- [x] Smoke tests documented
+
+### Part I: task.md Update
+- [x] Phase 3.69-3.75 section added
+- [x] All 9 parts completion checklist
+
+---
+
+## Field QA Blockers (Must Pass Before Production)
+
+- [ ] QR second-device scan test
+- [ ] Samsung Internet camera/video test  
+- [ ] iPhone Safari video fallback test
+- [ ] PWA update flow test
+
+---
+
+**RC Status**: Code-level complete. Production declaration pending field QA (4 tests).

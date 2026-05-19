@@ -556,9 +556,9 @@ function checkCaptureSessionSystem() {
       }
     });
 
-    // Check cache version is v14 (Phase 3.64)
-    if (!sw.includes('immm-cache-v14')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME must be bumped to v14');
+    // Check cache version is v14+ (Phase 3.64+)
+    if (!sw.includes('immm-cache-v14') && !sw.includes('immm-cache-v17')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME must be bumped to v17 or higher');
       hasErrors = true;
     }
   }
@@ -1266,8 +1266,8 @@ function checkRuntimeVersion() {
     console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
     hasErrors = true;
   }
-  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-') && !sw.includes('immm-cache-v13-') && !sw.includes('immm-cache-v14-')) {
-    console.error("❌ FAIL: sw.js missing recent immm-cache version (v7, v8, v9, v10, v11, v12, v13 or v14)");
+  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-') && !sw.includes('immm-cache-v13-') && !sw.includes('immm-cache-v14-') && !sw.includes('immm-cache-v17-')) {
+    console.error("❌ FAIL: sw.js missing recent immm-cache version (v14 or v17)");
     hasErrors = true;
   }
   if (sw.includes('immm-cache-v1-') || sw.includes('immm-cache-v4-')) {
@@ -2267,8 +2267,8 @@ function checkBabelMigrationPlan() {
   // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-') && !swJs.includes('v13-') && !swJs.includes('v14-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11, v12, v13 or v14 series');
+    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-') && !swJs.includes('v13-') && !swJs.includes('v14-') && !swJs.includes('v17-')) {
+      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11, v12, v13, v14 or v17 series');
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {
@@ -2889,6 +2889,132 @@ function checkReleaseCandidateLock() {
   const selfContent = readFile('scripts/sanity-check.mjs');
   if (!selfContent || !selfContent.includes('pgpt') || !selfContent.includes('checkStrayFiles')) {
     console.error('❌ RC-20: sanity-check.mjs pgpt / checkStrayFiles guard has been removed');
+    hasErrors = true;
+  }
+
+  // RC-A: Cache alignment checks (Part A metadata consistency)
+  if (manifest && swFile) {
+    try {
+      const m = JSON.parse(manifest);
+      const cacheVersion = m.cache; // e.g., "v17"
+      const swCacheName = swFile.match(/const CACHE_NAME = '([^']+)'/)?.[1] || '';
+      if (!swCacheName.includes(cacheVersion)) {
+        console.error(`❌ RC-A: sw.js CACHE_NAME does not include manifest cache version (${cacheVersion})`);
+        hasErrors = true;
+      }
+    } catch (e) {
+      console.error('❌ RC-A: release-manifest.json JSON parse failed');
+      hasErrors = true;
+    }
+  }
+
+  // RC-B: Privacy hardening checks (Part B diagnostics)
+  const privacyFiles = ['main.jsx'];
+  privacyFiles.forEach(f => {
+    const content = readFile(f);
+    if (!content) return;
+    if (content.includes('JSON.stringify(localStorage)')) {
+      console.error(`❌ RC-B1: ${f} must not use JSON.stringify(localStorage)`);
+      hasErrors = true;
+    }
+    if (content.includes('Object.values(localStorage)')) {
+      console.error(`❌ RC-B2: ${f} must not use Object.values(localStorage)`);
+      hasErrors = true;
+    }
+    if (content.includes('Object.entries(localStorage)')) {
+      console.error(`❌ RC-B3: ${f} must not use Object.entries(localStorage)`);
+      hasErrors = true;
+    }
+  });
+
+  // RC-C: QR Share / Share Viewer contract finalization checks (Part C)
+  const decoFiles = ['screens-v2-deco.jsx'];
+  decoFiles.forEach(f => {
+    const content = readFile(f);
+    if (!content) return;
+    // Check for fake immm.io URLs
+    if (content.includes('immm.io/share')) {
+      console.error(`❌ RC-C1: ${f} must not assemble fake immm.io/share URLs`);
+      hasErrors = true;
+    }
+    // QR Share must use getFinalResultBlob, not renderFinalResultBlob
+    if (!content.includes('getFinalResultBlob')) {
+      console.error(`❌ RC-C2: ${f} QR Share must use getFinalResultBlob`);
+      hasErrors = true;
+    }
+    // Modal must have Copy/Open/Retry/Close buttons
+    const hasQrReply = content.includes('handleCreateQrShare') || content.includes('getQrShareState');
+    if (hasQrReply && !content.includes('Copy') && !content.includes('Retry')) {
+      console.error(`❌ RC-C3: ${f} QR modal must have Copy/Open/Retry/Close elements`);
+      hasErrors = true;
+    }
+  });
+
+  // RC-D: Video Export capability/failure hardening checks (Part D)
+  const motionFile = readFile('motion-export-contract.jsx');
+  if (!motionFile || !motionFile.includes('VIDEO_EXPORT_FAILURE_REASONS')) {
+    console.error('❌ RC-D1: motion-export-contract.jsx must define VIDEO_EXPORT_FAILURE_REASONS');
+    hasErrors = true;
+  }
+
+  const decoFile = readFile('screens-v2-deco.jsx');
+  if (decoFile) {
+    // Check for MediaRecorder guard
+    const mediaRecorderIdx = decoFile.indexOf('MediaRecorder.isTypeSupported');
+    if (mediaRecorderIdx !== -1) {
+      const context = decoFile.slice(Math.max(0, mediaRecorderIdx - 100), mediaRecorderIdx);
+      if (!context.includes('typeof MediaRecorder') && !context.includes('MediaRecorder !==')) {
+        console.error('❌ RC-D2: screens-v2-deco.jsx must guard MediaRecorder.isTypeSupported with typeof check');
+        hasErrors = true;
+      }
+    }
+    // Check for captureStream guard
+    if (decoFile.includes('captureStream') && !decoFile.includes('typeof HTMLCanvasElement')) {
+      console.error('❌ RC-D3: screens-v2-deco.jsx must guard captureStream with typeof check');
+      hasErrors = true;
+    }
+  }
+
+  // RC-E: Blob lifecycle finalization checks (Part E)
+  if (decoFile) {
+    // Check for activeSessionId cleanup effect
+    if (!decoFile.includes('activeSessionId') || !decoFile.includes('sessionIdRef')) {
+      console.error('❌ RC-E1: screens-v2-deco.jsx must have sessionIdRef and activeSessionId cleanup');
+      hasErrors = true;
+    }
+    // Check for revokeBlobUrl wrapper usage (not direct URL.revokeObjectURL)
+    const revokeMatches = decoFile.match(/URL\.revokeObjectURL\(/g);
+    const revokeWrapperIdx = decoFile.indexOf('function revokeBlobUrl');
+    if (revokeMatches && revokeMatches.length > 0) {
+      // Count revokes — should mostly be inside revokeBlobUrl definition
+      for (let i = 0; i < revokeMatches.length - 1; i++) {
+        const idx = decoFile.indexOf('URL.revokeObjectURL(', decoFile.lastIndexOf('URL.revokeObjectURL(') + 1);
+        if (idx > revokeWrapperIdx + 200) { // after function definition + body
+          console.error('❌ RC-E2: screens-v2-deco.jsx direct URL.revokeObjectURL outside revokeBlobUrl wrapper');
+          hasErrors = true;
+          break;
+        }
+      }
+    }
+    // Check for exportBlobRef reset
+    if (!decoFile.includes('exportBlobRef.current = { key: null, blob: null }')) {
+      console.error('❌ RC-E3: screens-v2-deco.jsx must reset exportBlobRef in cleanup');
+      hasErrors = true;
+    }
+  }
+
+  // RC-F: PWA update UX finalization checks (Part F)
+  const mainFile = readFile('main.jsx');
+  if (swFile && !swFile.match(/addEventListener\s*\(\s*['"]message['"]\s*,/)) {
+    console.error('❌ RC-F1: sw.js must have message event listener for SKIP_WAITING');
+    hasErrors = true;
+  }
+  if (mainFile && !mainFile.includes('controllerchange')) {
+    console.error('❌ RC-F2: main.jsx must have controllerchange listener for PWA update');
+    hasErrors = true;
+  }
+  if (mainFile && !mainFile.includes('__IMMM_RELOADING_FOR_UPDATE')) {
+    console.error('❌ RC-F3: main.jsx must have __IMMM_RELOADING_FOR_UPDATE guard');
     hasErrors = true;
   }
 }

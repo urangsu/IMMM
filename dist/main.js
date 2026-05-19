@@ -460,7 +460,7 @@ function App() {
     if (!showFieldTest) return null;
     var lsSize = (() => {
       try {
-        return JSON.stringify(localStorage).length;
+        return localStorage.length;
       } catch (e) {
         return 'n/a';
       }
@@ -504,7 +504,7 @@ function App() {
         marginBottom: 4,
         fontWeight: 'bold'
       }
-    }, "Field Test Panel"), /*#__PURE__*/React.createElement("div", null, "screen: ", screen), /*#__PURE__*/React.createElement("div", null, "session: \u2026", activeSessionId ? activeSessionId.slice(-8) : 'none'), /*#__PURE__*/React.createElement("div", null, "shots: ", shots.filter(s => s?.dataUrl).length, " / ", shots.length), /*#__PURE__*/React.createElement("div", null, "selected: ", selected.length), /*#__PURE__*/React.createElement("div", null, "stickers: ", stickers.length), /*#__PURE__*/React.createElement("div", null, "camera: ", facingMode, " zoom:", cameraZoom), /*#__PURE__*/React.createElement("div", null, "torch: ", torchActive ? 'on' : 'off', " | screenLight: ", screenLightActive ? 'on' : 'off'), /*#__PURE__*/React.createElement("div", null, "SW: ", navigator.serviceWorker && navigator.serviceWorker.controller ? 'active' : 'none'), /*#__PURE__*/React.createElement("div", null, "LS: ", lsSize, " chars"), /*#__PURE__*/React.createElement("div", {
+    }, "Field Test Panel"), /*#__PURE__*/React.createElement("div", null, "screen: ", screen), /*#__PURE__*/React.createElement("div", null, "session: \u2026", activeSessionId ? activeSessionId.slice(-8) : 'none'), /*#__PURE__*/React.createElement("div", null, "shots: ", shots.filter(s => s?.dataUrl).length, " / ", shots.length), /*#__PURE__*/React.createElement("div", null, "selected: ", selected.length), /*#__PURE__*/React.createElement("div", null, "stickers: ", stickers.length), /*#__PURE__*/React.createElement("div", null, "camera: ", facingMode, " zoom:", cameraZoom), /*#__PURE__*/React.createElement("div", null, "torch: ", torchActive ? 'on' : 'off', " | screenLight: ", screenLightActive ? 'on' : 'off'), /*#__PURE__*/React.createElement("div", null, "SW: ", navigator.serviceWorker && navigator.serviceWorker.controller ? 'active' : 'none'), /*#__PURE__*/React.createElement("div", null, "LS keys: ", lsSize), /*#__PURE__*/React.createElement("div", {
       style: {
         marginTop: 6,
         display: 'flex',
