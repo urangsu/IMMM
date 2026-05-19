@@ -5,6 +5,7 @@
   "cache": "v17",
   "branch": "claude/session-adapter-hardening-03que",
   "rcBaseCommit": "8caef463b9e4613549037c351c0bda253b61e1e7",
+  "rcReleaseCommit": "cd4736fb96fe90bc787743e8d10238417c3aa845",
   "features": {
     "qrShare": true,
     "shareViewer": true,

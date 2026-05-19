@@ -5,7 +5,26 @@
 - **Runtime**: Precompiled (no @babel/standalone)
 - **Branch**: claude/session-adapter-hardening-03que
 - **RC Base Commit**: 8caef463b9e4613549037c351c0bda253b61e1e7 (Phase 3.69-3.75 RC Finalization Mega Sprint)
+- **RC Release Commit**: cd4736fb96fe90bc787743e8d10238417c3aa845 (QA + sticker snapping release candidate)
 - **Cache**: v17
+
+---
+
+## RC Release Candidate
+- Branch: claude/session-adapter-hardening-03que
+- RC Base Commit: 8caef463b9e4613549037c351c0bda253b61e1e7
+- RC Release Commit: cd4736fb96fe90bc787743e8d10238417c3aa845
+- Runtime: precompiled
+- Cache: v17
+- Status: Field QA completed / release handoff ready
+
+## Final Fixes After RC Base
+- release manifest pinned
+- field QA recorded
+- sticker slot snapping restored
+- upload sticker aspect ratio restored
+- virtual slot rect fallback added
+- selected localStorage empty-state sync hardened
 
 ---
 

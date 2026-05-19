@@ -1944,8 +1944,11 @@ QA steps:
 - [x] release-manifest.json cache parity verified (v17)
 - [x] dist/release-manifest.json cache parity verified
 - [x] RC base commit pinned: 8caef463b9e4613549037c351c0bda253b61e1e7 (Phase 3.69-3.75 RC Finalization Mega Sprint completion)
+- [x] RC release commit pinned: cd4736fb96fe90bc787743e8d10238417c3aa845 (QA + sticker snapping final release candidate)
 - [x] release-manifest.json: changed "commit" field to "rcBaseCommit" for explicit RC phase tracking
+- [x] release-manifest.json: added "rcReleaseCommit" for final release candidate tracking
 - [x] RELEASE_NOTES_RC.md: updated RC Base Commit reference
+- [x] RELEASE_NOTES_RC.md: updated RC Release Commit reference
 - [x] sanity-check cache alignment added (RC-A)
 
 ### Part B: Diagnostics Privacy Hardening
