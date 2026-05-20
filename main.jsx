@@ -269,6 +269,28 @@ function App() {
       return '';
     }
   });
+  const [unlockedFramePackIds, setUnlockedFramePackIds] = React.useState(() => {
+    try {
+      const api = window.IMMMFramePresets;
+      if (api && typeof api.getUnlockedFramePackIds === 'function') {
+        return api.getUnlockedFramePackIds();
+      }
+      return JSON.parse(localStorage.getItem('immm.v2.unlockedFramePacks') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+  const [favoriteFramePresetIds, setFavoriteFramePresetIds] = React.useState(() => {
+    try {
+      const api = window.IMMMFramePresets;
+      if (api && typeof api.loadFavoriteFramePresetIds === 'function') {
+        return api.loadFavoriteFramePresetIds();
+      }
+      return JSON.parse(localStorage.getItem('immm.v2.favoriteFramePresets') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
 
   // Responsive mobile detection
   const [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
@@ -284,6 +306,12 @@ function App() {
       return framePresetApi.listFramePresets(customFrames);
     }
     return customFrames;
+  }, [framePresetApi, customFrames]);
+  const framePackList = React.useMemo(() => {
+    if (framePresetApi && typeof framePresetApi.getFramePacks === 'function') {
+      return framePresetApi.getFramePacks(customFrames);
+    }
+    return [];
   }, [framePresetApi, customFrames]);
   const activeFramePreset = React.useMemo(() => {
     if (framePresetApi && typeof framePresetApi.getFramePresetById === 'function') {
@@ -1083,6 +1111,28 @@ function App() {
     }
   }, [selectedFramePresetId]);
   React.useEffect(() => {
+    try {
+      if (unlockedFramePackIds.length > 0) {
+        localStorage.setItem('immm.v2.unlockedFramePacks', JSON.stringify(Array.from(new Set(unlockedFramePackIds))));
+      } else {
+        localStorage.removeItem('immm.v2.unlockedFramePacks');
+      }
+    } catch (e) {
+      console.warn('[IMMM] unlocked frame pack sync failed:', e);
+    }
+  }, [unlockedFramePackIds]);
+  React.useEffect(() => {
+    try {
+      if (favoriteFramePresetIds.length > 0) {
+        localStorage.setItem('immm.v2.favoriteFramePresets', JSON.stringify(Array.from(new Set(favoriteFramePresetIds))));
+      } else {
+        localStorage.removeItem('immm.v2.favoriteFramePresets');
+      }
+    } catch (e) {
+      console.warn('[IMMM] favorite frame sync failed:', e);
+    }
+  }, [favoriteFramePresetIds]);
+  React.useEffect(() => {
     if (!defaultFramePresetId) return;
     const hasSelected = selectedFramePresetId && framePresetList.some((preset) => preset.id === selectedFramePresetId);
     if (!hasSelected) {
@@ -1204,6 +1254,15 @@ function App() {
       : presetOrId;
     if (!preset) return null;
 
+    const pack = preset.packId ? framePresetApi?.getFramePackById?.(preset.packId, customFrames) : null;
+    const packLocked = Boolean(pack?.locked && !(framePresetApi?.isFramePackUnlocked?.(pack.id) ?? unlockedFramePackIds.includes(pack.id)));
+    if (packLocked) {
+      if (typeof options.onBlocked === 'function') {
+        options.onBlocked({ preset, pack });
+      }
+      return null;
+    }
+
     const normalizedLayout = normalizePresetLayout(preset.layout || tweaks.layout);
     const slotCount = getLayoutSlotCount(normalizedLayout);
     const captureCount = getLayoutCaptureCount(normalizedLayout);
@@ -1240,7 +1299,7 @@ function App() {
       options.onApply(preset);
     }
     return preset;
-  }, [customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, selected, shots, tweaks.layout, tweaks.orientation]);
+  }, [customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, selected, shots, tweaks.layout, tweaks.orientation, unlockedFramePackIds]);
   const saveCustomFrame = React.useCallback((input = {}) => {
     if (!framePresetApi || typeof framePresetApi.createCustomFramePresetFromAppState !== 'function') return null;
     const preset = framePresetApi.createCustomFramePresetFromAppState({
@@ -1260,6 +1319,35 @@ function App() {
     applyFramePreset(preset, { syncFrameColor: true });
     return preset;
   }, [activeFramePreset, applyFramePreset, customFrames, framePresetApi, persistCustomFrames, tweaks.frameColor, tweaks.layout]);
+  const exportCustomFramesAsJson = React.useCallback((options = {}) => {
+    if (framePresetApi && typeof framePresetApi.exportCustomFramePackJson === 'function') {
+      return framePresetApi.exportCustomFramePackJson(customFrames, {
+        name: options.name || 'My Frames Export',
+        description: options.description || 'Exported custom frames pack.',
+        author: options.author || { name: 'You', handle: '', url: '' },
+        license: options.license || 'personal',
+        tags: Array.isArray(options.tags) ? options.tags : ['my-frames'],
+      });
+    }
+    return JSON.stringify({ schemaVersion: '1.0.0', kind: 'frame-pack', exportedAt: new Date().toISOString(), pack: {}, presets: [] }, null, 2);
+  }, [customFrames, framePresetApi]);
+  const importFramePackFromJson = React.useCallback((raw) => {
+    if (!raw || !String(raw).trim()) {
+      return { ok: false, error: 'Empty frame pack JSON' };
+    }
+    if (!framePresetApi || typeof framePresetApi.importFramePackJson !== 'function') {
+      return { ok: false, error: 'Frame pack import is unavailable' };
+    }
+    const result = framePresetApi.importFramePackJson(String(raw));
+    if (!result?.ok) return result;
+    const importedFrames = Array.isArray(result.presets) ? result.presets : [];
+    const next = [
+      ...customFrames.filter((frame) => !importedFrames.some((incoming) => incoming.id === frame.id)),
+      ...importedFrames,
+    ];
+    persistCustomFrames(next);
+    return result;
+  }, [customFrames, framePresetApi, persistCustomFrames]);
   const renameCustomFrame = React.useCallback((frameId, nextName) => {
     const name = String(nextName || '').trim();
     if (!frameId || !name) return null;
@@ -1298,6 +1386,21 @@ function App() {
     }
     return next.find((frame) => frame.id === frameId) || null;
   }, [customFrames, framePresetApi, persistCustomFrames, selectedFramePresetId, tweaks.layout]);
+  const unlockFramePackForDev = React.useCallback((packId) => {
+    if (!packId) return [];
+    const next = framePresetApi?.unlockFramePackForDev?.(packId) || Array.from(new Set([...unlockedFramePackIds, packId]));
+    setUnlockedFramePackIds(next);
+    return next;
+  }, [framePresetApi, unlockedFramePackIds]);
+  const toggleFavoriteFramePreset = React.useCallback((presetId) => {
+    if (!presetId) return [];
+    const next = framePresetApi?.toggleFavoriteFramePresetId?.(presetId, favoriteFramePresetIds)
+      || (favoriteFramePresetIds.includes(presetId)
+        ? favoriteFramePresetIds.filter((id) => id !== presetId)
+        : [...favoriteFramePresetIds, presetId]);
+    setFavoriteFramePresetIds(next);
+    return next;
+  }, [favoriteFramePresetIds, framePresetApi]);
   const setLayoutAndPreset = React.useCallback((layoutId) => {
     const normalizedLayout = normalizePresetLayout(layoutId);
     const nextPresetId = framePresetApi?.getDefaultFramePresetIdForLayout?.(normalizedLayout, customFrames)
@@ -1305,14 +1408,16 @@ function App() {
       || '';
     if (nextPresetId) {
       const preset = framePresetApi?.getFramePresetById?.(nextPresetId, customFrames) || framePresetList.find((framePreset) => framePreset.id === nextPresetId) || null;
-      if (preset) {
+      const pack = preset?.packId ? framePresetApi?.getFramePackById?.(preset.packId, customFrames) : null;
+      const packLocked = Boolean(pack?.locked && !(framePresetApi?.isFramePackUnlocked?.(pack.id) ?? unlockedFramePackIds.includes(pack.id)));
+      if (preset && !packLocked) {
         applyFramePreset({ ...preset, layout: normalizedLayout }, { syncFrameColor: true });
         return;
       }
     }
     updateTweak('layout', normalizedLayout);
     updateTweak('orientation', 'portrait');
-    setSelectedFramePresetId(nextPresetId || '');
+    setSelectedFramePresetId('');
     const slotCount = getLayoutSlotCount(normalizedLayout);
     const captureCount = getLayoutCaptureCount(normalizedLayout);
     const nextSelected = Array.from({ length: slotCount }, (_, i) => i);
@@ -1321,7 +1426,7 @@ function App() {
     setShots(nextShots);
     try {
       if (nextPresetId) {
-        localStorage.setItem('immm.v2.selectedFramePresetId', nextPresetId);
+        localStorage.removeItem('immm.v2.selectedFramePresetId');
       } else {
         localStorage.removeItem('immm.v2.selectedFramePresetId');
       }
@@ -1329,7 +1434,7 @@ function App() {
     } catch (e) {
       console.warn('[IMMM] layout preset sync failed:', e);
     }
-  }, [applyFramePreset, customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, shots]);
+  }, [applyFramePreset, customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, shots, unlockedFramePackIds]);
 
   const frameShotCount = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(tweaks.layout)
@@ -1368,14 +1473,23 @@ function App() {
     selectedFramePresetId,
     setSelectedFramePresetId,
     framePresetList,
+    framePackList,
     customFrames,
     setCustomFrames,
     activeFramePreset,
     applyFramePreset,
     saveCustomFrame,
+    exportCustomFramesAsJson,
+    importFramePackFromJson,
     renameCustomFrame,
     duplicateCustomFrame,
     deleteCustomFrame: softDeleteCustomFrame,
+    unlockedFramePackIds,
+    setUnlockedFramePackIds,
+    favoriteFramePresetIds,
+    setFavoriteFramePresetIds,
+    unlockFramePackForDev,
+    toggleFavoriteFramePreset,
     setLayoutAndPreset,
     cameraZoomSupported,
     cameraZoomMin,
@@ -1417,6 +1531,8 @@ function App() {
           customFrames={customFrames}
           applyFramePreset={applyFramePreset}
           saveCustomFrame={saveCustomFrame}
+          exportCustomFramesAsJson={exportCustomFramesAsJson}
+          importFramePackFromJson={importFramePackFromJson}
           editMode={photoEditMode}
           shots={shots} setShots={setShots} setSelected={setSelected}
           startNewCaptureSession={startNewCaptureSession}

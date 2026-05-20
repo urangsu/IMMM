@@ -330,7 +330,7 @@ function getStickerPickerPacks() {
     : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
 }
 
-function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, framePresets = [], customFrames = [], selectedFramePresetId, applyFramePreset, saveCustomFrame, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame }) {
+function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, framePresets = [], framePackList = [], customFrames = [], selectedFramePresetId, applyFramePreset, saveCustomFrame, exportCustomFramesAsJson, importFramePackFromJson, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame, favoriteFramePresetIds = [], toggleFavoriteFramePreset, unlockFramePackForDev, unlockedFramePackIds = [] }) {
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
@@ -338,13 +338,22 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
   const [frameStoreOpen, setFrameStoreOpen] = uS(true);
   const [frameStoreMode, setFrameStoreMode] = uS('sheet');
+  const [storeTab, setStoreTab] = uS('featured');
   const [frameCategory, setFrameCategory] = uS('basic');
+  const [activePackId, setActivePackId] = uS(framePackList?.[0]?.id || 'basic-clean-pack');
+  const [storeFilter, setStoreFilter] = uS('all');
+  const [storeSort, setStoreSort] = uS('recommended');
+  const [storeSearch, setStoreSearch] = uS('');
+  const [importJsonText, setImportJsonText] = uS('');
+  const [storeUpsellPack, setStoreUpsellPack] = uS(null);
+  const [importMessage, setImportMessage] = uS('');
   const [selStId, setSelStId] = uS(null);
   const [expandedPacks, setExpandedPacks] = uS({});
   const fileRef = uR(null);
   const frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
   const savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter((preset) => !preset.deletedAt), [customFrames]);
   const allStorePresets = uM(() => Array.isArray(framePresets) ? framePresets : [], [framePresets]);
+  const allPacks = uM(() => Array.isArray(framePackList) ? framePackList : [], [framePackList]);
   const categoryTabs = uM(() => {
     if (frameApi && typeof frameApi.getFramePresetCategories === 'function') {
       return frameApi.getFramePresetCategories(savedFrames);
@@ -362,6 +371,108 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     if (!selectedFramePresetId) return framePreset || null;
     return allStorePresets.find((preset) => preset.id === selectedFramePresetId) || framePreset || null;
   }, [allStorePresets, framePreset, selectedFramePresetId]);
+  const selectedPack = uM(() => allPacks.find((pack) => pack.id === activePackId) || allPacks[0] || null, [activePackId, allPacks]);
+  const packPresets = uM(() => {
+    if (!selectedPack) return [];
+    if (frameApi && typeof frameApi.getFramePresetsByPack === 'function') {
+      return frameApi.getFramePresetsByPack(selectedPack.id, savedFrames);
+    }
+    return allStorePresets.filter((preset) => preset.packId === selectedPack.id || preset.id === selectedPack.coverPresetId);
+  }, [allStorePresets, frameApi, savedFrames, selectedPack]);
+  const storePresetSource = uM(() => {
+    const collection = [...allStorePresets, ...savedFrames];
+    const byId = new Map();
+    collection.forEach((preset) => {
+      if (preset?.id && !byId.has(preset.id)) byId.set(preset.id, preset);
+    });
+    return Array.from(byId.values());
+  }, [allStorePresets, savedFrames]);
+  const visibleStorePresets = uM(() => {
+    const q = storeSearch.trim().toLowerCase();
+    let items = storePresetSource.filter((preset) => {
+      if (!preset) return false;
+      if (storeFilter === 'free') return (preset.packPriceType || 'free') === 'free';
+      if (storeFilter === 'premium') return (preset.packPriceType || 'free') === 'premium';
+      if (storeFilter === 'mine') return preset.source === 'custom';
+      if (storeFilter === 'imported') return preset.source === 'imported';
+      return true;
+    });
+    if (storeTab === 'favorites') {
+      items = items.filter((preset) => favoriteFramePresetIds.includes(preset.id));
+    } else if (storeTab === 'my-frames') {
+      items = items.filter((preset) => preset.source === 'custom' || preset.source === 'imported');
+    } else if (storeTab === 'all') {
+      items = items.filter(Boolean);
+    } else if (storeTab === 'featured') {
+      const featuredPackIds = allPacks.filter((pack) => pack.featured).map((pack) => pack.id);
+      items = items.filter((preset) => featuredPackIds.includes(preset.packId) || featuredPackIds.includes(frameApi?.getFramePackById?.(preset.packId, savedFrames)?.id));
+    }
+    if (q) {
+      items = items.filter((preset) => {
+        const pack = preset.packId ? (frameApi?.getFramePackById?.(preset.packId, savedFrames) || allPacks.find((item) => item.id === preset.packId) || null) : null;
+        const hay = [
+          preset.name,
+          preset.category,
+          preset.layout,
+          preset.source,
+          preset.author?.name,
+          preset.packName,
+          pack?.name,
+          ...(Array.isArray(preset.packTags) ? preset.packTags : []),
+          ...(Array.isArray(pack?.tags) ? pack.tags : []),
+        ].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    const sorted = [...items];
+    if (storeSort === 'newest') {
+      sorted.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    } else if (storeSort === 'az') {
+      sorted.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    } else {
+      sorted.sort((a, b) => {
+        const aPack = a.packId ? allPacks.find((pack) => pack.id === a.packId) : null;
+        const bPack = b.packId ? allPacks.find((pack) => pack.id === b.packId) : null;
+        const aFav = favoriteFramePresetIds.includes(a.id) ? 1 : 0;
+        const bFav = favoriteFramePresetIds.includes(b.id) ? 1 : 0;
+        const aScore = (aPack?.featured ? 10 : 0) + (aPack?.locked ? 1 : 0) + aFav;
+        const bScore = (bPack?.featured ? 10 : 0) + (bPack?.locked ? 1 : 0) + bFav;
+        return bScore - aScore;
+      });
+    }
+    return sorted;
+  }, [allPacks, favoriteFramePresetIds, frameApi, savedFrames, storeFilter, storePresetSource, storeSearch, storeSort, storeTab]);
+  const visiblePacks = uM(() => {
+    const packs = [...allPacks];
+    const q = storeSearch.trim().toLowerCase();
+    let items = packs;
+    if (storeTab === 'featured') {
+      items = packs.filter((pack) => pack.featured);
+    } else if (storeTab === 'favorites') {
+      items = packs.filter((pack) => pack.presetIds.some((id) => favoriteFramePresetIds.includes(id)));
+    } else if (storeTab === 'my-frames') {
+      items = [];
+    } else if (storeTab === 'free') {
+      items = packs.filter((pack) => (pack.priceType || 'free') === 'free');
+    } else if (storeTab === 'premium') {
+      items = packs.filter((pack) => (pack.priceType || 'free') === 'premium');
+    } else if (storeTab === 'imported') {
+      items = packs.filter((pack) => pack.source === 'imported');
+    }
+    if (q) {
+      items = items.filter((pack) => {
+        const hay = [pack.name, pack.description, ...(pack.tags || []), pack.category, pack.priceLabel].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    return items;
+  }, [allPacks, favoriteFramePresetIds, storeSearch, storeTab]);
+  const activePackBlocked = Boolean(selectedPack?.locked && !(frameApi?.isFramePackUnlocked?.(selectedPack.id) ?? unlockedFramePackIds.includes(selectedPack?.id)));
+  const devUnlockVisible = typeof window !== 'undefined' && (
+    window.IMMM_FIELD_TEST === true ||
+    window.IMMM_DEBUG_BUILD === true ||
+    new URLSearchParams(location.search).get('fieldTest') === '1'
+  );
   const formatFrameDate = (value) => {
     if (!value) return '';
     try {
@@ -381,6 +492,32 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     return allStorePresets.filter((preset) => preset.category === frameCategory && preset.source !== 'custom');
   }, [allStorePresets, frameCategory, savedFrames]);
   const recommendedFramePresets = uM(() => allStorePresets.filter((preset) => preset.category === 'basic' || preset.category === 'character').slice(0, 6), [allStorePresets]);
+  const selectedPackCoverPreset = selectedPack
+    ? (packPresets.find((preset) => preset.id === selectedPack.coverPresetId) || packPresets[0] || allStorePresets.find((preset) => preset.id === selectedPack.coverPresetId) || null)
+    : null;
+  const selectedPackIsUnlocked = selectedPack
+    ? Boolean((frameApi?.isFramePackUnlocked?.(selectedPack.id) ?? unlockedFramePackIds.includes(selectedPack.id)) || !selectedPack.locked)
+    : false;
+  const packTabs = [
+    { id: 'featured', label: 'Featured' },
+    { id: 'free', label: 'Free' },
+    { id: 'premium', label: 'Premium' },
+    { id: 'my-frames', label: 'My Frames' },
+    { id: 'favorites', label: 'Favorites' },
+    { id: 'imported', label: 'Imported' },
+    { id: 'all', label: 'All Presets' },
+  ];
+
+  React.useEffect(() => {
+    if (!selectedPack && allPacks.length > 0) {
+      setActivePackId(allPacks[0].id);
+    }
+  }, [allPacks, selectedPack]);
+  React.useEffect(() => {
+    if (selectedFramePreset?.packId && allPacks.some((pack) => pack.id === selectedFramePreset.packId)) {
+      setActivePackId(selectedFramePreset.packId);
+    }
+  }, [allPacks, selectedFramePreset?.packId]);
 
   const addPreset = (libId) => {
     const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
@@ -603,6 +740,548 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
 
         {frameStoreOpen && (
           <>
+            <div style={{
+              marginTop: 12,
+              padding: 14,
+              borderRadius: 18,
+              background: '#FFFFFF',
+              border: `1px solid ${T.line}`,
+              display: 'grid',
+              gap: 12,
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: mobile ? 'column' : 'row',
+                gap: 10,
+                alignItems: mobile ? 'stretch' : 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>Frame Store</div>
+                  <div style={{ marginTop: 4, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                    Packs, presets, favorites, and imports in one place.
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <StoreBadge T={T} tone="light">{allPacks.length} packs</StoreBadge>
+                  <StoreBadge T={T} tone="light">{savedFrames.length} my frames</StoreBadge>
+                  <StoreBadge T={T} tone="light">{favoriteFramePresetIds.length} favorites</StoreBadge>
+                </div>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1.1fr) minmax(260px, 0.9fr)',
+                gap: 12,
+              }}>
+                <div style={{
+                  borderRadius: 18,
+                  border: `1px solid ${T.line}`,
+                  background: 'rgba(26,26,31,0.015)',
+                  padding: 12,
+                  display: 'grid',
+                  gap: 10,
+                }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {packTabs.map((tabItem) => (
+                      <button
+                        key={tabItem.id}
+                        onClick={() => setStoreTab(tabItem.id)}
+                        style={{
+                          border: 'none',
+                          borderRadius: 999,
+                          padding: '10px 12px',
+                          minHeight: 44,
+                          background: storeTab === tabItem.id ? T.ink : 'rgba(26,26,31,0.06)',
+                          color: storeTab === tabItem.id ? T.bg : T.inkSoft,
+                          fontSize: 10,
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          letterSpacing: 0.8,
+                          fontFamily: '"Plus Jakarta Sans",system-ui',
+                          textTransform: 'uppercase',
+                          flex: '0 0 auto',
+                        }}
+                      >
+                        {tabItem.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr 120px', gap: 8 }}>
+                    <input
+                      value={storeSearch}
+                      onChange={(e) => setStoreSearch(e.target.value)}
+                      placeholder="Search packs, presets, tags"
+                      style={{
+                        minHeight: 44,
+                        padding: '0 12px',
+                        borderRadius: 12,
+                        border: `1px solid ${T.line}`,
+                        background: '#FFFFFF',
+                        color: T.ink,
+                        fontSize: 12,
+                        fontFamily: 'Pretendard,system-ui',
+                      }}
+                    />
+                    <select
+                      value={storeFilter}
+                      onChange={(e) => setStoreFilter(e.target.value)}
+                      style={{
+                        minHeight: 44,
+                        padding: '0 12px',
+                        borderRadius: 12,
+                        border: `1px solid ${T.line}`,
+                        background: '#FFFFFF',
+                        color: T.ink,
+                        fontSize: 12,
+                        fontFamily: 'Pretendard,system-ui',
+                      }}
+                    >
+                      <option value="all">All</option>
+                      <option value="free">Free</option>
+                      <option value="premium">Premium</option>
+                      <option value="mine">Mine</option>
+                      <option value="imported">Imported</option>
+                    </select>
+                    <select
+                      value={storeSort}
+                      onChange={(e) => setStoreSort(e.target.value)}
+                      style={{
+                        minHeight: 44,
+                        padding: '0 12px',
+                        borderRadius: 12,
+                        border: `1px solid ${T.line}`,
+                        background: '#FFFFFF',
+                        color: T.ink,
+                        fontSize: 12,
+                        fontFamily: 'Pretendard,system-ui',
+                      }}
+                    >
+                      <option value="recommended">Recommended</option>
+                      <option value="newest">Newest</option>
+                      <option value="az">A-Z</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>
+                        Featured Packs
+                      </div>
+                      <StoreBadge T={T} tone="light">{visiblePacks.length}</StoreBadge>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                      {visiblePacks.slice(0, 4).map((pack) => {
+                        const packUnlocked = Boolean((frameApi?.isFramePackUnlocked?.(pack.id) ?? unlockedFramePackIds.includes(pack.id)) || !pack.locked);
+                        const coverPreset = allStorePresets.find((preset) => preset.id === pack.coverPresetId) || packPresets[0] || null;
+                        return (
+                          <div
+                            key={pack.id}
+                            style={{
+                              borderRadius: 16,
+                              border: `1px solid ${pack.id === selectedPack?.id ? T.ink : T.line}`,
+                              background: pack.id === selectedPack?.id ? T.card : '#FFFFFF',
+                              padding: 12,
+                              display: 'grid',
+                              gap: 10,
+                              minWidth: 0,
+                            }}
+                          >
+                            <button
+                              onClick={() => {
+                                setActivePackId(pack.id);
+                                setStoreTab(pack.priceType === 'premium' ? 'premium' : 'featured');
+                                setFrameStoreMode('full');
+                              }}
+                              style={{
+                                border: 'none',
+                                background: 'transparent',
+                                padding: 0,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                minWidth: 0,
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                <div style={{ fontSize: 12, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>{pack.name}</div>
+                                <StoreBadge T={T} tone="light">{pack.priceLabel}</StoreBadge>
+                              </div>
+                              <div style={{ marginTop: 4, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                                {pack.description}
+                              </div>
+                              <div style={{ marginTop: 4, fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                                {pack.presetIds.length} presets · {pack.category}
+                              </div>
+                              <div style={{ marginTop: 10, display: 'grid', placeItems: 'center', minHeight: 128 }}>
+                                {WFrameThumb && coverPreset ? (
+                                  <WFrameThumb
+                                    key={`${pack.id}-${coverPreset.id}`}
+                                    layout={coverPreset.layout}
+                                    shots={shotsPreview}
+                                    selected={[0, 1, 2, 3]}
+                                    T={T}
+                                    logo={false}
+                                    dateText={false}
+                                    accent={accent}
+                                    scale={0.82}
+                                    orientation="portrait"
+                                    frameColor={frameColor}
+                                    framePreset={coverPreset}
+                                  />
+                                ) : (
+                                  <FramePickerFallback layout={coverPreset?.layout || 'strip'} T={T} size="sm" />
+                                )}
+                              </div>
+                            </button>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => {
+                                  setActivePackId(pack.id);
+                                  if (!packUnlocked && pack.locked) {
+                                    setStoreUpsellPack(pack);
+                                    return;
+                                  }
+                                  if (coverPreset) {
+                                    applyFramePreset && applyFramePreset(coverPreset);
+                                  }
+                                }}
+                                style={{
+                                  border: 'none',
+                                  borderRadius: 999,
+                                  padding: '10px 12px',
+                                  minHeight: 44,
+                                  background: packUnlocked ? T.ink : 'rgba(26,26,31,0.08)',
+                                  color: packUnlocked ? T.bg : T.ink,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  letterSpacing: 1,
+                                  textTransform: 'uppercase',
+                                  fontFamily: '"Plus Jakarta Sans",system-ui',
+                                }}
+                              >
+                                {packUnlocked ? 'View Pack' : 'Preview only'}
+                              </button>
+                              {!packUnlocked && (
+                                <button
+                                  onClick={() => setStoreUpsellPack(pack)}
+                                  style={{
+                                    border: '1px solid rgba(26,26,31,0.12)',
+                                    borderRadius: 999,
+                                    padding: '10px 12px',
+                                    minHeight: 44,
+                                    background: '#FFFFFF',
+                                    color: T.ink,
+                                    cursor: 'pointer',
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    letterSpacing: 1,
+                                    textTransform: 'uppercase',
+                                    fontFamily: '"Plus Jakarta Sans",system-ui',
+                                  }}
+                                >
+                                  Unlock coming soon
+                                </button>
+                              )}
+                              {devUnlockVisible && pack.locked && !packUnlocked && (
+                                <button
+                                  onClick={() => unlockFramePackForDev && unlockFramePackForDev(pack.id)}
+                                  style={{
+                                    border: 'none',
+                                    borderRadius: 999,
+                                    padding: '10px 12px',
+                                    minHeight: 44,
+                                    background: 'rgba(17,17,17,0.08)',
+                                    color: T.ink,
+                                    cursor: 'pointer',
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    letterSpacing: 1,
+                                    textTransform: 'uppercase',
+                                    fontFamily: '"Plus Jakarta Sans",system-ui',
+                                  }}
+                                >
+                                  Unlock for Dev
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {selectedPack && (
+                    <div style={{
+                      marginTop: 4,
+                      borderRadius: 16,
+                      border: `1px solid ${T.line}`,
+                      background: '#FFFFFF',
+                      padding: 12,
+                      display: 'grid',
+                      gap: 10,
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>{selectedPack.name}</div>
+                          <div style={{ marginTop: 4, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                            {selectedPack.description}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <StoreBadge T={T} tone="light">{selectedPack.priceLabel}</StoreBadge>
+                          <StoreBadge T={T} tone="light">{selectedPack.presetIds.length} presets</StoreBadge>
+                          <StoreBadge T={T} tone="light">{selectedPackIsUnlocked ? 'Unlocked' : 'Locked'}</StoreBadge>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                        Author: {selectedPack.author?.name || 'IMMM Studio'} · License: {selectedPack.license || 'internal'}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => {
+                            if (!selectedPackCoverPreset) return;
+                            if (!selectedPackIsUnlocked && selectedPack.locked) {
+                              setStoreUpsellPack(selectedPack);
+                              return;
+                            }
+                            applyFramePreset && applyFramePreset(selectedPackCoverPreset);
+                          }}
+                          style={{
+                            border: 'none',
+                            borderRadius: 999,
+                            padding: '10px 12px',
+                            minHeight: 44,
+                            background: selectedPackIsUnlocked ? T.ink : 'rgba(26,26,31,0.08)',
+                            color: selectedPackIsUnlocked ? T.bg : T.ink,
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            fontWeight: 800,
+                            letterSpacing: 1,
+                            textTransform: 'uppercase',
+                            fontFamily: '"Plus Jakarta Sans",system-ui',
+                          }}
+                        >
+                          {selectedPackIsUnlocked ? 'Apply pack preset' : 'Preview only'}
+                        </button>
+                        {!selectedPackIsUnlocked && (
+                          <button
+                            onClick={() => setStoreUpsellPack(selectedPack)}
+                            style={{
+                              border: '1px solid rgba(26,26,31,0.12)',
+                              borderRadius: 999,
+                              padding: '10px 12px',
+                              minHeight: 44,
+                              background: '#FFFFFF',
+                              color: T.ink,
+                              cursor: 'pointer',
+                              fontSize: 11,
+                              fontWeight: 800,
+                              letterSpacing: 1,
+                              textTransform: 'uppercase',
+                              fontFamily: '"Plus Jakarta Sans",system-ui',
+                            }}
+                          >
+                            Unlock coming soon
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
+                        {packPresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            onClick={() => applyFramePreset && applyFramePreset(preset)}
+                            style={{
+                              border: `1px solid ${selectedFramePresetId === preset.id ? T.ink : T.line}`,
+                              borderRadius: 14,
+                              background: selectedFramePresetId === preset.id ? T.card : '#FFFFFF',
+                              padding: 10,
+                              minHeight: 44,
+                              cursor: 'pointer',
+                              display: 'grid',
+                              gap: 8,
+                              textAlign: 'left',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>{preset.name}</span>
+                              {favoriteFramePresetIds.includes(preset.id) && <StoreBadge T={T} tone="light">Fav</StoreBadge>}
+                            </div>
+                            <div style={{ fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                              {preset.layout} · {preset.photoSlots.length}컷
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {storeUpsellPack && (
+                    <div style={{
+                      borderRadius: 16,
+                      border: `1px solid ${T.line}`,
+                      background: 'rgba(26,26,31,0.02)',
+                      padding: 12,
+                      display: 'grid',
+                      gap: 8,
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>
+                        This frame pack is premium
+                      </div>
+                      <div style={{ fontSize: 11, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                        Unlock coming soon. You can preview the pack, but applying is blocked until it is unlocked.
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => setStoreUpsellPack(null)}
+                          style={{
+                            border: 'none',
+                            borderRadius: 999,
+                            padding: '10px 12px',
+                            minHeight: 44,
+                            background: T.ink,
+                            color: T.bg,
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            fontWeight: 800,
+                            letterSpacing: 1,
+                            textTransform: 'uppercase',
+                            fontFamily: '"Plus Jakarta Sans",system-ui',
+                          }}
+                        >
+                          Preview only
+                        </button>
+                        {devUnlockVisible && storeUpsellPack.locked && (
+                          <button
+                            onClick={() => unlockFramePackForDev && unlockFramePackForDev(storeUpsellPack.id)}
+                            style={{
+                              border: 'none',
+                              borderRadius: 999,
+                              padding: '10px 12px',
+                              minHeight: 44,
+                              background: 'rgba(17,17,17,0.08)',
+                              color: T.ink,
+                              cursor: 'pointer',
+                              fontSize: 11,
+                              fontWeight: 800,
+                              letterSpacing: 1,
+                              textTransform: 'uppercase',
+                              fontFamily: '"Plus Jakarta Sans",system-ui',
+                            }}
+                          >
+                            Unlock for Dev
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{
+                  borderRadius: 18,
+                  border: `1px solid ${T.line}`,
+                  background: '#FFFFFF',
+                  padding: 12,
+                  display: 'grid',
+                  gap: 10,
+                  alignContent: 'start',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>My Frames</div>
+                      <div style={{ marginTop: 4, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                        Save, rename, duplicate, soft delete, export, and import.
+                      </div>
+                    </div>
+                    <StoreBadge T={T} tone="light">{savedFrames.length}</StoreBadge>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <textarea
+                      value={importJsonText}
+                      onChange={(e) => setImportJsonText(e.target.value)}
+                      placeholder="Paste frame pack JSON here"
+                      style={{
+                        width: '100%',
+                        minHeight: 120,
+                        resize: 'vertical',
+                        borderRadius: 12,
+                        border: `1px solid ${T.line}`,
+                        padding: 12,
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        color: T.ink,
+                        background: '#FFFFFF',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => {
+                          const raw = exportCustomFramesAsJson ? exportCustomFramesAsJson() : '';
+                          if (!raw) return;
+                          if (navigator.clipboard?.writeText) {
+                            navigator.clipboard.writeText(raw).catch(() => {});
+                          }
+                          setImportMessage('Exported current frames as JSON.');
+                        }}
+                        style={{
+                          border: 'none',
+                          borderRadius: 999,
+                          padding: '10px 12px',
+                          minHeight: 44,
+                          background: T.ink,
+                          color: T.bg,
+                          cursor: 'pointer',
+                          fontSize: 11,
+                          fontWeight: 800,
+                          letterSpacing: 1,
+                          textTransform: 'uppercase',
+                          fontFamily: '"Plus Jakarta Sans",system-ui',
+                        }}
+                      >
+                        Export My Frames as JSON
+                      </button>
+                      <button
+                        onClick={() => {
+                          const result = importFramePackFromJson ? importFramePackFromJson(importJsonText) : { ok: false, error: 'Import unavailable' };
+                          if (result?.ok) setStoreTab('imported');
+                          setImportMessage(result.ok ? `Imported ${result.presets?.length || 0} frames.` : result.error || 'Import failed');
+                        }}
+                        style={{
+                          border: `1px solid ${T.line}`,
+                          borderRadius: 999,
+                          padding: '10px 12px',
+                          minHeight: 44,
+                          background: '#FFFFFF',
+                          color: T.ink,
+                          cursor: 'pointer',
+                          fontSize: 11,
+                          fontWeight: 800,
+                          letterSpacing: 1,
+                          textTransform: 'uppercase',
+                          fontFamily: '"Plus Jakarta Sans",system-ui',
+                        }}
+                      >
+                        Import Frame Pack JSON
+                      </button>
+                    </div>
+                    {importMessage && (
+                      <div style={{ fontSize: 11, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                        {importMessage}
+                      </div>
+                    )}
+                  </div>
+                  {savedFrames.length === 0 && (
+                    <div style={{
+                      padding: 14,
+                      borderRadius: 14,
+                      background: 'rgba(26,26,31,0.04)',
+                      border: `1px dashed ${T.line}`,
+                      color: T.inkSoft,
+                      fontSize: 12,
+                      fontFamily: 'Pretendard,system-ui',
+                    }}>
+                      No saved frames yet. Save a decorated setup or deco state to build your library.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
             <div style={{
               display: 'grid',
               gridTemplateColumns: mobile ? '1fr' : 'minmax(220px, 0.9fr) minmax(0, 1.1fr)',
@@ -839,6 +1518,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                               canvasSize: framePreset?.canvasSize,
                             });
                             setFrameCategory('my-frames');
+                            setStoreTab('my-frames');
                             setFrameStoreOpen(true);
                             setFrameStoreMode('full');
                           }}
@@ -934,9 +1614,13 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                                 <div style={{ marginTop: 4, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
                                   {preset.layout} · {preset.photoSlots.length}컷 · {preset.category}
                                 </div>
+                                <div style={{ marginTop: 3, fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                                  {preset.author?.name || 'IMMM Studio'} · {preset.license || 'internal'}
+                                </div>
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
                                 {isSelected && <StoreBadge T={T} tone="light">Active</StoreBadge>}
+                                {preset.source === 'imported' && <StoreBadge T={T} tone="light">Imported</StoreBadge>}
                                 <span style={{ fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
                                   {isCustom ? `Saved ${formatFrameDate(preset.createdAt || preset.updatedAt)}` : 'Built-in'}
                                 </span>
@@ -961,6 +1645,25 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                                 }}
                               >
                                 Apply
+                              </button>
+                              <button
+                                onClick={() => toggleFavoriteFramePreset && toggleFavoriteFramePreset(preset.id)}
+                                style={{
+                                  border: `1px solid ${T.line}`,
+                                  borderRadius: 999,
+                                  padding: '10px 12px',
+                                  minHeight: 44,
+                                  background: favoriteFramePresetIds.includes(preset.id) ? T.ink : '#FFFFFF',
+                                  color: favoriteFramePresetIds.includes(preset.id) ? T.bg : T.ink,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  letterSpacing: 1,
+                                  textTransform: 'uppercase',
+                                  fontFamily: '"Plus Jakarta Sans",system-ui',
+                                }}
+                              >
+                                {favoriteFramePresetIds.includes(preset.id) ? 'Favorited' : 'Favorite'}
                               </button>
                               {isCustom && (
                                 <>

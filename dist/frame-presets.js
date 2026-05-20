@@ -2,6 +2,24 @@
 
 var FRAME_PRESET_STORAGE_KEY = 'immm.v2.customFrames';
 var FRAME_PRESET_SELECTION_KEY = 'immm.v2.selectedFramePresetId';
+var FRAME_PACK_UNLOCK_STORAGE_KEY = 'immm.v2.unlockedFramePacks';
+var FRAME_FAVORITE_STORAGE_KEY = 'immm.v2.favoriteFramePresets';
+var DEFAULT_FRAME_AUTHOR = {
+  name: 'IMMM Studio',
+  handle: '@immm',
+  url: ''
+};
+var DEFAULT_CUSTOM_AUTHOR = {
+  name: 'You',
+  handle: '',
+  url: ''
+};
+var DEFAULT_IMPORTED_AUTHOR = {
+  name: 'Imported',
+  handle: '',
+  url: ''
+};
+var DEFAULT_FRAME_LICENSE = 'internal';
 var FRAME_PRESET_CATEGORIES = [{
   id: 'basic',
   label: 'Basic'
@@ -21,6 +39,36 @@ var FRAME_PRESET_CATEGORIES = [{
   id: 'my-frames',
   label: 'My Frames'
 }];
+function normalizeAuthor(author, fallback = DEFAULT_FRAME_AUTHOR) {
+  var source = author && typeof author === 'object' ? author : null;
+  return {
+    name: String(source?.name || fallback.name || 'IMMM Studio'),
+    handle: String(source?.handle || fallback.handle || ''),
+    url: String(source?.url || fallback.url || '')
+  };
+}
+function normalizeLicense(license) {
+  var value = String(license || DEFAULT_FRAME_LICENSE).toLowerCase();
+  return ['personal', 'commercial', 'brand-collab', 'internal'].includes(value) ? value : DEFAULT_FRAME_LICENSE;
+}
+function readStringArrayStorage(key) {
+  try {
+    var raw = localStorage.getItem(key);
+    if (!raw) return [];
+    var parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(item => String(item || '')).filter(Boolean) : [];
+  } catch (_) {
+    return [];
+  }
+}
+function writeStringArrayStorage(key, values) {
+  var safe = Array.isArray(values) ? values.map(item => String(item || '')).filter(Boolean) : [];
+  localStorage.setItem(key, JSON.stringify(Array.from(new Set(safe))));
+  return safe;
+}
+function mergeUniqueStrings(base, extra = []) {
+  return Array.from(new Set([...(Array.isArray(base) ? base : []), ...(Array.isArray(extra) ? extra : [])].map(item => String(item || '')).filter(Boolean)));
+}
 var FRAME_PRESET_LAYOUT_SIZES = {
   '1x4': {
     width: 560,
@@ -273,7 +321,16 @@ function makePreset({
   decorations,
   watermark,
   frameColor,
-  canvasSize
+  canvasSize,
+  author,
+  license,
+  packId,
+  packName,
+  packDescription,
+  packTags,
+  packPriceType,
+  packPriceLabel,
+  packLocked
 }) {
   var resolvedLayout = normalizePresetLayout(layout || '1x4');
   var size = canvasSize || getCanvasSizeForLayout(resolvedLayout);
@@ -301,7 +358,16 @@ function makePreset({
     },
     createdAt: null,
     updatedAt: null,
-    source: 'builtin'
+    source: 'builtin',
+    author: normalizeAuthor(author),
+    license: normalizeLicense(license),
+    packId: packId || null,
+    packName: packName || null,
+    packDescription: packDescription || null,
+    packTags: Array.isArray(packTags) ? packTags.map(tag => String(tag || '').toLowerCase()).filter(Boolean) : [],
+    packPriceType: packPriceType || 'free',
+    packPriceLabel: packPriceLabel || 'Free',
+    packLocked: Boolean(packLocked)
   };
 }
 function buildBuiltinFramePresets() {
@@ -764,11 +830,92 @@ function buildBuiltinFramePresets() {
     canvasSize: polaroidSize
   })];
 }
+function makePack({
+  id,
+  name,
+  description,
+  category,
+  priceType = 'free',
+  priceLabel = 'Free',
+  presetIds = [],
+  coverPresetId = '',
+  tags = [],
+  locked = false,
+  featured = false,
+  author = DEFAULT_FRAME_AUTHOR,
+  license = DEFAULT_FRAME_LICENSE
+}) {
+  return {
+    id,
+    name,
+    description,
+    category,
+    priceType,
+    priceLabel,
+    presetIds: Array.from(new Set((presetIds || []).map(presetId => String(presetId || '')).filter(Boolean))),
+    coverPresetId: String(coverPresetId || presetIds?.[0] || ''),
+    tags: Array.from(new Set((tags || []).map(tag => String(tag || '').toLowerCase()).filter(Boolean))),
+    locked: Boolean(locked),
+    featured: Boolean(featured),
+    author: normalizeAuthor(author),
+    license: normalizeLicense(license),
+    source: 'builtin'
+  };
+}
+var BUILTIN_FRAME_PACKS = [makePack({
+  id: 'basic-clean-pack',
+  name: 'Basic Clean Pack',
+  description: 'Clean frames for everyday use.',
+  category: 'basic',
+  priceType: 'free',
+  priceLabel: 'Free',
+  presetIds: ['clean-white-4cut', 'clean-cotton-4cut', 'black-studio-4cut', 'clean-polaroid-1x1'],
+  coverPresetId: 'clean-white-4cut',
+  tags: ['clean', 'minimal', 'daily'],
+  locked: false,
+  featured: true
+}), makePack({
+  id: 'travel-starter-pack',
+  name: 'Travel Starter Pack',
+  description: 'Postcard-style frames for trips and memories.',
+  category: 'travel',
+  priceType: 'free',
+  priceLabel: 'Free',
+  presetIds: ['travel-ticket-1x4', 'friend-bubble-1x3'],
+  coverPresetId: 'travel-ticket-1x4',
+  tags: ['travel', 'postcard', 'stamp'],
+  locked: false,
+  featured: true
+}), makePack({
+  id: 'kitsch-character-pack',
+  name: 'Kitsch Character Pack',
+  description: 'Cute character mood for playful sessions.',
+  category: 'character',
+  priceType: 'premium',
+  priceLabel: 'Pro',
+  presetIds: ['kitsch-bear-2x2', 'heart-gem-2x2'],
+  coverPresetId: 'kitsch-bear-2x2',
+  tags: ['cute', 'character', 'kitsch'],
+  locked: true,
+  featured: true
+}), makePack({
+  id: 'birthday-celebration-pack',
+  name: 'Birthday Celebration Pack',
+  description: 'Party frames for birthdays and special days.',
+  category: 'birthday',
+  priceType: 'premium',
+  priceLabel: 'Pro',
+  presetIds: ['birthday-ribbon-2x2'],
+  coverPresetId: 'birthday-ribbon-2x2',
+  tags: ['birthday', 'party', 'gift'],
+  locked: true
+})];
 var BUILTIN_FRAME_PRESETS = buildBuiltinFramePresets();
 function normalizeFramePreset(preset) {
   if (!preset || typeof preset !== 'object') return null;
   var layout = normalizePresetLayout(preset.layout || '1x4');
   var size = preset.canvasSize || getCanvasSizeForLayout(layout);
+  var builtinPack = getBuiltinFramePackForPresetId(preset.id) || null;
   var photoSlots = Array.isArray(preset.photoSlots) && preset.photoSlots.length ? preset.photoSlots.map(slot => ({
     x: Number(slot.x) || 0,
     y: Number(slot.y) || 0,
@@ -803,12 +950,25 @@ function normalizeFramePreset(preset) {
     },
     createdAt: preset.createdAt || null,
     updatedAt: preset.updatedAt || null,
-    source: preset.source === 'custom' ? 'custom' : 'builtin',
-    deletedAt: preset.deletedAt || null
+    source: preset.source === 'custom' ? 'custom' : preset.source === 'imported' ? 'imported' : 'builtin',
+    deletedAt: preset.deletedAt || null,
+    author: normalizeAuthor(preset.author, preset.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : preset.source === 'imported' ? DEFAULT_IMPORTED_AUTHOR : builtinPack?.author || DEFAULT_FRAME_AUTHOR),
+    license: normalizeLicense(preset.license || builtinPack?.license || DEFAULT_FRAME_LICENSE),
+    packId: preset.packId || builtinPack?.id || null,
+    packName: preset.packName || builtinPack?.name || null,
+    packDescription: preset.packDescription || builtinPack?.description || null,
+    packTags: Array.isArray(preset.packTags) ? preset.packTags.map(tag => String(tag || '').toLowerCase()).filter(Boolean) : builtinPack?.tags || [],
+    packPriceType: preset.packPriceType || builtinPack?.priceType || 'free',
+    packPriceLabel: preset.packPriceLabel || builtinPack?.priceLabel || 'Free',
+    packLocked: Boolean(preset.packLocked ?? builtinPack?.locked ?? false)
   };
 }
 function getBuiltinFramePresets() {
   return BUILTIN_FRAME_PRESETS.map(preset => normalizeFramePreset(preset));
+}
+function getBuiltinFramePackForPresetId(presetId) {
+  if (!presetId) return null;
+  return BUILTIN_FRAME_PACKS.find(pack => Array.isArray(pack.presetIds) && pack.presetIds.includes(presetId)) || null;
 }
 function getCustomFramePresets() {
   return loadCustomFramePresets();
@@ -821,7 +981,7 @@ function loadCustomFramePresets() {
     if (!Array.isArray(parsed)) return [];
     return parsed.map(preset => normalizeFramePreset({
       ...preset,
-      source: 'custom'
+      source: preset.source === 'imported' ? 'imported' : 'custom'
     })).filter(preset => preset && !preset.deletedAt);
   } catch (error) {
     console.warn('[IMMM] loadCustomFramePresets failed:', error);
@@ -829,9 +989,294 @@ function loadCustomFramePresets() {
   }
 }
 function saveCustomFramePresets(frames) {
-  var safe = (Array.isArray(frames) ? frames : []).map(preset => sanitizeCustomFramePreset(preset)).filter(Boolean);
+  var safe = (Array.isArray(frames) ? frames : []).map(preset => {
+    if (preset && preset.source === 'imported') {
+      return sanitizeImportedFramePreset(preset, {
+        id: preset.packId || null,
+        name: preset.packName || null,
+        description: preset.packDescription || null,
+        tags: preset.packTags || [],
+        priceType: preset.packPriceType || 'imported',
+        priceLabel: preset.packPriceLabel || 'Imported',
+        author: preset.author || DEFAULT_IMPORTED_AUTHOR,
+        license: preset.license || DEFAULT_FRAME_LICENSE
+      });
+    }
+    return sanitizeCustomFramePreset(preset);
+  }).filter(Boolean);
   localStorage.setItem(FRAME_PRESET_STORAGE_KEY, JSON.stringify(safe));
   return safe;
+}
+function getImportedFramePackGroups(customFrames = []) {
+  var groups = new Map();
+  (Array.isArray(customFrames) ? customFrames : []).forEach(frame => {
+    if (!frame || frame.deletedAt || frame.source !== 'imported') return;
+    var normalized = normalizeFramePreset({
+      ...frame,
+      source: 'imported'
+    });
+    var packId = normalized.packId || `imported-${normalized.id}`;
+    if (!groups.has(packId)) {
+      groups.set(packId, {
+        id: packId,
+        name: normalized.packName || normalized.name || 'Imported Pack',
+        description: normalized.packDescription || 'Imported frame pack.',
+        category: normalized.category || 'my-frames',
+        priceType: normalized.packPriceType || 'imported',
+        priceLabel: normalized.packPriceLabel || 'Imported',
+        presetIds: [],
+        coverPresetId: normalized.id,
+        tags: Array.isArray(normalized.packTags) ? normalized.packTags : [],
+        locked: false,
+        featured: false,
+        author: normalizeAuthor(normalized.author, DEFAULT_IMPORTED_AUTHOR),
+        license: normalizeLicense(normalized.license),
+        source: 'imported'
+      });
+    }
+    var pack = groups.get(packId);
+    pack.presetIds.push(normalized.id);
+    if (!pack.coverPresetId) pack.coverPresetId = normalized.id;
+  });
+  return Array.from(groups.values()).map(pack => ({
+    ...pack,
+    presetIds: Array.from(new Set(pack.presetIds))
+  }));
+}
+function getFramePacks(customFrames = []) {
+  return [...BUILTIN_FRAME_PACKS, ...getImportedFramePackGroups(customFrames)];
+}
+function getFramePackById(id, customFrames = []) {
+  if (!id) return null;
+  return getFramePacks(customFrames).find(pack => pack.id === id) || null;
+}
+function getFramePresetsByPack(packId, customFrames = []) {
+  if (!packId) return [];
+  var pack = getFramePackById(packId, customFrames);
+  if (!pack) return [];
+  var presetIds = Array.isArray(pack.presetIds) ? pack.presetIds : [];
+  var all = listFramePresets(customFrames);
+  return presetIds.map(presetId => all.find(preset => preset.id === presetId) || null).filter(Boolean);
+}
+function getUnlockedFramePackIds() {
+  var defaults = BUILTIN_FRAME_PACKS.filter(pack => !pack.locked).map(pack => pack.id);
+  return mergeUniqueStrings(defaults, readStringArrayStorage(FRAME_PACK_UNLOCK_STORAGE_KEY));
+}
+function saveUnlockedFramePackIds(ids) {
+  return writeStringArrayStorage(FRAME_PACK_UNLOCK_STORAGE_KEY, ids);
+}
+function isFramePackUnlocked(packId) {
+  if (!packId) return false;
+  var pack = BUILTIN_FRAME_PACKS.find(item => item.id === packId);
+  if (!pack) return true;
+  if (!pack.locked) return true;
+  return getUnlockedFramePackIds().includes(packId);
+}
+function unlockFramePackForDev(packId) {
+  if (!packId) return [];
+  var next = mergeUniqueStrings(getUnlockedFramePackIds(), [packId]);
+  saveUnlockedFramePackIds(next);
+  return next;
+}
+function loadFavoriteFramePresetIds() {
+  return readStringArrayStorage(FRAME_FAVORITE_STORAGE_KEY);
+}
+function saveFavoriteFramePresetIds(ids) {
+  return writeStringArrayStorage(FRAME_FAVORITE_STORAGE_KEY, ids);
+}
+function toggleFavoriteFramePresetId(presetId, current = null) {
+  if (!presetId) return [];
+  var existing = Array.isArray(current) ? current : loadFavoriteFramePresetIds();
+  var next = existing.includes(presetId) ? existing.filter(id => id !== presetId) : [...existing, presetId];
+  saveFavoriteFramePresetIds(next);
+  return next;
+}
+function isFavoriteFramePresetId(presetId, favorites = null) {
+  if (!presetId) return false;
+  var current = Array.isArray(favorites) ? favorites : loadFavoriteFramePresetIds();
+  return current.includes(presetId);
+}
+function framePackHasDataUrl(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  if (Object.prototype.hasOwnProperty.call(obj, 'dataUrl')) return true;
+  return JSON.stringify(obj).includes('"dataUrl"') || JSON.stringify(obj).includes('data:image/');
+}
+function sanitizeImportedFramePreset(frame, packMeta = {}) {
+  var normalized = normalizeFramePreset({
+    ...frame,
+    source: 'imported',
+    author: frame.author || packMeta.author || DEFAULT_IMPORTED_AUTHOR,
+    license: frame.license || packMeta.license || DEFAULT_FRAME_LICENSE,
+    packId: frame.packId || packMeta.id || null,
+    packName: frame.packName || packMeta.name || null,
+    packDescription: frame.packDescription || packMeta.description || null,
+    packTags: frame.packTags || packMeta.tags || [],
+    packPriceType: frame.packPriceType || packMeta.priceType || 'imported',
+    packPriceLabel: frame.packPriceLabel || packMeta.priceLabel || 'Imported',
+    packLocked: false
+  });
+  if (!normalized) return null;
+  normalized.source = 'imported';
+  normalized.author = normalizeAuthor(normalized.author, DEFAULT_IMPORTED_AUTHOR);
+  normalized.license = normalizeLicense(normalized.license);
+  normalized.packId = normalized.packId || packMeta.id || null;
+  normalized.packName = normalized.packName || packMeta.name || null;
+  normalized.packDescription = normalized.packDescription || packMeta.description || null;
+  normalized.packTags = Array.isArray(normalized.packTags) ? normalized.packTags : [];
+  normalized.packPriceType = normalized.packPriceType || 'imported';
+  normalized.packPriceLabel = normalized.packPriceLabel || 'Imported';
+  normalized.importedAt = new Date().toISOString();
+  return normalized;
+}
+function validateFramePackJson(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return {
+      ok: false,
+      error: 'Empty frame pack JSON'
+    };
+  }
+  if (raw.length > 1024 * 1024) {
+    return {
+      ok: false,
+      error: 'Frame pack JSON too large'
+    };
+  }
+  var parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    return {
+      ok: false,
+      error: 'Invalid JSON'
+    };
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return {
+      ok: false,
+      error: 'Frame pack must be an object'
+    };
+  }
+  if (framePackHasDataUrl(parsed)) {
+    return {
+      ok: false,
+      error: 'Frame pack JSON must not contain dataUrl'
+    };
+  }
+  var pack = parsed.pack && typeof parsed.pack === 'object' ? parsed.pack : {};
+  var presets = Array.isArray(parsed.presets) ? parsed.presets : [];
+  if (!Array.isArray(presets) || presets.length === 0) {
+    return {
+      ok: false,
+      error: 'Frame pack has no presets'
+    };
+  }
+  var normalizedPack = makePack({
+    id: String(pack.id || `imported-${Date.now().toString(36)}`),
+    name: String(pack.name || 'Imported Pack'),
+    description: String(pack.description || 'Imported frame pack.'),
+    category: String(pack.category || 'imported'),
+    priceType: String(pack.priceType || 'imported'),
+    priceLabel: String(pack.priceLabel || 'Imported'),
+    presetIds: presets.map(preset => String(preset.id || '')).filter(Boolean),
+    coverPresetId: String(pack.coverPresetId || presets[0]?.id || ''),
+    tags: Array.isArray(pack.tags) ? pack.tags : [],
+    locked: false,
+    featured: false,
+    author: pack.author || DEFAULT_IMPORTED_AUTHOR,
+    license: pack.license || DEFAULT_FRAME_LICENSE
+  });
+  if (framePackHasDataUrl(pack)) {
+    return {
+      ok: false,
+      error: 'Frame pack metadata must not contain dataUrl'
+    };
+  }
+  if (!normalizedPack.coverPresetId || !normalizedPack.presetIds.includes(normalizedPack.coverPresetId)) {
+    return {
+      ok: false,
+      error: 'Frame pack cover must be one of the preset ids'
+    };
+  }
+  return {
+    ok: true,
+    pack: normalizedPack,
+    presets
+  };
+}
+function exportCustomFramePackJson(frames = [], options = {}) {
+  var now = new Date().toISOString();
+  var presets = (Array.isArray(frames) ? frames : []).filter(frame => frame && frame.source !== 'builtin' && !frame.deletedAt).map(frame => sanitizeCustomFramePreset({
+    ...frame,
+    source: frame.source === 'imported' ? 'imported' : 'custom'
+  })).filter(Boolean);
+  var pack = makePack({
+    id: options.id || `my-frames-${Date.now().toString(36)}`,
+    name: options.name || 'My Frames Export',
+    description: options.description || 'Exported custom frames pack.',
+    category: options.category || 'my-frames',
+    priceType: 'free',
+    priceLabel: 'Free',
+    presetIds: presets.map(preset => preset.id),
+    coverPresetId: options.coverPresetId || presets[0]?.id || '',
+    tags: options.tags || ['my-frames'],
+    locked: false,
+    featured: false,
+    author: options.author || DEFAULT_CUSTOM_AUTHOR,
+    license: options.license || 'personal'
+  });
+  return JSON.stringify({
+    schemaVersion: '1.0.0',
+    kind: 'frame-pack',
+    exportedAt: now,
+    pack,
+    presets
+  }, null, 2);
+}
+function importFramePackJson(raw) {
+  var validation = validateFramePackJson(raw);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      error: validation.error
+    };
+  }
+  var {
+    pack,
+    presets
+  } = validation;
+  var importedAt = new Date().toISOString();
+  var existingIds = new Set(listFramePresets().map(preset => preset.id));
+  var remap = new Map();
+  var nextPresets = presets.map((frame, index) => {
+    var nextId = String(frame.id || '').trim() || `imported-${index}-${Date.now().toString(36)}`;
+    var uniqueId = existingIds.has(nextId) || remap.has(nextId) ? `imported-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}` : nextId;
+    remap.set(frame.id, uniqueId);
+    existingIds.add(uniqueId);
+    var sanitized = sanitizeImportedFramePreset({
+      ...frame,
+      id: uniqueId,
+      source: 'imported'
+    }, pack);
+    if (!sanitized) return null;
+    sanitized.id = uniqueId;
+    sanitized.packId = pack.id;
+    sanitized.packName = pack.name;
+    sanitized.packDescription = pack.description;
+    sanitized.packTags = pack.tags;
+    sanitized.importedAt = importedAt;
+    return sanitized;
+  }).filter(Boolean);
+  if (nextPresets.length === 0) {
+    return {
+      ok: false,
+      error: 'No valid presets to import'
+    };
+  }
+  return {
+    ok: true,
+    pack,
+    presets: nextPresets
+  };
 }
 function sanitizeFrameSticker(sticker) {
   if (!sticker || typeof sticker !== 'object') return null;
@@ -907,7 +1352,15 @@ function sanitizeCustomFramePreset(frame) {
     canvasSize: frame.canvasSize || getCanvasSizeForLayout(frame.layout || '1x4'),
     source: 'custom',
     createdAt: frame.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    author: normalizeAuthor(frame.author, DEFAULT_CUSTOM_AUTHOR),
+    license: normalizeLicense(frame.license || 'personal'),
+    packId: frame.packId || 'my-frames-pack',
+    packName: frame.packName || 'My Frames',
+    packDescription: frame.packDescription || 'Your saved frames.',
+    packTags: Array.isArray(frame.packTags) ? frame.packTags : ['my-frames'],
+    packPriceType: frame.packPriceType || 'free',
+    packPriceLabel: frame.packPriceLabel || 'Free'
   });
   preset.stickers = stickers;
   preset.drawStrokes = drawStrokes;
@@ -916,6 +1369,14 @@ function sanitizeCustomFramePreset(frame) {
   preset.updatedAt = new Date().toISOString();
   preset.source = 'custom';
   preset.deletedAt = frame.deletedAt || null;
+  preset.author = normalizeAuthor(frame.author, DEFAULT_CUSTOM_AUTHOR);
+  preset.license = normalizeLicense(frame.license || 'personal');
+  preset.packId = frame.packId || 'my-frames-pack';
+  preset.packName = frame.packName || 'My Frames';
+  preset.packDescription = frame.packDescription || 'Your saved frames.';
+  preset.packTags = Array.isArray(frame.packTags) ? frame.packTags : ['my-frames'];
+  preset.packPriceType = frame.packPriceType || 'free';
+  preset.packPriceLabel = frame.packPriceLabel || 'Free';
   return preset;
 }
 function createCustomFramePresetFromAppState(input = {}) {
@@ -936,17 +1397,27 @@ function createCustomFramePresetFromAppState(input = {}) {
     },
     photoSlots: input.photoSlots || getPhotoSlotsForLayout(input.layout || '1x4'),
     canvasSize: input.canvasSize || getCanvasSizeForLayout(input.layout || '1x4'),
-    createdAt: input.createdAt || now
+    createdAt: input.createdAt || now,
+    author: input.author || DEFAULT_CUSTOM_AUTHOR,
+    license: input.license || 'personal',
+    packId: input.packId || 'my-frames-pack',
+    packName: input.packName || 'My Frames',
+    packDescription: input.packDescription || 'Your saved frames.',
+    packTags: input.packTags || ['my-frames'],
+    packPriceType: input.packPriceType || 'free',
+    packPriceLabel: input.packPriceLabel || 'Free'
   });
   frame.createdAt = input.createdAt || now;
   frame.updatedAt = now;
   frame.category = 'my-frames';
+  frame.author = normalizeAuthor(input.author, DEFAULT_CUSTOM_AUTHOR);
+  frame.license = normalizeLicense(input.license || 'personal');
   return frame;
 }
 function listFramePresets(customFrames = []) {
   return [...getBuiltinFramePresets(), ...customFrames.map(preset => normalizeFramePreset({
     ...preset,
-    source: 'custom'
+    source: preset.source === 'imported' ? 'imported' : 'custom'
   })).filter(preset => preset && !preset.deletedAt)];
 }
 function getFramePresetById(id, customFrames = []) {
@@ -958,7 +1429,7 @@ function getFramePresetsByCategory(category, customFrames = []) {
   if (category === 'my-frames') {
     return (customFrames || []).map(preset => normalizeFramePreset({
       ...preset,
-      source: 'custom'
+      source: preset.source === 'imported' ? 'imported' : 'custom'
     })).filter(preset => preset && !preset.deletedAt);
   }
   return listFramePresets(customFrames).filter(preset => preset.category === category && preset.source !== 'custom');
@@ -1181,16 +1652,31 @@ function getFramePresetCategoriesWithCounts(customFrames = []) {
 function isFramePresetCustom(preset) {
   return preset?.source === 'custom';
 }
+var FRAME_PACKS = BUILTIN_FRAME_PACKS;
 var IMMMFramePresets = {
   FRAME_PRESET_STORAGE_KEY,
   FRAME_PRESET_SELECTION_KEY,
+  FRAME_PACK_UNLOCK_STORAGE_KEY,
+  FRAME_FAVORITE_STORAGE_KEY,
   FRAME_PRESET_CATEGORIES,
+  FRAME_PACKS,
   getCanvasSizeForLayout,
   getPhotoSlotsForLayout,
   getBuiltinFramePresets,
+  getFramePacks,
+  getFramePackById,
+  getFramePresetsByPack,
   getCustomFramePresets,
   loadCustomFramePresets,
   saveCustomFramePresets,
+  getUnlockedFramePackIds,
+  saveUnlockedFramePackIds,
+  isFramePackUnlocked,
+  unlockFramePackForDev,
+  loadFavoriteFramePresetIds,
+  saveFavoriteFramePresetIds,
+  toggleFavoriteFramePresetId,
+  isFavoriteFramePresetId,
   listFramePresets,
   getFramePresetById,
   getFramePresetsByCategory,
@@ -1199,9 +1685,12 @@ var IMMMFramePresets = {
   isFramePresetCustom,
   createCustomFramePresetFromAppState,
   sanitizeCustomFramePreset,
+  sanitizeImportedFramePreset,
   sanitizeFrameSticker,
   sanitizeDrawStroke,
   normalizeFramePreset,
+  normalizeAuthor,
+  normalizeLicense,
   drawFramePresetBackground,
   drawFramePresetLayer,
   drawFramePresetOverlay,
@@ -1209,7 +1698,10 @@ var IMMMFramePresets = {
   drawFrameDecoration,
   createBackground,
   clonePlain,
-  normalizePresetLayout
+  normalizePresetLayout,
+  exportCustomFramePackJson,
+  validateFramePackJson,
+  importFramePackJson
 };
 if (typeof window !== 'undefined') {
   window.IMMMFramePresets = IMMMFramePresets;

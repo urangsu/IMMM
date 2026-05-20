@@ -2069,3 +2069,21 @@ QA steps:
 - [x] pgpt stray guard preserved
 - [ ] Samsung Internet custom frame save/load field test
 - [ ] iPhone Safari custom frame save/load field test
+
+## Phase 3.91~3.98 — Frame Pack Commerce Foundation
+- [x] Frame pack data model added
+- [x] Free/Premium pack metadata added
+- [x] Pack-centered Frame Store UI added
+- [x] Premium lock UX added
+- [x] Dev unlock for field test/debug added
+- [x] Frame pack import/export foundation added
+- [x] Import validation rejects photo dataUrl
+- [x] Import validation rejects oversized JSON
+- [x] Author metadata added
+- [x] License metadata added
+- [x] Frame Store search/filter/sort added
+- [x] Favorite frame presets added
+- [x] Frame pack sanity guards added
+- [x] pgpt stray guard preserved
+- [ ] Frame pack import/export field test
+- [ ] Premium lock UX mobile field test

@@ -730,25 +730,41 @@ function SetupScreen({
   startNewCaptureSession,
   framePreset,
   framePresets = [],
+  framePackList = [],
   customFrames = [],
   selectedFramePresetId,
   applyFramePreset,
   saveCustomFrame,
+  exportCustomFramesAsJson,
+  importFramePackFromJson,
   renameCustomFrame,
   duplicateCustomFrame,
-  deleteCustomFrame
+  deleteCustomFrame,
+  favoriteFramePresetIds = [],
+  toggleFavoriteFramePreset,
+  unlockFramePackForDev,
+  unlockedFramePackIds = []
 }) {
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   var [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
   var [frameStoreOpen, setFrameStoreOpen] = uS(true);
   var [frameStoreMode, setFrameStoreMode] = uS('sheet');
+  var [storeTab, setStoreTab] = uS('featured');
   var [frameCategory, setFrameCategory] = uS('basic');
+  var [activePackId, setActivePackId] = uS(framePackList?.[0]?.id || 'basic-clean-pack');
+  var [storeFilter, setStoreFilter] = uS('all');
+  var [storeSort, setStoreSort] = uS('recommended');
+  var [storeSearch, setStoreSearch] = uS('');
+  var [importJsonText, setImportJsonText] = uS('');
+  var [storeUpsellPack, setStoreUpsellPack] = uS(null);
+  var [importMessage, setImportMessage] = uS('');
   var [selStId, setSelStId] = uS(null);
   var [expandedPacks, setExpandedPacks] = uS({});
   var fileRef = uR(null);
   var frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
   var savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter(preset => !preset.deletedAt), [customFrames]);
   var allStorePresets = uM(() => Array.isArray(framePresets) ? framePresets : [], [framePresets]);
+  var allPacks = uM(() => Array.isArray(framePackList) ? framePackList : [], [framePackList]);
   var categoryTabs = uM(() => {
     if (frameApi && typeof frameApi.getFramePresetCategories === 'function') {
       return frameApi.getFramePresetCategories(savedFrames);
@@ -778,6 +794,94 @@ function SetupScreen({
     if (!selectedFramePresetId) return framePreset || null;
     return allStorePresets.find(preset => preset.id === selectedFramePresetId) || framePreset || null;
   }, [allStorePresets, framePreset, selectedFramePresetId]);
+  var selectedPack = uM(() => allPacks.find(pack => pack.id === activePackId) || allPacks[0] || null, [activePackId, allPacks]);
+  var packPresets = uM(() => {
+    if (!selectedPack) return [];
+    if (frameApi && typeof frameApi.getFramePresetsByPack === 'function') {
+      return frameApi.getFramePresetsByPack(selectedPack.id, savedFrames);
+    }
+    return allStorePresets.filter(preset => preset.packId === selectedPack.id || preset.id === selectedPack.coverPresetId);
+  }, [allStorePresets, frameApi, savedFrames, selectedPack]);
+  var storePresetSource = uM(() => {
+    var collection = [...allStorePresets, ...savedFrames];
+    var byId = new Map();
+    collection.forEach(preset => {
+      if (preset?.id && !byId.has(preset.id)) byId.set(preset.id, preset);
+    });
+    return Array.from(byId.values());
+  }, [allStorePresets, savedFrames]);
+  var visibleStorePresets = uM(() => {
+    var q = storeSearch.trim().toLowerCase();
+    var items = storePresetSource.filter(preset => {
+      if (!preset) return false;
+      if (storeFilter === 'free') return (preset.packPriceType || 'free') === 'free';
+      if (storeFilter === 'premium') return (preset.packPriceType || 'free') === 'premium';
+      if (storeFilter === 'mine') return preset.source === 'custom';
+      if (storeFilter === 'imported') return preset.source === 'imported';
+      return true;
+    });
+    if (storeTab === 'favorites') {
+      items = items.filter(preset => favoriteFramePresetIds.includes(preset.id));
+    } else if (storeTab === 'my-frames') {
+      items = items.filter(preset => preset.source === 'custom' || preset.source === 'imported');
+    } else if (storeTab === 'all') {
+      items = items.filter(Boolean);
+    } else if (storeTab === 'featured') {
+      var featuredPackIds = allPacks.filter(pack => pack.featured).map(pack => pack.id);
+      items = items.filter(preset => featuredPackIds.includes(preset.packId) || featuredPackIds.includes(frameApi?.getFramePackById?.(preset.packId, savedFrames)?.id));
+    }
+    if (q) {
+      items = items.filter(preset => {
+        var pack = preset.packId ? frameApi?.getFramePackById?.(preset.packId, savedFrames) || allPacks.find(item => item.id === preset.packId) || null : null;
+        var hay = [preset.name, preset.category, preset.layout, preset.source, preset.author?.name, preset.packName, pack?.name, ...(Array.isArray(preset.packTags) ? preset.packTags : []), ...(Array.isArray(pack?.tags) ? pack.tags : [])].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    var sorted = [...items];
+    if (storeSort === 'newest') {
+      sorted.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    } else if (storeSort === 'az') {
+      sorted.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    } else {
+      sorted.sort((a, b) => {
+        var aPack = a.packId ? allPacks.find(pack => pack.id === a.packId) : null;
+        var bPack = b.packId ? allPacks.find(pack => pack.id === b.packId) : null;
+        var aFav = favoriteFramePresetIds.includes(a.id) ? 1 : 0;
+        var bFav = favoriteFramePresetIds.includes(b.id) ? 1 : 0;
+        var aScore = (aPack?.featured ? 10 : 0) + (aPack?.locked ? 1 : 0) + aFav;
+        var bScore = (bPack?.featured ? 10 : 0) + (bPack?.locked ? 1 : 0) + bFav;
+        return bScore - aScore;
+      });
+    }
+    return sorted;
+  }, [allPacks, favoriteFramePresetIds, frameApi, savedFrames, storeFilter, storePresetSource, storeSearch, storeSort, storeTab]);
+  var visiblePacks = uM(() => {
+    var packs = [...allPacks];
+    var q = storeSearch.trim().toLowerCase();
+    var items = packs;
+    if (storeTab === 'featured') {
+      items = packs.filter(pack => pack.featured);
+    } else if (storeTab === 'favorites') {
+      items = packs.filter(pack => pack.presetIds.some(id => favoriteFramePresetIds.includes(id)));
+    } else if (storeTab === 'my-frames') {
+      items = [];
+    } else if (storeTab === 'free') {
+      items = packs.filter(pack => (pack.priceType || 'free') === 'free');
+    } else if (storeTab === 'premium') {
+      items = packs.filter(pack => (pack.priceType || 'free') === 'premium');
+    } else if (storeTab === 'imported') {
+      items = packs.filter(pack => pack.source === 'imported');
+    }
+    if (q) {
+      items = items.filter(pack => {
+        var hay = [pack.name, pack.description, ...(pack.tags || []), pack.category, pack.priceLabel].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    return items;
+  }, [allPacks, favoriteFramePresetIds, storeSearch, storeTab]);
+  var activePackBlocked = Boolean(selectedPack?.locked && !(frameApi?.isFramePackUnlocked?.(selectedPack.id) ?? unlockedFramePackIds.includes(selectedPack?.id)));
+  var devUnlockVisible = typeof window !== 'undefined' && (window.IMMM_FIELD_TEST === true || window.IMMM_DEBUG_BUILD === true || new URLSearchParams(location.search).get('fieldTest') === '1');
   var formatFrameDate = value => {
     if (!value) return '';
     try {
@@ -797,6 +901,40 @@ function SetupScreen({
     return allStorePresets.filter(preset => preset.category === frameCategory && preset.source !== 'custom');
   }, [allStorePresets, frameCategory, savedFrames]);
   var recommendedFramePresets = uM(() => allStorePresets.filter(preset => preset.category === 'basic' || preset.category === 'character').slice(0, 6), [allStorePresets]);
+  var selectedPackCoverPreset = selectedPack ? packPresets.find(preset => preset.id === selectedPack.coverPresetId) || packPresets[0] || allStorePresets.find(preset => preset.id === selectedPack.coverPresetId) || null : null;
+  var selectedPackIsUnlocked = selectedPack ? Boolean((frameApi?.isFramePackUnlocked?.(selectedPack.id) ?? unlockedFramePackIds.includes(selectedPack.id)) || !selectedPack.locked) : false;
+  var packTabs = [{
+    id: 'featured',
+    label: 'Featured'
+  }, {
+    id: 'free',
+    label: 'Free'
+  }, {
+    id: 'premium',
+    label: 'Premium'
+  }, {
+    id: 'my-frames',
+    label: 'My Frames'
+  }, {
+    id: 'favorites',
+    label: 'Favorites'
+  }, {
+    id: 'imported',
+    label: 'Imported'
+  }, {
+    id: 'all',
+    label: 'All Presets'
+  }];
+  React.useEffect(() => {
+    if (!selectedPack && allPacks.length > 0) {
+      setActivePackId(allPacks[0].id);
+    }
+  }, [allPacks, selectedPack]);
+  React.useEffect(() => {
+    if (selectedFramePreset?.packId && allPacks.some(pack => pack.id === selectedFramePreset.packId)) {
+      setActivePackId(selectedFramePreset.packId);
+    }
+  }, [allPacks, selectedFramePreset?.packId]);
   var addPreset = libId => {
     var item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
     var sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
@@ -1140,6 +1278,666 @@ function SetupScreen({
     }
   }, frameStoreOpen ? 'Close' : 'Open'))), frameStoreOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
+      marginTop: 12,
+      padding: 14,
+      borderRadius: 18,
+      background: '#FFFFFF',
+      border: `1px solid ${T.line}`,
+      display: 'grid',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: mobile ? 'column' : 'row',
+      gap: 10,
+      alignItems: mobile ? 'stretch' : 'center',
+      justifyContent: 'space-between'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900,
+      color: T.ink,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "Frame Store"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4,
+      fontSize: 10.5,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "Packs, presets, favorites, and imports in one place.")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, allPacks.length, " packs"), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, savedFrames.length, " my frames"), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, favoriteFramePresetIds.length, " favorites"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1.1fr) minmax(260px, 0.9fr)',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: 'rgba(26,26,31,0.015)',
+      padding: 12,
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, packTabs.map(tabItem => /*#__PURE__*/React.createElement("button", {
+    key: tabItem.id,
+    onClick: () => setStoreTab(tabItem.id),
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '10px 12px',
+      minHeight: 44,
+      background: storeTab === tabItem.id ? T.ink : 'rgba(26,26,31,0.06)',
+      color: storeTab === tabItem.id ? T.bg : T.inkSoft,
+      fontSize: 10,
+      fontWeight: 800,
+      cursor: 'pointer',
+      letterSpacing: 0.8,
+      fontFamily: '"Plus Jakarta Sans",system-ui',
+      textTransform: 'uppercase',
+      flex: '0 0 auto'
+    }
+  }, tabItem.label))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : '1fr 1fr 120px',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: storeSearch,
+    onChange: e => setStoreSearch(e.target.value),
+    placeholder: "Search packs, presets, tags",
+    style: {
+      minHeight: 44,
+      padding: '0 12px',
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#FFFFFF',
+      color: T.ink,
+      fontSize: 12,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }), /*#__PURE__*/React.createElement("select", {
+    value: storeFilter,
+    onChange: e => setStoreFilter(e.target.value),
+    style: {
+      minHeight: 44,
+      padding: '0 12px',
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#FFFFFF',
+      color: T.ink,
+      fontSize: 12,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "all"
+  }, "All"), /*#__PURE__*/React.createElement("option", {
+    value: "free"
+  }, "Free"), /*#__PURE__*/React.createElement("option", {
+    value: "premium"
+  }, "Premium"), /*#__PURE__*/React.createElement("option", {
+    value: "mine"
+  }, "Mine"), /*#__PURE__*/React.createElement("option", {
+    value: "imported"
+  }, "Imported")), /*#__PURE__*/React.createElement("select", {
+    value: storeSort,
+    onChange: e => setStoreSort(e.target.value),
+    style: {
+      minHeight: 44,
+      padding: '0 12px',
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#FFFFFF',
+      color: T.ink,
+      fontSize: 12,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "recommended"
+  }, "Recommended"), /*#__PURE__*/React.createElement("option", {
+    value: "newest"
+  }, "Newest"), /*#__PURE__*/React.createElement("option", {
+    value: "az"
+  }, "A-Z"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900,
+      color: T.ink,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "Featured Packs"), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, visiblePacks.length)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+      gap: 8
+    }
+  }, visiblePacks.slice(0, 4).map(pack => {
+    var packUnlocked = Boolean((frameApi?.isFramePackUnlocked?.(pack.id) ?? unlockedFramePackIds.includes(pack.id)) || !pack.locked);
+    var coverPreset = allStorePresets.find(preset => preset.id === pack.coverPresetId) || packPresets[0] || null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: pack.id,
+      style: {
+        borderRadius: 16,
+        border: `1px solid ${pack.id === selectedPack?.id ? T.ink : T.line}`,
+        background: pack.id === selectedPack?.id ? T.card : '#FFFFFF',
+        padding: 12,
+        display: 'grid',
+        gap: 10,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setActivePackId(pack.id);
+        setStoreTab(pack.priceType === 'premium' ? 'premium' : 'featured');
+        setFrameStoreMode('full');
+      },
+      style: {
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        cursor: 'pointer',
+        textAlign: 'left',
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 900,
+        color: T.ink,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, pack.name), /*#__PURE__*/React.createElement(StoreBadge, {
+      T: T,
+      tone: "light"
+    }, pack.priceLabel)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 4,
+        fontSize: 10.5,
+        color: T.inkSoft,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, pack.description), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 4,
+        fontSize: 10,
+        color: T.inkSoft,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, pack.presetIds.length, " presets \xB7 ", pack.category), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        display: 'grid',
+        placeItems: 'center',
+        minHeight: 128
+      }
+    }, WFrameThumb && coverPreset ? /*#__PURE__*/React.createElement(WFrameThumb, {
+      key: `${pack.id}-${coverPreset.id}`,
+      layout: coverPreset.layout,
+      shots: shotsPreview,
+      selected: [0, 1, 2, 3],
+      T: T,
+      logo: false,
+      dateText: false,
+      accent: accent,
+      scale: 0.82,
+      orientation: "portrait",
+      frameColor: frameColor,
+      framePreset: coverPreset
+    }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
+      layout: coverPreset?.layout || 'strip',
+      T: T,
+      size: "sm"
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setActivePackId(pack.id);
+        if (!packUnlocked && pack.locked) {
+          setStoreUpsellPack(pack);
+          return;
+        }
+        if (coverPreset) {
+          applyFramePreset && applyFramePreset(coverPreset);
+        }
+      },
+      style: {
+        border: 'none',
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: packUnlocked ? T.ink : 'rgba(26,26,31,0.08)',
+        color: packUnlocked ? T.bg : T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, packUnlocked ? 'View Pack' : 'Preview only'), !packUnlocked && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setStoreUpsellPack(pack),
+      style: {
+        border: '1px solid rgba(26,26,31,0.12)',
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: '#FFFFFF',
+        color: T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "Unlock coming soon"), devUnlockVisible && pack.locked && !packUnlocked && /*#__PURE__*/React.createElement("button", {
+      onClick: () => unlockFramePackForDev && unlockFramePackForDev(pack.id),
+      style: {
+        border: 'none',
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: 'rgba(17,17,17,0.08)',
+        color: T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "Unlock for Dev")));
+  }))), selectedPack && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4,
+      borderRadius: 16,
+      border: `1px solid ${T.line}`,
+      background: '#FFFFFF',
+      padding: 12,
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 900,
+      color: T.ink,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, selectedPack.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4,
+      fontSize: 10.5,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, selectedPack.description)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, selectedPack.priceLabel), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, selectedPack.presetIds.length, " presets"), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, selectedPackIsUnlocked ? 'Unlocked' : 'Locked'))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "Author: ", selectedPack.author?.name || 'IMMM Studio', " \xB7 License: ", selectedPack.license || 'internal'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (!selectedPackCoverPreset) return;
+      if (!selectedPackIsUnlocked && selectedPack.locked) {
+        setStoreUpsellPack(selectedPack);
+        return;
+      }
+      applyFramePreset && applyFramePreset(selectedPackCoverPreset);
+    },
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '10px 12px',
+      minHeight: 44,
+      background: selectedPackIsUnlocked ? T.ink : 'rgba(26,26,31,0.08)',
+      color: selectedPackIsUnlocked ? T.bg : T.ink,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, selectedPackIsUnlocked ? 'Apply pack preset' : 'Preview only'), !selectedPackIsUnlocked && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStoreUpsellPack(selectedPack),
+    style: {
+      border: '1px solid rgba(26,26,31,0.12)',
+      borderRadius: 999,
+      padding: '10px 12px',
+      minHeight: 44,
+      background: '#FFFFFF',
+      color: T.ink,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Unlock coming soon")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
+      gap: 8
+    }
+  }, packPresets.map(preset => /*#__PURE__*/React.createElement("button", {
+    key: preset.id,
+    onClick: () => applyFramePreset && applyFramePreset(preset),
+    style: {
+      border: `1px solid ${selectedFramePresetId === preset.id ? T.ink : T.line}`,
+      borderRadius: 14,
+      background: selectedFramePresetId === preset.id ? T.card : '#FFFFFF',
+      padding: 10,
+      minHeight: 44,
+      cursor: 'pointer',
+      display: 'grid',
+      gap: 8,
+      textAlign: 'left'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 6,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 800,
+      color: T.ink,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, preset.name), favoriteFramePresetIds.includes(preset.id) && /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, "Fav")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, preset.layout, " \xB7 ", preset.photoSlots.length, "\uCEF7"))))), storeUpsellPack && /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderRadius: 16,
+      border: `1px solid ${T.line}`,
+      background: 'rgba(26,26,31,0.02)',
+      padding: 12,
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900,
+      color: T.ink,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "This frame pack is premium"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "Unlock coming soon. You can preview the pack, but applying is blocked until it is unlocked."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStoreUpsellPack(null),
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '10px 12px',
+      minHeight: 44,
+      background: T.ink,
+      color: T.bg,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Preview only"), devUnlockVisible && storeUpsellPack.locked && /*#__PURE__*/React.createElement("button", {
+    onClick: () => unlockFramePackForDev && unlockFramePackForDev(storeUpsellPack.id),
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '10px 12px',
+      minHeight: 44,
+      background: 'rgba(17,17,17,0.08)',
+      color: T.ink,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Unlock for Dev")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: '#FFFFFF',
+      padding: 12,
+      display: 'grid',
+      gap: 10,
+      alignContent: 'start'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900,
+      color: T.ink,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "My Frames"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4,
+      fontSize: 10.5,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "Save, rename, duplicate, soft delete, export, and import.")), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, savedFrames.length)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: importJsonText,
+    onChange: e => setImportJsonText(e.target.value),
+    placeholder: "Paste frame pack JSON here",
+    style: {
+      width: '100%',
+      minHeight: 120,
+      resize: 'vertical',
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: 12,
+      fontSize: 12,
+      fontFamily: 'monospace',
+      color: T.ink,
+      background: '#FFFFFF'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var raw = exportCustomFramesAsJson ? exportCustomFramesAsJson() : '';
+      if (!raw) return;
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(raw).catch(() => {});
+      }
+      setImportMessage('Exported current frames as JSON.');
+    },
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '10px 12px',
+      minHeight: 44,
+      background: T.ink,
+      color: T.bg,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Export My Frames as JSON"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var result = importFramePackFromJson ? importFramePackFromJson(importJsonText) : {
+        ok: false,
+        error: 'Import unavailable'
+      };
+      if (result?.ok) setStoreTab('imported');
+      setImportMessage(result.ok ? `Imported ${result.presets?.length || 0} frames.` : result.error || 'Import failed');
+    },
+    style: {
+      border: `1px solid ${T.line}`,
+      borderRadius: 999,
+      padding: '10px 12px',
+      minHeight: 44,
+      background: '#FFFFFF',
+      color: T.ink,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Import Frame Pack JSON")), importMessage && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, importMessage)), savedFrames.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 14,
+      background: 'rgba(26,26,31,0.04)',
+      border: `1px dashed ${T.line}`,
+      color: T.inkSoft,
+      fontSize: 12,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "No saved frames yet. Save a decorated setup or deco state to build your library.")))), /*#__PURE__*/React.createElement("div", {
+    style: {
       display: 'grid',
       gridTemplateColumns: mobile ? '1fr' : 'minmax(220px, 0.9fr) minmax(0, 1.1fr)',
       gap: 12,
@@ -1456,6 +2254,7 @@ function SetupScreen({
         canvasSize: framePreset?.canvasSize
       });
       setFrameCategory('my-frames');
+      setStoreTab('my-frames');
       setFrameStoreOpen(true);
       setFrameStoreMode('full');
     },
@@ -1565,7 +2364,14 @@ function SetupScreen({
         color: T.inkSoft,
         fontFamily: 'Pretendard,system-ui'
       }
-    }, preset.layout, " \xB7 ", preset.photoSlots.length, "\uCEF7 \xB7 ", preset.category)), /*#__PURE__*/React.createElement("div", {
+    }, preset.layout, " \xB7 ", preset.photoSlots.length, "\uCEF7 \xB7 ", preset.category), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 3,
+        fontSize: 10,
+        color: T.inkSoft,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, preset.author?.name || 'IMMM Studio', " \xB7 ", preset.license || 'internal')), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         flexDirection: 'column',
@@ -1575,7 +2381,10 @@ function SetupScreen({
     }, isSelected && /*#__PURE__*/React.createElement(StoreBadge, {
       T: T,
       tone: "light"
-    }, "Active"), /*#__PURE__*/React.createElement("span", {
+    }, "Active"), preset.source === 'imported' && /*#__PURE__*/React.createElement(StoreBadge, {
+      T: T,
+      tone: "light"
+    }, "Imported"), /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 10,
         color: T.inkSoft,
@@ -1603,7 +2412,23 @@ function SetupScreen({
         textTransform: 'uppercase',
         fontFamily: '"Plus Jakarta Sans",system-ui'
       }
-    }, "Apply"), isCustom && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    }, "Apply"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => toggleFavoriteFramePreset && toggleFavoriteFramePreset(preset.id),
+      style: {
+        border: `1px solid ${T.line}`,
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: favoriteFramePresetIds.includes(preset.id) ? T.ink : '#FFFFFF',
+        color: favoriteFramePresetIds.includes(preset.id) ? T.bg : T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, favoriteFramePresetIds.includes(preset.id) ? 'Favorited' : 'Favorite'), isCustom && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         var next = window.prompt('Rename frame', preset.name || 'My Frame');
         if (!next || !next.trim()) return;

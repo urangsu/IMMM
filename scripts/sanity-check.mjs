@@ -880,6 +880,63 @@ function checkFrameStoreFoundation() {
     if (api.listFramePresets([sample, { ...sample, id: 'deleted-frame', deletedAt: new Date().toISOString() }]).some((frame) => frame.id === 'deleted-frame')) {
       throw new Error('deleted custom frames should be hidden from lists');
     }
+
+    if (!Array.isArray(api.FRAME_PACKS) || api.FRAME_PACKS.length < 3) {
+      throw new Error('FRAME_PACKS should contain at least three packs');
+    }
+    if (!api.FRAME_PACKS.some((pack) => pack.priceType === 'free')) {
+      throw new Error('FRAME_PACKS missing free pack');
+    }
+    if (!api.FRAME_PACKS.some((pack) => pack.priceType === 'premium')) {
+      throw new Error('FRAME_PACKS missing premium pack');
+    }
+    const builtinPresetIds = new Set(api.listFramePresets([]).map((preset) => preset.id));
+    api.FRAME_PACKS.forEach((pack) => {
+      if (!pack.author?.name || !pack.license) {
+        throw new Error(`pack metadata missing author/license for ${pack.id}`);
+      }
+      if (!pack.coverPresetId || !Array.isArray(pack.presetIds) || !pack.presetIds.includes(pack.coverPresetId)) {
+        throw new Error(`pack cover preset is not included for ${pack.id}`);
+      }
+      pack.presetIds.forEach((presetId) => {
+        if (!builtinPresetIds.has(presetId)) {
+          throw new Error(`pack presetId ${presetId} does not resolve to a preset`);
+        }
+      });
+    });
+    if (!['heart-gem-2x2', 'kitsch-bear-2x2'].includes(api.getDefaultFramePresetIdForLayout('grid', []))) {
+      throw new Error('grid default preset should not resolve to a strip preset');
+    }
+    if (!['heart-gem-2x2', 'kitsch-bear-2x2'].includes(api.getDefaultFramePresetIdForLayout('2x2', []))) {
+      throw new Error('2x2 default preset should not resolve to a strip preset');
+    }
+    if (api.getDefaultFramePresetIdForLayout('trip', []) !== 'friend-bubble-1x3') {
+      throw new Error('trip default preset should be friend-bubble-1x3');
+    }
+    if (api.getDefaultFramePresetIdForLayout('1x1', []) !== 'clean-polaroid-1x1') {
+      throw new Error('polaroid layout should resolve a default preset');
+    }
+    const ownerTest = api.createCustomFramePresetFromAppState({ name: 'Owner Test' });
+    if (!ownerTest.author?.name || ownerTest.author.name !== 'You') {
+      throw new Error('custom frame author metadata should default to You');
+    }
+    const packExport = api.exportCustomFramePackJson([sample]);
+    if (String(packExport).includes('dataUrl')) {
+      throw new Error('exported custom frame pack leaked dataUrl');
+    }
+    const rejectedImport = api.validateFramePackJson(JSON.stringify({
+      pack: { id: 'bad-pack', name: 'Bad', presetIds: ['bad-preset'], coverPresetId: 'bad-preset' },
+      presets: [{ id: 'bad-preset', dataUrl: 'data:image/png;base64,AAAA' }],
+    }));
+    if (rejectedImport.ok) {
+      throw new Error('frame pack validation should reject photo dataUrl payloads');
+    }
+    if (/sanitizeFrameSticker\s*\(\s*(deco|decorations|frame\.decorations)/.test(framePresets)) {
+      throw new Error('decorations should not flow through sanitizeFrameSticker');
+    }
+    if (!framePresets.includes('FRAME_PACKS') || !framePresets.includes('exportCustomFramePackJson') || !framePresets.includes('importFramePackJson')) {
+      throw new Error('frame-presets.jsx missing pack commerce API');
+    }
   } catch (err) {
     console.error('❌ FAIL: frame-presets.jsx runtime validation failed:', err.message);
     hasErrors = true;
@@ -901,12 +958,32 @@ function checkFrameStoreFoundation() {
     console.error('❌ FAIL: main.jsx missing soft delete frame management');
     hasErrors = true;
   }
+  if (main && (!main.includes('exportCustomFramesAsJson') || !main.includes('importFramePackFromJson'))) {
+    console.error('❌ FAIL: main.jsx missing frame pack import/export handlers');
+    hasErrors = true;
+  }
+  if (main && (!main.includes('unlockedFramePackIds') || !main.includes('favoriteFramePresetIds'))) {
+    console.error('❌ FAIL: main.jsx missing frame pack unlock/favorite state');
+    hasErrors = true;
+  }
+  if (main && (!main.includes('immm.v2.unlockedFramePacks') || !main.includes('immm.v2.favoriteFramePresets'))) {
+    console.error('❌ FAIL: main.jsx missing frame pack localStorage keys');
+    hasErrors = true;
+  }
   if (setup && !setup.includes('No saved frames yet')) {
     console.error('❌ FAIL: screens-v2.jsx missing My Frames empty state');
     hasErrors = true;
   }
   if (setup && (!setup.includes('Rename') || !setup.includes('Duplicate') || !setup.includes('Delete'))) {
     console.error('❌ FAIL: screens-v2.jsx missing My Frames management actions');
+    hasErrors = true;
+  }
+  if (setup && (!setup.includes('View Pack') || !setup.includes('Unlock coming soon') || !setup.includes('Export My Frames as JSON') || !setup.includes('Import Frame Pack JSON'))) {
+    console.error('❌ FAIL: screens-v2.jsx missing pack commerce UI');
+    hasErrors = true;
+  }
+  if (setup && (!setup.includes('Featured Packs') || !setup.includes('Favorites') || !setup.includes('All Presets'))) {
+    console.error('❌ FAIL: screens-v2.jsx missing pack tabs/search/filter structure');
     hasErrors = true;
   }
   if (deco && !deco.includes('saveCustomFrame')) {
