@@ -727,13 +727,76 @@ function SetupScreen({
   setSelected,
   setUseWebgl,
   tweaks,
-  startNewCaptureSession
+  startNewCaptureSession,
+  framePreset,
+  framePresets = [],
+  customFrames = [],
+  selectedFramePresetId,
+  applyFramePreset,
+  saveCustomFrame,
+  renameCustomFrame,
+  duplicateCustomFrame,
+  deleteCustomFrame
 }) {
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   var [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
+  var [frameStoreOpen, setFrameStoreOpen] = uS(true);
+  var [frameStoreMode, setFrameStoreMode] = uS('sheet');
+  var [frameCategory, setFrameCategory] = uS('basic');
   var [selStId, setSelStId] = uS(null);
   var [expandedPacks, setExpandedPacks] = uS({});
   var fileRef = uR(null);
+  var frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
+  var savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter(preset => !preset.deletedAt), [customFrames]);
+  var allStorePresets = uM(() => Array.isArray(framePresets) ? framePresets : [], [framePresets]);
+  var categoryTabs = uM(() => {
+    if (frameApi && typeof frameApi.getFramePresetCategories === 'function') {
+      return frameApi.getFramePresetCategories(savedFrames);
+    }
+    return [{
+      id: 'basic',
+      label: 'Basic'
+    }, {
+      id: 'character',
+      label: 'Character'
+    }, {
+      id: 'travel',
+      label: 'Travel'
+    }, {
+      id: 'birthday',
+      label: 'Birthday'
+    }, {
+      id: 'couple',
+      label: 'Couple'
+    }, {
+      id: 'my-frames',
+      label: 'My Frames',
+      count: savedFrames.length
+    }];
+  }, [frameApi, savedFrames]);
+  var selectedFramePreset = uM(() => {
+    if (!selectedFramePresetId) return framePreset || null;
+    return allStorePresets.find(preset => preset.id === selectedFramePresetId) || framePreset || null;
+  }, [allStorePresets, framePreset, selectedFramePresetId]);
+  var formatFrameDate = value => {
+    if (!value) return '';
+    try {
+      return new Intl.DateTimeFormat('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(new Date(value));
+    } catch (_) {
+      return String(value);
+    }
+  };
+  var visibleFramePresets = uM(() => {
+    if (frameCategory === 'my-frames') return savedFrames;
+    return allStorePresets.filter(preset => preset.category === frameCategory && preset.source !== 'custom');
+  }, [allStorePresets, frameCategory, savedFrames]);
+  var recommendedFramePresets = uM(() => allStorePresets.filter(preset => preset.category === 'basic' || preset.category === 'character').slice(0, 6), [allStorePresets]);
   var addPreset = libId => {
     var item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
     var sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
@@ -832,7 +895,7 @@ function SetupScreen({
     height: "auto",
     layout: layout
   }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
-    key: frameColor,
+    key: `${frameColor}-${selectedFramePreset?.id || 'base'}`,
     layout: layout,
     shots: [{
       filter
@@ -850,7 +913,8 @@ function SetupScreen({
     accent: accent,
     scale: 1,
     orientation: orientation,
-    frameColor: frameColor
+    frameColor: frameColor,
+    framePreset: selectedFramePreset
   }) : /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'relative',
@@ -899,18 +963,19 @@ function SetupScreen({
     en: '1×1',
     ko: '폴라로이드'
   }].map(o => {
-    var resolveFrameTemplate = layout => {
+    var resolveFrameTemplate = layoutId => {
       if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
-        return window.getFrameTemplateSafe(layout);
+        return window.getFrameTemplateSafe(layoutId);
       }
       if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
-        return window.getFrameTemplate(layout);
+        return window.getFrameTemplate(layoutId);
       }
       return null;
     };
     var tpl = resolveFrameTemplate(o.id);
     var canRenderRealThumb = Boolean(WFrameThumb && tpl);
     var pickerThumbScale = mobile ? 0.235 : 0.28;
+    var layoutPreset = selectedFramePreset?.layout === o.id ? selectedFramePreset : allStorePresets.find(preset => preset.layout === o.id) || null;
     if (typeof window !== 'undefined' && window.IMMM_DEBUG_BUILD) {
       console.warn('[IMMM frame picker]', {
         hasFrameThumb: typeof window.FrameThumb === 'function',
@@ -929,7 +994,6 @@ function SetupScreen({
         borderRadius: 16,
         cursor: 'pointer',
         boxShadow: layout === o.id ? `0 1px 4px rgba(0,0,0,0.06), 0 0 0 2px ${T.ink} inset` : `0 0 0 1px ${T.line} inset`,
-        // #E5E2DA frameCardBorder
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -955,7 +1019,7 @@ function SetupScreen({
         zIndex: 2
       }
     }, /*#__PURE__*/React.createElement(WFrameThumb, {
-      key: frameColor,
+      key: `${frameColor}-${o.id}`,
       layout: o.id,
       shots: shotsPreview,
       selected: [0, 1, 2, 3],
@@ -965,7 +1029,8 @@ function SetupScreen({
       accent: accent,
       scale: 1,
       orientation: "portrait",
-      frameColor: frameColor
+      frameColor: frameColor,
+      framePreset: layoutPreset
     })) : /*#__PURE__*/React.createElement(FramePickerFallback, {
       layout: o.id,
       T: T,
@@ -998,51 +1063,109 @@ function SetupScreen({
       marginTop: 16,
       padding: 14,
       borderRadius: 18,
-      background: T.softSurface,
-      border: `1px solid ${T.line}`
+      background: frameStoreMode === 'full' ? 'rgba(252,252,250,0.96)' : T.softSurface,
+      border: `1px solid ${T.line}`,
+      boxShadow: frameStoreMode === 'full' ? '0 24px 80px rgba(0,0,0,0.18)' : 'none',
+      position: frameStoreMode === 'full' ? 'fixed' : 'relative',
+      inset: frameStoreMode === 'full' ? mobile ? 12 : 18 : 'auto',
+      zIndex: frameStoreMode === 'full' ? 40 : 'auto',
+      overflowY: 'auto',
+      maxHeight: frameStoreMode === 'full' ? 'calc(100vh - 24px)' : mobile ? '72vh' : '76vh'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
-      gap: 10
+      gap: 10,
+      position: frameStoreMode === 'full' ? 'sticky' : 'relative',
+      top: frameStoreMode === 'full' ? 0 : 'auto',
+      zIndex: 2,
+      background: frameStoreMode === 'full' ? 'rgba(252,252,250,0.96)' : 'transparent',
+      paddingBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0
     }
   }, /*#__PURE__*/React.createElement(Kick, {
     T: T
-  }, "Frame Store \xB7 \uCD94\uCC9C \uD504\uB808\uC784"), /*#__PURE__*/React.createElement(StoreBadge, {
-    T: T,
-    tone: "light"
-  }, "Soon")), /*#__PURE__*/React.createElement("div", {
+  }, "Frame Store"), /*#__PURE__*/React.createElement("div", {
     style: {
-      marginTop: 10,
-      display: 'grid',
-      gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: 8
+      marginTop: 4,
+      fontSize: 11,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
     }
-  }, Object.values(typeof FRAME_TEMPLATES !== 'undefined' ? FRAME_TEMPLATES : {}).filter(t => t.recommended).slice(0, 2).map(tpl => /*#__PURE__*/React.createElement("button", {
-    key: tpl.id,
-    onClick: () => setLayout({
-      '1x4': 'strip',
-      '2x2': 'grid',
-      '1x3': 'trip',
-      '1x1': 'polaroid'
-    }[tpl.type] || 'strip'),
+  }, selectedFramePreset ? `${selectedFramePreset.name} · ${selectedFramePreset.layout} · ${selectedFramePreset.photoSlots?.length || 0}컷` : 'Pick, save, rename, and reuse frame presets.')), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setFrameStoreMode(v => v === 'full' ? 'sheet' : 'full'),
     style: {
       border: 'none',
-      borderRadius: 14,
-      padding: 10,
-      background: T.card,
+      background: frameStoreMode === 'full' ? T.ink : 'rgba(26,26,31,0.06)',
+      color: frameStoreMode === 'full' ? T.bg : T.ink,
+      borderRadius: 999,
+      padding: '8px 12px',
+      minHeight: 44,
+      minWidth: 44,
+      fontSize: 10,
+      fontWeight: 800,
       cursor: 'pointer',
-      boxShadow: `0 0 0 1px ${T.line}, 0 12px 28px rgba(0,0,0,0.04)`,
-      textAlign: 'left'
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, frameStoreMode === 'full' ? 'Shrink' : 'Expand'), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setFrameStoreOpen(v => !v),
+    style: {
+      border: 'none',
+      background: frameStoreOpen ? T.ink : 'rgba(26,26,31,0.06)',
+      color: frameStoreOpen ? T.bg : T.ink,
+      borderRadius: 999,
+      padding: '8px 12px',
+      minHeight: 44,
+      minWidth: 44,
+      fontSize: 10,
+      fontWeight: 800,
+      cursor: 'pointer',
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, frameStoreOpen ? 'Close' : 'Open'))), frameStoreOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'minmax(220px, 0.9fr) minmax(0, 1.1fr)',
+      gap: 12,
+      alignItems: 'stretch',
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderRadius: 18,
+      background: '#FFFFFF',
+      border: `1px solid ${T.line}`,
+      padding: 14,
+      minHeight: 250,
+      display: 'grid',
+      gap: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
-      gap: 6
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1051,17 +1174,489 @@ function SetupScreen({
       color: T.ink,
       fontFamily: 'Pretendard,system-ui'
     }
-  }, tpl.ko), tpl.recommended && /*#__PURE__*/React.createElement(StoreBadge, {
-    T: T,
-    tone: "light"
-  }, "Pick")), /*#__PURE__*/React.createElement("div", {
+  }, selectedFramePreset?.name || 'Selected preset'), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 4,
       fontSize: 10.5,
       color: T.inkSoft,
       fontFamily: 'Pretendard,system-ui'
     }
-  }, tpl.canvasSize.width, "\xD7", tpl.canvasSize.height, " \xB7 ", tpl.photoSlots.length, "\uCEF7"))))), /*#__PURE__*/React.createElement("div", {
+  }, selectedFramePreset ? `${selectedFramePreset.layout} · ${selectedFramePreset.photoSlots?.length || 0}컷 · ${selectedFramePreset.category}` : 'No preset selected')), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end'
+    }
+  }, selectedFramePreset && /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, selectedFramePreset.source === 'custom' ? 'My Frame' : 'Preset'), selectedFramePresetId && selectedFramePresetId === selectedFramePreset?.id && /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T
+  }, "Active"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      placeItems: 'center',
+      minHeight: 170,
+      background: 'rgba(26,26,31,0.02)',
+      borderRadius: 16
+    }
+  }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
+    key: `${selectedFramePreset?.id || layout}-${selectedFramePreset?.updatedAt || 'selected'}`,
+    layout: selectedFramePreset?.layout || layout,
+    shots: shotsPreview,
+    selected: [0, 1, 2, 3],
+    T: T,
+    logo: false,
+    dateText: false,
+    accent: accent,
+    scale: mobile ? 0.96 : 1.08,
+    orientation: "portrait",
+    frameColor: frameColor,
+    framePreset: selectedFramePreset
+  }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
+    layout: selectedFramePreset?.layout || layout,
+    T: T,
+    size: "lg"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => selectedFramePreset && applyFramePreset && applyFramePreset(selectedFramePreset),
+    disabled: !selectedFramePreset,
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '10px 14px',
+      minHeight: 44,
+      background: selectedFramePreset ? T.ink : 'rgba(26,26,31,0.06)',
+      color: selectedFramePreset ? T.bg : T.inkSoft,
+      cursor: selectedFramePreset ? 'pointer' : 'default',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Apply preset"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 10,
+      alignContent: 'start'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      overflowX: 'auto',
+      paddingBottom: 2
+    }
+  }, categoryTabs.map(tabItem => /*#__PURE__*/React.createElement("button", {
+    key: tabItem.id,
+    onClick: () => setFrameCategory(tabItem.id),
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '10px 12px',
+      minHeight: 44,
+      background: frameCategory === tabItem.id ? T.ink : 'rgba(26,26,31,0.06)',
+      color: frameCategory === tabItem.id ? T.bg : T.inkSoft,
+      fontSize: 10,
+      fontWeight: 800,
+      cursor: 'pointer',
+      letterSpacing: 0.8,
+      fontFamily: '"Plus Jakarta Sans",system-ui',
+      textTransform: 'uppercase',
+      flex: '0 0 auto'
+    }
+  }, tabItem.label, typeof tabItem.count === 'number' ? ` ${tabItem.count}` : ''))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      background: '#FFFFFF',
+      border: `1px solid ${T.line}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900,
+      color: T.ink,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "Recommended"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 3,
+      fontSize: 10.5,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "Built-in frames for quick starts.")), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, recommendedFramePresets.length)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+      gap: 8
+    }
+  }, recommendedFramePresets.map(preset => {
+    var isSelected = selectedFramePresetId === preset.id;
+    return /*#__PURE__*/React.createElement("div", {
+      key: preset.id,
+      style: {
+        borderRadius: 16,
+        border: `1px solid ${isSelected ? T.ink : T.line}`,
+        background: isSelected ? T.card : '#FFFFFF',
+        boxShadow: isSelected ? `0 0 0 2px ${T.ink} inset` : 'none',
+        padding: 12,
+        display: 'grid',
+        gap: 10,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => applyFramePreset && applyFramePreset(preset),
+      style: {
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        cursor: 'pointer',
+        textAlign: 'left',
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 900,
+        color: T.ink,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, preset.name), isSelected && /*#__PURE__*/React.createElement(StoreBadge, {
+      T: T,
+      tone: "light"
+    }, "Active")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 4,
+        fontSize: 10.5,
+        color: T.inkSoft,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, preset.layout, " \xB7 ", preset.photoSlots.length, "\uCEF7"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 8,
+        display: 'grid',
+        placeItems: 'center',
+        minHeight: 126
+      }
+    }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
+      key: `${preset.id}-${preset.updatedAt || 'builtin'}`,
+      layout: preset.layout,
+      shots: shotsPreview,
+      selected: [0, 1, 2, 3],
+      T: T,
+      logo: false,
+      dateText: false,
+      accent: accent,
+      scale: 0.84,
+      orientation: "portrait",
+      frameColor: frameColor,
+      framePreset: preset
+    }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
+      layout: preset.layout,
+      T: T,
+      size: "sm"
+    }))), /*#__PURE__*/React.createElement("button", {
+      onClick: () => applyFramePreset && applyFramePreset(preset),
+      style: {
+        border: 'none',
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: T.ink,
+        color: T.bg,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "Apply"));
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      background: '#FFFFFF',
+      border: `1px solid ${T.line}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900,
+      color: T.ink,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "My Frames"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 3,
+      fontSize: 10.5,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "Saved setups, renamed, duplicated, and soft-deleted.")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, savedFrames.length), saveCustomFrame && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var suggested = selectedFramePreset?.name ? `${selectedFramePreset.name} Copy` : 'My Frame';
+      var name = window.prompt('Save frame as', suggested);
+      if (!name || !name.trim()) return;
+      saveCustomFrame({
+        name: name.trim(),
+        layout,
+        frameColor,
+        stickers: preStickers,
+        decorations: framePreset?.decorations || [],
+        drawStrokes: [],
+        background: framePreset?.background,
+        photoSlots: framePreset?.photoSlots,
+        watermark: framePreset?.watermark,
+        canvasSize: framePreset?.canvasSize
+      });
+      setFrameCategory('my-frames');
+      setFrameStoreOpen(true);
+      setFrameStoreMode('full');
+    },
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '10px 14px',
+      minHeight: 44,
+      background: T.ink,
+      color: T.bg,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Save current setup"))), frameCategory === 'my-frames' && savedFrames.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      padding: 14,
+      borderRadius: 14,
+      background: 'rgba(26,26,31,0.04)',
+      border: `1px dashed ${T.line}`,
+      color: T.inkSoft,
+      fontSize: 12,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, "No saved frames yet. Save a decorated setup or deco state to build your library."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      display: 'grid',
+      gap: 10
+    }
+  }, visibleFramePresets.map(preset => {
+    var isSelected = selectedFramePresetId === preset.id;
+    var isCustom = preset.source === 'custom';
+    return /*#__PURE__*/React.createElement("div", {
+      key: preset.id,
+      style: {
+        border: `1px solid ${isSelected ? T.ink : T.line}`,
+        borderRadius: 16,
+        background: isSelected ? T.card : '#FFFFFF',
+        boxShadow: isSelected ? `0 0 0 2px ${T.ink} inset` : 'none',
+        padding: 12,
+        display: 'grid',
+        gridTemplateColumns: mobile ? '1fr' : 'minmax(96px, 120px) 1fr',
+        gap: 12,
+        alignItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => applyFramePreset && applyFramePreset(preset),
+      style: {
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        cursor: 'pointer',
+        minWidth: 0,
+        display: 'grid',
+        placeItems: 'center'
+      }
+    }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
+      key: `${preset.id}-${preset.updatedAt || 'thumb'}`,
+      layout: preset.layout,
+      shots: shotsPreview,
+      selected: [0, 1, 2, 3],
+      T: T,
+      logo: false,
+      dateText: false,
+      accent: accent,
+      scale: 0.7,
+      orientation: "portrait",
+      frameColor: frameColor,
+      framePreset: preset
+    }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
+      layout: preset.layout,
+      T: T,
+      size: "sm"
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        minWidth: 0,
+        display: 'grid',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: T.ink,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, preset.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 4,
+        fontSize: 10.5,
+        color: T.inkSoft,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, preset.layout, " \xB7 ", preset.photoSlots.length, "\uCEF7 \xB7 ", preset.category)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        alignItems: 'flex-end'
+      }
+    }, isSelected && /*#__PURE__*/React.createElement(StoreBadge, {
+      T: T,
+      tone: "light"
+    }, "Active"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: T.inkSoft,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, isCustom ? `Saved ${formatFrameDate(preset.createdAt || preset.updatedAt)}` : 'Built-in'))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => applyFramePreset && applyFramePreset(preset),
+      style: {
+        border: 'none',
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: T.ink,
+        color: T.bg,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "Apply"), isCustom && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        var next = window.prompt('Rename frame', preset.name || 'My Frame');
+        if (!next || !next.trim()) return;
+        renameCustomFrame && renameCustomFrame(preset.id, next.trim());
+      },
+      style: {
+        border: `1px solid ${T.line}`,
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: '#FFFFFF',
+        color: T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "Rename"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => duplicateCustomFrame && duplicateCustomFrame(preset.id),
+      style: {
+        border: `1px solid ${T.line}`,
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: '#FFFFFF',
+        color: T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "Duplicate"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => deleteCustomFrame && deleteCustomFrame(preset.id),
+      style: {
+        border: 'none',
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: 'rgba(17,17,17,0.08)',
+        color: T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "Delete")))));
+  }))))))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 18,
       borderTop: `1px solid ${T.line}`,

@@ -81,7 +81,8 @@ function CaptureV2({
   setCameraZoom,
   setCameraTorch,
   setScreenLightActive,
-  runScreenFlash
+  runScreenFlash,
+  framePreset
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -670,7 +671,8 @@ function CaptureV2({
       dateText: dateText,
       accent: accent,
       frameColor: safeFrameColor,
-      viewfinderAspect: viewfinderAspect
+      viewfinderAspect: viewfinderAspect,
+      framePreset: framePreset
     });
   })(), countdown > 0 && /*#__PURE__*/React.createElement("div", {
     style: {

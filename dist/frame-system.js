@@ -83,6 +83,10 @@ function getFrameTheme(template, options = {}) {
 if (typeof window !== 'undefined') {
   window.getFrameTheme = getFrameTheme;
 }
+function getFramePresetApiSafe() {
+  if (typeof window === 'undefined') return null;
+  return window.IMMMFramePresets || null;
+}
 var FRAME_TEMPLATES = {
   '1x4': {
     id: 'core-1x4',
@@ -593,11 +597,20 @@ async function renderComposition(ctx, data, options = {}) {
   var scale = options.scale || 1;
   var w = template.canvasSize.width * scale;
   var h = template.canvasSize.height * scale;
+  var framePreset = data.framePreset || null;
   var theme = getFrameTheme(template, data);
+  var presetApi = getFramePresetApiSafe();
+  var drawPresetBackground = presetApi?.drawFramePresetBackground || window.drawFramePresetBackground || null;
+  var drawPresetLayer = presetApi?.drawFramePresetLayer || window.drawFramePresetLayer || null;
+  var drawPresetWatermark = presetApi?.drawFramePresetWatermark || window.drawFramePresetWatermark || null;
 
   // 1. Background
-  ctx.fillStyle = theme.frameBg;
-  ctx.fillRect(0, 0, w, h);
+  if (framePreset && typeof drawPresetBackground === 'function') {
+    drawPresetBackground(ctx, framePreset, w, h);
+  } else {
+    ctx.fillStyle = theme.frameBg;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   // 1b. Preload Stickers (parallel)
   var tPreloadStart = nowMs();
@@ -613,7 +626,8 @@ async function renderComposition(ctx, data, options = {}) {
   var selected = data.selected || [];
   var shots = data.shots || [];
   var tPhotoStart = nowMs();
-  var images = await Promise.all(template.photoSlots.map((_, i) => {
+  var photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : template.photoSlots;
+  var images = await Promise.all(photoSlots.map((_, i) => {
     var shot = shots[selected[i]];
     return loadImageForCanvas(shot?.dataUrl);
   }));
@@ -622,8 +636,11 @@ async function renderComposition(ctx, data, options = {}) {
     count: images.length
   });
   var tStickerDrawStart = nowMs();
+  if (framePreset && typeof drawPresetLayer === 'function') {
+    drawPresetLayer(ctx, framePreset, w, h, 'back');
+  }
   var _loop = async function (i) {
-    var slot = template.photoSlots[i];
+    var slot = photoSlots[i];
     var sx = slot.x * scale;
     var sy = slot.y * scale;
     var sw = slot.width * scale;
@@ -653,7 +670,7 @@ async function renderComposition(ctx, data, options = {}) {
     }
     ctx.restore();
   };
-  for (var i = 0; i < template.photoSlots.length; i++) {
+  for (var i = 0; i < photoSlots.length; i++) {
     await _loop(i);
   }
 
@@ -698,6 +715,9 @@ async function renderComposition(ctx, data, options = {}) {
     }
     ctx.restore();
   });
+  if (framePreset && typeof drawPresetLayer === 'function') {
+    drawPresetLayer(ctx, framePreset, w, h, 'front');
+  }
 
   // 5. Unified Overlay (Logo, Dot, Date)
   renderFrameOverlay(ctx, template, w, h, {
@@ -706,6 +726,9 @@ async function renderComposition(ctx, data, options = {}) {
     dateText: data.dateText,
     accent: data.accent
   });
+  if (framePreset && typeof drawPresetWatermark === 'function') {
+    drawPresetWatermark(ctx, framePreset, w, h);
+  }
 }
 async function renderFrameToCanvas(input) {
   if (document.fonts && document.fonts.ready) {
@@ -900,7 +923,8 @@ function FrameThumb({
   dateText,
   accent,
   scale = 1,
-  orientation
+  orientation,
+  framePreset = null
 }) {
   var canvasRef = React.useRef(null);
   React.useEffect(() => {
@@ -931,13 +955,16 @@ function FrameThumb({
         accent,
         orientation
       };
+      if (framePreset) {
+        data.framePreset = framePreset;
+      }
       var renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) await renderComp(ctx, data, {
         scale: 1
       });
     };
     draw();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
   return /*#__PURE__*/React.createElement("canvas", {
     ref: canvasRef,
     style: {

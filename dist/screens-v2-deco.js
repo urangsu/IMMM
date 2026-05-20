@@ -129,7 +129,9 @@ function DecoV2({
   dateText,
   setDateText,
   accent,
-  frameColor
+  frameColor,
+  framePreset,
+  saveCustomFrame
 }) {
   var [tab, setTab] = React.useState('stickers'); // stickers | draw | text
   var [selStId, setSelStId] = React.useState(null);
@@ -328,6 +330,24 @@ function DecoV2({
   }, [layout, mobile]);
   var zoomIn = () => setZoom(z => Math.min(3, +(z + 0.15).toFixed(2)));
   var zoomOut = () => setZoom(z => Math.max(0.2, +(z - 0.15).toFixed(2)));
+  var saveCurrentFrame = React.useCallback(() => {
+    if (typeof saveCustomFrame !== 'function') return;
+    var suggested = framePreset?.name ? `${framePreset.name} Copy` : 'My Frame';
+    var name = window.prompt('Save frame as', suggested);
+    if (!name || !name.trim()) return;
+    saveCustomFrame({
+      name: name.trim(),
+      layout,
+      frameColor,
+      stickers,
+      decorations: framePreset?.decorations || [],
+      drawStrokes,
+      background: framePreset?.background,
+      photoSlots: framePreset?.photoSlots,
+      watermark: framePreset?.watermark,
+      canvasSize: framePreset?.canvasSize
+    });
+  }, [drawStrokes, frameColor, framePreset, layout, saveCustomFrame, stickers]);
   var resolveFrameTemplate = layout => {
     if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
       return window.getFrameTemplateSafe(layout);
@@ -386,7 +406,8 @@ function DecoV2({
         logo,
         dateText,
         accent,
-        orientation
+        orientation,
+        framePreset
       };
 
       // Render to offscreen canvas to prevent tearing/flickering
@@ -415,7 +436,7 @@ function DecoV2({
       cancelled = true;
       cancelAnimationFrame(raf);
     };
-  }, [fontsReady, layout, shots, selected, filter, frameColor, stickers, drawStrokes, drawVersion, logo, dateText, accent, orientation, drawMode]);
+  }, [fontsReady, layout, shots, selected, filter, frameColor, stickers, drawStrokes, drawVersion, logo, dateText, accent, orientation, drawMode, framePreset]);
   var frameW = layout === 'strip' || layout === 'trip' ? 180 : 220;
 
   // Compute ratio of CSS displayed size to native canvas size.
@@ -966,6 +987,28 @@ function DecoV2({
     }
   }, "Add to frame"));
   var tabContent = tab === 'stickers' ? stickerTab : tab === 'draw' ? drawTab : textTab;
+  var saveFrameBar = saveCustomFrame ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'flex-end',
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: saveCurrentFrame,
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '8px 12px',
+      background: T.ink,
+      color: T.bg,
+      cursor: 'pointer',
+      fontSize: 10,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Save frame")) : null;
   var tabBar = /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -1080,7 +1123,7 @@ function DecoV2({
         background: 'rgba(0,0,0,0.1)',
         margin: '10px auto 0'
       }
-    }), tabBar, tabContent)));
+    }), saveFrameBar, tabBar, tabContent)));
   }
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1153,7 +1196,7 @@ function DecoV2({
       display: 'flex',
       flexDirection: 'column'
     }
-  }, tabBar, /*#__PURE__*/React.createElement("div", {
+  }, saveFrameBar, tabBar, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }
@@ -1289,6 +1332,7 @@ function ResultV2({
   dateText,
   accent,
   frameColor,
+  framePreset,
   activeSessionId
 }) {
   var shotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
@@ -1407,7 +1451,8 @@ function ResultV2({
       logo,
       dateText,
       accent,
-      orientation
+      orientation,
+      framePreset
     };
     await renderComp(ctx, data, {
       scale: 1
@@ -1487,7 +1532,7 @@ function ResultV2({
   };
   React.useEffect(() => {
     buildFinalResultAsset();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
 
   // Consolidated Cleanup: ResultV2 unmount cleanup for preview and save sheet
   React.useEffect(() => {
@@ -2290,6 +2335,7 @@ function ResultV2({
           dateText,
           accent,
           frameColor,
+          framePreset,
           scale: 1.5
         });
       }

@@ -23,6 +23,14 @@ const FRAME_PRESET_LAYOUT_SIZES = {
   polaroid: { width: 880, height: 1070 },
 };
 
+function normalizePresetLayout(layout) {
+  if (layout === '1x4' || layout === 'strip') return 'strip';
+  if (layout === '2x2' || layout === 'grid') return 'grid';
+  if (layout === '1x3' || layout === 'trip') return 'trip';
+  if (layout === '1x1' || layout === 'polaroid') return 'polaroid';
+  return 'strip';
+}
+
 const FRAME_PRESET_LAYOUT_SLOTS = {
   '1x4': [
     { x: 0.093, y: 0.092, width: 0.814, height: 0.189, radius: 0.02 },
@@ -72,12 +80,14 @@ function clonePlain(value) {
 }
 
 function getCanvasSizeForLayout(layout) {
-  return FRAME_PRESET_LAYOUT_SIZES[layout] || FRAME_PRESET_LAYOUT_SIZES['1x4'];
+  const normalized = normalizePresetLayout(layout);
+  return FRAME_PRESET_LAYOUT_SIZES[normalized] || FRAME_PRESET_LAYOUT_SIZES.strip;
 }
 
 function getPhotoSlotsForLayout(layout) {
-  const size = getCanvasSizeForLayout(layout);
-  return (FRAME_PRESET_LAYOUT_SLOTS[layout] || FRAME_PRESET_LAYOUT_SLOTS['1x4']).map((slot) => ({
+  const normalized = normalizePresetLayout(layout);
+  const size = getCanvasSizeForLayout(normalized);
+  return (FRAME_PRESET_LAYOUT_SLOTS[normalized] || FRAME_PRESET_LAYOUT_SLOTS.strip).map((slot) => ({
     x: Math.round(slot.x * size.width),
     y: Math.round(slot.y * size.height),
     width: Math.round(slot.width * size.width),
@@ -128,7 +138,7 @@ function makePreset({
   frameColor,
   canvasSize,
 }) {
-  const resolvedLayout = layout || '1x4';
+  const resolvedLayout = normalizePresetLayout(layout || '1x4');
   const size = canvasSize || getCanvasSizeForLayout(resolvedLayout);
   return {
     id,
@@ -151,6 +161,7 @@ function buildBuiltinFramePresets() {
   const stripSize = getCanvasSizeForLayout('1x4');
   const gridSize = getCanvasSizeForLayout('2x2');
   const tripSize = getCanvasSizeForLayout('1x3');
+  const polaroidSize = getCanvasSizeForLayout('1x1');
 
   return [
     makePreset({
@@ -297,6 +308,21 @@ function buildBuiltinFramePresets() {
       watermark: { text: 'IMMM', x: 0.5, y: 0.962, opacity: 0.42 },
       canvasSize: tripSize,
     }),
+    makePreset({
+      id: 'clean-polaroid-1x1',
+      name: 'Clean Polaroid 1x1',
+      category: 'basic',
+      layout: 'polaroid',
+      background: createBackground('solid', '#FFFFFF'),
+      frameColor: '#FFFFFF',
+      photoSlots: getPhotoSlotsForLayout('1x1'),
+      decorations: [
+        { type: 'shape', shape: 'line', x: 0.08, y: 0.08, width: 0.84, height: 0.006, rotation: 0, opacity: 0.18, zIndex: -1, fill: '#111111' },
+        { type: 'text', text: 'POLAROID', x: 0.5, y: 0.88, width: 0.4, height: 0.05, rotation: 0, opacity: 0.48, zIndex: 1, fill: '#111111', fontWeight: 700 },
+      ],
+      watermark: { text: 'IMMM', x: 0.5, y: 0.955, opacity: 0.42 },
+      canvasSize: polaroidSize,
+    }),
   ];
 }
 
@@ -304,7 +330,7 @@ const BUILTIN_FRAME_PRESETS = buildBuiltinFramePresets();
 
 function normalizeFramePreset(preset) {
   if (!preset || typeof preset !== 'object') return null;
-  const layout = preset.layout || '1x4';
+  const layout = normalizePresetLayout(preset.layout || '1x4');
   const size = preset.canvasSize || getCanvasSizeForLayout(layout);
   const photoSlots = Array.isArray(preset.photoSlots) && preset.photoSlots.length ? preset.photoSlots.map((slot) => ({
     x: Number(slot.x) || 0,
@@ -319,7 +345,7 @@ function normalizeFramePreset(preset) {
     : [];
   const stickers = Array.isArray(preset.stickers)
     ? preset.stickers.map((sticker) => sanitizeFrameSticker(sticker)).filter(Boolean)
-    : decorations;
+    : [];
   const drawStrokes = Array.isArray(preset.drawStrokes)
     ? preset.drawStrokes.map((stroke) => sanitizeDrawStroke(stroke)).filter(Boolean)
     : [];
@@ -438,10 +464,11 @@ function sanitizeDrawStroke(stroke) {
 
 function sanitizeCustomFramePreset(frame) {
   if (!frame || typeof frame !== 'object') return null;
+  const decorations = Array.isArray(frame.decorations)
+    ? frame.decorations.map((deco) => makeDecoration(deco)).filter(Boolean)
+    : [];
   const stickers = Array.isArray(frame.stickers)
     ? frame.stickers.map((sticker) => sanitizeFrameSticker(sticker)).filter(Boolean)
-    : Array.isArray(frame.decorations)
-      ? frame.decorations.map((deco) => sanitizeFrameSticker(deco)).filter(Boolean)
       : [];
 
   const drawStrokes = Array.isArray(frame.drawStrokes)
@@ -458,7 +485,8 @@ function sanitizeCustomFramePreset(frame) {
     frameColor: frame.frameColor || background.value || '#FFFFFF',
     background,
     photoSlots: frame.photoSlots || getPhotoSlotsForLayout(frame.layout || '1x4'),
-    decorations: stickers,
+    decorations,
+    stickers,
     watermark: frame.watermark || { text: 'IMMM', x: 0.5, y: 0.94 },
     canvasSize: frame.canvasSize || getCanvasSizeForLayout(frame.layout || '1x4'),
     source: 'custom',
@@ -484,6 +512,7 @@ function createCustomFramePresetFromAppState(input = {}) {
     layout: input.layout || '1x4',
     frameColor: input.frameColor || '#FFFFFF',
     background: input.background || createBackground('solid', input.frameColor || '#FFFFFF'),
+    decorations: input.decorations || [],
     stickers: input.stickers || [],
     drawStrokes: input.drawStrokes || [],
     watermark: input.watermark || { text: 'IMMM', x: 0.5, y: 0.94 },
@@ -498,7 +527,12 @@ function createCustomFramePresetFromAppState(input = {}) {
 }
 
 function listFramePresets(customFrames = []) {
-  return [...getBuiltinFramePresets(), ...customFrames.map((preset) => normalizeFramePreset({ ...preset, source: 'custom' }))];
+  return [
+    ...getBuiltinFramePresets(),
+    ...customFrames
+      .map((preset) => normalizeFramePreset({ ...preset, source: 'custom' }))
+      .filter((preset) => preset && !preset.deletedAt),
+  ];
 }
 
 function getFramePresetById(id, customFrames = []) {
@@ -509,22 +543,18 @@ function getFramePresetById(id, customFrames = []) {
 
 function getFramePresetsByCategory(category, customFrames = []) {
   if (category === 'my-frames') {
-    return (customFrames || []).map((preset) => normalizeFramePreset({ ...preset, source: 'custom' })).filter(Boolean);
+    return (customFrames || []).map((preset) => normalizeFramePreset({ ...preset, source: 'custom' })).filter((preset) => preset && !preset.deletedAt);
   }
   return listFramePresets(customFrames).filter((preset) => preset.category === category && preset.source !== 'custom');
 }
 
 function getDefaultFramePresetIdForLayout(layout, customFrames = []) {
-  if (layout === 'polaroid' || layout === '1x1') return null;
-  const custom = (customFrames || []).filter((preset) => preset.layout === layout && preset.source === 'custom' && !preset.deletedAt);
-  if (custom.length) return custom[0].id;
-  const builtins = getBuiltinFramePresets().filter((preset) => preset.layout === layout);
-  if (layout === '1x4') return 'clean-white-4cut';
-  if (layout === '2x2') return 'clean-cotton-4cut';
-  if (layout === '1x3') return 'friend-bubble-1x3';
-  if (layout === 'strip') return 'clean-white-4cut';
-  if (layout === 'grid') return 'clean-cotton-4cut';
-  if (layout === 'trip') return 'friend-bubble-1x3';
+  const normalizedLayout = normalizePresetLayout(layout);
+  if (normalizedLayout === 'strip') return 'clean-white-4cut';
+  if (normalizedLayout === 'grid') return 'heart-gem-2x2';
+  if (normalizedLayout === 'trip') return 'friend-bubble-1x3';
+  if (normalizedLayout === 'polaroid') return 'clean-polaroid-1x1';
+  const builtins = getBuiltinFramePresets().filter((preset) => preset.layout === normalizedLayout);
   return builtins[0]?.id || null;
 }
 
@@ -777,6 +807,7 @@ const IMMMFramePresets = {
   drawFrameDecoration,
   createBackground,
   clonePlain,
+  normalizePresetLayout,
 };
 
 if (typeof window !== 'undefined') {

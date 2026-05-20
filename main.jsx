@@ -298,6 +298,38 @@ function App() {
     const first = framePresetList.find((preset) => preset.layout === tweaks.layout);
     return first ? first.id : '';
   }, [framePresetApi, tweaks.layout, customFrames, framePresetList]);
+  const normalizePresetLayout = React.useCallback((layout) => {
+    if (framePresetApi && typeof framePresetApi.normalizePresetLayout === 'function') {
+      return framePresetApi.normalizePresetLayout(layout);
+    }
+    if (layout === '1x4' || layout === 'strip') return 'strip';
+    if (layout === '2x2' || layout === 'grid') return 'grid';
+    if (layout === '1x3' || layout === 'trip') return 'trip';
+    if (layout === '1x1' || layout === 'polaroid') return 'polaroid';
+    return 'strip';
+  }, [framePresetApi]);
+  const getLayoutTemplate = React.useCallback((layout) => {
+    const normalized = normalizePresetLayout(layout);
+    if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
+      return window.getFrameTemplateSafe(normalized);
+    }
+    if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+      return window.getFrameTemplate(normalized);
+    }
+    return null;
+  }, [normalizePresetLayout]);
+  const getLayoutSlotCount = React.useCallback((layout) => {
+    const template = getLayoutTemplate(layout);
+    if (template?.photoSlots?.length) return template.photoSlots.length;
+    const normalized = normalizePresetLayout(layout);
+    if (normalized === 'polaroid') return 1;
+    if (normalized === 'trip') return 3;
+    return 4;
+  }, [getLayoutTemplate, normalizePresetLayout]);
+  const getLayoutCaptureCount = React.useCallback((layout) => {
+    const normalized = normalizePresetLayout(layout);
+    return getCaptureShotCountForLayout(normalized);
+  }, [normalizePresetLayout]);
 
   // EMERGENCY FACE SHAPE SAFETY:
   // Disabling ALL face-tracked filters and geometry warp to prevent distortion on Galaxy/Samsung Internet.
@@ -502,7 +534,7 @@ function App() {
     ].slice(0, 10));
   }, []);
 
-  // Session reset helper: clears main app state without using localStorage.clear()
+  // Session reset helper: clears main app state without wiping persisted storage wholesale
   const resetSessionState = React.useCallback((reason = 'new-session', shotCount = 6) => {
     console.debug(`[IMMM] Resetting session (${reason}, shotCount=${shotCount})`);
 
@@ -1059,10 +1091,36 @@ function App() {
   }, [defaultFramePresetId, framePresetList, selectedFramePresetId]);
   React.useEffect(() => {
     if (!activeFramePreset?.layout) return;
-    if (tweaks.layout !== activeFramePreset.layout) {
-      updateTweak('layout', activeFramePreset.layout);
+    const nextLayout = normalizePresetLayout(activeFramePreset.layout);
+    if (tweaks.layout !== nextLayout) {
+      const slotCount = getLayoutSlotCount(nextLayout);
+      const captureCount = getLayoutCaptureCount(nextLayout);
+      const nextSelected = Array.isArray(selected)
+        ? selected.filter((index) => Number.isInteger(index) && index >= 0 && index < slotCount).slice(0, slotCount)
+        : [];
+      const safeSelected = nextSelected.length > 0 ? nextSelected : Array.from({ length: slotCount }, (_, i) => i);
+      const nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
+      while (nextShots.length < captureCount) nextShots.push(null);
+      setSelectedFramePresetId(activeFramePreset.id || '');
+      setSelected(safeSelected);
+      setShots(nextShots);
+      updateTweak('layout', nextLayout);
+      updateTweak('orientation', 'portrait');
+      if (activeFramePreset.frameColor && activeFramePreset.background?.type === 'solid') {
+        updateTweak('frameColor', activeFramePreset.frameColor);
+      }
+      try {
+        localStorage.setItem('immm.v2.selectedFramePresetId', activeFramePreset.id || '');
+        if (safeSelected.length > 0) {
+          localStorage.setItem('immm.v2.sel', JSON.stringify(safeSelected));
+        } else {
+          localStorage.removeItem('immm.v2.sel');
+        }
+      } catch (e) {
+        console.warn('[IMMM] frame preset sync failed:', e);
+      }
     }
-  }, [activeFramePreset?.id, activeFramePreset?.layout, tweaks.layout]);
+  }, [activeFramePreset?.background?.type, activeFramePreset?.frameColor, activeFramePreset?.id, activeFramePreset?.layout, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, selected, shots, setSelected, setSelectedFramePresetId, setShots, tweaks.layout]);
   React.useEffect(() => {
     try {
       if (selected.length > 0) {
@@ -1125,24 +1183,64 @@ function App() {
     setScreen(s);
   };
   const updateTweak = (k, v) => setTweaks(prev => ({ ...prev, [k]: v }));
+  const persistCustomFrames = React.useCallback((frames) => {
+    const nextFrames = Array.isArray(frames) ? frames : [];
+    if (typeof framePresetApi?.saveCustomFramePresets === 'function') {
+      const saved = framePresetApi.saveCustomFramePresets(nextFrames);
+      setCustomFrames(saved);
+      return saved;
+    }
+    try {
+      localStorage.setItem('immm.v2.customFrames', JSON.stringify(nextFrames));
+    } catch (e) {
+      console.warn('[IMMM] custom frame persist failed:', e);
+    }
+    setCustomFrames(nextFrames);
+    return nextFrames;
+  }, [framePresetApi]);
   const applyFramePreset = React.useCallback((presetOrId, options = {}) => {
     const preset = typeof presetOrId === 'string'
       ? (framePresetApi?.getFramePresetById?.(presetOrId, customFrames) || framePresetList.find((p) => p.id === presetOrId) || null)
       : presetOrId;
     if (!preset) return null;
 
+    const normalizedLayout = normalizePresetLayout(preset.layout || tweaks.layout);
+    const slotCount = getLayoutSlotCount(normalizedLayout);
+    const captureCount = getLayoutCaptureCount(normalizedLayout);
+    const nextSelected = Array.isArray(selected)
+      ? selected.filter((index) => Number.isInteger(index) && index >= 0 && index < slotCount).slice(0, slotCount)
+      : [];
+    const safeSelected = nextSelected.length > 0 ? nextSelected : Array.from({ length: slotCount }, (_, i) => i);
+    const nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
+    while (nextShots.length < captureCount) nextShots.push(null);
+
     setSelectedFramePresetId(preset.id);
-    if (preset.layout && preset.layout !== tweaks.layout) {
-      updateTweak('layout', preset.layout);
+    setSelected(safeSelected);
+    setShots(nextShots);
+    if (tweaks.layout !== normalizedLayout) {
+      updateTweak('layout', normalizedLayout);
+    }
+    if (tweaks.orientation !== 'portrait') {
+      updateTweak('orientation', 'portrait');
     }
     if (options.syncFrameColor !== false && preset.frameColor && preset.background?.type === 'solid') {
       updateTweak('frameColor', preset.frameColor);
+    }
+    try {
+      localStorage.setItem('immm.v2.selectedFramePresetId', preset.id);
+      if (safeSelected.length > 0) {
+        localStorage.setItem('immm.v2.sel', JSON.stringify(safeSelected));
+      } else {
+        localStorage.removeItem('immm.v2.sel');
+      }
+    } catch (e) {
+      console.warn('[IMMM] selected frame sync failed:', e);
     }
     if (typeof options.onApply === 'function') {
       options.onApply(preset);
     }
     return preset;
-  }, [customFrames, framePresetApi, framePresetList, tweaks.layout]);
+  }, [customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, selected, shots, tweaks.layout, tweaks.orientation]);
   const saveCustomFrame = React.useCallback((input = {}) => {
     if (!framePresetApi || typeof framePresetApi.createCustomFramePresetFromAppState !== 'function') return null;
     const preset = framePresetApi.createCustomFramePresetFromAppState({
@@ -1150,6 +1248,7 @@ function App() {
       layout: input.layout || tweaks.layout,
       frameColor: input.frameColor || tweaks.frameColor,
       background: input.background || (activeFramePreset?.background || { type: 'solid', value: input.frameColor || tweaks.frameColor || '#FFFFFF' }),
+      decorations: input.decorations || activeFramePreset?.decorations || [],
       stickers: input.stickers || [],
       drawStrokes: input.drawStrokes || [],
       photoSlots: input.photoSlots || activeFramePreset?.photoSlots,
@@ -1157,32 +1256,80 @@ function App() {
       canvasSize: input.canvasSize || activeFramePreset?.canvasSize,
     });
     const next = [...customFrames.filter((item) => item.id !== preset.id), preset];
-    if (typeof framePresetApi.saveCustomFramePresets === 'function') {
-      framePresetApi.saveCustomFramePresets(next);
-    } else {
-      localStorage.setItem('immm.v2.customFrames', JSON.stringify(next));
-    }
-    setCustomFrames(next);
-    setSelectedFramePresetId(preset.id);
-    updateTweak('layout', preset.layout);
-    if (preset.frameColor) {
-      updateTweak('frameColor', preset.frameColor);
-    }
+    persistCustomFrames(next);
+    applyFramePreset(preset, { syncFrameColor: true });
     return preset;
-  }, [activeFramePreset, customFrames, framePresetApi, tweaks.frameColor, tweaks.layout]);
+  }, [activeFramePreset, applyFramePreset, customFrames, framePresetApi, persistCustomFrames, tweaks.frameColor, tweaks.layout]);
+  const renameCustomFrame = React.useCallback((frameId, nextName) => {
+    const name = String(nextName || '').trim();
+    if (!frameId || !name) return null;
+    const now = new Date().toISOString();
+    const next = customFrames.map((frame) => frame.id === frameId ? { ...frame, name, updatedAt: now } : frame);
+    persistCustomFrames(next);
+    return next.find((frame) => frame.id === frameId) || null;
+  }, [customFrames, persistCustomFrames]);
+  const duplicateCustomFrame = React.useCallback((frameId) => {
+    const source = customFrames.find((frame) => frame.id === frameId);
+    if (!source) return null;
+    const now = new Date().toISOString();
+    const copyId = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const copy = {
+      ...source,
+      id: copyId,
+      name: `${source.name || 'My Frame'} Copy`,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      source: 'custom',
+    };
+    const next = [...customFrames, copy];
+    persistCustomFrames(next);
+    setSelectedFramePresetId(copy.id);
+    return copy;
+  }, [customFrames, persistCustomFrames]);
+  const softDeleteCustomFrame = React.useCallback((frameId) => {
+    if (!frameId) return null;
+    const now = new Date().toISOString();
+    const next = customFrames.map((frame) => frame.id === frameId ? { ...frame, deletedAt: now, updatedAt: now } : frame);
+    persistCustomFrames(next);
+    if (selectedFramePresetId === frameId) {
+      const fallbackId = framePresetApi?.getDefaultFramePresetIdForLayout?.(tweaks.layout, next) || '';
+      setSelectedFramePresetId(fallbackId);
+    }
+    return next.find((frame) => frame.id === frameId) || null;
+  }, [customFrames, framePresetApi, persistCustomFrames, selectedFramePresetId, tweaks.layout]);
   const setLayoutAndPreset = React.useCallback((layoutId) => {
-    updateTweak('layout', layoutId);
-    const nextPresetId = framePresetApi?.getDefaultFramePresetIdForLayout?.(layoutId, customFrames)
-      || framePresetList.find((preset) => preset.layout === layoutId)?.id
+    const normalizedLayout = normalizePresetLayout(layoutId);
+    const nextPresetId = framePresetApi?.getDefaultFramePresetIdForLayout?.(normalizedLayout, customFrames)
+      || framePresetList.find((preset) => preset.layout === normalizedLayout)?.id
       || '';
-    setSelectedFramePresetId(nextPresetId || '');
     if (nextPresetId) {
-      const preset = framePresetApi?.getFramePresetById?.(nextPresetId, customFrames) || framePresetList.find((preset) => preset.id === nextPresetId) || null;
-      if (preset?.frameColor && preset.background?.type === 'solid') {
-        updateTweak('frameColor', preset.frameColor);
+      const preset = framePresetApi?.getFramePresetById?.(nextPresetId, customFrames) || framePresetList.find((framePreset) => framePreset.id === nextPresetId) || null;
+      if (preset) {
+        applyFramePreset({ ...preset, layout: normalizedLayout }, { syncFrameColor: true });
+        return;
       }
     }
-  }, [customFrames, framePresetApi, framePresetList]);
+    updateTweak('layout', normalizedLayout);
+    updateTweak('orientation', 'portrait');
+    setSelectedFramePresetId(nextPresetId || '');
+    const slotCount = getLayoutSlotCount(normalizedLayout);
+    const captureCount = getLayoutCaptureCount(normalizedLayout);
+    const nextSelected = Array.from({ length: slotCount }, (_, i) => i);
+    const nextShots = Array.from({ length: captureCount }, (_, i) => shots[i] || null);
+    setSelected(nextSelected);
+    setShots(nextShots);
+    try {
+      if (nextPresetId) {
+        localStorage.setItem('immm.v2.selectedFramePresetId', nextPresetId);
+      } else {
+        localStorage.removeItem('immm.v2.selectedFramePresetId');
+      }
+      localStorage.setItem('immm.v2.sel', JSON.stringify(nextSelected));
+    } catch (e) {
+      console.warn('[IMMM] layout preset sync failed:', e);
+    }
+  }, [applyFramePreset, customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, shots]);
 
   const frameShotCount = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(tweaks.layout)
@@ -1226,6 +1373,9 @@ function App() {
     activeFramePreset,
     applyFramePreset,
     saveCustomFrame,
+    renameCustomFrame,
+    duplicateCustomFrame,
+    deleteCustomFrame: softDeleteCustomFrame,
     setLayoutAndPreset,
     cameraZoomSupported,
     cameraZoomMin,

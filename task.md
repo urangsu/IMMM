@@ -2051,3 +2051,21 @@ QA steps:
 - [x] sanity-check guards added
 - [ ] Field QA with custom frame
 - [ ] Samsung Internet custom frame save/load test
+
+## Phase 3.85~3.90 — Frame Store Stabilization + Builder V2
+- [x] Existing generated dist changes carried forward without intermediate commit
+- [x] npm build environment verified
+- [x] frame preset layout sync enforced
+- [x] default preset mapping fixed
+- [x] polaroid preset added
+- [x] preset decorations separated from editable stickers
+- [x] custom frame sanitizer hardened
+- [x] My Frames rename added
+- [x] My Frames duplicate added
+- [x] My Frames soft delete added
+- [x] Frame Store UX expanded
+- [x] setup/deco/result/export preset parity verified
+- [x] sanity-check frame preset guards added
+- [x] pgpt stray guard preserved
+- [ ] Samsung Internet custom frame save/load field test
+- [ ] iPhone Safari custom frame save/load field test

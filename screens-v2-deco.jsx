@@ -298,6 +298,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       layout,
       frameColor,
       stickers,
+      decorations: framePreset?.decorations || [],
       drawStrokes,
       background: framePreset?.background,
       photoSlots: framePreset?.photoSlots,
