@@ -737,13 +737,15 @@ function SetupScreen({
   saveCustomFrame,
   exportCustomFramesAsJson,
   importFramePackFromJson,
+  openDesigner,
   renameCustomFrame,
   duplicateCustomFrame,
   deleteCustomFrame,
   favoriteFramePresetIds = [],
   toggleFavoriteFramePreset,
   unlockFramePackForDev,
-  unlockedFramePackIds = []
+  unlockedFramePackIds = [],
+  storeTabFocus = ''
 }) {
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   var [tab, setTab] = uS(() => editMode ? 'photos' : 'frame'); // photos | frame | filter | companions
@@ -935,6 +937,11 @@ function SetupScreen({
       setActivePackId(selectedFramePreset.packId);
     }
   }, [allPacks, selectedFramePreset?.packId]);
+  React.useEffect(() => {
+    if (storeTabFocus && storeTabFocus !== storeTab) {
+      setStoreTab(storeTabFocus);
+    }
+  }, [storeTab, storeTabFocus]);
   var addPreset = libId => {
     var item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
     var sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
@@ -1243,6 +1250,26 @@ function SetupScreen({
       justifyContent: 'flex-end'
     }
   }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => openDesigner && openDesigner({
+      mode: 'new',
+      preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null
+    }),
+    style: {
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      borderRadius: 999,
+      padding: '8px 12px',
+      minHeight: 44,
+      minWidth: 44,
+      fontSize: 10,
+      fontWeight: 800,
+      cursor: 'pointer',
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Create Frame"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setFrameStoreMode(v => v === 'full' ? 'sheet' : 'full'),
     style: {
       border: 'none',
@@ -1936,7 +1963,30 @@ function SetupScreen({
       fontSize: 12,
       fontFamily: 'Pretendard,system-ui'
     }
-  }, "No saved frames yet. Save a decorated setup or deco state to build your library.")))), /*#__PURE__*/React.createElement("div", {
+  }, "No saved frames yet. Save a decorated setup or deco state to build your library.", openDesigner && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => openDesigner({
+      mode: 'new',
+      preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null
+    }),
+    style: {
+      border: 'none',
+      borderRadius: 999,
+      padding: '10px 12px',
+      minHeight: 44,
+      background: T.ink,
+      color: T.bg,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: '"Plus Jakarta Sans",system-ui'
+    }
+  }, "Create your first frame")))))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: mobile ? '1fr' : 'minmax(220px, 0.9fr) minmax(0, 1.1fr)',
@@ -2429,6 +2479,44 @@ function SetupScreen({
         fontFamily: '"Plus Jakarta Sans",system-ui'
       }
     }, favoriteFramePresetIds.includes(preset.id) ? 'Favorited' : 'Favorite'), isCustom && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+      onClick: () => openDesigner && openDesigner({
+        mode: 'edit',
+        preset
+      }),
+      style: {
+        border: `1px solid ${T.line}`,
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: '#FFFFFF',
+        color: T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "Edit"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => openDesigner && openDesigner({
+        mode: 'duplicate',
+        preset
+      }),
+      style: {
+        border: `1px solid ${T.line}`,
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: '#FFFFFF',
+        color: T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "Duplicate & Edit"), /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         var next = window.prompt('Rename frame', preset.name || 'My Frame');
         if (!next || !next.trim()) return;
@@ -3229,6 +3317,1445 @@ function SetupScreen({
       flex: 1
     }
   }, tabContent)));
+}
+function DesignerScreen({
+  T,
+  go,
+  mobile,
+  layout,
+  frameColor,
+  framePresetList = [],
+  customFrames = [],
+  draftFrame,
+  setDraftFrame,
+  initialDraftFrame,
+  designerBasePresetId = '',
+  designerMode = 'new',
+  setDesignerMode,
+  saveDesignerFrame,
+  saveDesignerPackDraft,
+  selectedFramePresetId,
+  setSelectedFramePresetId
+}) {
+  var frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
+  var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
+  var previewRef = uR(null);
+  var dragRef = uR(null);
+  var [activeTab, setActiveTab] = uS('layout');
+  var [selectedSlotIndex, setSelectedSlotIndex] = uS(0);
+  var [selectedDecorationIndex, setSelectedDecorationIndex] = uS(0);
+  var [statusMessage, setStatusMessage] = uS('');
+  var [validationError, setValidationError] = uS('');
+  var [exportPackName, setExportPackName] = uS(draftFrame?.name || 'Designer Pack Draft');
+  var [exportPackDescription, setExportPackDescription] = uS('Designer pack draft.');
+  var [exportPackTags, setExportPackTags] = uS((draftFrame?.tags || []).join(', '));
+  var [exportPackAuthor, setExportPackAuthor] = uS(draftFrame?.author?.name || 'IMMM Studio');
+  var [exportPackLicense, setExportPackLicense] = uS(draftFrame?.license || 'internal');
+  var normalizedDraft = uM(() => frameApi?.normalizeDesignerDraft?.(draftFrame) || draftFrame || null, [draftFrame, frameApi]);
+  var normalizedInitial = uM(() => frameApi?.normalizeDesignerDraft?.(initialDraftFrame) || initialDraftFrame || null, [initialDraftFrame, frameApi]);
+  var slotDefaults = uM(() => normalizedDraft ? frameApi?.getPhotoSlotsForLayout?.(normalizedDraft.layout) || normalizedDraft.photoSlots || [] : [], [frameApi, normalizedDraft]);
+  var previewShots = uM(() => Array.from({
+    length: Math.max(1, normalizedDraft?.photoSlots?.length || slotDefaults.length || 4)
+  }, () => ({
+    filter: 'original',
+    dataUrl: null
+  })), [normalizedDraft, slotDefaults.length]);
+  var isDirty = uM(() => {
+    if (!normalizedDraft || !normalizedInitial) return Boolean(normalizedDraft);
+    return JSON.stringify(normalizedDraft) !== JSON.stringify(normalizedInitial);
+  }, [normalizedDraft, normalizedInitial]);
+  var validation = uM(() => normalizedDraft ? frameApi?.validateDesignerDraft?.(normalizedDraft) || {
+    ok: false,
+    error: 'Designer validation unavailable'
+  } : {
+    ok: false,
+    error: 'Draft missing'
+  }, [frameApi, normalizedDraft]);
+  var tabs = [{
+    id: 'layout',
+    label: 'Layout'
+  }, {
+    id: 'background',
+    label: 'Background'
+  }, {
+    id: 'slots',
+    label: 'Slots'
+  }, {
+    id: 'decorations',
+    label: 'Decorations'
+  }, {
+    id: 'text',
+    label: 'Text'
+  }, {
+    id: 'save',
+    label: 'Save'
+  }];
+  var currentLayoutSlots = normalizedDraft?.photoSlots || [];
+  var currentDecorations = normalizedDraft?.decorations || [];
+  var selectedSlot = currentLayoutSlots[selectedSlotIndex] || currentLayoutSlots[0] || null;
+  var selectedDecoration = currentDecorations[selectedDecorationIndex] || currentDecorations[0] || null;
+  var slotCount = currentLayoutSlots.length;
+  var previewCanvas = normalizedDraft?.canvasSize || frameApi?.getCanvasSizeForLayout?.(normalizedDraft?.layout || layout) || {
+    width: 560,
+    height: 1808
+  };
+  var normalizeNextDraft = updater => {
+    setDraftFrame(prev => {
+      var base = frameApi?.normalizeDesignerDraft?.(prev || normalizedDraft || initialDraftFrame) || prev || normalizedDraft || initialDraftFrame;
+      var next = typeof updater === 'function' ? updater(base) : {
+        ...base,
+        ...updater
+      };
+      return frameApi?.normalizeDesignerDraft?.(next) || next;
+    });
+  };
+  var setDraftLayout = nextLayout => {
+    var normalizedLayout = frameApi?.normalizePresetLayout?.(nextLayout) || nextLayout || 'strip';
+    var defaultSlots = frameApi?.getPhotoSlotsForLayout?.(normalizedLayout) || [];
+    normalizeNextDraft(prev => ({
+      ...prev,
+      layout: normalizedLayout,
+      canvasSize: frameApi?.getCanvasSizeForLayout?.(normalizedLayout) || prev.canvasSize,
+      photoSlots: defaultSlots
+    }));
+    setSelectedSlotIndex(0);
+    setActiveTab('slots');
+  };
+  var setBackgroundPatch = patch => {
+    normalizeNextDraft(prev => ({
+      ...prev,
+      background: {
+        ...(prev.background || {
+          type: 'solid',
+          value: '#FFFFFF',
+          opacity: 1
+        }),
+        ...patch
+      }
+    }));
+  };
+  var setSlotPatch = (index, patch) => {
+    normalizeNextDraft(prev => {
+      var next = [...(prev.photoSlots || [])];
+      if (!next[index]) return prev;
+      next[index] = frameApi?.clampRectToCanvas?.({
+        ...next[index],
+        ...patch
+      }, prev.canvasSize, 24, 24) || {
+        ...next[index],
+        ...patch
+      };
+      return {
+        ...prev,
+        photoSlots: next
+      };
+    });
+  };
+  var restoreLayoutSlots = () => {
+    if (!normalizedDraft) return;
+    normalizeNextDraft(prev => ({
+      ...prev,
+      photoSlots: frameApi?.getPhotoSlotsForLayout?.(prev.layout) || prev.photoSlots
+    }));
+  };
+  var addDecoration = (shape, type = 'shape') => {
+    if (!normalizedDraft) return;
+    var w = Math.max(80, Math.round((normalizedDraft.canvasSize?.width || 560) * 0.18));
+    var h = Math.max(60, Math.round((normalizedDraft.canvasSize?.height || 1808) * 0.08));
+    var cx = Math.round(((normalizedDraft.canvasSize?.width || 560) - w) / 2);
+    var cy = Math.round(((normalizedDraft.canvasSize?.height || 1808) - h) / 2);
+    var id = `deco_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    var deco = type === 'text' ? {
+      id,
+      type: 'text',
+      text: 'TEXT',
+      x: cx,
+      y: cy,
+      width: w,
+      height: h,
+      rotation: 0,
+      opacity: 1,
+      zIndex: 10,
+      fill: '#111111',
+      fontWeight: 800,
+      layer: 'front'
+    } : {
+      id,
+      type: 'shape',
+      shape,
+      x: cx,
+      y: cy,
+      width: w,
+      height: h,
+      rotation: 0,
+      opacity: 1,
+      zIndex: 10,
+      fill: '#111111',
+      layer: 'front'
+    };
+    normalizeNextDraft(prev => ({
+      ...prev,
+      decorations: [...(prev.decorations || []), deco]
+    }));
+    setSelectedDecorationIndex(prev => Math.max(0, normalizedDraft?.decorations?.length || 0));
+    setActiveTab('decorations');
+  };
+  var setDecorationPatch = (index, patch) => {
+    normalizeNextDraft(prev => {
+      var next = [...(prev.decorations || [])];
+      if (!next[index]) return prev;
+      next[index] = frameApi?.normalizeDesignerDraft?.({
+        ...prev,
+        decorations: next.map((deco, i) => i === index ? {
+          ...deco,
+          ...patch
+        } : deco)
+      })?.decorations?.[index] || {
+        ...next[index],
+        ...patch
+      };
+      return {
+        ...prev,
+        decorations: next
+      };
+    });
+  };
+  var duplicateDecoration = index => {
+    normalizeNextDraft(prev => {
+      var source = (prev.decorations || [])[index];
+      if (!source) return prev;
+      var copy = {
+        ...source,
+        id: `deco_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        x: (source.x || 0) + 24,
+        y: (source.y || 0) + 24
+      };
+      return {
+        ...prev,
+        decorations: [...(prev.decorations || []), copy]
+      };
+    });
+  };
+  var deleteDecoration = index => {
+    normalizeNextDraft(prev => ({
+      ...prev,
+      decorations: (prev.decorations || []).filter((_, i) => i !== index)
+    }));
+    setSelectedDecorationIndex(0);
+  };
+  var startDrag = (kind, index, mode = 'move') => event => {
+    if (!previewRef.current || !normalizedDraft) return;
+    event.preventDefault();
+    event.stopPropagation();
+    var rect = previewRef.current.getBoundingClientRect();
+    dragRef.current = {
+      kind,
+      index,
+      mode,
+      startX: event.clientX,
+      startY: event.clientY,
+      rect,
+      snapshot: frameApi?.normalizeDesignerDraft?.(normalizedDraft) || normalizedDraft
+    };
+    if (kind === 'slot') {
+      setSelectedSlotIndex(index);
+      setActiveTab('slots');
+    } else {
+      setSelectedDecorationIndex(index);
+      setActiveTab('decorations');
+    }
+  };
+  React.useEffect(() => {
+    if (!normalizedDraft) return;
+    setSelectedSlotIndex(prev => Math.min(prev, Math.max(0, currentLayoutSlots.length - 1)));
+    setSelectedDecorationIndex(prev => Math.min(prev, Math.max(0, currentDecorations.length - 1)));
+  }, [currentDecorations.length, currentLayoutSlots.length, normalizedDraft]);
+  React.useEffect(() => {
+    var onMove = event => {
+      var drag = dragRef.current;
+      if (!drag || !drag.snapshot) return;
+      var scaleX = (drag.snapshot.canvasSize?.width || 1) / Math.max(1, drag.rect.width);
+      var scaleY = (drag.snapshot.canvasSize?.height || 1) / Math.max(1, drag.rect.height);
+      var dx = (event.clientX - drag.startX) * scaleX;
+      var dy = (event.clientY - drag.startY) * scaleY;
+      event.preventDefault();
+      normalizeNextDraft(prev => {
+        var base = frameApi?.normalizeDesignerDraft?.(prev || drag.snapshot) || prev || drag.snapshot;
+        if (drag.kind === 'slot') {
+          var nextSlots = [...(base.photoSlots || [])];
+          var source = nextSlots[drag.index];
+          if (!source) return base;
+          var patch = drag.mode === 'resize' ? {
+            width: source.width + dx,
+            height: source.height + dy
+          } : {
+            x: source.x + dx,
+            y: source.y + dy
+          };
+          nextSlots[drag.index] = frameApi?.clampRectToCanvas?.({
+            ...source,
+            ...patch
+          }, base.canvasSize, 24, 24) || {
+            ...source,
+            ...patch
+          };
+          return {
+            ...base,
+            photoSlots: nextSlots
+          };
+        }
+        if (drag.kind === 'decor') {
+          var nextDecos = [...(base.decorations || [])];
+          var _source = nextDecos[drag.index];
+          if (!_source) return base;
+          var _patch = drag.mode === 'resize' ? {
+            width: _source.width + dx,
+            height: _source.height + dy
+          } : {
+            x: _source.x + dx,
+            y: _source.y + dy
+          };
+          nextDecos[drag.index] = frameApi?.normalizeDesignerDraft?.({
+            ...base,
+            decorations: nextDecos.map((item, i) => i === drag.index ? {
+              ...item,
+              ..._patch
+            } : item)
+          })?.decorations?.[drag.index] || {
+            ..._source,
+            ..._patch
+          };
+          return {
+            ...base,
+            decorations: nextDecos
+          };
+        }
+        return base;
+      });
+    };
+    var onUp = () => {
+      dragRef.current = null;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [frameApi, normalizedDraft]);
+  React.useEffect(() => {
+    setExportPackName(normalizedDraft?.name || 'Designer Pack Draft');
+    setExportPackDescription(`Designer draft for ${normalizedDraft?.name || 'IMMM'}.`);
+    setExportPackTags((normalizedDraft?.tags || []).join(', '));
+    setExportPackAuthor(normalizedDraft?.author?.name || 'IMMM Studio');
+    setExportPackLicense(normalizedDraft?.license || 'internal');
+  }, [normalizedDraft?.id]);
+  var handleSaveFrame = () => {
+    if (!validation.ok) {
+      setValidationError(validation.error || 'Validation failed');
+      return;
+    }
+    var result = saveDesignerFrame ? saveDesignerFrame(normalizedDraft) : {
+      ok: false,
+      error: 'Save unavailable'
+    };
+    if (!result?.ok) {
+      setValidationError(result?.error || 'Save failed');
+      return;
+    }
+    setValidationError('');
+    setStatusMessage('Saved to My Frames');
+    go('setup');
+  };
+  var handleSaveAsNew = () => {
+    if (!validation.ok) {
+      setValidationError(validation.error || 'Validation failed');
+      return;
+    }
+    var clone = frameApi?.duplicateFramePresetAsDraft?.(normalizedDraft) || normalizedDraft;
+    if (!clone) return;
+    setDraftFrame(clone);
+    var result = saveDesignerFrame ? saveDesignerFrame(clone) : {
+      ok: false,
+      error: 'Save unavailable'
+    };
+    if (!result?.ok) {
+      setValidationError(result?.error || 'Save failed');
+      return;
+    }
+    setStatusMessage('Saved as a new frame');
+    setValidationError('');
+    go('setup');
+  };
+  var handlePackExport = () => {
+    if (!validation.ok) {
+      setValidationError(validation.error || 'Validation failed');
+      return;
+    }
+    var result = saveDesignerPackDraft ? saveDesignerPackDraft(normalizedDraft, {
+      name: exportPackName,
+      description: exportPackDescription,
+      author: {
+        name: exportPackAuthor,
+        handle: '@immm',
+        url: ''
+      },
+      license: exportPackLicense,
+      tags: exportPackTags.split(',').map(tag => tag.trim()).filter(Boolean)
+    }) : {
+      ok: false,
+      error: 'Pack export unavailable'
+    };
+    if (!result?.ok) {
+      setValidationError(result?.error || 'Export failed');
+      return;
+    }
+    setValidationError('');
+    setStatusMessage('Pack draft copied to clipboard');
+  };
+  var handleDiscard = () => {
+    if (isDirty && !window.confirm('Discard designer changes?')) return;
+    setDraftFrame(normalizedInitial || normalizedDraft);
+    setDesignerMode('edit');
+    go('setup');
+  };
+  if (!normalizedDraft) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        minHeight: '100%',
+        padding: 24,
+        background: T.bg,
+        color: T.ink,
+        fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 18,
+        fontWeight: 800
+      }
+    }, "Designer draft loading..."));
+  }
+  var previewWidth = 540;
+  var previewHeight = Math.round(previewWidth * (previewCanvas.height / previewCanvas.width));
+  var editorShell = /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1.15fr) minmax(300px, 0.85fr)',
+      gap: 14,
+      minHeight: '100%',
+      background: T.bg,
+      color: T.ink,
+      padding: mobile ? '12px 12px 18px' : '20px',
+      fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      position: 'sticky',
+      top: 0,
+      zIndex: 4,
+      background: T.bg,
+      paddingBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 800,
+      letterSpacing: 2,
+      textTransform: 'uppercase',
+      color: T.inkSoft
+    }
+  }, "Frame Designer Studio"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4,
+      fontSize: 13,
+      fontWeight: 900
+    }
+  }, normalizedDraft.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 3,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, normalizedDraft.layout, " \xB7 ", normalizedDraft.photoSlots.length, " slots \xB7 ", designerMode)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => go('setup'),
+    style: {
+      minHeight: 44,
+      padding: '0 12px',
+      borderRadius: 999,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Back to Store"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleDiscard,
+    style: {
+      minHeight: 44,
+      padding: '0 12px',
+      borderRadius: 999,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Discard"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSaveAsNew,
+    style: {
+      minHeight: 44,
+      padding: '0 14px',
+      borderRadius: 999,
+      border: 'none',
+      background: 'rgba(26,26,31,0.08)',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Save as New"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSaveFrame,
+    style: {
+      minHeight: 44,
+      padding: '0 14px',
+      borderRadius: 999,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Save Frame"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      border: `1px solid ${T.line}`,
+      borderRadius: 18,
+      background: '#fff',
+      padding: 12,
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, tabs.map(tab => /*#__PURE__*/React.createElement("button", {
+    key: tab.id,
+    onClick: () => setActiveTab(tab.id),
+    style: {
+      minHeight: 44,
+      padding: '0 12px',
+      borderRadius: 999,
+      border: 'none',
+      background: activeTab === tab.id ? T.ink : 'rgba(26,26,31,0.06)',
+      color: activeTab === tab.id ? T.bg : T.inkSoft,
+      fontSize: 10,
+      fontWeight: 800,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      cursor: 'pointer'
+    }
+  }, tab.label))), /*#__PURE__*/React.createElement("div", {
+    ref: previewRef,
+    style: {
+      position: 'relative',
+      width: '100%',
+      maxWidth: '100%',
+      aspectRatio: `${previewCanvas.width} / ${previewCanvas.height}`,
+      borderRadius: 18,
+      overflow: 'hidden',
+      border: `1px solid ${T.line}`,
+      background: '#F8F8F5',
+      touchAction: 'none'
+    }
+  }, WFrameThumb ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      inset: 0
+    }
+  }, /*#__PURE__*/React.createElement(WFrameThumb, {
+    key: `${normalizedDraft.id}-${normalizedDraft.updatedAt || 'draft'}`,
+    layout: normalizedDraft.layout,
+    shots: previewShots,
+    selected: previewShots.map((_, i) => i),
+    T: T,
+    logo: false,
+    dateText: false,
+    accent: T.pinkDeep,
+    scale: 1,
+    orientation: "portrait",
+    frameColor: normalizedDraft.frameColor,
+    framePreset: normalizedDraft
+  })) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      placeItems: 'center',
+      height: '100%'
+    }
+  }, "Preview unavailable"), currentLayoutSlots.map((slot, index) => {
+    var active = selectedSlotIndex === index;
+    return /*#__PURE__*/React.createElement("div", {
+      key: `slot-${index}`,
+      onPointerDown: startDrag('slot', index, 'move'),
+      style: {
+        position: 'absolute',
+        left: `${slot.x / previewCanvas.width * 100}%`,
+        top: `${slot.y / previewCanvas.height * 100}%`,
+        width: `${slot.width / previewCanvas.width * 100}%`,
+        height: `${slot.height / previewCanvas.height * 100}%`,
+        borderRadius: Math.max(8, slot.radius / Math.max(1, slot.width) * 100 * 0.5),
+        boxSizing: 'border-box',
+        border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.28)'}`,
+        background: active ? 'rgba(26,26,31,0.04)' : 'rgba(255,255,255,0.04)',
+        cursor: 'move'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        top: 4,
+        left: 4,
+        padding: '2px 5px',
+        borderRadius: 999,
+        background: active ? T.ink : 'rgba(26,26,31,0.65)',
+        color: active ? T.bg : '#fff',
+        fontSize: 9,
+        fontWeight: 800
+      }
+    }, index + 1), /*#__PURE__*/React.createElement("div", {
+      onPointerDown: startDrag('slot', index, 'resize'),
+      style: {
+        position: 'absolute',
+        right: -3,
+        bottom: -3,
+        width: 14,
+        height: 14,
+        borderRadius: 4,
+        background: T.ink,
+        cursor: 'nwse-resize'
+      }
+    }));
+  }), currentDecorations.map((deco, index) => {
+    var active = selectedDecorationIndex === index;
+    var x = deco.x || 0;
+    var y = deco.y || 0;
+    var w = deco.width || 80;
+    var h = deco.height || 80;
+    return /*#__PURE__*/React.createElement("div", {
+      key: deco.id || index,
+      onPointerDown: startDrag('decor', index, 'move'),
+      style: {
+        position: 'absolute',
+        left: `${x / previewCanvas.width * 100}%`,
+        top: `${y / previewCanvas.height * 100}%`,
+        width: `${w / previewCanvas.width * 100}%`,
+        height: `${h / previewCanvas.height * 100}%`,
+        border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.18)'}`,
+        background: deco.type === 'text' ? 'rgba(255,255,255,0.7)' : 'rgba(26,26,31,0.04)',
+        borderRadius: deco.shape === 'circle' ? 999 : 10,
+        display: 'grid',
+        placeItems: 'center',
+        cursor: 'move',
+        boxSizing: 'border-box',
+        opacity: deco.opacity ?? 1,
+        transform: `rotate(${deco.rotation || 0}deg)`
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: deco.type === 'text' ? 12 : 10,
+        fontWeight: 800,
+        color: deco.fill || T.ink,
+        textAlign: 'center',
+        padding: 4
+      }
+    }, deco.type === 'text' ? deco.text || 'TEXT' : deco.shape || 'shape'), /*#__PURE__*/React.createElement("div", {
+      onPointerDown: startDrag('decor', index, 'resize'),
+      style: {
+        position: 'absolute',
+        right: -3,
+        bottom: -3,
+        width: 14,
+        height: 14,
+        borderRadius: 4,
+        background: T.ink,
+        cursor: 'nwse-resize'
+      }
+    }));
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 12,
+      alignContent: 'start',
+      position: mobile ? 'static' : 'sticky',
+      top: mobile ? 'auto' : 12,
+      alignSelf: 'start'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 8,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900
+    }
+  }, "Status"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, isDirty ? 'Unsaved' : 'Saved'), designerBasePresetId && /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, designerBasePresetId))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, validation.ok ? 'Draft is valid.' : validation.error), statusMessage && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: T.ink
+    }
+  }, statusMessage), validationError && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#B64B4B'
+    }
+  }, validationError)), activeTab === 'layout' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900
+    }
+  }, "Layout"), /*#__PURE__*/React.createElement("input", {
+    value: normalizedDraft.name,
+    onChange: e => normalizeNextDraft({
+      name: e.target.value
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 12px',
+      fontSize: 12
+    },
+    placeholder: "Frame name"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+      gap: 8
+    }
+  }, ['strip', 'grid', 'trip', 'polaroid'].map(nextLayout => /*#__PURE__*/React.createElement("button", {
+    key: nextLayout,
+    onClick: () => setDraftLayout(nextLayout),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: normalizedDraft.layout === nextLayout ? T.ink : '#fff',
+      color: normalizedDraft.layout === nextLayout ? T.bg : T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, nextLayout))), /*#__PURE__*/React.createElement("button", {
+    onClick: restoreLayoutSlots,
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Restore layout defaults")), activeTab === 'background' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900
+    }
+  }, "Background"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, 1fr)',
+      gap: 8
+    }
+  }, ['#ffffff', '#111111', '#f5e8f0', '#e5f2ff', '#f8ead7', '#dbeee1'].map(swatch => /*#__PURE__*/React.createElement("button", {
+    key: swatch,
+    onClick: () => setBackgroundPatch({
+      type: 'solid',
+      value: swatch
+    }),
+    style: {
+      height: 36,
+      borderRadius: 999,
+      border: 'none',
+      background: swatch,
+      boxShadow: normalizedDraft.background?.value === swatch ? `0 0 0 2px ${T.ink}` : 'inset 0 0 0 1px rgba(0,0,0,0.12)'
+    }
+  }))), /*#__PURE__*/React.createElement("input", {
+    value: String(normalizedDraft.background?.value || '#ffffff'),
+    onChange: e => setBackgroundPatch({
+      type: 'solid',
+      value: e.target.value
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 12px',
+      fontSize: 12
+    },
+    placeholder: "#ffffff"
+  }), /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, "Opacity"), /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: "0",
+    max: "1",
+    step: "0.01",
+    value: Number(normalizedDraft.background?.opacity ?? 1),
+    onChange: e => setBackgroundPatch({
+      opacity: Number(e.target.value)
+    })
+  }), /*#__PURE__*/React.createElement("select", {
+    value: normalizedDraft.background?.type || 'solid',
+    onChange: e => {
+      var type = e.target.value;
+      if (type === 'gradient') setBackgroundPatch({
+        type,
+        value: {
+          type: 'linear',
+          angle: 0,
+          stops: ['#FFFFFF', '#F5F5F5']
+        }
+      });else if (type === 'pattern') setBackgroundPatch({
+        type,
+        value: {
+          pattern: 'dots',
+          color: '#FFFFFF',
+          dotColor: 'rgba(17,17,17,0.05)'
+        }
+      });else setBackgroundPatch({
+        type: 'solid',
+        value: normalizedDraft.background?.value || '#FFFFFF'
+      });
+    },
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 12px',
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "solid"
+  }, "Solid"), /*#__PURE__*/React.createElement("option", {
+    value: "gradient"
+  }, "Gradient"), /*#__PURE__*/React.createElement("option", {
+    value: "pattern"
+  }, "Pattern")), normalizedDraft.background?.type === 'gradient' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, [['#FFFFFF', '#F4F4F4'], ['#FFF1F7', '#F4D7FF'], ['#E8F3FF', '#DCEEFF']].map((stops, idx) => /*#__PURE__*/React.createElement("button", {
+    key: idx,
+    onClick: () => setBackgroundPatch({
+      type: 'gradient',
+      value: {
+        type: 'linear',
+        angle: idx * 35,
+        stops
+      }
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: `linear-gradient(90deg, ${stops[0]}, ${stops[1]})`
+    }
+  }))), normalizedDraft.background?.type === 'pattern' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("select", {
+    value: normalizedDraft.background?.value?.pattern || 'dots',
+    onChange: e => setBackgroundPatch({
+      type: 'pattern',
+      value: {
+        ...(normalizedDraft.background.value || {}),
+        pattern: e.target.value
+      }
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 12px',
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "dots"
+  }, "Dots"), /*#__PURE__*/React.createElement("option", {
+    value: "confetti"
+  }, "Confetti"), /*#__PURE__*/React.createElement("option", {
+    value: "bubbles"
+  }, "Bubbles")))), activeTab === 'slots' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900
+    }
+  }, "Slots"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, currentLayoutSlots.map((slot, index) => /*#__PURE__*/React.createElement("button", {
+    key: index,
+    onClick: () => setSelectedSlotIndex(index),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${selectedSlotIndex === index ? T.ink : T.line}`,
+      background: selectedSlotIndex === index ? T.card : '#fff',
+      padding: '8px 12px',
+      textAlign: 'left'
+    }
+  }, "Slot ", index + 1))), selectedSlot && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: 8
+    }
+  }, ['x', 'y', 'width', 'height', 'radius'].map(key => /*#__PURE__*/React.createElement("label", {
+    key: key,
+    style: {
+      display: 'grid',
+      gap: 4,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, key.toUpperCase(), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: Math.round(selectedSlot[key] || 0),
+    onChange: e => setSlotPatch(selectedSlotIndex, {
+      [key]: Number(e.target.value)
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    }
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, 1fr)',
+      gap: 8
+    }
+  }, [['◀', -12, 0], ['▶', 12, 0], ['▲', 0, -12], ['▼', 0, 12]].map(([label, dx, dy]) => /*#__PURE__*/React.createElement("button", {
+    key: label,
+    onClick: () => selectedSlot && setSlotPatch(selectedSlotIndex, {
+      x: selectedSlot.x + dx,
+      y: selectedSlot.y + dy
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 14,
+      fontWeight: 800
+    }
+  }, label)))), activeTab === 'decorations' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900
+    }
+  }, "Decorations"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: 8
+    }
+  }, ['circle', 'roundedRect', 'heart', 'star', 'line', 'ribbon', 'speech', 'ticket', 'stamp'].map(shape => /*#__PURE__*/React.createElement("button", {
+    key: shape,
+    onClick: () => addDecoration(shape, 'shape'),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, shape)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => addDecoration('text', 'text'),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Text")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, currentDecorations.map((deco, index) => /*#__PURE__*/React.createElement("button", {
+    key: deco.id || index,
+    onClick: () => setSelectedDecorationIndex(index),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${selectedDecorationIndex === index ? T.ink : T.line}`,
+      background: selectedDecorationIndex === index ? T.card : '#fff',
+      padding: '8px 12px',
+      textAlign: 'left'
+    }
+  }, deco.type === 'text' ? `Text: ${deco.text || 'TEXT'}` : `${deco.shape || 'shape'} · ${index + 1}`))), selectedDecoration && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: 8
+    }
+  }, ['x', 'y', 'width', 'height', 'rotation', 'opacity'].map(key => /*#__PURE__*/React.createElement("label", {
+    key: key,
+    style: {
+      display: 'grid',
+      gap: 4,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, key.toUpperCase(), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    step: key === 'opacity' ? '0.01' : '1',
+    value: Number(selectedDecoration[key] || 0),
+    onChange: e => setDecorationPatch(selectedDecorationIndex, {
+      [key]: Number(e.target.value)
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    }
+  })))), /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'grid',
+      gap: 4,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, "Fill", /*#__PURE__*/React.createElement("input", {
+    value: selectedDecoration.fill || '#111111',
+    onChange: e => setDecorationPatch(selectedDecorationIndex, {
+      fill: e.target.value
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    }
+  })), /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'grid',
+      gap: 4,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, "Layer", /*#__PURE__*/React.createElement("select", {
+    value: selectedDecoration.layer || (Number(selectedDecoration.zIndex) < 0 ? 'back' : 'front'),
+    onChange: e => setDecorationPatch(selectedDecorationIndex, {
+      layer: e.target.value,
+      zIndex: e.target.value === 'back' ? -1 : 10
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "back"
+  }, "Back"), /*#__PURE__*/React.createElement("option", {
+    value: "front"
+  }, "Front"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => duplicateDecoration(selectedDecorationIndex),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      padding: '0 12px',
+      fontSize: 11,
+      fontWeight: 800
+    }
+  }, "Duplicate"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deleteDecoration(selectedDecorationIndex),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      padding: '0 12px',
+      fontSize: 11,
+      fontWeight: 800
+    }
+  }, "Delete")))), activeTab === 'text' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900
+    }
+  }, "Text / Watermark"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => addDecoration('TEXT', 'text'),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Add text"), selectedDecoration?.type === 'text' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'grid',
+      gap: 4,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, "Text", /*#__PURE__*/React.createElement("input", {
+    value: selectedDecoration.text || '',
+    onChange: e => setDecorationPatch(selectedDecorationIndex, {
+      text: e.target.value
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    }
+  })), /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'grid',
+      gap: 4,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, "Font weight", /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: Number(selectedDecoration.fontWeight || 800),
+    onChange: e => setDecorationPatch(selectedDecorationIndex, {
+      fontWeight: Number(e.target.value)
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    }
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: `1px solid ${T.line}`,
+      paddingTop: 10,
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 900,
+      color: T.ink
+    }
+  }, "Watermark"), /*#__PURE__*/React.createElement("input", {
+    value: normalizedDraft.watermark?.text || '',
+    onChange: e => normalizeNextDraft(prev => ({
+      ...prev,
+      watermark: {
+        ...(prev.watermark || {}),
+        text: e.target.value
+      }
+    })),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    },
+    placeholder: "IMMM"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: 8
+    }
+  }, ['x', 'y', 'opacity'].map(key => /*#__PURE__*/React.createElement("label", {
+    key: key,
+    style: {
+      display: 'grid',
+      gap: 4,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, key.toUpperCase(), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    step: key === 'opacity' ? '0.01' : '0.01',
+    value: Number(normalizedDraft.watermark?.[key] ?? (key === 'opacity' ? 0.48 : 0.5)),
+    onChange: e => normalizeNextDraft(prev => ({
+      ...prev,
+      watermark: {
+        ...(prev.watermark || {}),
+        [key]: Number(e.target.value)
+      }
+    })),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    }
+  })))))), activeTab === 'save' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900
+    }
+  }, "Save / Pack Export"), /*#__PURE__*/React.createElement("input", {
+    value: exportPackName,
+    onChange: e => setExportPackName(e.target.value),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    },
+    placeholder: "Pack name"
+  }), /*#__PURE__*/React.createElement("input", {
+    value: exportPackDescription,
+    onChange: e => setExportPackDescription(e.target.value),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    },
+    placeholder: "Pack description"
+  }), /*#__PURE__*/React.createElement("input", {
+    value: exportPackAuthor,
+    onChange: e => setExportPackAuthor(e.target.value),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    },
+    placeholder: "Author name"
+  }), /*#__PURE__*/React.createElement("select", {
+    value: exportPackLicense,
+    onChange: e => setExportPackLicense(e.target.value),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "personal"
+  }, "personal"), /*#__PURE__*/React.createElement("option", {
+    value: "commercial"
+  }, "commercial"), /*#__PURE__*/React.createElement("option", {
+    value: "brand-collab"
+  }, "brand-collab"), /*#__PURE__*/React.createElement("option", {
+    value: "internal"
+  }, "internal")), /*#__PURE__*/React.createElement("input", {
+    value: exportPackTags,
+    onChange: e => setExportPackTags(e.target.value),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    },
+    placeholder: "tags, comma, separated"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSaveFrame,
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Update Existing"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSaveAsNew,
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Duplicate & Save"), /*#__PURE__*/React.createElement("button", {
+    onClick: handlePackExport,
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Save as Pack Draft"))));
+  return mobile ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: '100%',
+      background: T.bg
+    }
+  }, editorShell) : editorShell;
 }
 var Kicker = Kick;
 var PrimaryBtn = BtnPrimary;

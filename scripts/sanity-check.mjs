@@ -802,6 +802,12 @@ function checkFrameStoreFoundation() {
     if (typeof api.normalizePresetLayout !== 'function') {
       throw new Error('normalizePresetLayout helper missing');
     }
+    if (typeof api.createFrameDesignerDraft !== 'function' || typeof api.normalizeDesignerDraft !== 'function' || typeof api.validateDesignerDraft !== 'function' || typeof api.draftToCustomFramePreset !== 'function' || typeof api.duplicateFramePresetAsDraft !== 'function') {
+      throw new Error('designer draft helpers missing');
+    }
+    if (typeof api.clampRectToCanvas !== 'function') {
+      throw new Error('photo slot clamp helper missing');
+    }
 
     const builtins = api.getBuiltinFramePresets();
     if (!Array.isArray(builtins) || builtins.length < 9) {
@@ -838,6 +844,27 @@ function checkFrameStoreFoundation() {
     }
     if (api.normalizePresetLayout('1x1') !== 'polaroid' || api.normalizePresetLayout('polaroid') !== 'polaroid') {
       throw new Error('normalizePresetLayout failed for polaroid');
+    }
+
+    const draft = api.createFrameDesignerDraft(builtins[0]);
+    if (!draft || !api.validateDesignerDraft(draft).ok) {
+      throw new Error('designer draft creation or validation failed');
+    }
+    const draftPreset = api.draftToCustomFramePreset(draft);
+    if (!draftPreset || JSON.stringify(draftPreset).includes('dataUrl')) {
+      throw new Error('designer draft save leaked dataUrl');
+    }
+    const normalizedDraft = api.normalizeDesignerDraft({ ...draft, layout: '2x2', photoSlots: api.getPhotoSlotsForLayout('2x2') });
+    if (!normalizedDraft || normalizedDraft.layout !== 'grid') {
+      throw new Error('designer draft layout normalization failed');
+    }
+    const clamped = api.clampRectToCanvas({ x: -20, y: 999, width: 9999, height: 12, radius: 999 }, { width: 100, height: 100 }, 10, 10);
+    if (clamped.x < 0 || clamped.y < 0 || clamped.width > 100 || clamped.height > 100) {
+      throw new Error('clampRectToCanvas failed to clamp to canvas');
+    }
+    const dupDraft = api.duplicateFramePresetAsDraft(builtins[0]);
+    if (!dupDraft || dupDraft.id === builtins[0].id) {
+      throw new Error('duplicateFramePresetAsDraft should create a new draft id');
     }
 
     const sample = api.createCustomFramePresetFromAppState({
@@ -931,6 +958,13 @@ function checkFrameStoreFoundation() {
     if (rejectedImport.ok) {
       throw new Error('frame pack validation should reject photo dataUrl payloads');
     }
+    const rejectedNestedUpload = api.validateFramePackJson(JSON.stringify({
+      pack: { id: 'bad-pack-2', name: 'Bad2', presetIds: ['bad-preset-2'], coverPresetId: 'bad-preset-2' },
+      presets: [{ id: 'bad-preset-2', stickers: [{ kind: 'upload', payload: { dataUrl: 'data:image/png;base64,BBBB' } }] }],
+    }));
+    if (rejectedNestedUpload.ok) {
+      throw new Error('frame pack validation should reject nested upload sticker dataUrl payloads');
+    }
     if (/sanitizeFrameSticker\s*\(\s*(deco|decorations|frame\.decorations)/.test(framePresets)) {
       throw new Error('decorations should not flow through sanitizeFrameSticker');
     }
@@ -944,6 +978,14 @@ function checkFrameStoreFoundation() {
 
   if (main && !main.includes('selectedFramePresetId')) {
     console.error('❌ FAIL: main.jsx missing selectedFramePresetId state');
+    hasErrors = true;
+  }
+  if (main && !main.includes("case 'designer'")) {
+    console.error('❌ FAIL: main.jsx missing designer route');
+    hasErrors = true;
+  }
+  if (main && (!main.includes('openDesigner') || !main.includes('saveDesignerFrame') || !main.includes('saveDesignerPackDraft'))) {
+    console.error('❌ FAIL: main.jsx missing designer actions');
     hasErrors = true;
   }
   if (main && !main.includes('normalizePresetLayout')) {
@@ -978,12 +1020,28 @@ function checkFrameStoreFoundation() {
     console.error('❌ FAIL: screens-v2.jsx missing My Frames management actions');
     hasErrors = true;
   }
+  if (setup && (!setup.includes('Create Frame') || !setup.includes('Duplicate & Edit') || !setup.includes('Create your first frame') || !setup.includes('Frame Designer Studio'))) {
+    console.error('❌ FAIL: screens-v2.jsx missing designer entry points');
+    hasErrors = true;
+  }
+  if (setup && !setup.includes('Save Frame')) {
+    console.error('❌ FAIL: screens-v2.jsx missing designer save action');
+    hasErrors = true;
+  }
   if (setup && (!setup.includes('View Pack') || !setup.includes('Unlock coming soon') || !setup.includes('Export My Frames as JSON') || !setup.includes('Import Frame Pack JSON'))) {
     console.error('❌ FAIL: screens-v2.jsx missing pack commerce UI');
     hasErrors = true;
   }
-  if (setup && (!setup.includes('Featured Packs') || !setup.includes('Favorites') || !setup.includes('All Presets'))) {
+  if (setup && (!setup.includes('Featured Packs') || !setup.includes('Favorites') || !setup.includes('All Presets') || !setup.includes('Frame Store'))) {
     console.error('❌ FAIL: screens-v2.jsx missing pack tabs/search/filter structure');
+    hasErrors = true;
+  }
+  if (setup && (!setup.includes('Save as Pack Draft') || !setup.includes('Back to Store') || !setup.includes('Discard'))) {
+    console.error('❌ FAIL: screens-v2.jsx missing designer save/exit controls');
+    hasErrors = true;
+  }
+  if (setup && (!setup.includes('Frame Designer Studio') || !setup.includes('Background') || !setup.includes('Slots') || !setup.includes('Decorations') || !setup.includes('Text'))) {
+    console.error('❌ FAIL: screens-v2.jsx missing designer editors');
     hasErrors = true;
   }
   if (deco && !deco.includes('saveCustomFrame')) {
@@ -1000,6 +1058,10 @@ function checkFrameStoreFoundation() {
   }
   if (frameSystem && (!frameSystem.includes('drawPresetBackground') || !frameSystem.includes('drawPresetLayer') || !frameSystem.includes('drawPresetWatermark'))) {
     console.error('❌ FAIL: frame-system.jsx missing preset render paths');
+    hasErrors = true;
+  }
+  if (frameSystem && (frameSystem.includes('createFrameDesignerDraft') || frameSystem.includes('normalizeDesignerDraft') || frameSystem.includes('draftToCustomFramePreset'))) {
+    console.error('❌ FAIL: frame-system.jsx should not absorb designer template edits');
     hasErrors = true;
   }
   if (frameSystem && !frameSystem.includes('FRAME_TEMPLATES')) {

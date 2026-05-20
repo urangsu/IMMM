@@ -2087,3 +2087,24 @@ QA steps:
 - [x] pgpt stray guard preserved
 - [ ] Frame pack import/export field test
 - [ ] Premium lock UX mobile field test
+
+## Phase 3.99~4.08 — Frame Designer Studio + Pack Authoring
+- [x] Frame Designer route added
+- [x] Create Frame entry added
+- [x] Designer draft model added
+- [x] Background editor added
+- [x] Photo slot editor added
+- [x] Decoration editor added
+- [x] Text/watermark editor added
+- [x] Designer preview/render parity preserved
+- [x] Save to My Frames added
+- [x] Update existing custom frame added
+- [x] Duplicate & edit frame added
+- [x] Pack draft export added
+- [x] Designer validation added
+- [x] Designer dataUrl safety guard added
+- [x] sanity-check designer guards added
+- [x] pgpt stray guard preserved
+- [ ] Mobile designer usability field test
+- [ ] Designer save/load field test
+- [ ] Export/import designer pack field test

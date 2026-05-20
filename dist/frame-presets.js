@@ -286,8 +286,216 @@ function getPhotoSlotsForLayout(layout) {
 function createBackground(type, value) {
   return {
     type: type || 'solid',
-    value: value || '#FFFFFF'
+    value: value || '#FFFFFF',
+    opacity: 1
   };
+}
+function clampNumber(value, min, max) {
+  var num = Number(value);
+  if (!Number.isFinite(num)) return min;
+  return Math.max(min, Math.min(max, num));
+}
+function clampRectToCanvas(rect, canvasSize, minWidth = 48, minHeight = 48) {
+  var width = Number(canvasSize?.width) || 1;
+  var height = Number(canvasSize?.height) || 1;
+  var nextWidth = clampNumber(rect?.width ?? minWidth, minWidth, width);
+  var nextHeight = clampNumber(rect?.height ?? minHeight, minHeight, height);
+  var nextX = clampNumber(rect?.x ?? 0, 0, Math.max(0, width - nextWidth));
+  var nextY = clampNumber(rect?.y ?? 0, 0, Math.max(0, height - nextHeight));
+  return {
+    x: nextX,
+    y: nextY,
+    width: nextWidth,
+    height: nextHeight,
+    radius: clampNumber(rect?.radius ?? 0, 0, Math.max(0, Math.min(nextWidth, nextHeight) / 2))
+  };
+}
+function normalizeDesignerDecoration(deco, canvasSize) {
+  if (!deco || typeof deco !== 'object') return null;
+  var rect = clampRectToCanvas({
+    x: deco.x,
+    y: deco.y,
+    width: deco.width,
+    height: deco.height,
+    radius: deco.radius
+  }, canvasSize, 24, 24);
+  return makeDecoration({
+    ...deco,
+    ...rect,
+    opacity: Number.isFinite(deco.opacity) ? clampNumber(deco.opacity, 0, 1) : 1,
+    zIndex: Number.isFinite(deco.zIndex) ? deco.zIndex : 0,
+    layer: deco.layer || (Number.isFinite(deco.zIndex) && deco.zIndex < 0 ? 'back' : 'front')
+  });
+}
+function createFrameDesignerDraft(basePreset = null) {
+  var preset = normalizeFramePreset(basePreset || getBuiltinFramePresets()[0] || null) || normalizeFramePreset({
+    id: `draft-${Date.now().toString(36)}`,
+    name: 'Untitled Frame',
+    layout: '1x4',
+    background: createBackground('solid', '#FFFFFF'),
+    photoSlots: getPhotoSlotsForLayout('1x4'),
+    decorations: [],
+    watermark: {
+      text: 'IMMM',
+      x: 0.5,
+      y: 0.94,
+      opacity: 0.48
+    }
+  });
+  if (!preset) return null;
+  var createdAt = preset.createdAt || new Date().toISOString();
+  var updatedAt = new Date().toISOString();
+  return {
+    id: preset.source === 'custom' ? preset.id || `draft-${Date.now().toString(36)}` : `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    name: preset.name || 'Untitled Frame',
+    layout: normalizePresetLayout(preset.layout || '1x4'),
+    canvasSize: clonePlain(preset.canvasSize || getCanvasSizeForLayout(preset.layout || '1x4')),
+    frameColor: preset.frameColor || '#FFFFFF',
+    background: clonePlain(preset.background || createBackground('solid', '#FFFFFF')),
+    photoSlots: (Array.isArray(preset.photoSlots) ? preset.photoSlots : getPhotoSlotsForLayout(preset.layout || '1x4')).map(slot => clampRectToCanvas(slot, preset.canvasSize || getCanvasSizeForLayout(preset.layout || '1x4'), 24, 24)),
+    decorations: Array.isArray(preset.decorations) ? preset.decorations.map(deco => normalizeDesignerDecoration(deco, preset.canvasSize || getCanvasSizeForLayout(preset.layout || '1x4'))).filter(Boolean) : [],
+    watermark: preset.watermark ? {
+      ...preset.watermark
+    } : {
+      text: 'IMMM',
+      x: 0.5,
+      y: 0.94,
+      opacity: 0.48
+    },
+    author: normalizeAuthor(preset.author, preset.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : DEFAULT_FRAME_AUTHOR),
+    license: normalizeLicense(preset.license || DEFAULT_FRAME_LICENSE),
+    packId: preset.packId || null,
+    packName: preset.packName || null,
+    tags: Array.isArray(preset.packTags) ? preset.packTags.slice() : [],
+    createdAt,
+    updatedAt
+  };
+}
+function normalizeDesignerDraft(draft) {
+  if (!draft || typeof draft !== 'object') return null;
+  var layout = normalizePresetLayout(draft.layout || '1x4');
+  var canvasSize = clonePlain(draft.canvasSize || getCanvasSizeForLayout(layout));
+  var baseSlots = Array.isArray(draft.photoSlots) && draft.photoSlots.length ? draft.photoSlots : getPhotoSlotsForLayout(layout);
+  var photoSlots = baseSlots.map(slot => clampRectToCanvas(slot, canvasSize, 24, 24));
+  var decorations = Array.isArray(draft.decorations) ? draft.decorations.map(deco => normalizeDesignerDecoration(deco, canvasSize)).filter(Boolean) : [];
+  var background = draft.background ? clonePlain(draft.background) : createBackground('solid', draft.frameColor || '#FFFFFF');
+  background.opacity = Number.isFinite(background.opacity) ? clampNumber(background.opacity, 0, 1) : 1;
+  return {
+    id: String(draft.id || `draft-${Date.now().toString(36)}`),
+    name: String(draft.name || 'Untitled Frame'),
+    layout,
+    canvasSize: {
+      width: Number(canvasSize.width) || getCanvasSizeForLayout(layout).width,
+      height: Number(canvasSize.height) || getCanvasSizeForLayout(layout).height
+    },
+    frameColor: String(draft.frameColor || background.value || '#FFFFFF'),
+    background,
+    photoSlots,
+    decorations,
+    watermark: draft.watermark ? {
+      text: String(draft.watermark.text ?? 'IMMM'),
+      x: clampNumber(draft.watermark.x ?? 0.5, 0, 1),
+      y: clampNumber(draft.watermark.y ?? 0.94, 0, 1),
+      opacity: clampNumber(draft.watermark.opacity ?? 0.48, 0, 1),
+      fill: draft.watermark.fill || undefined,
+      fontWeight: draft.watermark.fontWeight || 800
+    } : {
+      text: 'IMMM',
+      x: 0.5,
+      y: 0.94,
+      opacity: 0.48,
+      fontWeight: 800
+    },
+    author: normalizeAuthor(draft.author, draft.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : DEFAULT_FRAME_AUTHOR),
+    license: normalizeLicense(draft.license || DEFAULT_FRAME_LICENSE),
+    packId: draft.packId || null,
+    packName: draft.packName || null,
+    tags: Array.isArray(draft.tags) ? draft.tags.map(tag => String(tag || '').trim()).filter(Boolean) : [],
+    createdAt: draft.createdAt || null,
+    updatedAt: draft.updatedAt || null
+  };
+}
+function validateDesignerDraft(draft) {
+  var normalized = normalizeDesignerDraft(draft);
+  if (!normalized) {
+    return {
+      ok: false,
+      error: 'Designer draft is invalid'
+    };
+  }
+  if (!normalized.name.trim()) {
+    return {
+      ok: false,
+      error: 'Frame name is required'
+    };
+  }
+  var slotCount = getPhotoSlotsForLayout(normalized.layout).length;
+  if (!Array.isArray(normalized.photoSlots) || normalized.photoSlots.length !== slotCount) {
+    return {
+      ok: false,
+      error: 'Photo slot count does not match layout'
+    };
+  }
+  if (normalized.canvasSize.width <= 0 || normalized.canvasSize.height <= 0) {
+    return {
+      ok: false,
+      error: 'Canvas size is invalid'
+    };
+  }
+  var json = JSON.stringify(normalized);
+  if (json.includes('dataUrl') || json.includes('data:image/')) {
+    return {
+      ok: false,
+      error: 'Designer draft must not contain dataUrl'
+    };
+  }
+  if (json.length > 1024 * 1024) {
+    return {
+      ok: false,
+      error: 'Designer draft is too large'
+    };
+  }
+  return {
+    ok: true,
+    draft: normalized
+  };
+}
+function draftToCustomFramePreset(draft) {
+  var validation = validateDesignerDraft(draft);
+  if (!validation.ok) return null;
+  var normalized = validation.draft;
+  return sanitizeCustomFramePreset({
+    id: normalized.id,
+    name: normalized.name,
+    layout: normalized.layout,
+    frameColor: normalized.frameColor,
+    background: normalized.background,
+    photoSlots: normalized.photoSlots,
+    decorations: normalized.decorations,
+    watermark: normalized.watermark,
+    createdAt: normalized.createdAt || new Date().toISOString(),
+    updatedAt: normalized.updatedAt || new Date().toISOString(),
+    author: normalized.author,
+    license: normalized.license,
+    packId: normalized.packId,
+    packName: normalized.packName,
+    packTags: normalized.tags,
+    packPriceType: 'free',
+    packPriceLabel: 'Free',
+    stickers: [],
+    drawStrokes: []
+  });
+}
+function duplicateFramePresetAsDraft(preset) {
+  var normalized = normalizeFramePreset(preset);
+  if (!normalized) return null;
+  var draft = createFrameDesignerDraft(normalized);
+  if (!draft) return null;
+  draft.id = `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  draft.name = `${normalized.name || 'Frame'} Copy`;
+  draft.createdAt = new Date().toISOString();
+  draft.updatedAt = new Date().toISOString();
+  return draft;
 }
 function makeDecoration(partial) {
   return {
@@ -1550,6 +1758,7 @@ function drawFramePresetBackground(ctx, preset, width, height) {
   var background = preset?.background;
   if (!background) return;
   ctx.save();
+  ctx.globalAlpha = Number.isFinite(background.opacity) ? clampNumber(background.opacity, 0, 1) : 1;
   if (background.type === 'solid') {
     ctx.fillStyle = background.value || '#FFFFFF';
     ctx.fillRect(0, 0, width, height);
@@ -1686,6 +1895,12 @@ var IMMMFramePresets = {
   createCustomFramePresetFromAppState,
   sanitizeCustomFramePreset,
   sanitizeImportedFramePreset,
+  createFrameDesignerDraft,
+  normalizeDesignerDraft,
+  validateDesignerDraft,
+  draftToCustomFramePreset,
+  duplicateFramePresetAsDraft,
+  clampRectToCanvas,
   sanitizeFrameSticker,
   sanitizeDrawStroke,
   normalizeFramePreset,

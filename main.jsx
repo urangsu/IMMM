@@ -291,6 +291,11 @@ function App() {
       return [];
     }
   });
+  const [designerDraftFrame, setDesignerDraftFrame] = React.useState(null);
+  const [designerInitialDraftFrame, setDesignerInitialDraftFrame] = React.useState(null);
+  const [designerBasePresetId, setDesignerBasePresetId] = React.useState('');
+  const [designerMode, setDesignerMode] = React.useState('new');
+  const [setupStoreTabFocus, setSetupStoreTabFocus] = React.useState('');
 
   // Responsive mobile detection
   const [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
@@ -1386,6 +1391,89 @@ function App() {
     }
     return next.find((frame) => frame.id === frameId) || null;
   }, [customFrames, framePresetApi, persistCustomFrames, selectedFramePresetId, tweaks.layout]);
+  const openDesigner = React.useCallback((input = {}) => {
+    const mode = input.mode || 'new';
+    const basePreset =
+      input.preset
+      || (input.presetId ? framePresetApi?.getFramePresetById?.(input.presetId, customFrames) : null)
+      || activeFramePreset
+      || framePresetList.find((preset) => preset.source !== 'custom')
+      || framePresetList[0]
+      || null;
+    const shouldDuplicate = mode === 'duplicate' || (mode === 'new' && basePreset && basePreset.source !== 'custom');
+    const created = shouldDuplicate
+      ? framePresetApi?.duplicateFramePresetAsDraft?.(basePreset)
+      : framePresetApi?.createFrameDesignerDraft?.(basePreset);
+    if (!created) return null;
+    const nextDraft = framePresetApi?.normalizeDesignerDraft?.(created) || created;
+    if (mode === 'edit' && basePreset?.id) {
+      nextDraft.id = basePreset.id;
+    }
+    setDesignerMode(mode);
+    setDesignerBasePresetId(basePreset?.id || '');
+    setDesignerDraftFrame(nextDraft);
+    setDesignerInitialDraftFrame(nextDraft);
+    setSetupStoreTabFocus(mode === 'edit' || mode === 'duplicate' || basePreset?.source === 'custom' ? 'my-frames' : 'featured');
+    setScreen('designer');
+    return nextDraft;
+  }, [activeFramePreset, customFrames, framePresetApi, framePresetList]);
+  const saveDesignerFrame = React.useCallback((inputDraft = null, options = {}) => {
+    const targetDraft = inputDraft || designerDraftFrame;
+    if (!targetDraft) {
+      return { ok: false, error: 'Designer draft missing' };
+    }
+    const validation = framePresetApi?.validateDesignerDraft?.(targetDraft);
+    if (!validation?.ok) {
+      return validation || { ok: false, error: 'Designer draft invalid' };
+    }
+    const preset = framePresetApi?.draftToCustomFramePreset?.(validation.draft);
+    if (!preset) {
+      return { ok: false, error: 'Unable to save designer frame' };
+    }
+    const next = [...customFrames.filter((item) => item.id !== preset.id), preset];
+    persistCustomFrames(next);
+    setSelectedFramePresetId(preset.id);
+    setDesignerDraftFrame(validation.draft);
+    setDesignerInitialDraftFrame(validation.draft);
+    setDesignerMode('edit');
+    applyFramePreset(preset, { syncFrameColor: true });
+    setSetupStoreTabFocus('my-frames');
+    if (options.stayOnDesigner) {
+      return { ok: true, preset };
+    }
+    setScreen('setup');
+    return { ok: true, preset };
+  }, [applyFramePreset, customFrames, designerDraftFrame, framePresetApi, persistCustomFrames]);
+  const saveDesignerPackDraft = React.useCallback((inputDraft = null, options = {}) => {
+    const targetDraft = inputDraft || designerDraftFrame;
+    if (!targetDraft) {
+      return { ok: false, error: 'Designer draft missing' };
+    }
+    const validation = framePresetApi?.validateDesignerDraft?.(targetDraft);
+    if (!validation?.ok) {
+      return validation || { ok: false, error: 'Designer draft invalid' };
+    }
+    const preset = framePresetApi?.draftToCustomFramePreset?.(validation.draft);
+    if (!preset) {
+      return { ok: false, error: 'Unable to export pack draft' };
+    }
+    const json = framePresetApi?.exportCustomFramePackJson?.([preset], {
+      id: options.id || preset.packId || preset.id,
+      name: options.name || preset.name || 'Pack Draft',
+      description: options.description || 'Designer pack draft.',
+      author: options.author || preset.author,
+      license: options.license || preset.license,
+      tags: options.tags || preset.packTags || [],
+      coverPresetId: preset.id,
+    });
+    if (!json) {
+      return { ok: false, error: 'Pack export unavailable' };
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(json).catch(() => {});
+    }
+    return { ok: true, json };
+  }, [designerDraftFrame, framePresetApi]);
   const unlockFramePackForDev = React.useCallback((packId) => {
     if (!packId) return [];
     const next = framePresetApi?.unlockFramePackForDev?.(packId) || Array.from(new Set([...unlockedFramePackIds, packId]));
@@ -1476,11 +1564,24 @@ function App() {
     framePackList,
     customFrames,
     setCustomFrames,
+    designerDraftFrame,
+    setDesignerDraftFrame,
+    designerInitialDraftFrame,
+    setDesignerInitialDraftFrame,
+    designerBasePresetId,
+    setDesignerBasePresetId,
+    designerMode,
+    setDesignerMode,
+    setupStoreTabFocus,
+    setSetupStoreTabFocus,
     activeFramePreset,
     applyFramePreset,
     saveCustomFrame,
     exportCustomFramesAsJson,
     importFramePackFromJson,
+    openDesigner,
+    saveDesignerFrame,
+    saveDesignerPackDraft,
     renameCustomFrame,
     duplicateCustomFrame,
     deleteCustomFrame: softDeleteCustomFrame,
@@ -1516,6 +1617,18 @@ function App() {
         return <GalleryV2 {...p} />;
       case 'share':
         return <SharedPhotoV2 {...p} />;
+      case 'designer':
+        return <DesignerScreen {...p}
+          draftFrame={designerDraftFrame}
+          setDraftFrame={setDesignerDraftFrame}
+          initialDraftFrame={designerInitialDraftFrame}
+          designerBasePresetId={designerBasePresetId}
+          designerMode={designerMode}
+          setDesignerMode={setDesignerMode}
+          saveDesignerFrame={saveDesignerFrame}
+          saveDesignerPackDraft={saveDesignerPackDraft}
+          openDesigner={openDesigner}
+        />;
       case 'setup':
         return <SetupScreen {...p}
           setLayout={setLayoutAndPreset}
@@ -1533,9 +1646,11 @@ function App() {
           saveCustomFrame={saveCustomFrame}
           exportCustomFramesAsJson={exportCustomFramesAsJson}
           importFramePackFromJson={importFramePackFromJson}
+          openDesigner={openDesigner}
           editMode={photoEditMode}
           shots={shots} setShots={setShots} setSelected={setSelected}
           startNewCaptureSession={startNewCaptureSession}
+          storeTabFocus={setupStoreTabFocus}
         />;
       case 'capture':
         return <CaptureV2 {...p}
