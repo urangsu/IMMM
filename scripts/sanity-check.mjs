@@ -854,6 +854,9 @@ function checkFrameStoreFoundation() {
     if (!draftPreset || JSON.stringify(draftPreset).includes('dataUrl')) {
       throw new Error('designer draft save leaked dataUrl');
     }
+    if (!Array.isArray(draftPreset.stickers) || !Array.isArray(draftPreset.drawStrokes)) {
+      throw new Error('designer draft save should preserve stickers and drawStrokes arrays');
+    }
     const normalizedDraft = api.normalizeDesignerDraft({ ...draft, layout: '2x2', photoSlots: api.getPhotoSlotsForLayout('2x2') });
     if (!normalizedDraft || normalizedDraft.layout !== 'grid') {
       throw new Error('designer draft layout normalization failed');
@@ -1026,6 +1029,10 @@ function checkFrameStoreFoundation() {
   }
   if (setup && !setup.includes('Save Frame')) {
     console.error('❌ FAIL: screens-v2.jsx missing designer save action');
+    hasErrors = true;
+  }
+  if (setup && !setup.includes('Import Pack JSON')) {
+    console.error('❌ FAIL: screens-v2.jsx missing designer pack import action');
     hasErrors = true;
   }
   if (setup && (!setup.includes('View Pack') || !setup.includes('Unlock coming soon') || !setup.includes('Export My Frames as JSON') || !setup.includes('Import Frame Pack JSON'))) {

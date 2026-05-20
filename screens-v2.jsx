@@ -2153,6 +2153,8 @@ function DesignerScreen({
   setDesignerMode,
   saveDesignerFrame,
   saveDesignerPackDraft,
+  importFramePackFromJson,
+  setSetupStoreTabFocus,
   selectedFramePresetId,
   setSelectedFramePresetId,
 }) {
@@ -2172,6 +2174,7 @@ function DesignerScreen({
   const [exportPackTags, setExportPackTags] = uS((draftFrame?.tags || []).join(', '));
   const [exportPackAuthor, setExportPackAuthor] = uS(draftFrame?.author?.name || 'IMMM Studio');
   const [exportPackLicense, setExportPackLicense] = uS(draftFrame?.license || 'internal');
+  const [importPackJson, setImportPackJson] = uS('');
 
   const normalizedDraft = uM(() => frameApi?.normalizeDesignerDraft?.(draftFrame) || draftFrame || null, [draftFrame, frameApi]);
   const normalizedInitial = uM(() => frameApi?.normalizeDesignerDraft?.(initialDraftFrame) || initialDraftFrame || null, [initialDraftFrame, frameApi]);
@@ -2419,6 +2422,24 @@ function DesignerScreen({
     }
     setValidationError('');
     setStatusMessage('Pack draft copied to clipboard');
+  };
+
+  const handlePackImport = () => {
+    if (!importPackJson.trim()) {
+      setValidationError('Paste a frame pack JSON blob first');
+      return;
+    }
+    const result = importFramePackFromJson ? importFramePackFromJson(importPackJson) : { ok: false, error: 'Import unavailable' };
+    if (!result?.ok) {
+      setValidationError(result?.error || 'Import failed');
+      return;
+    }
+    setImportPackJson('');
+    setValidationError('');
+    setStatusMessage(`Imported ${result.presets?.length || 0} frames`);
+    setDesignerMode('edit');
+    if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus('imported');
+    go('setup');
   };
 
   const handleDiscard = () => {
@@ -2846,6 +2867,17 @@ function DesignerScreen({
             <button onClick={handleSaveFrame} style={{ minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Update Existing</button>
             <button onClick={handleSaveAsNew} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Duplicate & Save</button>
             <button onClick={handlePackExport} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save as Pack Draft</button>
+            <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 10, display: 'grid', gap: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: T.ink }}>Import Pack JSON</div>
+              <textarea
+                value={importPackJson}
+                onChange={(e) => setImportPackJson(e.target.value)}
+                placeholder="Paste frame pack JSON here"
+                rows={5}
+                style={{ minHeight: 120, resize: 'vertical', borderRadius: 12, border: `1px solid ${T.line}`, padding: '10px 12px', fontSize: 12, lineHeight: 1.45 }}
+              />
+              <button onClick={handlePackImport} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Import Pack JSON</button>
+            </div>
           </div>
         )}
       </div>

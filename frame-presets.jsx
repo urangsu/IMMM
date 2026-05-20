@@ -225,6 +225,12 @@ function createFrameDesignerDraft(basePreset = null) {
     decorations: Array.isArray(preset.decorations)
       ? preset.decorations.map((deco) => normalizeDesignerDecoration(deco, preset.canvasSize || getCanvasSizeForLayout(preset.layout || '1x4'))).filter(Boolean)
       : [],
+    stickers: Array.isArray(preset.stickers)
+      ? preset.stickers.map((sticker) => sanitizeFrameSticker(sticker)).filter(Boolean)
+      : [],
+    drawStrokes: Array.isArray(preset.drawStrokes)
+      ? preset.drawStrokes.map((stroke) => sanitizeDrawStroke(stroke)).filter(Boolean)
+      : [],
     watermark: preset.watermark ? { ...preset.watermark } : { text: 'IMMM', x: 0.5, y: 0.94, opacity: 0.48 },
     author: normalizeAuthor(preset.author, preset.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : DEFAULT_FRAME_AUTHOR),
     license: normalizeLicense(preset.license || DEFAULT_FRAME_LICENSE),
@@ -245,6 +251,12 @@ function normalizeDesignerDraft(draft) {
   const decorations = Array.isArray(draft.decorations)
     ? draft.decorations.map((deco) => normalizeDesignerDecoration(deco, canvasSize)).filter(Boolean)
     : [];
+  const stickers = Array.isArray(draft.stickers)
+    ? draft.stickers.map((sticker) => sanitizeFrameSticker(sticker)).filter(Boolean)
+    : [];
+  const drawStrokes = Array.isArray(draft.drawStrokes)
+    ? draft.drawStrokes.map((stroke) => sanitizeDrawStroke(stroke)).filter(Boolean)
+    : [];
   const background = draft.background ? clonePlain(draft.background) : createBackground('solid', draft.frameColor || '#FFFFFF');
   background.opacity = Number.isFinite(background.opacity) ? clampNumber(background.opacity, 0, 1) : 1;
   return {
@@ -259,6 +271,8 @@ function normalizeDesignerDraft(draft) {
     background,
     photoSlots,
     decorations,
+    stickers,
+    drawStrokes,
     watermark: draft.watermark ? {
       text: String(draft.watermark.text ?? 'IMMM'),
       x: clampNumber(draft.watermark.x ?? 0.5, 0, 1),
@@ -314,6 +328,8 @@ function draftToCustomFramePreset(draft) {
     background: normalized.background,
     photoSlots: normalized.photoSlots,
     decorations: normalized.decorations,
+    stickers: Array.isArray(normalized.stickers) ? normalized.stickers : [],
+    drawStrokes: Array.isArray(normalized.drawStrokes) ? normalized.drawStrokes : [],
     watermark: normalized.watermark,
     createdAt: normalized.createdAt || new Date().toISOString(),
     updatedAt: normalized.updatedAt || new Date().toISOString(),
@@ -324,8 +340,6 @@ function draftToCustomFramePreset(draft) {
     packTags: normalized.tags,
     packPriceType: 'free',
     packPriceLabel: 'Free',
-    stickers: [],
-    drawStrokes: [],
   });
 }
 

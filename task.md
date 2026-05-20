@@ -2101,6 +2101,7 @@ QA steps:
 - [x] Update existing custom frame added
 - [x] Duplicate & edit frame added
 - [x] Pack draft export added
+- [x] Pack JSON import added
 - [x] Designer validation added
 - [x] Designer dataUrl safety guard added
 - [x] sanity-check designer guards added

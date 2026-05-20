@@ -3334,6 +3334,8 @@ function DesignerScreen({
   setDesignerMode,
   saveDesignerFrame,
   saveDesignerPackDraft,
+  importFramePackFromJson,
+  setSetupStoreTabFocus,
   selectedFramePresetId,
   setSelectedFramePresetId
 }) {
@@ -3351,6 +3353,7 @@ function DesignerScreen({
   var [exportPackTags, setExportPackTags] = uS((draftFrame?.tags || []).join(', '));
   var [exportPackAuthor, setExportPackAuthor] = uS(draftFrame?.author?.name || 'IMMM Studio');
   var [exportPackLicense, setExportPackLicense] = uS(draftFrame?.license || 'internal');
+  var [importPackJson, setImportPackJson] = uS('');
   var normalizedDraft = uM(() => frameApi?.normalizeDesignerDraft?.(draftFrame) || draftFrame || null, [draftFrame, frameApi]);
   var normalizedInitial = uM(() => frameApi?.normalizeDesignerDraft?.(initialDraftFrame) || initialDraftFrame || null, [initialDraftFrame, frameApi]);
   var slotDefaults = uM(() => normalizedDraft ? frameApi?.getPhotoSlotsForLayout?.(normalizedDraft.layout) || normalizedDraft.photoSlots || [] : [], [frameApi, normalizedDraft]);
@@ -3712,6 +3715,26 @@ function DesignerScreen({
     }
     setValidationError('');
     setStatusMessage('Pack draft copied to clipboard');
+  };
+  var handlePackImport = () => {
+    if (!importPackJson.trim()) {
+      setValidationError('Paste a frame pack JSON blob first');
+      return;
+    }
+    var result = importFramePackFromJson ? importFramePackFromJson(importPackJson) : {
+      ok: false,
+      error: 'Import unavailable'
+    };
+    if (!result?.ok) {
+      setValidationError(result?.error || 'Import failed');
+      return;
+    }
+    setImportPackJson('');
+    setValidationError('');
+    setStatusMessage(`Imported ${result.presets?.length || 0} frames`);
+    setDesignerMode('edit');
+    if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus('imported');
+    go('setup');
   };
   var handleDiscard = () => {
     if (isDirty && !window.confirm('Discard designer changes?')) return;
@@ -4749,7 +4772,46 @@ function DesignerScreen({
       fontWeight: 800,
       textTransform: 'uppercase'
     }
-  }, "Save as Pack Draft"))));
+  }, "Save as Pack Draft"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: `1px solid ${T.line}`,
+      paddingTop: 10,
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 900,
+      color: T.ink
+    }
+  }, "Import Pack JSON"), /*#__PURE__*/React.createElement("textarea", {
+    value: importPackJson,
+    onChange: e => setImportPackJson(e.target.value),
+    placeholder: "Paste frame pack JSON here",
+    rows: 5,
+    style: {
+      minHeight: 120,
+      resize: 'vertical',
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '10px 12px',
+      fontSize: 12,
+      lineHeight: 1.45
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: handlePackImport,
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Import Pack JSON")))));
   return mobile ? /*#__PURE__*/React.createElement("div", {
     style: {
       minHeight: '100%',

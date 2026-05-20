@@ -354,6 +354,8 @@ function createFrameDesignerDraft(basePreset = null) {
     background: clonePlain(preset.background || createBackground('solid', '#FFFFFF')),
     photoSlots: (Array.isArray(preset.photoSlots) ? preset.photoSlots : getPhotoSlotsForLayout(preset.layout || '1x4')).map(slot => clampRectToCanvas(slot, preset.canvasSize || getCanvasSizeForLayout(preset.layout || '1x4'), 24, 24)),
     decorations: Array.isArray(preset.decorations) ? preset.decorations.map(deco => normalizeDesignerDecoration(deco, preset.canvasSize || getCanvasSizeForLayout(preset.layout || '1x4'))).filter(Boolean) : [],
+    stickers: Array.isArray(preset.stickers) ? preset.stickers.map(sticker => sanitizeFrameSticker(sticker)).filter(Boolean) : [],
+    drawStrokes: Array.isArray(preset.drawStrokes) ? preset.drawStrokes.map(stroke => sanitizeDrawStroke(stroke)).filter(Boolean) : [],
     watermark: preset.watermark ? {
       ...preset.watermark
     } : {
@@ -378,6 +380,8 @@ function normalizeDesignerDraft(draft) {
   var baseSlots = Array.isArray(draft.photoSlots) && draft.photoSlots.length ? draft.photoSlots : getPhotoSlotsForLayout(layout);
   var photoSlots = baseSlots.map(slot => clampRectToCanvas(slot, canvasSize, 24, 24));
   var decorations = Array.isArray(draft.decorations) ? draft.decorations.map(deco => normalizeDesignerDecoration(deco, canvasSize)).filter(Boolean) : [];
+  var stickers = Array.isArray(draft.stickers) ? draft.stickers.map(sticker => sanitizeFrameSticker(sticker)).filter(Boolean) : [];
+  var drawStrokes = Array.isArray(draft.drawStrokes) ? draft.drawStrokes.map(stroke => sanitizeDrawStroke(stroke)).filter(Boolean) : [];
   var background = draft.background ? clonePlain(draft.background) : createBackground('solid', draft.frameColor || '#FFFFFF');
   background.opacity = Number.isFinite(background.opacity) ? clampNumber(background.opacity, 0, 1) : 1;
   return {
@@ -392,6 +396,8 @@ function normalizeDesignerDraft(draft) {
     background,
     photoSlots,
     decorations,
+    stickers,
+    drawStrokes,
     watermark: draft.watermark ? {
       text: String(draft.watermark.text ?? 'IMMM'),
       x: clampNumber(draft.watermark.x ?? 0.5, 0, 1),
@@ -472,6 +478,8 @@ function draftToCustomFramePreset(draft) {
     background: normalized.background,
     photoSlots: normalized.photoSlots,
     decorations: normalized.decorations,
+    stickers: Array.isArray(normalized.stickers) ? normalized.stickers : [],
+    drawStrokes: Array.isArray(normalized.drawStrokes) ? normalized.drawStrokes : [],
     watermark: normalized.watermark,
     createdAt: normalized.createdAt || new Date().toISOString(),
     updatedAt: normalized.updatedAt || new Date().toISOString(),
@@ -481,9 +489,7 @@ function draftToCustomFramePreset(draft) {
     packName: normalized.packName,
     packTags: normalized.tags,
     packPriceType: 'free',
-    packPriceLabel: 'Free',
-    stickers: [],
-    drawStrokes: []
+    packPriceLabel: 'Free'
   });
 }
 function duplicateFramePresetAsDraft(preset) {
