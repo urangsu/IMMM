@@ -1190,7 +1190,7 @@ function SetupScreen({
     var tpl = resolveFrameTemplate(o.id);
     var canRenderRealThumb = Boolean(WFrameThumb && tpl);
     var pickerThumbScale = mobile ? 0.235 : 0.28;
-    var layoutPreset = selectedFramePreset?.layout === o.id ? selectedFramePreset : allStorePresets.find(preset => preset.layout === o.id) || null;
+    var layoutPreset = layoutMatchedFramePreset?.layout === o.id ? layoutMatchedFramePreset : allStorePresets.find(preset => preset.layout === o.id) || null;
     if (typeof window !== 'undefined' && window.IMMM_DEBUG_BUILD) {
       console.warn('[IMMM frame picker]', {
         hasFrameThumb: typeof window.FrameThumb === 'function',

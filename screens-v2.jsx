@@ -699,8 +699,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           const tpl = resolveFrameTemplate(o.id);
           const canRenderRealThumb = Boolean(WFrameThumb && tpl);
           const pickerThumbScale = mobile ? 0.235 : 0.28;
-          const layoutPreset = selectedFramePreset?.layout === o.id
-            ? selectedFramePreset
+          const layoutPreset = layoutMatchedFramePreset?.layout === o.id
+            ? layoutMatchedFramePreset
             : allStorePresets.find((preset) => preset.layout === o.id) || null;
 
           if (typeof window !== 'undefined' && window.IMMM_DEBUG_BUILD) {
