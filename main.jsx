@@ -291,10 +291,62 @@ function App() {
       return [];
     }
   });
+  const [favoriteFramePackIds, setFavoriteFramePackIds] = React.useState(() => {
+    try {
+      const api = window.IMMMFramePresets;
+      if (api && typeof api.loadFavoriteFramePackIds === 'function') {
+        return api.loadFavoriteFramePackIds();
+      }
+      return JSON.parse(localStorage.getItem('immm.v2.favoriteFramePacks') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+  const [frameLikeIds, setFrameLikeIds] = React.useState(() => {
+    try {
+      const api = window.IMMMFramePresets;
+      if (api && typeof api.getFrameLikeIds === 'function') {
+        return api.getFrameLikeIds();
+      }
+      return JSON.parse(localStorage.getItem('immm.v2.frameLikes') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+  const [frameUseCounts, setFrameUseCounts] = React.useState(() => {
+    try {
+      const api = window.IMMMFramePresets;
+      if (api && typeof api.getFrameUseCounts === 'function') {
+        return api.getFrameUseCounts();
+      }
+      return JSON.parse(localStorage.getItem('immm.v2.frameUses') || '{}');
+    } catch (e) {
+      return {};
+    }
+  });
+  const [creatorProfiles, setCreatorProfiles] = React.useState(() => {
+    try {
+      const api = window.IMMMCreatorProfiles;
+      if (api && typeof api.loadCreatorProfiles === 'function') {
+        return api.loadCreatorProfiles();
+      }
+      return JSON.parse(localStorage.getItem('immm.v2.creatorProfiles') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+  const [exportPresetId, setExportPresetId] = React.useState(() => {
+    try {
+      return localStorage.getItem('immm.v2.exportPresetId') || 'hd';
+    } catch (e) {
+      return 'hd';
+    }
+  });
   const [designerDraftFrame, setDesignerDraftFrame] = React.useState(null);
   const [designerInitialDraftFrame, setDesignerInitialDraftFrame] = React.useState(null);
   const [designerBasePresetId, setDesignerBasePresetId] = React.useState('');
   const [designerMode, setDesignerMode] = React.useState('new');
+  const [designerDraftRecovery, setDesignerDraftRecovery] = React.useState(null);
   const [setupStoreTabFocus, setSetupStoreTabFocus] = React.useState('');
 
   // Responsive mobile detection
@@ -306,6 +358,7 @@ function App() {
   }, []);
   const safeFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
   const framePresetApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
+  const creatorApi = typeof window !== 'undefined' ? window.IMMMCreatorProfiles : null;
   const framePresetList = React.useMemo(() => {
     if (framePresetApi && typeof framePresetApi.listFramePresets === 'function') {
       return framePresetApi.listFramePresets(customFrames);
@@ -1138,6 +1191,58 @@ function App() {
     }
   }, [favoriteFramePresetIds]);
   React.useEffect(() => {
+    try {
+      if (favoriteFramePackIds.length > 0) {
+        localStorage.setItem('immm.v2.favoriteFramePacks', JSON.stringify(Array.from(new Set(favoriteFramePackIds))));
+      } else {
+        localStorage.removeItem('immm.v2.favoriteFramePacks');
+      }
+    } catch (e) {
+      console.warn('[IMMM] favorite pack sync failed:', e);
+    }
+  }, [favoriteFramePackIds]);
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('immm.v2.frameLikes', JSON.stringify(Array.from(new Set(frameLikeIds))));
+    } catch (e) {
+      console.warn('[IMMM] frame likes sync failed:', e);
+    }
+  }, [frameLikeIds]);
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('immm.v2.frameUses', JSON.stringify(frameUseCounts || {}));
+    } catch (e) {
+      console.warn('[IMMM] frame uses sync failed:', e);
+    }
+  }, [frameUseCounts]);
+  React.useEffect(() => {
+    try {
+      if (creatorProfiles.length > 0) {
+        localStorage.setItem('immm.v2.creatorProfiles', JSON.stringify(creatorProfiles));
+      } else {
+        localStorage.removeItem('immm.v2.creatorProfiles');
+      }
+    } catch (e) {
+      console.warn('[IMMM] creator profile sync failed:', e);
+    }
+  }, [creatorProfiles]);
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('immm.v2.exportPresetId', exportPresetId || 'hd');
+    } catch (e) {
+      console.warn('[IMMM] export preset sync failed:', e);
+    }
+  }, [exportPresetId]);
+  React.useEffect(() => {
+    const recovered = framePresetApi?.loadDesignerDraftRecovery?.() || null;
+    setDesignerDraftRecovery(recovered);
+  }, [framePresetApi]);
+  React.useEffect(() => {
+    if (!designerDraftFrame) return;
+    const payload = framePresetApi?.saveDesignerDraftRecovery?.(designerDraftFrame);
+    if (payload) setDesignerDraftRecovery(payload);
+  }, [designerDraftFrame, framePresetApi]);
+  React.useEffect(() => {
     if (!defaultFramePresetId) return;
     const hasSelected = selectedFramePresetId && framePresetList.some((preset) => preset.id === selectedFramePresetId);
     if (!hasSelected) {
@@ -1303,8 +1408,9 @@ function App() {
     if (typeof options.onApply === 'function') {
       options.onApply(preset);
     }
+    recordFrameUse(preset.id);
     return preset;
-  }, [customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, selected, shots, tweaks.layout, tweaks.orientation, unlockedFramePackIds]);
+  }, [customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, recordFrameUse, selected, shots, tweaks.layout, tweaks.orientation, unlockedFramePackIds]);
   const saveCustomFrame = React.useCallback((input = {}) => {
     if (!framePresetApi || typeof framePresetApi.createCustomFramePresetFromAppState !== 'function') return null;
     const preset = framePresetApi.createCustomFramePresetFromAppState({
@@ -1436,14 +1542,17 @@ function App() {
     setDesignerDraftFrame(validation.draft);
     setDesignerInitialDraftFrame(validation.draft);
     setDesignerMode('edit');
+    framePresetApi?.clearDesignerDraftRecovery?.();
+    setDesignerDraftRecovery(null);
     applyFramePreset(preset, { syncFrameColor: true });
     setSetupStoreTabFocus('my-frames');
+    recordFrameUse(preset.id);
     if (options.stayOnDesigner) {
       return { ok: true, preset };
     }
     setScreen('setup');
     return { ok: true, preset };
-  }, [applyFramePreset, customFrames, designerDraftFrame, framePresetApi, persistCustomFrames]);
+  }, [applyFramePreset, customFrames, designerDraftFrame, framePresetApi, persistCustomFrames, recordFrameUse]);
   const saveDesignerPackDraft = React.useCallback((inputDraft = null, options = {}) => {
     const targetDraft = inputDraft || designerDraftFrame;
     if (!targetDraft) {
@@ -1472,6 +1581,8 @@ function App() {
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(json).catch(() => {});
     }
+    framePresetApi?.clearDesignerDraftRecovery?.();
+    setDesignerDraftRecovery(null);
     return { ok: true, json };
   }, [designerDraftFrame, framePresetApi]);
   const unlockFramePackForDev = React.useCallback((packId) => {
@@ -1480,6 +1591,13 @@ function App() {
     setUnlockedFramePackIds(next);
     return next;
   }, [framePresetApi, unlockedFramePackIds]);
+  const toggleFavoriteFramePack = React.useCallback((packId) => {
+    if (!packId) return [];
+    const next = framePresetApi?.toggleFavoriteFramePackId?.(packId, favoriteFramePackIds)
+      || (favoriteFramePackIds.includes(packId) ? favoriteFramePackIds.filter((id) => id !== packId) : [...favoriteFramePackIds, packId]);
+    setFavoriteFramePackIds(next);
+    return next;
+  }, [favoriteFramePackIds, framePresetApi]);
   const toggleFavoriteFramePreset = React.useCallback((presetId) => {
     if (!presetId) return [];
     const next = framePresetApi?.toggleFavoriteFramePresetId?.(presetId, favoriteFramePresetIds)
@@ -1489,6 +1607,20 @@ function App() {
     setFavoriteFramePresetIds(next);
     return next;
   }, [favoriteFramePresetIds, framePresetApi]);
+  const toggleFrameLike = React.useCallback((frameId) => {
+    if (!frameId) return [];
+    const next = framePresetApi?.toggleFrameLikeId?.(frameId, frameLikeIds)
+      || (frameLikeIds.includes(frameId) ? frameLikeIds.filter((id) => id !== frameId) : [...frameLikeIds, frameId]);
+    setFrameLikeIds(next);
+    return next;
+  }, [frameLikeIds, framePresetApi]);
+  const recordFrameUse = React.useCallback((frameId) => {
+    if (!frameId) return 0;
+    const nextCount = framePresetApi?.incrementFrameUseCount?.(frameId) ?? ((Number(frameUseCounts?.[frameId]) || 0) + 1);
+    const next = { ...(frameUseCounts || {}), [frameId]: nextCount };
+    setFrameUseCounts(next);
+    return nextCount;
+  }, [framePresetApi, frameUseCounts]);
   const setLayoutAndPreset = React.useCallback((layoutId) => {
     const normalizedLayout = normalizePresetLayout(layoutId);
     const nextPresetId = framePresetApi?.getDefaultFramePresetIdForLayout?.(normalizedLayout, customFrames)
@@ -1587,10 +1719,30 @@ function App() {
     deleteCustomFrame: softDeleteCustomFrame,
     unlockedFramePackIds,
     setUnlockedFramePackIds,
+    favoriteFramePackIds,
+    setFavoriteFramePackIds,
     favoriteFramePresetIds,
     setFavoriteFramePresetIds,
     unlockFramePackForDev,
+    toggleFavoriteFramePack,
     toggleFavoriteFramePreset,
+    toggleFrameLike,
+    frameLikeIds,
+    frameUseCounts,
+    recordFrameUse,
+    creatorProfiles,
+    setCreatorProfiles,
+    exportPresetId,
+    setExportPresetId,
+    getExportPresetById: framePresetApi?.getExportPresetById,
+    getExportPresets: framePresetApi?.getExportPresets,
+    getDefaultExportPresetId: framePresetApi?.getDefaultExportPresetId,
+    generateFrameIdea: framePresetApi?.generateFrameIdea,
+    loadDesignerDraftRecovery: framePresetApi?.loadDesignerDraftRecovery,
+    saveDesignerDraftRecovery: framePresetApi?.saveDesignerDraftRecovery,
+    clearDesignerDraftRecovery: framePresetApi?.clearDesignerDraftRecovery,
+    designerDraftRecovery,
+    setDesignerDraftRecovery,
     setLayoutAndPreset,
     cameraZoomSupported,
     cameraZoomMin,

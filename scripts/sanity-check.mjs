@@ -1246,7 +1246,7 @@ function checkDeco() {
     }
   });
 
-  const prohibited = ['onTouchStart', 'onTouchMove', 'onTouchEnd', 'onPointerLeave={onDrawEnd}'];
+  const prohibited = ['onPointerLeave={onDrawEnd}'];
   prohibited.forEach(p => {
     if (content.includes(p)) {
       console.error(`❌ FAIL: screens-v2-deco.jsx contains prohibited pattern: ${p}`);
@@ -3365,6 +3365,93 @@ function checkReleaseCandidateLock() {
   }
 }
 
+function checkInteractiveCreatorPlatform() {
+  const framePresets = readFile('frame-presets.jsx');
+  const motionContract = readFile('motion-frame-contract.jsx');
+  const creatorProfile = readFile('creator-profile.jsx');
+  const frameSystem = readFile('frame-system.jsx');
+  const stickerEngine = readFile('sticker-engine.jsx');
+  const setup = readFile('screens-v2.jsx');
+  const deco = readFile('screens-v2-deco.jsx');
+
+  if (framePresets) {
+    ['FRAME_LAYER_TYPES', 'FRAME_BLEND_MODE_WHITELIST', 'FRAME_EXPORT_PRESETS', 'generateFrameIdea', 'loadDesignerDraftRecovery', 'saveDesignerDraftRecovery', 'clearDesignerDraftRecovery'].forEach((needle) => {
+      if (!framePresets.includes(needle)) {
+        console.error(`❌ FAIL: frame-presets.jsx missing ${needle}`);
+        hasErrors = true;
+      }
+    });
+    if (framePresets.includes('fetch(') || framePresets.includes('openai')) {
+      console.error('❌ FAIL: frame-presets.jsx must not use real AI fetch or OpenAI calls');
+      hasErrors = true;
+    }
+  } else {
+    console.error('❌ FAIL: frame-presets.jsx missing');
+    hasErrors = true;
+  }
+
+  if (motionContract) {
+    ['MOTION_FRAME_LAYER_TYPES', 'MOTION_FRAME_BLEND_MODES', 'createMotionFrameLayersFromPreset', 'validateMotionFrameContract'].forEach((needle) => {
+      if (!motionContract.includes(needle)) {
+        console.error(`❌ FAIL: motion-frame-contract.jsx missing ${needle}`);
+        hasErrors = true;
+      }
+    });
+  } else {
+    console.error('❌ FAIL: motion-frame-contract.jsx missing');
+    hasErrors = true;
+  }
+
+  if (creatorProfile) {
+    ['CREATOR_PROFILE_STORAGE_KEY', 'createCreatorProfile', 'normalizeCreatorProfile', 'getTrendingScore', 'buildCreatorSharePayload'].forEach((needle) => {
+      if (!creatorProfile.includes(needle)) {
+        console.error(`❌ FAIL: creator-profile.jsx missing ${needle}`);
+        hasErrors = true;
+      }
+    });
+  } else {
+    console.error('❌ FAIL: creator-profile.jsx missing');
+    hasErrors = true;
+  }
+
+  if (frameSystem && !frameSystem.includes('requestIdleCallbackSafe')) {
+    console.error('❌ FAIL: frame-system.jsx missing requestIdleCallbackSafe');
+    hasErrors = true;
+  }
+  if (stickerEngine) {
+    ['getCanvasPointerPoint', 'onTouchStart', 'touchmove'].forEach((needle) => {
+      if (!stickerEngine.includes(needle)) {
+        console.error(`❌ FAIL: sticker-engine.jsx missing Samsung/touch fallback support: ${needle}`);
+        hasErrors = true;
+      }
+    });
+  }
+  if (deco) {
+    ['getDragPoint', 'useTouchFallback', 'onTouchStart', 'onTouchMove', 'onTouchEnd'].forEach((needle) => {
+      if (!deco.includes(needle)) {
+        console.error(`❌ FAIL: screens-v2-deco.jsx missing touch fallback support: ${needle}`);
+        hasErrors = true;
+      }
+    });
+    if (!deco.includes('onTouchStart={useTouchFallback ? onDrawStart : undefined}') && !deco.includes('onTouchStart={onDrawStart}')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx touch start binding missing');
+      hasErrors = true;
+    }
+  }
+  if (setup) {
+    ['Frame Designer Studio', 'Generate Ideas', 'Export preset'].forEach((needle) => {
+      if (!setup.includes(needle)) {
+        console.error(`❌ FAIL: screens-v2.jsx missing creator platform UI: ${needle}`);
+        hasErrors = true;
+      }
+    });
+    if (!setup.includes("touchAction: 'none'") && !setup.includes("touchAction:'none'")) {
+      console.error('❌ FAIL: screens-v2.jsx missing touchAction none creator drag guard');
+      hasErrors = true;
+    }
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -3374,6 +3461,7 @@ checkCameraModelAndBestCut();
 checkStabilityAuditDocumented();
 checkReactProductionMode();
 checkReleaseCandidateLock();
+checkInteractiveCreatorPlatform();
 
 
 if (hasErrors) {

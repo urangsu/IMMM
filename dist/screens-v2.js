@@ -743,8 +743,21 @@ function SetupScreen({
   deleteCustomFrame,
   favoriteFramePresetIds = [],
   toggleFavoriteFramePreset,
+  favoriteFramePackIds = [],
+  toggleFavoriteFramePack,
   unlockFramePackForDev,
   unlockedFramePackIds = [],
+  frameLikeIds = [],
+  toggleFrameLike,
+  frameUseCounts = {},
+  recordFrameUse,
+  creatorProfiles = [],
+  setCreatorProfiles,
+  exportPresetId = 'hd',
+  setExportPresetId,
+  generateFrameIdea,
+  designerDraftRecovery = null,
+  clearDesignerDraftRecovery,
   storeTabFocus = ''
 }) {
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
@@ -760,6 +773,7 @@ function SetupScreen({
   var [importJsonText, setImportJsonText] = uS('');
   var [storeUpsellPack, setStoreUpsellPack] = uS(null);
   var [importMessage, setImportMessage] = uS('');
+  var [selectedCreatorId, setSelectedCreatorId] = uS('');
   var [selStId, setSelStId] = uS(null);
   var [expandedPacks, setExpandedPacks] = uS({});
   var fileRef = uR(null);
@@ -812,6 +826,33 @@ function SetupScreen({
     });
     return Array.from(byId.values());
   }, [allStorePresets, savedFrames]);
+  var creatorLookup = uM(() => {
+    var map = new Map();
+    (Array.isArray(creatorProfiles) ? creatorProfiles : []).forEach(profile => {
+      if (profile?.id) map.set(profile.id, profile);
+    });
+    return map;
+  }, [creatorProfiles]);
+  var selectedCreatorProfile = uM(() => {
+    if (!selectedCreatorId) return null;
+    return creatorLookup.get(selectedCreatorId) || null;
+  }, [creatorLookup, selectedCreatorId]);
+  var getPresetUseCount = uM(() => {
+    var counts = frameApi?.getFrameUseCounts?.() || {};
+    return preset => Number(counts?.[preset?.id]) || 0;
+  }, [frameApi]);
+  var getPresetLikeCount = uM(() => {
+    var likes = new Set(favoriteFramePresetIds || []);
+    return preset => likes.has(preset?.id) ? 1 : 0;
+  }, [favoriteFramePresetIds]);
+  var getPackTrendingScore = uM(() => {
+    return pack => {
+      var presets = (pack?.presetIds || []).map(id => storePresetSource.find(preset => preset.id === id) || null).filter(Boolean);
+      var likes = presets.reduce((sum, preset) => sum + getPresetLikeCount(preset), 0);
+      var uses = presets.reduce((sum, preset) => sum + getPresetUseCount(preset), 0);
+      return likes * 3 + uses * 2 + (pack?.featured ? 12 : 0);
+    };
+  }, [getPresetLikeCount, getPresetUseCount, storePresetSource]);
   var visibleStorePresets = uM(() => {
     var q = storeSearch.trim().toLowerCase();
     var items = storePresetSource.filter(preset => {
@@ -844,6 +885,14 @@ function SetupScreen({
       sorted.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
     } else if (storeSort === 'az') {
       sorted.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    } else if (storeSort === 'most-used') {
+      sorted.sort((a, b) => getPresetUseCount(b) - getPresetUseCount(a));
+    } else if (storeSort === 'trending') {
+      sorted.sort((a, b) => {
+        var aScore = (a.trendingScore || 0) + getPresetLikeCount(a) * 2 + getPresetUseCount(a);
+        var bScore = (b.trendingScore || 0) + getPresetLikeCount(b) * 2 + getPresetUseCount(b);
+        return bScore - aScore;
+      });
     } else {
       sorted.sort((a, b) => {
         var aPack = a.packId ? allPacks.find(pack => pack.id === a.packId) : null;
@@ -856,7 +905,7 @@ function SetupScreen({
       });
     }
     return sorted;
-  }, [allPacks, favoriteFramePresetIds, frameApi, savedFrames, storeFilter, storePresetSource, storeSearch, storeSort, storeTab]);
+  }, [allPacks, favoriteFramePresetIds, frameApi, getPresetLikeCount, getPresetUseCount, savedFrames, storeFilter, storePresetSource, storeSearch, storeSort, storeTab]);
   var visiblePacks = uM(() => {
     var packs = [...allPacks];
     var q = storeSearch.trim().toLowerCase();
@@ -880,8 +929,17 @@ function SetupScreen({
         return hay.includes(q);
       });
     }
+    if (storeSort === 'newest') {
+      items = [...items].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    } else if (storeSort === 'az') {
+      items = [...items].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    } else if (storeSort === 'most-used') {
+      items = [...items].sort((a, b) => getPackTrendingScore(b) - getPackTrendingScore(a));
+    } else if (storeSort === 'trending') {
+      items = [...items].sort((a, b) => getPackTrendingScore(b) - getPackTrendingScore(a));
+    }
     return items;
-  }, [allPacks, favoriteFramePresetIds, storeSearch, storeTab]);
+  }, [allPacks, favoriteFramePresetIds, getPackTrendingScore, storeSearch, storeSort, storeTab]);
   var activePackBlocked = Boolean(selectedPack?.locked && !(frameApi?.isFramePackUnlocked?.(selectedPack.id) ?? unlockedFramePackIds.includes(selectedPack?.id)));
   var devUnlockVisible = typeof window !== 'undefined' && (window.IMMM_FIELD_TEST === true || window.IMMM_DEBUG_BUILD === true || new URLSearchParams(location.search).get('fieldTest') === '1');
   var formatFrameDate = value => {
@@ -1453,6 +1511,10 @@ function SetupScreen({
   }, /*#__PURE__*/React.createElement("option", {
     value: "recommended"
   }, "Recommended"), /*#__PURE__*/React.createElement("option", {
+    value: "trending"
+  }, "Trending"), /*#__PURE__*/React.createElement("option", {
+    value: "most-used"
+  }, "Most Used"), /*#__PURE__*/React.createElement("option", {
     value: "newest"
   }, "Newest"), /*#__PURE__*/React.createElement("option", {
     value: "az"
@@ -1545,6 +1607,13 @@ function SetupScreen({
       }
     }, pack.presetIds.length, " presets \xB7 ", pack.category), /*#__PURE__*/React.createElement("div", {
       style: {
+        marginTop: 4,
+        fontSize: 10,
+        color: T.inkSoft,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, pack.author?.name || 'IMMM Studio', " \xB7 ", pack.license || 'internal', " \xB7 Trend ", Math.round(getPackTrendingScore(pack))), /*#__PURE__*/React.createElement("div", {
+      style: {
         marginTop: 10,
         display: 'grid',
         placeItems: 'center',
@@ -1614,7 +1683,23 @@ function SetupScreen({
         textTransform: 'uppercase',
         fontFamily: '"Plus Jakarta Sans",system-ui'
       }
-    }, "Unlock coming soon"), devUnlockVisible && pack.locked && !packUnlocked && /*#__PURE__*/React.createElement("button", {
+    }, "Unlock coming soon"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => toggleFavoriteFramePack && toggleFavoriteFramePack(pack.id),
+      style: {
+        border: `1px solid ${T.line}`,
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: favoriteFramePackIds.includes(pack.id) ? T.ink : '#FFFFFF',
+        color: favoriteFramePackIds.includes(pack.id) ? T.bg : T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, favoriteFramePackIds.includes(pack.id) ? 'Pack Fav' : 'Fav Pack'), devUnlockVisible && pack.locked && !packUnlocked && /*#__PURE__*/React.createElement("button", {
       onClick: () => unlockFramePackForDev && unlockFramePackForDev(pack.id),
       style: {
         border: 'none',
@@ -1836,7 +1921,68 @@ function SetupScreen({
       textTransform: 'uppercase',
       fontFamily: '"Plus Jakarta Sans",system-ui'
     }
-  }, "Unlock for Dev")))), /*#__PURE__*/React.createElement("div", {
+  }, "Unlock for Dev"))), selectedCreatorProfile && /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderRadius: 16,
+      border: `1px solid ${T.line}`,
+      background: '#FFFFFF',
+      padding: 12,
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900,
+      color: T.ink,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, selectedCreatorProfile.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4,
+      fontSize: 10.5,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui'
+    }
+  }, selectedCreatorProfile.handle || '@immm', " \xB7 ", selectedCreatorProfile.bio || 'Creator profile')), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSelectedCreatorId(''),
+    style: {
+      minHeight: 38,
+      borderRadius: 999,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      padding: '0 10px',
+      fontSize: 10,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Close")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, selectedCreatorProfile.verified ? 'Verified' : 'Creator'), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, selectedCreatorProfile.packsCreated || 0, " packs"), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, selectedCreatorProfile.likes || 0, " likes")))), /*#__PURE__*/React.createElement("div", {
     style: {
       borderRadius: 18,
       border: `1px solid ${T.line}`,
@@ -2333,7 +2479,28 @@ function SetupScreen({
       fontSize: 12,
       fontFamily: 'Pretendard,system-ui'
     }
-  }, "No saved frames yet. Save a decorated setup or deco state to build your library."), /*#__PURE__*/React.createElement("div", {
+  }, "No saved frames yet. Save a decorated setup or deco state to build your library.", openDesigner && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => openDesigner({
+      mode: 'new',
+      preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      padding: '0 12px',
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase'
+    }
+  }, "Create your first frame"))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
       display: 'grid',
@@ -2421,7 +2588,7 @@ function SetupScreen({
         color: T.inkSoft,
         fontFamily: 'Pretendard,system-ui'
       }
-    }, preset.author?.name || 'IMMM Studio', " \xB7 ", preset.license || 'internal')), /*#__PURE__*/React.createElement("div", {
+    }, preset.author?.name || preset.creator?.name || 'IMMM Studio', " \xB7 ", preset.license || 'internal')), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         flexDirection: 'column',
@@ -2434,7 +2601,10 @@ function SetupScreen({
     }, "Active"), preset.source === 'imported' && /*#__PURE__*/React.createElement(StoreBadge, {
       T: T,
       tone: "light"
-    }, "Imported"), /*#__PURE__*/React.createElement("span", {
+    }, "Imported"), /*#__PURE__*/React.createElement(StoreBadge, {
+      T: T,
+      tone: "light"
+    }, "Trend ", Math.round((preset.trendingScore || 0) + getPresetLikeCount(preset) * 2 + getPresetUseCount(preset))), /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 10,
         color: T.inkSoft,
@@ -2478,7 +2648,39 @@ function SetupScreen({
         textTransform: 'uppercase',
         fontFamily: '"Plus Jakarta Sans",system-ui'
       }
-    }, favoriteFramePresetIds.includes(preset.id) ? 'Favorited' : 'Favorite'), isCustom && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    }, favoriteFramePresetIds.includes(preset.id) ? 'Favorited' : 'Favorite'), /*#__PURE__*/React.createElement("button", {
+      onClick: () => toggleFrameLike && toggleFrameLike(preset.id),
+      style: {
+        border: `1px solid ${T.line}`,
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: frameLikeIds.includes(preset.id) ? T.ink : '#FFFFFF',
+        color: frameLikeIds.includes(preset.id) ? T.bg : T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, frameLikeIds.includes(preset.id) ? 'Liked' : 'Like'), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setSelectedCreatorId(preset.creatorId || preset.author?.id || ''),
+      style: {
+        border: `1px solid ${T.line}`,
+        borderRadius: 999,
+        padding: '10px 12px',
+        minHeight: 44,
+        background: '#FFFFFF',
+        color: T.ink,
+        cursor: 'pointer',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, "View Creator"), isCustom && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
       onClick: () => openDesigner && openDesigner({
         mode: 'edit',
         preset
@@ -3337,15 +3539,23 @@ function DesignerScreen({
   importFramePackFromJson,
   setSetupStoreTabFocus,
   selectedFramePresetId,
-  setSelectedFramePresetId
+  setSelectedFramePresetId,
+  creatorProfiles = [],
+  designerDraftRecovery = null,
+  clearDesignerDraftRecovery,
+  generateFrameIdea,
+  exportPresetId = 'hd',
+  setExportPresetId
 }) {
   var frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
+  var useTouchFallback = typeof window !== 'undefined' && (!('PointerEvent' in window) || typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || ''));
   var previewRef = uR(null);
   var dragRef = uR(null);
   var [activeTab, setActiveTab] = uS('layout');
   var [selectedSlotIndex, setSelectedSlotIndex] = uS(0);
   var [selectedDecorationIndex, setSelectedDecorationIndex] = uS(0);
+  var [activeGuides, setActiveGuides] = uS([]);
   var [statusMessage, setStatusMessage] = uS('');
   var [validationError, setValidationError] = uS('');
   var [exportPackName, setExportPackName] = uS(draftFrame?.name || 'Designer Pack Draft');
@@ -3354,6 +3564,11 @@ function DesignerScreen({
   var [exportPackAuthor, setExportPackAuthor] = uS(draftFrame?.author?.name || 'IMMM Studio');
   var [exportPackLicense, setExportPackLicense] = uS(draftFrame?.license || 'internal');
   var [importPackJson, setImportPackJson] = uS('');
+  var [showGuides, setShowGuides] = uS(true);
+  var [snapEnabled, setSnapEnabled] = uS(true);
+  var [gridEnabled, setGridEnabled] = uS(false);
+  var [activeLayerIndex, setActiveLayerIndex] = uS(0);
+  var [activeMotionPreview, setActiveMotionPreview] = uS(false);
   var normalizedDraft = uM(() => frameApi?.normalizeDesignerDraft?.(draftFrame) || draftFrame || null, [draftFrame, frameApi]);
   var normalizedInitial = uM(() => frameApi?.normalizeDesignerDraft?.(initialDraftFrame) || initialDraftFrame || null, [initialDraftFrame, frameApi]);
   var slotDefaults = uM(() => normalizedDraft ? frameApi?.getPhotoSlotsForLayout?.(normalizedDraft.layout) || normalizedDraft.photoSlots || [] : [], [frameApi, normalizedDraft]);
@@ -3384,6 +3599,9 @@ function DesignerScreen({
     id: 'slots',
     label: 'Slots'
   }, {
+    id: 'layers',
+    label: 'Layers'
+  }, {
     id: 'decorations',
     label: 'Decorations'
   }, {
@@ -3395,12 +3613,126 @@ function DesignerScreen({
   }];
   var currentLayoutSlots = normalizedDraft?.photoSlots || [];
   var currentDecorations = normalizedDraft?.decorations || [];
+  var currentLayers = normalizedDraft?.layers || [];
+  var currentMotionLayers = normalizedDraft?.motionLayers || [];
   var selectedSlot = currentLayoutSlots[selectedSlotIndex] || currentLayoutSlots[0] || null;
   var selectedDecoration = currentDecorations[selectedDecorationIndex] || currentDecorations[0] || null;
+  var selectedLayer = currentLayers[activeLayerIndex] || currentLayers[0] || null;
   var slotCount = currentLayoutSlots.length;
   var previewCanvas = normalizedDraft?.canvasSize || frameApi?.getCanvasSizeForLayout?.(normalizedDraft?.layout || layout) || {
     width: 560,
     height: 1808
+  };
+  var getDragPoint = event => {
+    if (!event) return null;
+    if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+      return {
+        clientX: event.clientX,
+        clientY: event.clientY
+      };
+    }
+    var touch = event.touches?.[0] || event.changedTouches?.[0];
+    if (touch && typeof touch.clientX === 'number' && typeof touch.clientY === 'number') {
+      return {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      };
+    }
+    return null;
+  };
+  var snapRectToGuides = (rect, canvasSize, peers = []) => {
+    var next = {
+      ...rect
+    };
+    var guides = [];
+    var width = canvasSize?.width || 1;
+    var height = canvasSize?.height || 1;
+    var threshold = 14;
+    var centerX = width / 2;
+    var centerY = height / 2;
+    var rectCenterX = next.x + next.width / 2;
+    var rectCenterY = next.y + next.height / 2;
+    var snapAxis = (value, target, axis, kind) => {
+      if (Math.abs(value - target) <= threshold) {
+        guides.push({
+          axis,
+          value: target,
+          kind
+        });
+        return target;
+      }
+      return value;
+    };
+    var snappedCenterX = snapAxis(rectCenterX, centerX, 'v', 'center');
+    var snappedCenterY = snapAxis(rectCenterY, centerY, 'h', 'center');
+    next.x += snappedCenterX - rectCenterX;
+    next.y += snappedCenterY - rectCenterY;
+    var edgeCandidates = [{
+      axis: 'v',
+      value: 0,
+      kind: 'edge-left'
+    }, {
+      axis: 'v',
+      value: width,
+      kind: 'edge-right'
+    }, {
+      axis: 'h',
+      value: 0,
+      kind: 'edge-top'
+    }, {
+      axis: 'h',
+      value: height,
+      kind: 'edge-bottom'
+    }];
+    edgeCandidates.forEach(candidate => {
+      if (candidate.axis === 'v') {
+        var left = next.x;
+        var right = next.x + next.width;
+        if (Math.abs(left - candidate.value) <= threshold) {
+          guides.push(candidate);
+          next.x += candidate.value - left;
+        } else if (Math.abs(right - candidate.value) <= threshold) {
+          guides.push(candidate);
+          next.x += candidate.value - right;
+        }
+      } else {
+        var top = next.y;
+        var bottom = next.y + next.height;
+        if (Math.abs(top - candidate.value) <= threshold) {
+          guides.push(candidate);
+          next.y += candidate.value - top;
+        } else if (Math.abs(bottom - candidate.value) <= threshold) {
+          guides.push(candidate);
+          next.y += candidate.value - bottom;
+        }
+      }
+    });
+    peers.forEach(peer => {
+      if (!peer) return;
+      var peerCenterX = peer.x + peer.width / 2;
+      var peerCenterY = peer.y + peer.height / 2;
+      if (Math.abs(next.x + next.width / 2 - peerCenterX) <= threshold) {
+        guides.push({
+          axis: 'v',
+          value: peerCenterX,
+          kind: 'peer-center'
+        });
+        next.x += peerCenterX - (next.x + next.width / 2);
+      }
+      if (Math.abs(next.y + next.height / 2 - peerCenterY) <= threshold) {
+        guides.push({
+          axis: 'h',
+          value: peerCenterY,
+          kind: 'peer-center'
+        });
+        next.y += peerCenterY - (next.y + next.height / 2);
+      }
+    });
+    var clamped = frameApi?.clampRectToCanvas?.(next, canvasSize, 24, 24) || next;
+    return {
+      rect: clamped,
+      guides
+    };
   };
   var normalizeNextDraft = updater => {
     setDraftFrame(prev => {
@@ -3546,17 +3878,82 @@ function DesignerScreen({
     }));
     setSelectedDecorationIndex(0);
   };
+  var setLayerPatch = (index, patch) => {
+    normalizeNextDraft(prev => {
+      var next = [...(prev.layers || [])];
+      if (!next[index]) return prev;
+      next[index] = {
+        ...next[index],
+        ...patch
+      };
+      return {
+        ...prev,
+        layers: next
+      };
+    });
+  };
+  var moveLayer = (index, delta) => {
+    normalizeNextDraft(prev => {
+      var next = [...(prev.layers || [])];
+      var target = index + delta;
+      if (!next[index] || target < 0 || target >= next.length) return prev;
+      var [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return {
+        ...prev,
+        layers: next.map((layer, i) => ({
+          ...layer,
+          zIndex: i
+        }))
+      };
+    });
+    setActiveLayerIndex(prev => Math.max(0, prev + delta));
+  };
+  var duplicateLayer = index => {
+    normalizeNextDraft(prev => {
+      var source = (prev.layers || [])[index];
+      if (!source) return prev;
+      var copy = {
+        ...source,
+        id: `${source.id || 'layer'}_${Date.now().toString(36)}`,
+        zIndex: (source.zIndex || 0) + 1
+      };
+      var next = [...(prev.layers || [])];
+      next.splice(index + 1, 0, copy);
+      return {
+        ...prev,
+        layers: next.map((layer, i) => ({
+          ...layer,
+          zIndex: i
+        }))
+      };
+    });
+  };
+  var deleteLayer = index => {
+    normalizeNextDraft(prev => ({
+      ...prev,
+      layers: (prev.layers || []).filter((_, i) => i !== index)
+    }));
+    setActiveLayerIndex(0);
+  };
   var startDrag = (kind, index, mode = 'move') => event => {
     if (!previewRef.current || !normalizedDraft) return;
-    event.preventDefault();
+    var point = getDragPoint(event);
+    if (!point) return;
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
+    if (event.currentTarget?.setPointerCapture && event.pointerId != null) {
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch (_) {}
+    }
     var rect = previewRef.current.getBoundingClientRect();
     dragRef.current = {
       kind,
       index,
       mode,
-      startX: event.clientX,
-      startY: event.clientY,
+      startX: point.clientX,
+      startY: point.clientY,
       rect,
       snapshot: frameApi?.normalizeDesignerDraft?.(normalizedDraft) || normalizedDraft
     };
@@ -3572,16 +3969,19 @@ function DesignerScreen({
     if (!normalizedDraft) return;
     setSelectedSlotIndex(prev => Math.min(prev, Math.max(0, currentLayoutSlots.length - 1)));
     setSelectedDecorationIndex(prev => Math.min(prev, Math.max(0, currentDecorations.length - 1)));
+    setActiveLayerIndex(prev => Math.min(prev, Math.max(0, currentLayers.length - 1)));
   }, [currentDecorations.length, currentLayoutSlots.length, normalizedDraft]);
   React.useEffect(() => {
     var onMove = event => {
       var drag = dragRef.current;
       if (!drag || !drag.snapshot) return;
+      var point = getDragPoint(event);
+      if (!point) return;
       var scaleX = (drag.snapshot.canvasSize?.width || 1) / Math.max(1, drag.rect.width);
       var scaleY = (drag.snapshot.canvasSize?.height || 1) / Math.max(1, drag.rect.height);
-      var dx = (event.clientX - drag.startX) * scaleX;
-      var dy = (event.clientY - drag.startY) * scaleY;
-      event.preventDefault();
+      var dx = (point.clientX - drag.startX) * scaleX;
+      var dy = (point.clientY - drag.startY) * scaleY;
+      if (event.cancelable) event.preventDefault();
       normalizeNextDraft(prev => {
         var base = frameApi?.normalizeDesignerDraft?.(prev || drag.snapshot) || prev || drag.snapshot;
         if (drag.kind === 'slot') {
@@ -3595,13 +3995,22 @@ function DesignerScreen({
             x: source.x + dx,
             y: source.y + dy
           };
-          nextSlots[drag.index] = frameApi?.clampRectToCanvas?.({
+          var peers = nextSlots.filter((_, i) => i !== drag.index);
+          var snapped = snapEnabled ? snapRectToGuides({
             ...source,
             ...patch
-          }, base.canvasSize, 24, 24) || {
-            ...source,
-            ...patch
+          }, base.canvasSize, peers) : {
+            rect: frameApi?.clampRectToCanvas?.({
+              ...source,
+              ...patch
+            }, base.canvasSize, 24, 24) || {
+              ...source,
+              ...patch
+            },
+            guides: []
           };
+          setActiveGuides(snapped.guides);
+          nextSlots[drag.index] = snapped.rect;
           return {
             ...base,
             photoSlots: nextSlots
@@ -3618,15 +4027,35 @@ function DesignerScreen({
             x: _source.x + dx,
             y: _source.y + dy
           };
+          var _peers = nextDecos.filter((_, i) => i !== drag.index).map(item => ({
+            x: item.x,
+            y: item.y,
+            width: item.width,
+            height: item.height
+          }));
+          var _snapped = snapEnabled ? snapRectToGuides({
+            ..._source,
+            ..._patch
+          }, base.canvasSize, _peers) : {
+            rect: frameApi?.clampRectToCanvas?.({
+              ..._source,
+              ..._patch
+            }, base.canvasSize, 24, 24) || {
+              ..._source,
+              ..._patch
+            },
+            guides: []
+          };
+          setActiveGuides(_snapped.guides);
           nextDecos[drag.index] = frameApi?.normalizeDesignerDraft?.({
             ...base,
             decorations: nextDecos.map((item, i) => i === drag.index ? {
               ...item,
-              ..._patch
+              ..._snapped.rect
             } : item)
           })?.decorations?.[drag.index] || {
             ..._source,
-            ..._patch
+            ..._snapped.rect
           };
           return {
             ...base,
@@ -3638,14 +4067,39 @@ function DesignerScreen({
     };
     var onUp = () => {
       dragRef.current = null;
+      setActiveGuides([]);
     };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointermove', onMove, {
+      passive: false
+    });
+    window.addEventListener('pointerup', onUp, {
+      passive: true
+    });
+    window.addEventListener('pointercancel', onUp, {
+      passive: true
+    });
+    if (useTouchFallback) {
+      window.addEventListener('touchmove', onMove, {
+        passive: false
+      });
+      window.addEventListener('touchend', onUp, {
+        passive: true
+      });
+      window.addEventListener('touchcancel', onUp, {
+        passive: true
+      });
+    }
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      if (useTouchFallback) {
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onUp);
+        window.removeEventListener('touchcancel', onUp);
+      }
     };
-  }, [frameApi, normalizedDraft]);
+  }, [frameApi, normalizedDraft, useTouchFallback]);
   React.useEffect(() => {
     setExportPackName(normalizedDraft?.name || 'Designer Pack Draft');
     setExportPackDescription(`Designer draft for ${normalizedDraft?.name || 'IMMM'}.`);
@@ -3740,6 +4194,8 @@ function DesignerScreen({
     if (isDirty && !window.confirm('Discard designer changes?')) return;
     setDraftFrame(normalizedInitial || normalizedDraft);
     setDesignerMode('edit');
+    clearDesignerDraftRecovery && clearDesignerDraftRecovery();
+    setStatusMessage('Draft discarded');
     go('setup');
   };
   if (!normalizedDraft) {
@@ -3944,7 +4400,8 @@ function DesignerScreen({
     var active = selectedSlotIndex === index;
     return /*#__PURE__*/React.createElement("div", {
       key: `slot-${index}`,
-      onPointerDown: startDrag('slot', index, 'move'),
+      onPointerDown: useTouchFallback ? undefined : startDrag('slot', index, 'move'),
+      onTouchStart: useTouchFallback ? startDrag('slot', index, 'move') : undefined,
       style: {
         position: 'absolute',
         left: `${slot.x / previewCanvas.width * 100}%`,
@@ -3955,7 +4412,8 @@ function DesignerScreen({
         boxSizing: 'border-box',
         border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.28)'}`,
         background: active ? 'rgba(26,26,31,0.04)' : 'rgba(255,255,255,0.04)',
-        cursor: 'move'
+        cursor: 'move',
+        touchAction: 'none'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -3970,7 +4428,8 @@ function DesignerScreen({
         fontWeight: 800
       }
     }, index + 1), /*#__PURE__*/React.createElement("div", {
-      onPointerDown: startDrag('slot', index, 'resize'),
+      onPointerDown: useTouchFallback ? undefined : startDrag('slot', index, 'resize'),
+      onTouchStart: useTouchFallback ? startDrag('slot', index, 'resize') : undefined,
       style: {
         position: 'absolute',
         right: -3,
@@ -3979,7 +4438,8 @@ function DesignerScreen({
         height: 14,
         borderRadius: 4,
         background: T.ink,
-        cursor: 'nwse-resize'
+        cursor: 'nwse-resize',
+        touchAction: 'none'
       }
     }));
   }), currentDecorations.map((deco, index) => {
@@ -3990,7 +4450,8 @@ function DesignerScreen({
     var h = deco.height || 80;
     return /*#__PURE__*/React.createElement("div", {
       key: deco.id || index,
-      onPointerDown: startDrag('decor', index, 'move'),
+      onPointerDown: useTouchFallback ? undefined : startDrag('decor', index, 'move'),
+      onTouchStart: useTouchFallback ? startDrag('decor', index, 'move') : undefined,
       style: {
         position: 'absolute',
         left: `${x / previewCanvas.width * 100}%`,
@@ -4005,7 +4466,8 @@ function DesignerScreen({
         cursor: 'move',
         boxSizing: 'border-box',
         opacity: deco.opacity ?? 1,
-        transform: `rotate(${deco.rotation || 0}deg)`
+        transform: `rotate(${deco.rotation || 0}deg)`,
+        touchAction: 'none'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -4016,7 +4478,8 @@ function DesignerScreen({
         padding: 4
       }
     }, deco.type === 'text' ? deco.text || 'TEXT' : deco.shape || 'shape'), /*#__PURE__*/React.createElement("div", {
-      onPointerDown: startDrag('decor', index, 'resize'),
+      onPointerDown: useTouchFallback ? undefined : startDrag('decor', index, 'resize'),
+      onTouchStart: useTouchFallback ? startDrag('decor', index, 'resize') : undefined,
       style: {
         position: 'absolute',
         right: -3,
@@ -4025,9 +4488,40 @@ function DesignerScreen({
         height: 14,
         borderRadius: 4,
         background: T.ink,
-        cursor: 'nwse-resize'
+        cursor: 'nwse-resize',
+        touchAction: 'none'
       }
     }));
+  }), showGuides && activeGuides.map((guide, index) => /*#__PURE__*/React.createElement("div", {
+    key: `${guide.axis}-${guide.kind}-${index}`,
+    style: {
+      position: 'absolute',
+      pointerEvents: 'none',
+      background: 'rgba(130, 92, 255, 0.8)',
+      zIndex: 6,
+      ...(guide.axis === 'v' ? {
+        top: 0,
+        bottom: 0,
+        left: `${guide.value / previewCanvas.width * 100}%`,
+        width: 2,
+        transform: 'translateX(-1px)'
+      } : {
+        left: 0,
+        right: 0,
+        top: `${guide.value / previewCanvas.height * 100}%`,
+        height: 2,
+        transform: 'translateY(-1px)'
+      })
+    }
+  })), gridEnabled && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      inset: 0,
+      pointerEvents: 'none',
+      backgroundImage: 'linear-gradient(rgba(130,92,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(130,92,255,0.08) 1px, transparent 1px)',
+      backgroundSize: '20% 20%',
+      zIndex: 1
+    }
   })))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
@@ -4366,7 +4860,261 @@ function DesignerScreen({
       fontSize: 14,
       fontWeight: 800
     }
-  }, label)))), activeTab === 'decorations' && /*#__PURE__*/React.createElement("div", {
+  }, label)))), activeTab === 'layers' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 14,
+      borderRadius: 18,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 900
+    }
+  }, "Layers"), /*#__PURE__*/React.createElement(StoreBadge, {
+    T: T,
+    tone: "light"
+  }, currentLayers.length)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, currentLayers.map((layer, index) => {
+    var active = activeLayerIndex === index;
+    return /*#__PURE__*/React.createElement("div", {
+      key: layer.id || index,
+      style: {
+        border: `1px solid ${active ? T.ink : T.line}`,
+        borderRadius: 12,
+        background: active ? T.card : '#fff',
+        padding: 10,
+        display: 'grid',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setActiveLayerIndex(index),
+      style: {
+        minHeight: 44,
+        borderRadius: 10,
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        textAlign: 'left',
+        fontSize: 11,
+        fontWeight: 800,
+        color: T.ink
+      }
+    }, index + 1, ". ", layer.type), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setLayerPatch(index, {
+        visible: !layer.visible
+      }),
+      style: {
+        minHeight: 38,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: layer.visible ? T.ink : '#fff',
+        color: layer.visible ? T.bg : T.ink,
+        padding: '0 10px',
+        fontSize: 10,
+        fontWeight: 800,
+        textTransform: 'uppercase'
+      }
+    }, layer.visible ? 'Visible' : 'Hidden'), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setLayerPatch(index, {
+        locked: !layer.locked
+      }),
+      style: {
+        minHeight: 38,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: layer.locked ? T.ink : '#fff',
+        color: layer.locked ? T.bg : T.ink,
+        padding: '0 10px',
+        fontSize: 10,
+        fontWeight: 800,
+        textTransform: 'uppercase'
+      }
+    }, layer.locked ? 'Locked' : 'Unlocked'), /*#__PURE__*/React.createElement("button", {
+      onClick: () => moveLayer(index, -1),
+      disabled: index === 0,
+      style: {
+        minHeight: 38,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        padding: '0 10px',
+        fontSize: 10,
+        fontWeight: 800,
+        textTransform: 'uppercase'
+      }
+    }, "Up"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => moveLayer(index, 1),
+      disabled: index === currentLayers.length - 1,
+      style: {
+        minHeight: 38,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        padding: '0 10px',
+        fontSize: 10,
+        fontWeight: 800,
+        textTransform: 'uppercase'
+      }
+    }, "Down"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => duplicateLayer(index),
+      style: {
+        minHeight: 38,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        padding: '0 10px',
+        fontSize: 10,
+        fontWeight: 800,
+        textTransform: 'uppercase'
+      }
+    }, "Duplicate"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => deleteLayer(index),
+      style: {
+        minHeight: 38,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        padding: '0 10px',
+        fontSize: 10,
+        fontWeight: 800,
+        textTransform: 'uppercase'
+      }
+    }, "Delete")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("label", {
+      style: {
+        display: 'grid',
+        gap: 4,
+        fontSize: 10,
+        color: T.inkSoft
+      }
+    }, "Opacity", /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: "0",
+      max: "1",
+      step: "0.05",
+      value: Number(layer.opacity ?? 1),
+      onChange: e => setLayerPatch(index, {
+        opacity: Number(e.target.value)
+      }),
+      style: {
+        minHeight: 38,
+        borderRadius: 10,
+        border: `1px solid ${T.line}`,
+        padding: '0 10px'
+      }
+    })), /*#__PURE__*/React.createElement("label", {
+      style: {
+        display: 'grid',
+        gap: 4,
+        fontSize: 10,
+        color: T.inkSoft
+      }
+    }, "Blend", /*#__PURE__*/React.createElement("select", {
+      value: layer.blendMode || 'normal',
+      onChange: e => setLayerPatch(index, {
+        blendMode: e.target.value
+      }),
+      style: {
+        minHeight: 38,
+        borderRadius: 10,
+        border: `1px solid ${T.line}`,
+        padding: '0 10px'
+      }
+    }, ['normal', 'multiply', 'screen', 'overlay', 'soft-light'].map(mode => /*#__PURE__*/React.createElement("option", {
+      key: mode,
+      value: mode
+    }, mode)))), /*#__PURE__*/React.createElement("label", {
+      style: {
+        display: 'grid',
+        gap: 4,
+        fontSize: 10,
+        color: T.inkSoft
+      }
+    }, "zIndex", /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      value: Number(layer.zIndex ?? index),
+      onChange: e => setLayerPatch(index, {
+        zIndex: Number(e.target.value)
+      }),
+      style: {
+        minHeight: 38,
+        borderRadius: 10,
+        border: `1px solid ${T.line}`,
+        padding: '0 10px'
+      }
+    }))));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowGuides(v => !v),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: showGuides ? T.ink : '#fff',
+      color: showGuides ? T.bg : T.ink,
+      padding: '0 12px',
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, showGuides ? 'Guides On' : 'Guides Off'), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSnapEnabled(v => !v),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: snapEnabled ? T.ink : '#fff',
+      color: snapEnabled ? T.bg : T.ink,
+      padding: '0 12px',
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, snapEnabled ? 'Snap On' : 'Snap Off'), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setGridEnabled(v => !v),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: gridEnabled ? T.ink : '#fff',
+      color: gridEnabled ? T.bg : T.ink,
+      padding: '0 12px',
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, gridEnabled ? 'Grid On' : 'Grid Off'))), activeTab === 'decorations' && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 14,
       borderRadius: 18,
@@ -4674,7 +5422,39 @@ function DesignerScreen({
       fontSize: 12,
       fontWeight: 900
     }
-  }, "Save / Pack Export"), /*#__PURE__*/React.createElement("input", {
+  }, "Save / Pack Export"), /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'grid',
+      gap: 4,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, "Export preset", /*#__PURE__*/React.createElement("select", {
+    value: exportPresetId,
+    onChange: e => setExportPresetId && setExportPresetId(e.target.value),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 10px',
+      fontSize: 12
+    }
+  }, (frameApi?.getExportPresets?.() || [{
+    id: 'hd',
+    name: 'HD'
+  }, {
+    id: 'instagram-story',
+    name: 'Instagram Story'
+  }, {
+    id: 'instagram-post',
+    name: 'Instagram Post'
+  }, {
+    id: 'wallpaper',
+    name: 'Wallpaper'
+  }]).map(preset => /*#__PURE__*/React.createElement("option", {
+    key: preset.id,
+    value: preset.id
+  }, preset.name)))), /*#__PURE__*/React.createElement("input", {
     value: exportPackName,
     onChange: e => setExportPackName(e.target.value),
     style: {
@@ -4772,7 +5552,96 @@ function DesignerScreen({
       fontWeight: 800,
       textTransform: 'uppercase'
     }
-  }, "Save as Pack Draft"), /*#__PURE__*/React.createElement("div", {
+  }, "Save as Pack Draft"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var prompt = window.prompt('Describe an idea', 'kawaii pink y2k');
+      if (!prompt) return;
+      var idea = generateFrameIdea ? generateFrameIdea(prompt) : null;
+      if (!idea) return;
+      normalizeNextDraft(prev => ({
+        ...prev,
+        background: idea.background || prev.background,
+        decorations: [...(idea.decorations || []), ...(prev.decorations || [])],
+        watermark: idea.watermark ? {
+          ...(prev.watermark || {}),
+          ...idea.watermark
+        } : prev.watermark,
+        layout: idea.recommendedLayout || prev.layout
+      }));
+      setActiveTab('background');
+      setStatusMessage(`Idea generated for ${prompt}`);
+    },
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase'
+    }
+  }, "Generate Ideas"), designerDraftRecovery && /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: 12,
+      background: 'rgba(26,26,31,0.03)',
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 900,
+      color: T.ink
+    }
+  }, "Recovery available"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: T.inkSoft
+    }
+  }, "Saved ", formatFrameDate(designerDraftRecovery.savedAt), " \xB7 ", designerDraftRecovery.draft?.name || 'Untitled'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (designerDraftRecovery?.draft) {
+        setDraftFrame(designerDraftRecovery.draft);
+        setStatusMessage('Recovered previous draft');
+      }
+    },
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase',
+      padding: '0 12px'
+    }
+  }, "Restore"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      clearDesignerDraftRecovery && clearDesignerDraftRecovery();
+      setStatusMessage('Recovery discarded');
+    },
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      textTransform: 'uppercase',
+      padding: '0 12px'
+    }
+  }, "Discard Recovery"))), /*#__PURE__*/React.createElement("div", {
     style: {
       borderTop: `1px solid ${T.line}`,
       paddingTop: 10,

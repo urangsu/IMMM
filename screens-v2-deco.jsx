@@ -106,8 +106,21 @@ function getStickerPickerPacks() {
     : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
 }
 
+function getDragPoint(event) {
+  if (!event) return null;
+  if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+    return { clientX: event.clientX, clientY: event.clientY };
+  }
+  const touch = event.touches?.[0] || event.changedTouches?.[0];
+  if (touch && typeof touch.clientX === 'number' && typeof touch.clientY === 'number') {
+    return { clientX: touch.clientX, clientY: touch.clientY };
+  }
+  return null;
+}
+
 function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation,
-  stickers, setStickers, drawStrokes, setDrawStrokes, logo, dateText, setDateText, accent, frameColor, framePreset, saveCustomFrame }) {
+  stickers, setStickers, drawStrokes, setDrawStrokes, logo, dateText, setDateText, accent, frameColor, framePreset, saveCustomFrame, openDesigner, exportPresetId, selectedFramePresetId }) {
+  const useTouchFallback = typeof window !== 'undefined' && (!('PointerEvent' in window) || (typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || '')));
   const [tab, setTab] = React.useState('stickers'); // stickers | draw | text
   const [selStId, setSelStId] = React.useState(null);
   const [drawColor, setDrawColor] = React.useState('#D98893');
@@ -205,14 +218,16 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const onDrawStart = React.useCallback((e) => {
     if (!drawModeRef.current || !frameNativeRef.current) return;
-    e.stopPropagation(); e.preventDefault();
+    const point = getDragPoint(e);
+    if (!point) return;
+    e.stopPropagation(); if (e.cancelable) e.preventDefault();
     // Pointer capture: keeps move/up events even if pointer leaves element
     if (e.pointerId != null && e.currentTarget?.setPointerCapture) {
       e.currentTarget.setPointerCapture(e.pointerId);
     }
     const rect = frameNativeRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * 100;
-    const y = (e.clientY - rect.top) / rect.height * 100;
+    const x = (point.clientX - rect.left) / rect.width * 100;
+    const y = (point.clientY - rect.top) / rect.height * 100;
     // Store normalized width so export renders at same visual size regardless of canvas scale
     const widthNorm = rect.width > 0 ? drawWidth / rect.width : null;
     // High-entropy seed: avoids collision even when multiple strokes start same ms
@@ -235,10 +250,12 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const onDrawMove = React.useCallback((e) => {
     if (!drawModeRef.current || !frameNativeRef.current || !curStrokeRef.current) return;
-    e.preventDefault();
+    const point = getDragPoint(e);
+    if (!point) return;
+    if (e.cancelable) e.preventDefault();
     const rect = frameNativeRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * 100;
-    const y = (e.clientY - rect.top) / rect.height * 100;
+    const x = (point.clientX - rect.left) / rect.width * 100;
+    const y = (point.clientY - rect.top) / rect.height * 100;
     curStrokeRef.current.points.push([x, y]);
     curPathDRef.current += ` L${x} ${y}`;
     if (curPathElRef.current) {
@@ -413,10 +430,14 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const preview =
   <div ref={previewContainerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
       <div ref={frameNativeRef} style={{ width: frameW, transform: `scale(${zoom})`, transformOrigin: 'center', position: 'relative', flexShrink: 0, touchAction: drawMode ? 'none' : 'auto' }}
-        onPointerDown={onDrawStart}
-        onPointerMove={onDrawMove}
-        onPointerUp={onDrawEnd}
-        onPointerCancel={onDrawEnd}>
+        onPointerDown={useTouchFallback ? undefined : onDrawStart}
+        onPointerMove={useTouchFallback ? undefined : onDrawMove}
+        onPointerUp={useTouchFallback ? undefined : onDrawEnd}
+        onPointerCancel={useTouchFallback ? undefined : onDrawEnd}
+        onTouchStart={useTouchFallback ? onDrawStart : undefined}
+        onTouchMove={useTouchFallback ? onDrawMove : undefined}
+        onTouchEnd={useTouchFallback ? onDrawEnd : undefined}
+        onTouchCancel={useTouchFallback ? onDrawEnd : undefined}>
         
         <canvas ref={compositionCanvasRef} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', borderRadius: 4 }} />
 
@@ -1357,7 +1378,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       try {
         const blob = await getFinalResultBlob();
         if (!cancelled && blob) {
-          await saveResultToGallery(blob, 'local');
+          await saveResultToGallery(blob, 'local', {
+            framePresetId: framePreset?.id || selectedFramePresetId || '',
+            packId: framePreset?.packId || '',
+            creatorId: framePreset?.creatorId || '',
+          });
           localStorage.setItem(key, '1');
         }
       } catch (e) {
@@ -1399,7 +1424,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     try {
       const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();
-      await saveResultToGallery(blob, 'local');
+      await saveResultToGallery(blob, 'local', {
+        framePresetId: framePreset?.id || selectedFramePresetId || '',
+        packId: framePreset?.packId || '',
+        creatorId: framePreset?.creatorId || '',
+      });
       triggerDownload(blob, fname);
     } catch(e) {
       console.error(e);
@@ -1416,7 +1445,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();
       const file = new File([blob], fname, { type: 'image/png' });
-      await saveResultToGallery(blob, 'local');
+      await saveResultToGallery(blob, 'local', {
+        framePresetId: framePreset?.id || selectedFramePresetId || '',
+        packId: framePreset?.packId || '',
+        creatorId: framePreset?.creatorId || '',
+      });
       
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         addToast('공유 준비 완료');
@@ -1477,7 +1510,10 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
         metadata: {
           layout,
           filter,
-          frameColor
+          frameColor,
+          framePresetId: framePreset?.id || selectedFramePresetId || '',
+          packId: framePreset?.packId || '',
+          creatorId: framePreset?.creatorId || '',
         }
       });
 
@@ -1846,6 +1882,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
                     <div onClick={() => setShowMoreActions(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'transparent' }} />
                     <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', right: 0, width: 196, background: '#fff', borderRadius: 20, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', padding: '8px', zIndex: 10000, animation: 'popIn 0.2s ease-out' }}>
                       <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Redecorate</button>
+                      {openDesigner && (
+                        <button onClick={() => { setShowMoreActions(false); openDesigner({ mode: 'duplicate', preset: framePreset || null }); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Remix this frame</button>
+                      )}
+                      <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Use this pack</button>
+                      {openDesigner && (
+                        <button onClick={() => { setShowMoreActions(false); openDesigner({ mode: 'edit', preset: framePreset || null }); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Duplicate template</button>
+                      )}
                       <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Retake</button>
                       <button onClick={() => { setShowMoreActions(false); resetSessionState?.('new-session'); go('landing'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>New Session</button>
                       <div style={{ height: 1, background: T.line, margin: '6px 12px' }} />
@@ -1926,6 +1969,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
               <div onClick={() => setShowMoreActions(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'transparent' }} />
               <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', right: 0, width: 200, background: '#fff', borderRadius: 20, boxShadow: '0 15px 50px rgba(0,0,0,0.2)', padding: '8px', zIndex: 10000, animation: 'popIn 0.2s ease-out' }}>
                 <button onClick={() => { setShowMoreActions(false); go('deco'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Redecorate</button>
+                {openDesigner && (
+                  <button onClick={() => { setShowMoreActions(false); openDesigner({ mode: 'duplicate', preset: framePreset || null }); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Remix this frame</button>
+                )}
+                <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Use this pack</button>
+                {openDesigner && (
+                  <button onClick={() => { setShowMoreActions(false); openDesigner({ mode: 'edit', preset: framePreset || null }); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Duplicate template</button>
+                )}
                 <button onClick={() => { setShowMoreActions(false); go('setup'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Retake</button>
                 <button onClick={() => { setShowMoreActions(false); resetSessionState?.('new-session'); go('landing'); }} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'transparent', textAlign: 'left', color: T.ink, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>New Session</button>
                 <div style={{ height: 1, background: T.line, margin: '6px 10px' }} />

@@ -3,6 +3,20 @@
 const { useState: useSE, useEffect: useEE, useRef: useRR, useCallback: useCB } = React;
 
 const SlottedStickersCtx = React.createContext({});
+const IS_SAMSUNG_INTERNET = typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || '');
+const USE_TOUCH_FALLBACK = typeof window !== 'undefined' && (!('PointerEvent' in window) || IS_SAMSUNG_INTERNET);
+
+function getCanvasPointerPoint(event) {
+  if (!event) return null;
+  if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+    return { clientX: event.clientX, clientY: event.clientY };
+  }
+  const touch = event.touches?.[0] || event.changedTouches?.[0];
+  if (touch && typeof touch.clientX === 'number' && typeof touch.clientY === 'number') {
+    return { clientX: touch.clientX, clientY: touch.clientY };
+  }
+  return null;
+}
 
 // ─────────────────────────────────────────────────────────────
 // Data model
@@ -402,9 +416,12 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
 
   const onPointerDown = (e, s, mode='move') => {
     e.stopPropagation();
+    const point = getCanvasPointerPoint(e);
+    if (!point) return;
+    if (e.cancelable) e.preventDefault();
     const rect = canvasRef.current.getBoundingClientRect();
     setSelectedId(s.id);
-    const startX = e.clientX, startY = e.clientY;
+    const startX = point.clientX, startY = point.clientY;
     setDragState({
       id: s.id, mode, startX, startY,
       initX: s.x, initY: s.y, initScale: s.scale, initRot: s.rotation,
@@ -418,8 +435,11 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
   useEE(() => {
     if (!dragState) return;
     const onMove = (e) => {
-      const dx = e.clientX - dragState.startX;
-      const dy = e.clientY - dragState.startY;
+      const point = getCanvasPointerPoint(e);
+      if (!point) return;
+      const dx = point.clientX - dragState.startX;
+      const dy = point.clientY - dragState.startY;
+      if (e.cancelable) e.preventDefault();
       setStickers(prev => prev.map(s => {
         if (s.id !== dragState.id) return s;
         if (dragState.mode === 'move') {
@@ -454,9 +474,19 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
     const onUp = () => setDragState(null);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    if (USE_TOUCH_FALLBACK) {
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend', onUp, { passive: true });
+      window.addEventListener('touchcancel', onUp, { passive: true });
+    }
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      if (USE_TOUCH_FALLBACK) {
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onUp);
+        window.removeEventListener('touchcancel', onUp);
+      }
     };
   }, [dragState, setStickers]);
 
@@ -474,7 +504,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
     return (
       <>
         {/* scale+rotate handle (top-right) */}
-        <div onPointerDown={(e)=>onPointerDown(e, s, 'scale-rotate')}
+        <div onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>onPointerDown(e, s, 'scale-rotate')} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>onPointerDown(e, s, 'scale-rotate') : undefined}
           style={{ position:'absolute', top:-12, right:-12, width:28, height:28,
             background:'#fff', borderRadius:999, boxShadow:'0 2px 8px rgba(0,0,0,0.18)',
             display:'flex', alignItems:'center', justifyContent:'center', cursor:'nwse-resize', zIndex:200,
@@ -482,7 +512,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           <svg width="14" height="14" viewBox="0 0 12 12"><path d="M3 3v2M3 3h2M9 9v-2M9 9h-2M3 9h6V3" stroke="#1A1A1F" strokeWidth="1.3" fill="none" strokeLinecap="round"/></svg>
         </div>
         {/* snap-to-frame handle (bottom-center) */}
-        <div onPointerDown={(e)=>{ e.stopPropagation(); if(s.frameSlot!=null){ unSnap(s.id); setSnapMode(false); } else { setSnapMode(v=>!v); } }}
+        <div onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>{ e.stopPropagation(); if(s.frameSlot!=null){ unSnap(s.id); setSnapMode(false); } else { setSnapMode(v=>!v); } }} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>{ e.stopPropagation(); if(s.frameSlot!=null){ unSnap(s.id); setSnapMode(false); } else { setSnapMode(v=>!v); } } : undefined}
           title={s.frameSlot!=null ? '틀에서 꺼내기' : '틀 안에 넣기'}
           style={{ position:'absolute', bottom:-12, left:'50%', zIndex:200,
             width:28, height:28, background: s.frameSlot!=null ? '#1A1A1F' : snapMode ? '#D98893' : '#fff',
@@ -505,7 +535,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           )}
         </div>
         {/* delete (top-left) */}
-        <div onPointerDown={(e)=>{ e.stopPropagation(); setStickers(prev => prev.filter(x => x.id !== s.id)); setSelectedId(null); }}
+        <div onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>{ e.stopPropagation(); setStickers(prev => prev.filter(x => x.id !== s.id)); setSelectedId(null); }} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>{ e.stopPropagation(); setStickers(prev => prev.filter(x => x.id !== s.id)); setSelectedId(null); } : undefined}
           style={{ position:'absolute', top:-12, left:-12, width:28, height:28, zIndex:200,
             background:'#1A1A1F', borderRadius:999, color:'#fff',
             display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
@@ -537,7 +567,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
   return (
     <SlottedStickersCtx.Provider value={slottedMap}>
       <div ref={canvasRef}
-        onPointerDown={() => { setSelectedId(null); setSnapMode(false); }}
+        onPointerDown={USE_TOUCH_FALLBACK ? undefined : () => { setSelectedId(null); setSnapMode(false); }} onTouchStart={USE_TOUCH_FALLBACK ? () => { setSelectedId(null); setSnapMode(false); } : undefined}
         style={{ position:'relative', width, height, touchAction:'none', userSelect:'none', ...style }}>
         {children}
         {/* Snap-to-frame slot overlay */}
@@ -556,7 +586,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
             const slotIndex = isVirtual ? el.index : i;
             return (
               <div key={i}
-                onPointerDown={(e) => { e.stopPropagation(); snapToSlot(el, slotIndex); }}
+                onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e) => { e.stopPropagation(); snapToSlot(el, slotIndex); }} onTouchStart={USE_TOUCH_FALLBACK ? (e) => { e.stopPropagation(); snapToSlot(el, slotIndex); } : undefined}
                 style={{ position:'absolute', left, top, width:w, height:h,
                   background:'rgba(0,0,0,0.35)', border:'1.5px solid rgba(255,255,255,0.7)',
                   borderRadius:3, zIndex:100,
@@ -591,7 +621,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
             });
           }
           return (
-            <div key={s.id} onPointerDown={(e)=>onPointerDown(e, s, 'move')} onClick={(e)=>e.stopPropagation()}
+            <div key={s.id} onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>onPointerDown(e, s, 'move')} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>onPointerDown(e, s, 'move') : undefined} onClick={(e)=>e.stopPropagation()}
               style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
                 transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${userScale})`,
                 transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
@@ -624,7 +654,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           return (
             <React.Fragment key={s.id}>
               {/* Invisible hit area for drag */}
-              <div onPointerDown={(e)=>onPointerDown(e, s, 'move')} onClick={(e)=>e.stopPropagation()}
+              <div onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>onPointerDown(e, s, 'move')} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>onPointerDown(e, s, 'move') : undefined} onClick={(e)=>e.stopPropagation()}
                 style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
                   transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${userScale})`,
                   transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',

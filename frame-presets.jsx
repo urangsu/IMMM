@@ -4,6 +4,23 @@ const FRAME_PRESET_STORAGE_KEY = 'immm.v2.customFrames';
 const FRAME_PRESET_SELECTION_KEY = 'immm.v2.selectedFramePresetId';
 const FRAME_PACK_UNLOCK_STORAGE_KEY = 'immm.v2.unlockedFramePacks';
 const FRAME_FAVORITE_STORAGE_KEY = 'immm.v2.favoriteFramePresets';
+const FRAME_LIKE_STORAGE_KEY = 'immm.v2.frameLikes';
+const FRAME_USE_STORAGE_KEY = 'immm.v2.frameUses';
+const FRAME_PACK_FAVORITE_STORAGE_KEY = 'immm.v2.favoriteFramePacks';
+const DESIGNER_DRAFT_RECOVERY_KEY = 'immm.v2.designerDraftRecovery';
+const FRAME_EXPORT_PRESET_STORAGE_KEY = 'immm.v2.exportPresets';
+
+const FRAME_BLEND_MODE_WHITELIST = ['normal', 'multiply', 'screen', 'overlay', 'soft-light'];
+const FRAME_LAYER_TYPES = ['background', 'photo-slots', 'overlays', 'text', 'stickers', 'watermark', 'fx'];
+
+const FRAME_EXPORT_PRESETS = [
+  { id: 'hd', name: 'HD', widthFactor: 1, heightFactor: 1, description: 'Original high quality export.' },
+  { id: 'instagram-story', name: 'Instagram Story', widthFactor: 0.5625, heightFactor: 1, description: 'Vertical story export.' },
+  { id: 'instagram-post', name: 'Instagram Post', widthFactor: 1, heightFactor: 1, description: 'Square social export.' },
+  { id: 'wallpaper', name: 'Wallpaper', widthFactor: 1.2, heightFactor: 1, description: 'Wide wallpaper-friendly export.' },
+  { id: 'polaroid-print', name: 'Polaroid Print', widthFactor: 1, heightFactor: 1, description: 'Print-ready export.' },
+  { id: 'mini-print', name: 'Mini Print', widthFactor: 0.75, heightFactor: 0.75, description: 'Compact print export.' },
+];
 
 const DEFAULT_FRAME_AUTHOR = {
   name: 'IMMM Studio',
@@ -22,6 +39,12 @@ const DEFAULT_IMPORTED_AUTHOR = {
   handle: '',
   url: '',
 };
+
+function getDefaultCreatorProfileSafe(source = 'builtin') {
+  const builtin = typeof DEFAULT_CREATOR_PROFILE !== 'undefined' ? DEFAULT_CREATOR_PROFILE : DEFAULT_FRAME_AUTHOR;
+  const local = typeof DEFAULT_LOCAL_CREATOR_PROFILE !== 'undefined' ? DEFAULT_LOCAL_CREATOR_PROFILE : DEFAULT_CUSTOM_AUTHOR;
+  return source === 'custom' ? local : builtin;
+}
 
 const DEFAULT_FRAME_LICENSE = 'internal';
 
@@ -67,6 +90,231 @@ function writeStringArrayStorage(key, values) {
 
 function mergeUniqueStrings(base, extra = []) {
   return Array.from(new Set([...(Array.isArray(base) ? base : []), ...(Array.isArray(extra) ? extra : [])].map((item) => String(item || '')).filter(Boolean)));
+}
+
+function readJsonStorage(key, fallback = null) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function writeJsonStorage(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+  return value;
+}
+
+function getCreatorApiSafe() {
+  return typeof window !== 'undefined' ? window.IMMMCreatorProfiles || null : null;
+}
+
+function getMotionApiSafe() {
+  return typeof window !== 'undefined' ? window.IMMMMotionFrameContract || null : null;
+}
+
+function normalizeMotionLayersSafe(layers, preset = null) {
+  const motionApi = getMotionApiSafe();
+  if (motionApi?.normalizeMotionLayers) {
+    return motionApi.normalizeMotionLayers(layers || motionApi.createMotionFrameLayersFromPreset?.(preset) || []);
+  }
+  return Array.isArray(layers)
+    ? layers.map((layer, index) => ({
+        id: String(layer?.id || `motion_${index}_${Math.random().toString(36).slice(2, 8)}`),
+        type: String(layer?.type || 'animated-overlay'),
+        animation: String(layer?.animation || 'pulse'),
+        duration: Math.max(120, Math.floor(Number(layer?.duration) || 1200)),
+        loop: layer?.loop !== false,
+        easing: String(layer?.easing || 'ease-in-out'),
+        opacity: Number.isFinite(layer?.opacity) ? clampNumber(layer.opacity, 0, 1) : 1,
+        blendMode: normalizeBlendMode(layer?.blendMode),
+        zIndex: Number.isFinite(layer?.zIndex) ? Number(layer.zIndex) : index,
+        visible: layer?.visible !== false,
+      }))
+    : [];
+}
+
+function normalizeBlendMode(mode) {
+  const value = String(mode || 'normal');
+  return FRAME_BLEND_MODE_WHITELIST.includes(value) ? value : 'normal';
+}
+
+function createFrameLayer(partial = {}, index = 0) {
+  return {
+    id: String(partial.id || `layer_${index}_${Math.random().toString(36).slice(2, 8)}`),
+    type: FRAME_LAYER_TYPES.includes(partial.type) ? String(partial.type) : 'overlays',
+    visible: partial.visible !== false,
+    locked: Boolean(partial.locked),
+    opacity: Number.isFinite(partial.opacity) ? clampNumber(partial.opacity, 0, 1) : 1,
+    blendMode: normalizeBlendMode(partial.blendMode),
+    zIndex: Number.isFinite(partial.zIndex) ? Number(partial.zIndex) : index,
+  };
+}
+
+function buildDefaultFrameLayers() {
+  return [
+    createFrameLayer({ id: 'layer-background', type: 'background', zIndex: -40, locked: true }),
+    createFrameLayer({ id: 'layer-photo-slots', type: 'photo-slots', zIndex: -20, locked: true }),
+    createFrameLayer({ id: 'layer-overlays', type: 'overlays', zIndex: -5 }),
+    createFrameLayer({ id: 'layer-text', type: 'text', zIndex: 5 }),
+    createFrameLayer({ id: 'layer-stickers', type: 'stickers', zIndex: 10 }),
+    createFrameLayer({ id: 'layer-watermark', type: 'watermark', zIndex: 20, locked: true }),
+    createFrameLayer({ id: 'layer-fx', type: 'fx', zIndex: 30 }),
+  ];
+}
+
+function normalizeFrameLayers(layers) {
+  const source = Array.isArray(layers) && layers.length ? layers : buildDefaultFrameLayers();
+  const normalized = source.map((layer, index) => createFrameLayer(layer, index)).filter(Boolean);
+  return normalized.sort((a, b) => Number(a.zIndex) - Number(b.zIndex));
+}
+
+function getFrameLayerOrder(preset) {
+  return normalizeFrameLayers(preset?.layers || []);
+}
+
+function getFrameLikeIds() {
+  return mergeUniqueStrings([], readJsonStorage(FRAME_LIKE_STORAGE_KEY, []));
+}
+
+function saveFrameLikeIds(ids) {
+  return writeJsonStorage(FRAME_LIKE_STORAGE_KEY, Array.from(new Set(Array.isArray(ids) ? ids : [])));
+}
+
+function toggleFrameLikeId(frameId, current = null) {
+  if (!frameId) return [];
+  const existing = Array.isArray(current) ? current : getFrameLikeIds();
+  const next = existing.includes(frameId)
+    ? existing.filter((id) => id !== frameId)
+    : [...existing, frameId];
+  saveFrameLikeIds(next);
+  return next;
+}
+
+function getFrameUseCounts() {
+  const raw = readJsonStorage(FRAME_USE_STORAGE_KEY, {});
+  return raw && typeof raw === 'object' ? raw : {};
+}
+
+function saveFrameUseCounts(counts) {
+  return writeJsonStorage(FRAME_USE_STORAGE_KEY, counts && typeof counts === 'object' ? counts : {});
+}
+
+function incrementFrameUseCount(frameId) {
+  if (!frameId) return 0;
+  const counts = getFrameUseCounts();
+  const next = { ...counts, [frameId]: (Number(counts[frameId]) || 0) + 1 };
+  saveFrameUseCounts(next);
+  return next[frameId];
+}
+
+function getFrameUseCount(frameId) {
+  if (!frameId) return 0;
+  const counts = getFrameUseCounts();
+  return Number(counts[frameId]) || 0;
+}
+
+function loadFavoriteFramePackIds() {
+  return readStringArrayStorage(FRAME_PACK_FAVORITE_STORAGE_KEY);
+}
+
+function saveFavoriteFramePackIds(ids) {
+  return writeStringArrayStorage(FRAME_PACK_FAVORITE_STORAGE_KEY, ids);
+}
+
+function toggleFavoriteFramePackId(packId, current = null) {
+  if (!packId) return [];
+  const existing = Array.isArray(current) ? current : loadFavoriteFramePackIds();
+  const next = existing.includes(packId)
+    ? existing.filter((id) => id !== packId)
+    : [...existing, packId];
+  saveFavoriteFramePackIds(next);
+  return next;
+}
+
+function getFrameTrendingScore(frame, likes = 0, uses = 0) {
+  const creatorApi = getCreatorApiSafe();
+  const score = creatorApi?.getTrendingScore || (typeof getTrendingScore === 'function' ? getTrendingScore : null);
+  const likeCount = Number(likes ?? frame?.likes ?? 0) || 0;
+  const useCount = Number(uses ?? frame?.uses ?? 0) || 0;
+  if (typeof score === 'function') {
+    return score({ likes: likeCount, uses: useCount, createdAt: frame?.createdAt, updatedAt: frame?.updatedAt });
+  }
+  const recentBoost = frame?.updatedAt || frame?.createdAt ? 10 : 0;
+  return likeCount * 3 + useCount * 2 + recentBoost;
+}
+
+function getExportPresets() {
+  return FRAME_EXPORT_PRESETS.slice();
+}
+
+function getExportPresetById(id) {
+  if (!id) return null;
+  return getExportPresets().find((preset) => preset.id === id) || null;
+}
+
+function normalizeExportPreset(preset) {
+  if (!preset || typeof preset !== 'object') return null;
+  return {
+    id: String(preset.id || 'hd'),
+    name: String(preset.name || 'HD'),
+    widthFactor: clampNumber(preset.widthFactor ?? 1, 0.25, 4),
+    heightFactor: clampNumber(preset.heightFactor ?? 1, 0.25, 4),
+    description: String(preset.description || ''),
+  };
+}
+
+function getDefaultExportPresetId() {
+  const presets = getExportPresets();
+  return presets[0]?.id || 'hd';
+}
+
+function generateFrameIdea(prompt = '') {
+  const text = String(prompt || '').trim().toLowerCase();
+  const hash = Array.from(text).reduce((acc, ch) => ((acc * 31) + ch.charCodeAt(0)) >>> 0, 7);
+  const themes = [
+    { layout: 'grid', background: { type: 'gradient', value: { type: 'linear', angle: 20, stops: ['#FFF1F7', '#F4D7FF'] } }, text: 'kawaii day', watermark: 'IMMM' },
+    { layout: 'strip', background: { type: 'pattern', value: { pattern: 'dots', color: '#FFF7FB', dotColor: 'rgba(17,17,17,0.05)' } }, text: 'film diary', watermark: 'IMMM' },
+    { layout: 'trip', background: { type: 'gradient', value: { type: 'linear', angle: 90, stops: ['#F7FBFF', '#E5F1FF'] } }, text: 'wedding notes', watermark: 'IMMM' },
+    { layout: 'polaroid', background: { type: 'solid', value: '#FFFFFF' }, text: 'retro note', watermark: 'IMMM' },
+  ];
+  const pick = themes[hash % themes.length];
+  return {
+    prompt,
+    background: pick.background,
+    decorations: [
+      { type: 'shape', shape: 'heart', x: 0.08, y: 0.06, width: 0.08, height: 0.07, rotation: -12, opacity: 0.92, zIndex: 1, fill: '#F08BA5' },
+      { type: 'text', text: pick.text, x: 0.5, y: 0.92, width: 0.2, height: 0.05, rotation: 0, opacity: 0.84, zIndex: 2, fill: '#6B574E', fontWeight: 800 },
+    ],
+    recommendedLayout: pick.layout,
+    watermark: { text: pick.watermark, x: 0.5, y: 0.962, opacity: 0.45 },
+    palette: [String((pick.background?.value?.stops || ['#FFF', '#F6F6F6'])[0]), String((pick.background?.value?.stops || ['#FFF', '#F6F6F6'])[1])],
+  };
+}
+
+function saveDesignerDraftRecovery(draft) {
+  if (!draft) return null;
+  const payload = {
+    savedAt: new Date().toISOString(),
+    draft: normalizeDesignerDraft(draft),
+  };
+  writeJsonStorage(DESIGNER_DRAFT_RECOVERY_KEY, payload);
+  return payload;
+}
+
+function loadDesignerDraftRecovery() {
+  const payload = readJsonStorage(DESIGNER_DRAFT_RECOVERY_KEY, null);
+  if (!payload || typeof payload !== 'object') return null;
+  if (!payload.draft) return null;
+  return payload;
+}
+
+function clearDesignerDraftRecovery() {
+  try {
+    localStorage.removeItem(DESIGNER_DRAFT_RECOVERY_KEY);
+  } catch (_) {}
 }
 
 const FRAME_PRESET_LAYOUT_SIZES = {
@@ -239,6 +487,13 @@ function createFrameDesignerDraft(basePreset = null) {
     tags: Array.isArray(preset.packTags) ? preset.packTags.slice() : [],
     createdAt,
     updatedAt,
+    creatorId: String(preset.creatorId || (preset.author?.name === 'You' ? 'you' : 'immm-studio')),
+    creator: preset.creator ? normalizeAuthor(preset.creator, preset.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : DEFAULT_FRAME_AUTHOR) : normalizeAuthor(preset.author, preset.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : DEFAULT_FRAME_AUTHOR),
+    likes: Math.max(0, Math.floor(Number(preset.likes) || 0)),
+    uses: Math.max(0, Math.floor(Number(preset.uses) || 0)),
+    trendingScore: Math.max(0, Math.floor(Number(preset.trendingScore) || 0)),
+    layers: normalizeFrameLayers(preset.layers),
+    motionLayers: normalizeMotionLayersSafe(preset.motionLayers, preset),
   };
 }
 
@@ -288,6 +543,13 @@ function normalizeDesignerDraft(draft) {
     tags: Array.isArray(draft.tags) ? draft.tags.map((tag) => String(tag || '').trim()).filter(Boolean) : [],
     createdAt: draft.createdAt || null,
     updatedAt: draft.updatedAt || null,
+    creatorId: String(draft.creatorId || (draft.author?.name === 'You' ? 'you' : 'immm-studio')),
+    creator: draft.creator ? normalizeAuthor(draft.creator, draft.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : DEFAULT_FRAME_AUTHOR) : normalizeAuthor(draft.author, draft.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : DEFAULT_FRAME_AUTHOR),
+    likes: Math.max(0, Math.floor(Number(draft.likes) || 0)),
+    uses: Math.max(0, Math.floor(Number(draft.uses) || 0)),
+    trendingScore: Math.max(0, Math.floor(Number(draft.trendingScore) || 0)),
+    layers: normalizeFrameLayers(draft.layers),
+    motionLayers: normalizeMotionLayersSafe(draft.motionLayers, draft),
   };
 }
 
@@ -398,9 +660,32 @@ function makePreset({
   packPriceType,
   packPriceLabel,
   packLocked,
+  creatorId,
+  creator,
+  likes,
+  uses,
+  layers,
+  motionLayers,
 }) {
   const resolvedLayout = normalizePresetLayout(layout || '1x4');
   const size = canvasSize || getCanvasSizeForLayout(resolvedLayout);
+  const creatorApi = getCreatorApiSafe();
+  const defaultCreator = normalizeAuthor(author || creator || (creatorId === 'you' ? DEFAULT_CUSTOM_AUTHOR : DEFAULT_FRAME_AUTHOR));
+  const resolvedCreator = creatorApi?.normalizeCreatorProfile
+    ? creatorApi.normalizeCreatorProfile(creator || getDefaultCreatorProfileSafe(creatorId === 'you' ? 'custom' : 'builtin'))
+    : {
+      id: String(creatorId || (defaultCreator.name === 'You' ? 'you' : 'immm-studio')),
+      name: defaultCreator.name,
+      bio: '',
+      avatarColor: defaultCreator.name === 'You' ? '#D98893' : '#1A1A1F',
+      instagram: '',
+      website: '',
+      verified: defaultCreator.name !== 'You',
+      socialLinks: [],
+      packsCreated: 0,
+      likes: 0,
+    };
+  const resolvedMotionLayers = normalizeMotionLayersSafe(motionLayers, { name, category, background, frameColor, layout: resolvedLayout });
   return {
     id,
     name,
@@ -415,7 +700,7 @@ function makePreset({
     createdAt: null,
     updatedAt: null,
     source: 'builtin',
-    author: normalizeAuthor(author),
+    author: defaultCreator,
     license: normalizeLicense(license),
     packId: packId || null,
     packName: packName || null,
@@ -424,6 +709,12 @@ function makePreset({
     packPriceType: packPriceType || 'free',
     packPriceLabel: packPriceLabel || 'Free',
     packLocked: Boolean(packLocked),
+    creatorId: String(creatorId || resolvedCreator.id || 'immm-studio'),
+    creator: resolvedCreator,
+    likes: Math.max(0, Math.floor(Number(likes) || 0)),
+    uses: Math.max(0, Math.floor(Number(uses) || 0)),
+    layers: normalizeFrameLayers(layers),
+    motionLayers: resolvedMotionLayers,
   };
 }
 
@@ -690,6 +981,8 @@ function normalizeFramePreset(preset) {
   const layout = normalizePresetLayout(preset.layout || '1x4');
   const size = preset.canvasSize || getCanvasSizeForLayout(layout);
   const builtinPack = getBuiltinFramePackForPresetId(preset.id) || null;
+  const creatorApi = getCreatorApiSafe();
+  const motionApi = getMotionApiSafe();
   const photoSlots = Array.isArray(preset.photoSlots) && preset.photoSlots.length ? preset.photoSlots.map((slot) => ({
     x: Number(slot.x) || 0,
     y: Number(slot.y) || 0,
@@ -707,6 +1000,13 @@ function normalizeFramePreset(preset) {
   const drawStrokes = Array.isArray(preset.drawStrokes)
     ? preset.drawStrokes.map((stroke) => sanitizeDrawStroke(stroke)).filter(Boolean)
     : [];
+  const layers = normalizeFrameLayers(preset.layers);
+  const motionLayers = normalizeMotionLayersSafe(preset.motionLayers, preset);
+  const creator = creatorApi?.normalizeCreatorProfile
+    ? creatorApi.normalizeCreatorProfile(preset.creator || getDefaultCreatorProfileSafe(preset.creatorId === 'you' ? 'custom' : 'builtin'))
+    : normalizeAuthor(preset.creator || preset.author, preset.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : (preset.source === 'imported' ? DEFAULT_IMPORTED_AUTHOR : (builtinPack?.author || DEFAULT_FRAME_AUTHOR)));
+  const likes = Math.max(0, Math.floor(Number(preset.likes) || 0));
+  const uses = Math.max(0, Math.floor(Number(preset.uses) || 0));
 
   return {
     id: String(preset.id || ''),
@@ -723,12 +1023,14 @@ function normalizeFramePreset(preset) {
     decorations,
     stickers,
     drawStrokes,
+    layers,
+    motionLayers,
     watermark: preset.watermark ? { ...preset.watermark } : { text: 'IMMM', x: 0.5, y: 0.94 },
     createdAt: preset.createdAt || null,
     updatedAt: preset.updatedAt || null,
     source: preset.source === 'custom' ? 'custom' : preset.source === 'imported' ? 'imported' : 'builtin',
     deletedAt: preset.deletedAt || null,
-    author: normalizeAuthor(preset.author, preset.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : preset.source === 'imported' ? DEFAULT_IMPORTED_AUTHOR : (builtinPack?.author || DEFAULT_FRAME_AUTHOR)),
+    author: normalizeAuthor(preset.author || creator, preset.source === 'custom' ? DEFAULT_CUSTOM_AUTHOR : preset.source === 'imported' ? DEFAULT_IMPORTED_AUTHOR : (builtinPack?.author || DEFAULT_FRAME_AUTHOR)),
     license: normalizeLicense(preset.license || builtinPack?.license || DEFAULT_FRAME_LICENSE),
     packId: preset.packId || builtinPack?.id || null,
     packName: preset.packName || builtinPack?.name || null,
@@ -737,6 +1039,11 @@ function normalizeFramePreset(preset) {
     packPriceType: preset.packPriceType || builtinPack?.priceType || 'free',
     packPriceLabel: preset.packPriceLabel || builtinPack?.priceLabel || 'Free',
     packLocked: Boolean(preset.packLocked ?? builtinPack?.locked ?? false),
+    creatorId: String(preset.creatorId || creator?.id || (preset.source === 'custom' ? 'you' : 'immm-studio')),
+    creator,
+    likes,
+    uses,
+    trendingScore: getFrameTrendingScore(preset, likes, uses),
   };
 }
 
@@ -1136,6 +1443,13 @@ function sanitizeCustomFramePreset(frame) {
     packTags: Array.isArray(frame.packTags) ? frame.packTags : ['my-frames'],
     packPriceType: frame.packPriceType || 'free',
     packPriceLabel: frame.packPriceLabel || 'Free',
+    creatorId: frame.creatorId || 'you',
+    creator: frame.creator || getDefaultCreatorProfileSafe('custom'),
+    likes: frame.likes || 0,
+    uses: frame.uses || 0,
+    trendingScore: frame.trendingScore || 0,
+    layers: frame.layers || [],
+    motionLayers: frame.motionLayers || [],
   });
 
   preset.stickers = stickers;
@@ -1399,11 +1713,30 @@ function drawFramePresetBackground(ctx, preset, width, height) {
 
 function drawFramePresetLayer(ctx, preset, width, height, layer = 'all') {
   if (!preset) return;
+  const layerConfig = typeof layer === 'object' && layer ? layer : null;
+  const layerKey = layerConfig?.type || layer || 'all';
   const decorations = Array.isArray(preset.decorations) ? preset.decorations : [];
   const list = decorations
-    .filter((deco) => layer === 'all' || (layer === 'back' ? (deco.layer === 'back' || (Number(deco.zIndex) || 0) < 0) : (deco.layer !== 'back' && (Number(deco.zIndex) || 0) >= 0)))
+    .filter((deco) => {
+      if (layerKey === 'all') return true;
+      if (layerKey === 'back') return deco.layer === 'back' || (Number(deco.zIndex) || 0) < 0;
+      if (layerKey === 'front') return deco.layer !== 'back' && (Number(deco.zIndex) || 0) >= 0;
+      if (layerKey === 'text') return deco.type === 'text';
+      if (layerKey === 'stickers') return deco.type !== 'text';
+      if (layerKey === 'overlays') return deco.type !== 'text' && (deco.layer === 'front' || (Number(deco.zIndex) || 0) >= 0);
+      if (layerKey === 'fx') return deco.type !== 'text';
+      return true;
+    })
     .sort((a, b) => (Number(a.zIndex) || 0) - (Number(b.zIndex) || 0));
+  ctx.save();
+  if (layerConfig?.opacity != null) {
+    ctx.globalAlpha = clampNumber(layerConfig.opacity, 0, 1);
+  }
+  if (layerConfig?.blendMode) {
+    ctx.globalCompositeOperation = normalizeBlendMode(layerConfig.blendMode);
+  }
   list.forEach((deco) => drawFrameDecoration(ctx, deco, width, height));
+  ctx.restore();
 }
 
 function drawFramePresetWatermark(ctx, preset, width, height) {
@@ -1496,6 +1829,27 @@ const IMMMFramePresets = {
   createBackground,
   clonePlain,
   normalizePresetLayout,
+  normalizeMotionLayersSafe,
+  FRAME_BLEND_MODE_WHITELIST,
+  FRAME_LAYER_TYPES,
+  FRAME_EXPORT_PRESETS,
+  getExportPresets,
+  getExportPresetById,
+  getDefaultExportPresetId,
+  generateFrameIdea,
+  getFrameLikeIds,
+  saveFrameLikeIds,
+  toggleFrameLikeId,
+  incrementFrameUseCount,
+  getFrameUseCount,
+  getFrameTrendingScore,
+  loadFavoriteFramePackIds,
+  saveFavoriteFramePackIds,
+  toggleFavoriteFramePackId,
+  loadDesignerDraftRecovery,
+  saveDesignerDraftRecovery,
+  clearDesignerDraftRecovery,
+  getFrameLayerOrder,
   exportCustomFramePackJson,
   validateFramePackJson,
   importFramePackJson,

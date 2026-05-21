@@ -8,6 +8,13 @@ function isExportPerfDebugEnabled() {
 function nowMs() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
 function logExportPerf(label, data) { if (isExportPerfDebugEnabled()) console.info?.('[IMMM export perf]', label, data); }
 
+const requestIdleCallbackSafe = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
+  ? window.requestIdleCallback.bind(window)
+  : (cb) => setTimeout(() => cb({ didTimeout: true, timeRemaining: () => 0 }), 1);
+const cancelIdleCallbackSafe = typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function'
+  ? window.cancelIdleCallback.bind(window)
+  : (id) => clearTimeout(id);
+
 const FRAME_TEMPLATE_ALIASES = {
   strip: '1x4',
   grid: '2x2',
@@ -494,6 +501,9 @@ async function renderComposition(ctx, data, options = {}) {
   const drawPresetBackground = presetApi?.drawFramePresetBackground || window.drawFramePresetBackground || null;
   const drawPresetLayer = presetApi?.drawFramePresetLayer || window.drawFramePresetLayer || null;
   const drawPresetWatermark = presetApi?.drawFramePresetWatermark || window.drawFramePresetWatermark || null;
+  const orderedLayers = framePreset?.layers?.length
+    ? (presetApi?.getFrameLayerOrder?.(framePreset) || framePreset.layers)
+    : [];
 
   // 1. Background
   if (framePreset && typeof drawPresetBackground === 'function') {
@@ -522,7 +532,15 @@ async function renderComposition(ctx, data, options = {}) {
   logExportPerf('photo-slots', { ms: nowMs() - tPhotoStart, count: images.length });
 
   const tStickerDrawStart = nowMs();
-  if (framePreset && typeof drawPresetLayer === 'function') {
+  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
+    orderedLayers
+      .filter((layer) => layer && layer.visible !== false && Number(layer.zIndex) < 0)
+      .forEach((layer) => {
+        if (layer.type !== 'background' && layer.type !== 'photo-slots') {
+          drawPresetLayer(ctx, framePreset, w, h, layer);
+        }
+      });
+  } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'back');
   }
   for (let i = 0; i < photoSlots.length; i++) {
@@ -597,7 +615,15 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.restore();
   });
 
-  if (framePreset && typeof drawPresetLayer === 'function') {
+  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
+    orderedLayers
+      .filter((layer) => layer && layer.visible !== false && Number(layer.zIndex) >= 0)
+      .forEach((layer) => {
+        if (layer.type !== 'background' && layer.type !== 'photo-slots') {
+          drawPresetLayer(ctx, framePreset, w, h, layer);
+        }
+      });
+  } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'front');
   }
 
@@ -782,7 +808,10 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
   const canvasRef = React.useRef(null);
 
   React.useEffect(() => {
+    let cancelled = false;
+    let idleId = null;
     const draw = async () => {
+      if (cancelled) return;
       if (!canvasRef.current) return;
       const cvs = canvasRef.current;
       const ctx = cvs.getContext('2d');
@@ -808,7 +837,11 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
       const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) await renderComp(ctx, data, { scale: 1 });
     };
-    draw();
+    idleId = requestIdleCallbackSafe(() => { draw(); });
+    return () => {
+      cancelled = true;
+      if (idleId != null) cancelIdleCallbackSafe(idleId);
+    };
   }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
 
   return (

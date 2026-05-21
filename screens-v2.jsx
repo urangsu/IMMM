@@ -330,7 +330,7 @@ function getStickerPickerPacks() {
     : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
 }
 
-function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, framePresets = [], framePackList = [], customFrames = [], selectedFramePresetId, applyFramePreset, saveCustomFrame, exportCustomFramesAsJson, importFramePackFromJson, openDesigner, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame, favoriteFramePresetIds = [], toggleFavoriteFramePreset, unlockFramePackForDev, unlockedFramePackIds = [], storeTabFocus = '' }) {
+function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, framePresets = [], framePackList = [], customFrames = [], selectedFramePresetId, applyFramePreset, saveCustomFrame, exportCustomFramesAsJson, importFramePackFromJson, openDesigner, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame, favoriteFramePresetIds = [], toggleFavoriteFramePreset, favoriteFramePackIds = [], toggleFavoriteFramePack, unlockFramePackForDev, unlockedFramePackIds = [], frameLikeIds = [], toggleFrameLike, frameUseCounts = {}, recordFrameUse, creatorProfiles = [], setCreatorProfiles, exportPresetId = 'hd', setExportPresetId, generateFrameIdea, designerDraftRecovery = null, clearDesignerDraftRecovery, storeTabFocus = '' }) {
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
@@ -347,6 +347,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   const [importJsonText, setImportJsonText] = uS('');
   const [storeUpsellPack, setStoreUpsellPack] = uS(null);
   const [importMessage, setImportMessage] = uS('');
+  const [selectedCreatorId, setSelectedCreatorId] = uS('');
   const [selStId, setSelStId] = uS(null);
   const [expandedPacks, setExpandedPacks] = uS({});
   const fileRef = uR(null);
@@ -387,6 +388,35 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     });
     return Array.from(byId.values());
   }, [allStorePresets, savedFrames]);
+  const creatorLookup = uM(() => {
+    const map = new Map();
+    (Array.isArray(creatorProfiles) ? creatorProfiles : []).forEach((profile) => {
+      if (profile?.id) map.set(profile.id, profile);
+    });
+    return map;
+  }, [creatorProfiles]);
+  const selectedCreatorProfile = uM(() => {
+    if (!selectedCreatorId) return null;
+    return creatorLookup.get(selectedCreatorId) || null;
+  }, [creatorLookup, selectedCreatorId]);
+  const getPresetUseCount = uM(() => {
+    const counts = frameApi?.getFrameUseCounts?.() || {};
+    return (preset) => Number(counts?.[preset?.id]) || 0;
+  }, [frameApi]);
+  const getPresetLikeCount = uM(() => {
+    const likes = new Set(favoriteFramePresetIds || []);
+    return (preset) => (likes.has(preset?.id) ? 1 : 0);
+  }, [favoriteFramePresetIds]);
+  const getPackTrendingScore = uM(() => {
+    return (pack) => {
+      const presets = (pack?.presetIds || [])
+        .map((id) => storePresetSource.find((preset) => preset.id === id) || null)
+        .filter(Boolean);
+      const likes = presets.reduce((sum, preset) => sum + getPresetLikeCount(preset), 0);
+      const uses = presets.reduce((sum, preset) => sum + getPresetUseCount(preset), 0);
+      return likes * 3 + uses * 2 + (pack?.featured ? 12 : 0);
+    };
+  }, [getPresetLikeCount, getPresetUseCount, storePresetSource]);
   const visibleStorePresets = uM(() => {
     const q = storeSearch.trim().toLowerCase();
     let items = storePresetSource.filter((preset) => {
@@ -429,6 +459,14 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
       sorted.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
     } else if (storeSort === 'az') {
       sorted.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    } else if (storeSort === 'most-used') {
+      sorted.sort((a, b) => getPresetUseCount(b) - getPresetUseCount(a));
+    } else if (storeSort === 'trending') {
+      sorted.sort((a, b) => {
+        const aScore = (a.trendingScore || 0) + getPresetLikeCount(a) * 2 + getPresetUseCount(a);
+        const bScore = (b.trendingScore || 0) + getPresetLikeCount(b) * 2 + getPresetUseCount(b);
+        return bScore - aScore;
+      });
     } else {
       sorted.sort((a, b) => {
         const aPack = a.packId ? allPacks.find((pack) => pack.id === a.packId) : null;
@@ -441,7 +479,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
       });
     }
     return sorted;
-  }, [allPacks, favoriteFramePresetIds, frameApi, savedFrames, storeFilter, storePresetSource, storeSearch, storeSort, storeTab]);
+  }, [allPacks, favoriteFramePresetIds, frameApi, getPresetLikeCount, getPresetUseCount, savedFrames, storeFilter, storePresetSource, storeSearch, storeSort, storeTab]);
   const visiblePacks = uM(() => {
     const packs = [...allPacks];
     const q = storeSearch.trim().toLowerCase();
@@ -465,8 +503,17 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
         return hay.includes(q);
       });
     }
+    if (storeSort === 'newest') {
+      items = [...items].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    } else if (storeSort === 'az') {
+      items = [...items].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    } else if (storeSort === 'most-used') {
+      items = [...items].sort((a, b) => getPackTrendingScore(b) - getPackTrendingScore(a));
+    } else if (storeSort === 'trending') {
+      items = [...items].sort((a, b) => getPackTrendingScore(b) - getPackTrendingScore(a));
+    }
     return items;
-  }, [allPacks, favoriteFramePresetIds, storeSearch, storeTab]);
+  }, [allPacks, favoriteFramePresetIds, getPackTrendingScore, storeSearch, storeSort, storeTab]);
   const activePackBlocked = Boolean(selectedPack?.locked && !(frameApi?.isFramePackUnlocked?.(selectedPack.id) ?? unlockedFramePackIds.includes(selectedPack?.id)));
   const devUnlockVisible = typeof window !== 'undefined' && (
     window.IMMM_FIELD_TEST === true ||
@@ -882,6 +929,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                       }}
                     >
                       <option value="recommended">Recommended</option>
+                      <option value="trending">Trending</option>
+                      <option value="most-used">Most Used</option>
                       <option value="newest">Newest</option>
                       <option value="az">A-Z</option>
                     </select>
@@ -934,6 +983,9 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                               </div>
                               <div style={{ marginTop: 4, fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
                                 {pack.presetIds.length} presets · {pack.category}
+                              </div>
+                              <div style={{ marginTop: 4, fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                                {pack.author?.name || 'IMMM Studio'} · {pack.license || 'internal'} · Trend {Math.round(getPackTrendingScore(pack))}
                               </div>
                               <div style={{ marginTop: 10, display: 'grid', placeItems: 'center', minHeight: 128 }}>
                                 {WFrameThumb && coverPreset ? (
@@ -1006,6 +1058,25 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                                   Unlock coming soon
                                 </button>
                               )}
+                              <button
+                                onClick={() => toggleFavoriteFramePack && toggleFavoriteFramePack(pack.id)}
+                                style={{
+                                  border: `1px solid ${T.line}`,
+                                  borderRadius: 999,
+                                  padding: '10px 12px',
+                                  minHeight: 44,
+                                  background: favoriteFramePackIds.includes(pack.id) ? T.ink : '#FFFFFF',
+                                  color: favoriteFramePackIds.includes(pack.id) ? T.bg : T.ink,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  letterSpacing: 1,
+                                  textTransform: 'uppercase',
+                                  fontFamily: '"Plus Jakarta Sans",system-ui',
+                                }}
+                              >
+                                {favoriteFramePackIds.includes(pack.id) ? 'Pack Fav' : 'Fav Pack'}
+                              </button>
                               {devUnlockVisible && pack.locked && !packUnlocked && (
                                 <button
                                   onClick={() => unlockFramePackForDev && unlockFramePackForDev(pack.id)}
@@ -1193,6 +1264,35 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                             Unlock for Dev
                           </button>
                         )}
+                      </div>
+                    </div>
+                  )}
+                  {selectedCreatorProfile && (
+                    <div style={{
+                      borderRadius: 16,
+                      border: `1px solid ${T.line}`,
+                      background: '#FFFFFF',
+                      padding: 12,
+                      display: 'grid',
+                      gap: 8,
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>
+                            {selectedCreatorProfile.name}
+                          </div>
+                          <div style={{ marginTop: 4, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
+                            {selectedCreatorProfile.handle || '@immm'} · {selectedCreatorProfile.bio || 'Creator profile'}
+                          </div>
+                        </div>
+                        <button onClick={() => setSelectedCreatorId('')} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>
+                          Close
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <StoreBadge T={T} tone="light">{selectedCreatorProfile.verified ? 'Verified' : 'Creator'}</StoreBadge>
+                        <StoreBadge T={T} tone="light">{selectedCreatorProfile.packsCreated || 0} packs</StoreBadge>
+                        <StoreBadge T={T} tone="light">{selectedCreatorProfile.likes || 0} likes</StoreBadge>
                       </div>
                     </div>
                   )}
@@ -1602,6 +1702,27 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                       fontFamily: 'Pretendard,system-ui',
                     }}>
                       No saved frames yet. Save a decorated setup or deco state to build your library.
+                      {openDesigner && (
+                        <div style={{ marginTop: 10 }}>
+                          <button
+                            onClick={() => openDesigner({ mode: 'new', preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null })}
+                            style={{
+                              minHeight: 44,
+                              borderRadius: 12,
+                              border: 'none',
+                              background: T.ink,
+                              color: T.bg,
+                              padding: '0 12px',
+                              fontSize: 11,
+                              fontWeight: 800,
+                              letterSpacing: 1,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            Create your first frame
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1663,12 +1784,13 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                                   {preset.layout} · {preset.photoSlots.length}컷 · {preset.category}
                                 </div>
                                 <div style={{ marginTop: 3, fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
-                                  {preset.author?.name || 'IMMM Studio'} · {preset.license || 'internal'}
+                                  {preset.author?.name || preset.creator?.name || 'IMMM Studio'} · {preset.license || 'internal'}
                                 </div>
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
                                 {isSelected && <StoreBadge T={T} tone="light">Active</StoreBadge>}
                                 {preset.source === 'imported' && <StoreBadge T={T} tone="light">Imported</StoreBadge>}
+                                <StoreBadge T={T} tone="light">Trend {Math.round((preset.trendingScore || 0) + getPresetLikeCount(preset) * 2 + getPresetUseCount(preset))}</StoreBadge>
                                 <span style={{ fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
                                   {isCustom ? `Saved ${formatFrameDate(preset.createdAt || preset.updatedAt)}` : 'Built-in'}
                                 </span>
@@ -1712,6 +1834,44 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                                 }}
                               >
                                 {favoriteFramePresetIds.includes(preset.id) ? 'Favorited' : 'Favorite'}
+                              </button>
+                              <button
+                                onClick={() => toggleFrameLike && toggleFrameLike(preset.id)}
+                                style={{
+                                  border: `1px solid ${T.line}`,
+                                  borderRadius: 999,
+                                  padding: '10px 12px',
+                                  minHeight: 44,
+                                  background: frameLikeIds.includes(preset.id) ? T.ink : '#FFFFFF',
+                                  color: frameLikeIds.includes(preset.id) ? T.bg : T.ink,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  letterSpacing: 1,
+                                  textTransform: 'uppercase',
+                                  fontFamily: '"Plus Jakarta Sans",system-ui',
+                                }}
+                              >
+                                {frameLikeIds.includes(preset.id) ? 'Liked' : 'Like'}
+                              </button>
+                              <button
+                                onClick={() => setSelectedCreatorId(preset.creatorId || preset.author?.id || '')}
+                                style={{
+                                  border: `1px solid ${T.line}`,
+                                  borderRadius: 999,
+                                  padding: '10px 12px',
+                                  minHeight: 44,
+                                  background: '#FFFFFF',
+                                  color: T.ink,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  letterSpacing: 1,
+                                  textTransform: 'uppercase',
+                                  fontFamily: '"Plus Jakarta Sans",system-ui',
+                                }}
+                              >
+                                View Creator
                               </button>
                               {isCustom && (
                                 <>
@@ -2157,16 +2317,25 @@ function DesignerScreen({
   setSetupStoreTabFocus,
   selectedFramePresetId,
   setSelectedFramePresetId,
+  creatorProfiles = [],
+  designerDraftRecovery = null,
+  clearDesignerDraftRecovery,
+  generateFrameIdea,
+  exportPresetId = 'hd',
+  setExportPresetId,
 }) {
   const frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
+  const useTouchFallback = typeof window !== 'undefined'
+    && (!('PointerEvent' in window) || (typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || '')));
   const previewRef = uR(null);
   const dragRef = uR(null);
   const [activeTab, setActiveTab] = uS('layout');
   const [selectedSlotIndex, setSelectedSlotIndex] = uS(0);
   const [selectedDecorationIndex, setSelectedDecorationIndex] = uS(0);
+  const [activeGuides, setActiveGuides] = uS([]);
   const [statusMessage, setStatusMessage] = uS('');
   const [validationError, setValidationError] = uS('');
   const [exportPackName, setExportPackName] = uS(draftFrame?.name || 'Designer Pack Draft');
@@ -2175,6 +2344,11 @@ function DesignerScreen({
   const [exportPackAuthor, setExportPackAuthor] = uS(draftFrame?.author?.name || 'IMMM Studio');
   const [exportPackLicense, setExportPackLicense] = uS(draftFrame?.license || 'internal');
   const [importPackJson, setImportPackJson] = uS('');
+  const [showGuides, setShowGuides] = uS(true);
+  const [snapEnabled, setSnapEnabled] = uS(true);
+  const [gridEnabled, setGridEnabled] = uS(false);
+  const [activeLayerIndex, setActiveLayerIndex] = uS(0);
+  const [activeMotionPreview, setActiveMotionPreview] = uS(false);
 
   const normalizedDraft = uM(() => frameApi?.normalizeDesignerDraft?.(draftFrame) || draftFrame || null, [draftFrame, frameApi]);
   const normalizedInitial = uM(() => frameApi?.normalizeDesignerDraft?.(initialDraftFrame) || initialDraftFrame || null, [initialDraftFrame, frameApi]);
@@ -2189,16 +2363,102 @@ function DesignerScreen({
     { id: 'layout', label: 'Layout' },
     { id: 'background', label: 'Background' },
     { id: 'slots', label: 'Slots' },
+    { id: 'layers', label: 'Layers' },
     { id: 'decorations', label: 'Decorations' },
     { id: 'text', label: 'Text' },
     { id: 'save', label: 'Save' },
   ];
   const currentLayoutSlots = normalizedDraft?.photoSlots || [];
   const currentDecorations = normalizedDraft?.decorations || [];
+  const currentLayers = normalizedDraft?.layers || [];
+  const currentMotionLayers = normalizedDraft?.motionLayers || [];
   const selectedSlot = currentLayoutSlots[selectedSlotIndex] || currentLayoutSlots[0] || null;
   const selectedDecoration = currentDecorations[selectedDecorationIndex] || currentDecorations[0] || null;
+  const selectedLayer = currentLayers[activeLayerIndex] || currentLayers[0] || null;
   const slotCount = currentLayoutSlots.length;
   const previewCanvas = normalizedDraft?.canvasSize || frameApi?.getCanvasSizeForLayout?.(normalizedDraft?.layout || layout) || { width: 560, height: 1808 };
+  const getDragPoint = (event) => {
+    if (!event) return null;
+    if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+      return { clientX: event.clientX, clientY: event.clientY };
+    }
+    const touch = event.touches?.[0] || event.changedTouches?.[0];
+    if (touch && typeof touch.clientX === 'number' && typeof touch.clientY === 'number') {
+      return { clientX: touch.clientX, clientY: touch.clientY };
+    }
+    return null;
+  };
+  const snapRectToGuides = (rect, canvasSize, peers = []) => {
+    const next = { ...rect };
+    const guides = [];
+    const width = canvasSize?.width || 1;
+    const height = canvasSize?.height || 1;
+    const threshold = 14;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const rectCenterX = next.x + next.width / 2;
+    const rectCenterY = next.y + next.height / 2;
+
+    const snapAxis = (value, target, axis, kind) => {
+      if (Math.abs(value - target) <= threshold) {
+        guides.push({ axis, value: target, kind });
+        return target;
+      }
+      return value;
+    };
+
+    const snappedCenterX = snapAxis(rectCenterX, centerX, 'v', 'center');
+    const snappedCenterY = snapAxis(rectCenterY, centerY, 'h', 'center');
+    next.x += snappedCenterX - rectCenterX;
+    next.y += snappedCenterY - rectCenterY;
+
+    const edgeCandidates = [
+      { axis: 'v', value: 0, kind: 'edge-left' },
+      { axis: 'v', value: width, kind: 'edge-right' },
+      { axis: 'h', value: 0, kind: 'edge-top' },
+      { axis: 'h', value: height, kind: 'edge-bottom' },
+    ];
+    edgeCandidates.forEach((candidate) => {
+      if (candidate.axis === 'v') {
+        const left = next.x;
+        const right = next.x + next.width;
+        if (Math.abs(left - candidate.value) <= threshold) {
+          guides.push(candidate);
+          next.x += candidate.value - left;
+        } else if (Math.abs(right - candidate.value) <= threshold) {
+          guides.push(candidate);
+          next.x += candidate.value - right;
+        }
+      } else {
+        const top = next.y;
+        const bottom = next.y + next.height;
+        if (Math.abs(top - candidate.value) <= threshold) {
+          guides.push(candidate);
+          next.y += candidate.value - top;
+        } else if (Math.abs(bottom - candidate.value) <= threshold) {
+          guides.push(candidate);
+          next.y += candidate.value - bottom;
+        }
+      }
+    });
+
+    peers.forEach((peer) => {
+      if (!peer) return;
+      const peerCenterX = peer.x + peer.width / 2;
+      const peerCenterY = peer.y + peer.height / 2;
+      if (Math.abs((next.x + next.width / 2) - peerCenterX) <= threshold) {
+        guides.push({ axis: 'v', value: peerCenterX, kind: 'peer-center' });
+        next.x += peerCenterX - (next.x + next.width / 2);
+      }
+      if (Math.abs((next.y + next.height / 2) - peerCenterY) <= threshold) {
+        guides.push({ axis: 'h', value: peerCenterY, kind: 'peer-center' });
+        next.y += peerCenterY - (next.y + next.height / 2);
+      }
+    });
+
+    const clamped = frameApi?.clampRectToCanvas?.(next, canvasSize, 24, 24) || next;
+    return { rect: clamped, guides };
+  };
 
   const normalizeNextDraft = (updater) => {
     setDraftFrame((prev) => {
@@ -2291,17 +2551,59 @@ function DesignerScreen({
     setSelectedDecorationIndex(0);
   };
 
+  const setLayerPatch = (index, patch) => {
+    normalizeNextDraft((prev) => {
+      const next = [...(prev.layers || [])];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], ...patch };
+      return { ...prev, layers: next };
+    });
+  };
+
+  const moveLayer = (index, delta) => {
+    normalizeNextDraft((prev) => {
+      const next = [...(prev.layers || [])];
+      const target = index + delta;
+      if (!next[index] || target < 0 || target >= next.length) return prev;
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return { ...prev, layers: next.map((layer, i) => ({ ...layer, zIndex: i })) };
+    });
+    setActiveLayerIndex((prev) => Math.max(0, prev + delta));
+  };
+
+  const duplicateLayer = (index) => {
+    normalizeNextDraft((prev) => {
+      const source = (prev.layers || [])[index];
+      if (!source) return prev;
+      const copy = { ...source, id: `${source.id || 'layer'}_${Date.now().toString(36)}`, zIndex: (source.zIndex || 0) + 1 };
+      const next = [...(prev.layers || [])];
+      next.splice(index + 1, 0, copy);
+      return { ...prev, layers: next.map((layer, i) => ({ ...layer, zIndex: i })) };
+    });
+  };
+
+  const deleteLayer = (index) => {
+    normalizeNextDraft((prev) => ({ ...prev, layers: (prev.layers || []).filter((_, i) => i !== index) }));
+    setActiveLayerIndex(0);
+  };
+
   const startDrag = (kind, index, mode = 'move') => (event) => {
     if (!previewRef.current || !normalizedDraft) return;
-    event.preventDefault();
+    const point = getDragPoint(event);
+    if (!point) return;
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
+    if (event.currentTarget?.setPointerCapture && event.pointerId != null) {
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
+    }
     const rect = previewRef.current.getBoundingClientRect();
     dragRef.current = {
       kind,
       index,
       mode,
-      startX: event.clientX,
-      startY: event.clientY,
+      startX: point.clientX,
+      startY: point.clientY,
       rect,
       snapshot: frameApi?.normalizeDesignerDraft?.(normalizedDraft) || normalizedDraft,
     };
@@ -2318,17 +2620,20 @@ function DesignerScreen({
     if (!normalizedDraft) return;
     setSelectedSlotIndex((prev) => Math.min(prev, Math.max(0, currentLayoutSlots.length - 1)));
     setSelectedDecorationIndex((prev) => Math.min(prev, Math.max(0, currentDecorations.length - 1)));
+    setActiveLayerIndex((prev) => Math.min(prev, Math.max(0, currentLayers.length - 1)));
   }, [currentDecorations.length, currentLayoutSlots.length, normalizedDraft]);
 
   React.useEffect(() => {
     const onMove = (event) => {
       const drag = dragRef.current;
       if (!drag || !drag.snapshot) return;
+      const point = getDragPoint(event);
+      if (!point) return;
       const scaleX = (drag.snapshot.canvasSize?.width || 1) / Math.max(1, drag.rect.width);
       const scaleY = (drag.snapshot.canvasSize?.height || 1) / Math.max(1, drag.rect.height);
-      const dx = (event.clientX - drag.startX) * scaleX;
-      const dy = (event.clientY - drag.startY) * scaleY;
-      event.preventDefault();
+      const dx = (point.clientX - drag.startX) * scaleX;
+      const dy = (point.clientY - drag.startY) * scaleY;
+      if (event.cancelable) event.preventDefault();
       normalizeNextDraft((prev) => {
         const base = frameApi?.normalizeDesignerDraft?.(prev || drag.snapshot) || prev || drag.snapshot;
         if (drag.kind === 'slot') {
@@ -2338,7 +2643,10 @@ function DesignerScreen({
           const patch = drag.mode === 'resize'
             ? { width: source.width + dx, height: source.height + dy }
             : { x: source.x + dx, y: source.y + dy };
-          nextSlots[drag.index] = frameApi?.clampRectToCanvas?.({ ...source, ...patch }, base.canvasSize, 24, 24) || { ...source, ...patch };
+          const peers = nextSlots.filter((_, i) => i !== drag.index);
+          const snapped = snapEnabled ? snapRectToGuides({ ...source, ...patch }, base.canvasSize, peers) : { rect: frameApi?.clampRectToCanvas?.({ ...source, ...patch }, base.canvasSize, 24, 24) || { ...source, ...patch }, guides: [] };
+          setActiveGuides(snapped.guides);
+          nextSlots[drag.index] = snapped.rect;
           return { ...base, photoSlots: nextSlots };
         }
         if (drag.kind === 'decor') {
@@ -2348,20 +2656,35 @@ function DesignerScreen({
           const patch = drag.mode === 'resize'
             ? { width: source.width + dx, height: source.height + dy }
             : { x: source.x + dx, y: source.y + dy };
-          nextDecos[drag.index] = frameApi?.normalizeDesignerDraft?.({ ...base, decorations: nextDecos.map((item, i) => i === drag.index ? { ...item, ...patch } : item) })?.decorations?.[drag.index] || { ...source, ...patch };
+          const peers = nextDecos.filter((_, i) => i !== drag.index).map((item) => ({ x: item.x, y: item.y, width: item.width, height: item.height }));
+          const snapped = snapEnabled ? snapRectToGuides({ ...source, ...patch }, base.canvasSize, peers) : { rect: frameApi?.clampRectToCanvas?.({ ...source, ...patch }, base.canvasSize, 24, 24) || { ...source, ...patch }, guides: [] };
+          setActiveGuides(snapped.guides);
+          nextDecos[drag.index] = frameApi?.normalizeDesignerDraft?.({ ...base, decorations: nextDecos.map((item, i) => i === drag.index ? { ...item, ...snapped.rect } : item) })?.decorations?.[drag.index] || { ...source, ...snapped.rect };
           return { ...base, decorations: nextDecos };
         }
         return base;
       });
     };
-    const onUp = () => { dragRef.current = null; };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    const onUp = () => { dragRef.current = null; setActiveGuides([]); };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp, { passive: true });
+    window.addEventListener('pointercancel', onUp, { passive: true });
+    if (useTouchFallback) {
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend', onUp, { passive: true });
+      window.addEventListener('touchcancel', onUp, { passive: true });
+    }
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      if (useTouchFallback) {
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onUp);
+        window.removeEventListener('touchcancel', onUp);
+      }
     };
-  }, [frameApi, normalizedDraft]);
+  }, [frameApi, normalizedDraft, useTouchFallback]);
 
   React.useEffect(() => {
     setExportPackName(normalizedDraft?.name || 'Designer Pack Draft');
@@ -2446,6 +2769,8 @@ function DesignerScreen({
     if (isDirty && !window.confirm('Discard designer changes?')) return;
     setDraftFrame(normalizedInitial || normalizedDraft);
     setDesignerMode('edit');
+    clearDesignerDraftRecovery && clearDesignerDraftRecovery();
+    setStatusMessage('Draft discarded');
     go('setup');
   };
 
@@ -2565,7 +2890,8 @@ function DesignerScreen({
               return (
                 <div
                   key={`slot-${index}`}
-                  onPointerDown={startDrag('slot', index, 'move')}
+                  onPointerDown={useTouchFallback ? undefined : startDrag('slot', index, 'move')}
+                  onTouchStart={useTouchFallback ? startDrag('slot', index, 'move') : undefined}
                   style={{
                     position: 'absolute',
                     left: `${(slot.x / previewCanvas.width) * 100}%`,
@@ -2577,6 +2903,7 @@ function DesignerScreen({
                     border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.28)'}`,
                     background: active ? 'rgba(26,26,31,0.04)' : 'rgba(255,255,255,0.04)',
                     cursor: 'move',
+                    touchAction: 'none',
                   }}
                 >
                   <div style={{
@@ -2593,7 +2920,8 @@ function DesignerScreen({
                     {index + 1}
                   </div>
                   <div
-                    onPointerDown={startDrag('slot', index, 'resize')}
+                    onPointerDown={useTouchFallback ? undefined : startDrag('slot', index, 'resize')}
+                    onTouchStart={useTouchFallback ? startDrag('slot', index, 'resize') : undefined}
                     style={{
                       position: 'absolute',
                       right: -3,
@@ -2603,6 +2931,7 @@ function DesignerScreen({
                       borderRadius: 4,
                       background: T.ink,
                       cursor: 'nwse-resize',
+                      touchAction: 'none',
                     }}
                   />
                 </div>
@@ -2618,7 +2947,8 @@ function DesignerScreen({
               return (
                 <div
                   key={deco.id || index}
-                  onPointerDown={startDrag('decor', index, 'move')}
+                  onPointerDown={useTouchFallback ? undefined : startDrag('decor', index, 'move')}
+                  onTouchStart={useTouchFallback ? startDrag('decor', index, 'move') : undefined}
                   style={{
                     position: 'absolute',
                     left: `${(x / previewCanvas.width) * 100}%`,
@@ -2634,13 +2964,15 @@ function DesignerScreen({
                     boxSizing: 'border-box',
                     opacity: deco.opacity ?? 1,
                     transform: `rotate(${deco.rotation || 0}deg)`,
+                    touchAction: 'none',
                   }}
                 >
                   <div style={{ fontSize: deco.type === 'text' ? 12 : 10, fontWeight: 800, color: deco.fill || T.ink, textAlign: 'center', padding: 4 }}>
                     {deco.type === 'text' ? (deco.text || 'TEXT') : (deco.shape || 'shape')}
                   </div>
                   <div
-                    onPointerDown={startDrag('decor', index, 'resize')}
+                    onPointerDown={useTouchFallback ? undefined : startDrag('decor', index, 'resize')}
+                    onTouchStart={useTouchFallback ? startDrag('decor', index, 'resize') : undefined}
                     style={{
                       position: 'absolute',
                       right: -3,
@@ -2650,11 +2982,29 @@ function DesignerScreen({
                       borderRadius: 4,
                       background: T.ink,
                       cursor: 'nwse-resize',
+                      touchAction: 'none',
                     }}
                   />
                 </div>
               );
             })}
+            {showGuides && activeGuides.map((guide, index) => (
+              <div
+                key={`${guide.axis}-${guide.kind}-${index}`}
+                style={{
+                  position: 'absolute',
+                  pointerEvents: 'none',
+                  background: 'rgba(130, 92, 255, 0.8)',
+                  zIndex: 6,
+                  ...(guide.axis === 'v'
+                    ? { top: 0, bottom: 0, left: `${(guide.value / previewCanvas.width) * 100}%`, width: 2, transform: 'translateX(-1px)' }
+                    : { left: 0, right: 0, top: `${(guide.value / previewCanvas.height) * 100}%`, height: 2, transform: 'translateY(-1px)' }),
+                }}
+              />
+            ))}
+            {gridEnabled && (
+              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(rgba(130,92,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(130,92,255,0.08) 1px, transparent 1px)', backgroundSize: '20% 20%', zIndex: 1 }} />
+            )}
           </div>
         </div>
       </div>
@@ -2774,6 +3124,60 @@ function DesignerScreen({
           </div>
         )}
 
+        {activeTab === 'layers' && (
+          <div style={{ padding: 14, borderRadius: 18, border: `1px solid ${T.line}`, background: '#fff', display: 'grid', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 900 }}>Layers</div>
+              <StoreBadge T={T} tone="light">{currentLayers.length}</StoreBadge>
+            </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {currentLayers.map((layer, index) => {
+                const active = activeLayerIndex === index;
+                return (
+                  <div key={layer.id || index} style={{ border: `1px solid ${active ? T.ink : T.line}`, borderRadius: 12, background: active ? T.card : '#fff', padding: 10, display: 'grid', gap: 8 }}>
+                    <button onClick={() => setActiveLayerIndex(index)} style={{ minHeight: 44, borderRadius: 10, border: 'none', background: 'transparent', padding: 0, textAlign: 'left', fontSize: 11, fontWeight: 800, color: T.ink }}>
+                      {index + 1}. {layer.type}
+                    </button>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button onClick={() => setLayerPatch(index, { visible: !layer.visible })} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: layer.visible ? T.ink : '#fff', color: layer.visible ? T.bg : T.ink, padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>
+                        {layer.visible ? 'Visible' : 'Hidden'}
+                      </button>
+                      <button onClick={() => setLayerPatch(index, { locked: !layer.locked })} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: layer.locked ? T.ink : '#fff', color: layer.locked ? T.bg : T.ink, padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>
+                        {layer.locked ? 'Locked' : 'Unlocked'}
+                      </button>
+                      <button onClick={() => moveLayer(index, -1)} disabled={index === 0} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>Up</button>
+                      <button onClick={() => moveLayer(index, 1)} disabled={index === currentLayers.length - 1} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>Down</button>
+                      <button onClick={() => duplicateLayer(index)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>Duplicate</button>
+                      <button onClick={() => deleteLayer(index)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>Delete</button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                      <label style={{ display: 'grid', gap: 4, fontSize: 10, color: T.inkSoft }}>
+                        Opacity
+                        <input type="number" min="0" max="1" step="0.05" value={Number(layer.opacity ?? 1)} onChange={(e) => setLayerPatch(index, { opacity: Number(e.target.value) })} style={{ minHeight: 38, borderRadius: 10, border: `1px solid ${T.line}`, padding: '0 10px' }} />
+                      </label>
+                      <label style={{ display: 'grid', gap: 4, fontSize: 10, color: T.inkSoft }}>
+                        Blend
+                        <select value={layer.blendMode || 'normal'} onChange={(e) => setLayerPatch(index, { blendMode: e.target.value })} style={{ minHeight: 38, borderRadius: 10, border: `1px solid ${T.line}`, padding: '0 10px' }}>
+                          {['normal', 'multiply', 'screen', 'overlay', 'soft-light'].map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+                        </select>
+                      </label>
+                      <label style={{ display: 'grid', gap: 4, fontSize: 10, color: T.inkSoft }}>
+                        zIndex
+                        <input type="number" value={Number(layer.zIndex ?? index)} onChange={(e) => setLayerPatch(index, { zIndex: Number(e.target.value) })} style={{ minHeight: 38, borderRadius: 10, border: `1px solid ${T.line}`, padding: '0 10px' }} />
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => setShowGuides((v) => !v)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: showGuides ? T.ink : '#fff', color: showGuides ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>{showGuides ? 'Guides On' : 'Guides Off'}</button>
+              <button onClick={() => setSnapEnabled((v) => !v)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: snapEnabled ? T.ink : '#fff', color: snapEnabled ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>{snapEnabled ? 'Snap On' : 'Snap Off'}</button>
+              <button onClick={() => setGridEnabled((v) => !v)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: gridEnabled ? T.ink : '#fff', color: gridEnabled ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>{gridEnabled ? 'Grid On' : 'Grid Off'}</button>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'decorations' && (
           <div style={{ padding: 14, borderRadius: 18, border: `1px solid ${T.line}`, background: '#fff', display: 'grid', gap: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 900 }}>Decorations</div>
@@ -2854,6 +3258,17 @@ function DesignerScreen({
         {activeTab === 'save' && (
           <div style={{ padding: 14, borderRadius: 18, border: `1px solid ${T.line}`, background: '#fff', display: 'grid', gap: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 900 }}>Save / Pack Export</div>
+            <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
+              Export preset
+              <select value={exportPresetId} onChange={(e) => setExportPresetId && setExportPresetId(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }}>
+                {(frameApi?.getExportPresets?.() || [
+                  { id: 'hd', name: 'HD' },
+                  { id: 'instagram-story', name: 'Instagram Story' },
+                  { id: 'instagram-post', name: 'Instagram Post' },
+                  { id: 'wallpaper', name: 'Wallpaper' },
+                ]).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+              </select>
+            </label>
             <input value={exportPackName} onChange={(e) => setExportPackName(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="Pack name" />
             <input value={exportPackDescription} onChange={(e) => setExportPackDescription(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="Pack description" />
             <input value={exportPackAuthor} onChange={(e) => setExportPackAuthor(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="Author name" />
@@ -2867,6 +3282,47 @@ function DesignerScreen({
             <button onClick={handleSaveFrame} style={{ minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Update Existing</button>
             <button onClick={handleSaveAsNew} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Duplicate & Save</button>
             <button onClick={handlePackExport} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save as Pack Draft</button>
+            <button onClick={() => {
+              const prompt = window.prompt('Describe an idea', 'kawaii pink y2k');
+              if (!prompt) return;
+              const idea = generateFrameIdea ? generateFrameIdea(prompt) : null;
+              if (!idea) return;
+              normalizeNextDraft((prev) => ({
+                ...prev,
+                background: idea.background || prev.background,
+                decorations: [...(idea.decorations || []), ...(prev.decorations || [])],
+                watermark: idea.watermark ? { ...(prev.watermark || {}), ...idea.watermark } : prev.watermark,
+                layout: idea.recommendedLayout || prev.layout,
+              }));
+              setActiveTab('background');
+              setStatusMessage(`Idea generated for ${prompt}`);
+            }} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
+              Generate Ideas
+            </button>
+            {designerDraftRecovery && (
+              <div style={{ borderRadius: 12, border: `1px solid ${T.line}`, padding: 12, background: 'rgba(26,26,31,0.03)', display: 'grid', gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: T.ink }}>Recovery available</div>
+                <div style={{ fontSize: 10.5, color: T.inkSoft }}>
+                  Saved {formatFrameDate(designerDraftRecovery.savedAt)} · {designerDraftRecovery.draft?.name || 'Untitled'}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button onClick={() => {
+                    if (designerDraftRecovery?.draft) {
+                      setDraftFrame(designerDraftRecovery.draft);
+                      setStatusMessage('Recovered previous draft');
+                    }
+                  }} style={{ minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', padding: '0 12px' }}>
+                    Restore
+                  </button>
+                  <button onClick={() => {
+                    clearDesignerDraftRecovery && clearDesignerDraftRecovery();
+                    setStatusMessage('Recovery discarded');
+                  }} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', padding: '0 12px' }}>
+                    Discard Recovery
+                  </button>
+                </div>
+              </div>
+            )}
             <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 10, display: 'grid', gap: 8 }}>
               <div style={{ fontSize: 11, fontWeight: 900, color: T.ink }}>Import Pack JSON</div>
               <textarea

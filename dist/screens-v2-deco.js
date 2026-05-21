@@ -111,6 +111,23 @@ var getDecoFitMaxScale = (layout, mobile) => {
 function getStickerPickerPacks() {
   return typeof getVisibleStickerPacks === 'function' ? getVisibleStickerPacks() : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
 }
+function getDragPoint(event) {
+  if (!event) return null;
+  if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+    return {
+      clientX: event.clientX,
+      clientY: event.clientY
+    };
+  }
+  var touch = event.touches?.[0] || event.changedTouches?.[0];
+  if (touch && typeof touch.clientX === 'number' && typeof touch.clientY === 'number') {
+    return {
+      clientX: touch.clientX,
+      clientY: touch.clientY
+    };
+  }
+  return null;
+}
 function DecoV2({
   T,
   go,
@@ -131,8 +148,12 @@ function DecoV2({
   accent,
   frameColor,
   framePreset,
-  saveCustomFrame
+  saveCustomFrame,
+  openDesigner,
+  exportPresetId,
+  selectedFramePresetId
 }) {
+  var useTouchFallback = typeof window !== 'undefined' && (!('PointerEvent' in window) || typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || ''));
   var [tab, setTab] = React.useState('stickers'); // stickers | draw | text
   var [selStId, setSelStId] = React.useState(null);
   var [drawColor, setDrawColor] = React.useState('#D98893');
@@ -248,15 +269,17 @@ function DecoV2({
   };
   var onDrawStart = React.useCallback(e => {
     if (!drawModeRef.current || !frameNativeRef.current) return;
+    var point = getDragPoint(e);
+    if (!point) return;
     e.stopPropagation();
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     // Pointer capture: keeps move/up events even if pointer leaves element
     if (e.pointerId != null && e.currentTarget?.setPointerCapture) {
       e.currentTarget.setPointerCapture(e.pointerId);
     }
     var rect = frameNativeRef.current.getBoundingClientRect();
-    var x = (e.clientX - rect.left) / rect.width * 100;
-    var y = (e.clientY - rect.top) / rect.height * 100;
+    var x = (point.clientX - rect.left) / rect.width * 100;
+    var y = (point.clientY - rect.top) / rect.height * 100;
     // Store normalized width so export renders at same visual size regardless of canvas scale
     var widthNorm = rect.width > 0 ? drawWidth / rect.width : null;
     // High-entropy seed: avoids collision even when multiple strokes start same ms
@@ -280,10 +303,12 @@ function DecoV2({
   }, [drawColor, drawWidth, drawBrush]);
   var onDrawMove = React.useCallback(e => {
     if (!drawModeRef.current || !frameNativeRef.current || !curStrokeRef.current) return;
-    e.preventDefault();
+    var point = getDragPoint(e);
+    if (!point) return;
+    if (e.cancelable) e.preventDefault();
     var rect = frameNativeRef.current.getBoundingClientRect();
-    var x = (e.clientX - rect.left) / rect.width * 100;
-    var y = (e.clientY - rect.top) / rect.height * 100;
+    var x = (point.clientX - rect.left) / rect.width * 100;
+    var y = (point.clientY - rect.top) / rect.height * 100;
     curStrokeRef.current.points.push([x, y]);
     curPathDRef.current += ` L${x} ${y}`;
     if (curPathElRef.current) {
@@ -480,10 +505,14 @@ function DecoV2({
       flexShrink: 0,
       touchAction: drawMode ? 'none' : 'auto'
     },
-    onPointerDown: onDrawStart,
-    onPointerMove: onDrawMove,
-    onPointerUp: onDrawEnd,
-    onPointerCancel: onDrawEnd
+    onPointerDown: useTouchFallback ? undefined : onDrawStart,
+    onPointerMove: useTouchFallback ? undefined : onDrawMove,
+    onPointerUp: useTouchFallback ? undefined : onDrawEnd,
+    onPointerCancel: useTouchFallback ? undefined : onDrawEnd,
+    onTouchStart: useTouchFallback ? onDrawStart : undefined,
+    onTouchMove: useTouchFallback ? onDrawMove : undefined,
+    onTouchEnd: useTouchFallback ? onDrawEnd : undefined,
+    onTouchCancel: useTouchFallback ? onDrawEnd : undefined
   }, /*#__PURE__*/React.createElement("canvas", {
     ref: compositionCanvasRef,
     style: {
@@ -1993,7 +2022,11 @@ function ResultV2({
       try {
         var blob = await getFinalResultBlob();
         if (!cancelled && blob) {
-          await saveResultToGallery(blob, 'local');
+          await saveResultToGallery(blob, 'local', {
+            framePresetId: framePreset?.id || selectedFramePresetId || '',
+            packId: framePreset?.packId || '',
+            creatorId: framePreset?.creatorId || ''
+          });
           localStorage.setItem(key, '1');
         }
       } catch (e) {
@@ -2040,7 +2073,11 @@ function ResultV2({
     try {
       var blob = await getFinalResultBlob();
       var fname = getFormattedFilename();
-      await saveResultToGallery(blob, 'local');
+      await saveResultToGallery(blob, 'local', {
+        framePresetId: framePreset?.id || selectedFramePresetId || '',
+        packId: framePreset?.packId || '',
+        creatorId: framePreset?.creatorId || ''
+      });
       triggerDownload(blob, fname);
     } catch (e) {
       console.error(e);
@@ -2058,7 +2095,11 @@ function ResultV2({
       var file = new File([blob], fname, {
         type: 'image/png'
       });
-      await saveResultToGallery(blob, 'local');
+      await saveResultToGallery(blob, 'local', {
+        framePresetId: framePreset?.id || selectedFramePresetId || '',
+        packId: framePreset?.packId || '',
+        creatorId: framePreset?.creatorId || ''
+      });
       if (navigator.share && navigator.canShare && navigator.canShare({
         files: [file]
       })) {
@@ -2143,7 +2184,10 @@ function ResultV2({
         metadata: {
           layout,
           filter,
-          frameColor
+          frameColor,
+          framePresetId: framePreset?.id || selectedFramePresetId || '',
+          packId: framePreset?.packId || '',
+          creatorId: framePreset?.creatorId || ''
         }
       });
       if (!cloudShareResult.ok) {
@@ -2829,7 +2873,64 @@ function ResultV2({
         fontWeight: 600,
         cursor: 'pointer'
       }
-    }, "Redecorate"), /*#__PURE__*/React.createElement("button", {
+    }, "Redecorate"), openDesigner && /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setShowMoreActions(false);
+        openDesigner({
+          mode: 'duplicate',
+          preset: framePreset || null
+        });
+      },
+      style: {
+        width: '100%',
+        padding: '14px 16px',
+        borderRadius: 14,
+        border: 'none',
+        background: 'transparent',
+        textAlign: 'left',
+        color: T.ink,
+        fontSize: 14,
+        fontWeight: 600,
+        cursor: 'pointer'
+      }
+    }, "Remix this frame"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setShowMoreActions(false);
+        go('setup');
+      },
+      style: {
+        width: '100%',
+        padding: '14px 16px',
+        borderRadius: 14,
+        border: 'none',
+        background: 'transparent',
+        textAlign: 'left',
+        color: T.ink,
+        fontSize: 14,
+        fontWeight: 600,
+        cursor: 'pointer'
+      }
+    }, "Use this pack"), openDesigner && /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setShowMoreActions(false);
+        openDesigner({
+          mode: 'edit',
+          preset: framePreset || null
+        });
+      },
+      style: {
+        width: '100%',
+        padding: '14px 16px',
+        borderRadius: 14,
+        border: 'none',
+        background: 'transparent',
+        textAlign: 'left',
+        color: T.ink,
+        fontSize: 14,
+        fontWeight: 600,
+        cursor: 'pointer'
+      }
+    }, "Duplicate template"), /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         setShowMoreActions(false);
         go('setup');
@@ -3102,7 +3203,64 @@ function ResultV2({
       fontWeight: 700,
       cursor: 'pointer'
     }
-  }, "Redecorate"), /*#__PURE__*/React.createElement("button", {
+  }, "Redecorate"), openDesigner && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setShowMoreActions(false);
+      openDesigner({
+        mode: 'duplicate',
+        preset: framePreset || null
+      });
+    },
+    style: {
+      width: '100%',
+      padding: '14px 16px',
+      borderRadius: 14,
+      border: 'none',
+      background: 'transparent',
+      textAlign: 'left',
+      color: T.ink,
+      fontSize: 14,
+      fontWeight: 700,
+      cursor: 'pointer'
+    }
+  }, "Remix this frame"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setShowMoreActions(false);
+      go('setup');
+    },
+    style: {
+      width: '100%',
+      padding: '14px 16px',
+      borderRadius: 14,
+      border: 'none',
+      background: 'transparent',
+      textAlign: 'left',
+      color: T.ink,
+      fontSize: 14,
+      fontWeight: 700,
+      cursor: 'pointer'
+    }
+  }, "Use this pack"), openDesigner && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setShowMoreActions(false);
+      openDesigner({
+        mode: 'edit',
+        preset: framePreset || null
+      });
+    },
+    style: {
+      width: '100%',
+      padding: '14px 16px',
+      borderRadius: 14,
+      border: 'none',
+      background: 'transparent',
+      textAlign: 'left',
+      color: T.ink,
+      fontSize: 14,
+      fontWeight: 700,
+      cursor: 'pointer'
+    }
+  }, "Duplicate template"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setShowMoreActions(false);
       go('setup');

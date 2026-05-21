@@ -20,6 +20,11 @@ function nowMs() {
 function logExportPerf(label, data) {
   if (isExportPerfDebugEnabled()) console.info?.('[IMMM export perf]', label, data);
 }
+var requestIdleCallbackSafe = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback.bind(window) : cb => setTimeout(() => cb({
+  didTimeout: true,
+  timeRemaining: () => 0
+}), 1);
+var cancelIdleCallbackSafe = typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function' ? window.cancelIdleCallback.bind(window) : id => clearTimeout(id);
 var FRAME_TEMPLATE_ALIASES = {
   strip: '1x4',
   grid: '2x2',
@@ -603,6 +608,7 @@ async function renderComposition(ctx, data, options = {}) {
   var drawPresetBackground = presetApi?.drawFramePresetBackground || window.drawFramePresetBackground || null;
   var drawPresetLayer = presetApi?.drawFramePresetLayer || window.drawFramePresetLayer || null;
   var drawPresetWatermark = presetApi?.drawFramePresetWatermark || window.drawFramePresetWatermark || null;
+  var orderedLayers = framePreset?.layers?.length ? presetApi?.getFrameLayerOrder?.(framePreset) || framePreset.layers : [];
 
   // 1. Background
   if (framePreset && typeof drawPresetBackground === 'function') {
@@ -636,7 +642,13 @@ async function renderComposition(ctx, data, options = {}) {
     count: images.length
   });
   var tStickerDrawStart = nowMs();
-  if (framePreset && typeof drawPresetLayer === 'function') {
+  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
+    orderedLayers.filter(layer => layer && layer.visible !== false && Number(layer.zIndex) < 0).forEach(layer => {
+      if (layer.type !== 'background' && layer.type !== 'photo-slots') {
+        drawPresetLayer(ctx, framePreset, w, h, layer);
+      }
+    });
+  } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'back');
   }
   var _loop = async function (i) {
@@ -715,7 +727,13 @@ async function renderComposition(ctx, data, options = {}) {
     }
     ctx.restore();
   });
-  if (framePreset && typeof drawPresetLayer === 'function') {
+  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
+    orderedLayers.filter(layer => layer && layer.visible !== false && Number(layer.zIndex) >= 0).forEach(layer => {
+      if (layer.type !== 'background' && layer.type !== 'photo-slots') {
+        drawPresetLayer(ctx, framePreset, w, h, layer);
+      }
+    });
+  } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'front');
   }
 
@@ -928,7 +946,10 @@ function FrameThumb({
 }) {
   var canvasRef = React.useRef(null);
   React.useEffect(() => {
+    var cancelled = false;
+    var idleId = null;
     var draw = async () => {
+      if (cancelled) return;
       if (!canvasRef.current) return;
       var cvs = canvasRef.current;
       var ctx = cvs.getContext('2d');
@@ -963,7 +984,13 @@ function FrameThumb({
         scale: 1
       });
     };
-    draw();
+    idleId = requestIdleCallbackSafe(() => {
+      draw();
+    });
+    return () => {
+      cancelled = true;
+      if (idleId != null) cancelIdleCallbackSafe(idleId);
+    };
   }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
   return /*#__PURE__*/React.createElement("canvas", {
     ref: canvasRef,
