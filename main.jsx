@@ -1763,6 +1763,7 @@ function App() {
         return <LandingV2 {...p}
           onStart={() => { setPhotoEditMode(false); go('setup'); }}
           onEdit={() => { setPhotoEditMode(true); go('setup'); }}
+          onFrames={() => { setPhotoEditMode(false); go('setup'); }}
           onGallery={() => go('gallery')}
         />;
       case 'gallery':

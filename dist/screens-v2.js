@@ -334,6 +334,7 @@ function LandingV2({
   mobile,
   onStart,
   onEdit,
+  onFrames,
   onGallery,
   lang = 'ko',
   setLang
@@ -527,7 +528,19 @@ function LandingV2({
       textTransform: 'inherit',
       padding: 0
     }
-  }, "Gallery"), /*#__PURE__*/React.createElement("span", null, "Frames"), /*#__PURE__*/React.createElement("button", {
+  }, "Gallery"), /*#__PURE__*/React.createElement("button", {
+    onClick: onFrames,
+    style: {
+      background: 'transparent',
+      border: 'none',
+      color: T.inkSoft,
+      cursor: 'pointer',
+      font: 'inherit',
+      letterSpacing: 'inherit',
+      textTransform: 'inherit',
+      padding: 0
+    }
+  }, "Frames"), /*#__PURE__*/React.createElement("button", {
     onClick: toggleLang,
     style: {
       background: 'rgba(26,26,31,0.05)',

@@ -2163,6 +2163,10 @@ function App() {
             setPhotoEditMode(true);
             go('setup');
           },
+          onFrames: () => {
+            setPhotoEditMode(false);
+            go('setup');
+          },
           onGallery: () => go('gallery')
         }));
       case 'gallery':

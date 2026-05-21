@@ -170,7 +170,7 @@ const I18N = {
   }
 };
 
-function LandingV2({ T, variant, go, mobile, onStart, onEdit, onGallery, lang = 'ko', setLang }) {
+function LandingV2({ T, variant, go, mobile, onStart, onEdit, onFrames, onGallery, lang = 'ko', setLang }) {
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
@@ -235,7 +235,8 @@ function LandingV2({ T, variant, go, mobile, onStart, onEdit, onGallery, lang = 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontFamily: '"Plus Jakarta Sans",system-ui', fontSize: 11, fontWeight: 700, letterSpacing: 6, color: T.ink }}>I M M M</div>
           <div style={{ display: 'flex', gap: 28, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1.5, textTransform: 'uppercase', alignItems: 'center' }}>
-            <button onClick={onGallery} style={{ background:'transparent', border:'none', color:T.inkSoft, cursor:'pointer', font: 'inherit', letterSpacing:'inherit', textTransform:'inherit', padding:0 }}>Gallery</button><span>Frames</span>
+            <button onClick={onGallery} style={{ background:'transparent', border:'none', color:T.inkSoft, cursor:'pointer', font: 'inherit', letterSpacing:'inherit', textTransform:'inherit', padding:0 }}>Gallery</button>
+            <button onClick={onFrames} style={{ background:'transparent', border:'none', color:T.inkSoft, cursor:'pointer', font: 'inherit', letterSpacing:'inherit', textTransform:'inherit', padding:0 }}>Frames</button>
             <button onClick={toggleLang} style={{ background: 'rgba(26,26,31,0.05)', borderRadius: 999, border: 'none', color: T.ink, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: '"Plus Jakarta Sans",system-ui', padding: '4px 10px', letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.2s' }}>
               {lang}
             </button>
