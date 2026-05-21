@@ -2232,6 +2232,9 @@ function drawFramePresetLayer(ctx, preset, width, height, layer = 'all') {
   if (!preset) return;
   var layerConfig = typeof layer === 'object' && layer ? layer : null;
   var layerKey = layerConfig?.type || layer || 'all';
+  if (layerKey === 'background' || layerKey === 'photo-slots' || layerKey === 'watermark') {
+    return;
+  }
   var decorations = Array.isArray(preset.decorations) ? preset.decorations : [];
   var list = decorations.filter(deco => {
     if (layerKey === 'all') return true;

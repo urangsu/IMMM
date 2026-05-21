@@ -1777,7 +1777,6 @@ function ResultV2({
       setToasts([]);
       setShowPrintIntro(false);
       setResultAssetRecord(null);
-      setLocalSaveState(null);
     };
   }, [activeSessionId]);
   React.useEffect(() => {

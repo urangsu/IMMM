@@ -810,6 +810,18 @@ function SetupScreen({
     if (!selectedFramePresetId) return framePreset || null;
     return allStorePresets.find(preset => preset.id === selectedFramePresetId) || framePreset || null;
   }, [allStorePresets, framePreset, selectedFramePresetId]);
+  var layoutMatchedFramePreset = uM(() => {
+    var currentLayout = frameApi?.normalizePresetLayout?.(layout) || layout;
+    var selectedLayout = selectedFramePreset?.layout ? frameApi?.normalizePresetLayout?.(selectedFramePreset.layout) || selectedFramePreset.layout : '';
+    if (selectedFramePreset && selectedLayout === currentLayout) {
+      return selectedFramePreset;
+    }
+    var layoutPreset = allStorePresets.find(preset => {
+      var presetLayout = frameApi?.normalizePresetLayout?.(preset.layout) || preset.layout;
+      return presetLayout === currentLayout;
+    }) || null;
+    return layoutPreset || framePreset || selectedFramePreset || null;
+  }, [allStorePresets, frameApi, framePreset, layout, selectedFramePreset]);
   var selectedPack = uM(() => allPacks.find(pack => pack.id === activePackId) || allPacks[0] || null, [activePackId, allPacks]);
   var packPresets = uM(() => {
     if (!selectedPack) return [];
@@ -1098,7 +1110,7 @@ function SetupScreen({
     height: "auto",
     layout: layout
   }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
-    key: `${frameColor}-${selectedFramePreset?.id || 'base'}`,
+    key: `${frameColor}-${layoutMatchedFramePreset?.id || selectedFramePreset?.id || 'base'}`,
     layout: layout,
     shots: [{
       filter
@@ -1117,7 +1129,7 @@ function SetupScreen({
     scale: 1,
     orientation: orientation,
     frameColor: frameColor,
-    framePreset: selectedFramePreset
+    framePreset: layoutMatchedFramePreset
   }) : /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'relative',
@@ -1300,7 +1312,7 @@ function SetupScreen({
       color: T.inkSoft,
       fontFamily: 'Pretendard,system-ui'
     }
-  }, selectedFramePreset ? `${selectedFramePreset.name} · ${selectedFramePreset.layout} · ${selectedFramePreset.photoSlots?.length || 0}컷` : 'Pick, save, rename, and reuse frame presets.')), /*#__PURE__*/React.createElement("div", {
+  }, layoutMatchedFramePreset ? `${layoutMatchedFramePreset.name} · ${layoutMatchedFramePreset.layout} · ${layoutMatchedFramePreset.photoSlots?.length || 0}컷` : 'Pick, save, rename, and reuse frame presets.')), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,
@@ -1310,7 +1322,7 @@ function SetupScreen({
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => openDesigner && openDesigner({
       mode: 'new',
-      preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null
+      preset: layoutMatchedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null
     }),
     style: {
       border: 'none',
@@ -2116,7 +2128,7 @@ function SetupScreen({
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => openDesigner({
       mode: 'new',
-      preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null
+      preset: layoutMatchedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null
     }),
     style: {
       border: 'none',
@@ -2168,24 +2180,24 @@ function SetupScreen({
       color: T.ink,
       fontFamily: 'Pretendard,system-ui'
     }
-  }, selectedFramePreset?.name || 'Selected preset'), /*#__PURE__*/React.createElement("div", {
+  }, layoutMatchedFramePreset?.name || selectedFramePreset?.name || 'Selected preset'), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 4,
       fontSize: 10.5,
       color: T.inkSoft,
       fontFamily: 'Pretendard,system-ui'
     }
-  }, selectedFramePreset ? `${selectedFramePreset.layout} · ${selectedFramePreset.photoSlots?.length || 0}컷 · ${selectedFramePreset.category}` : 'No preset selected')), /*#__PURE__*/React.createElement("div", {
+  }, layoutMatchedFramePreset ? `${layoutMatchedFramePreset.layout} · ${layoutMatchedFramePreset.photoSlots?.length || 0}컷 · ${layoutMatchedFramePreset.category}` : 'No preset selected')), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 6,
       flexWrap: 'wrap',
       justifyContent: 'flex-end'
     }
-  }, selectedFramePreset && /*#__PURE__*/React.createElement(StoreBadge, {
+  }, layoutMatchedFramePreset && /*#__PURE__*/React.createElement(StoreBadge, {
     T: T,
     tone: "light"
-  }, selectedFramePreset.source === 'custom' ? 'My Frame' : 'Preset'), selectedFramePresetId && selectedFramePresetId === selectedFramePreset?.id && /*#__PURE__*/React.createElement(StoreBadge, {
+  }, layoutMatchedFramePreset.source === 'custom' ? 'My Frame' : 'Preset'), selectedFramePresetId && selectedFramePresetId === selectedFramePreset?.id && /*#__PURE__*/React.createElement(StoreBadge, {
     T: T
   }, "Active"))), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2196,8 +2208,8 @@ function SetupScreen({
       borderRadius: 16
     }
   }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
-    key: `${selectedFramePreset?.id || layout}-${selectedFramePreset?.updatedAt || 'selected'}`,
-    layout: selectedFramePreset?.layout || layout,
+    key: `${layoutMatchedFramePreset?.id || selectedFramePreset?.id || layout}-${layoutMatchedFramePreset?.updatedAt || selectedFramePreset?.updatedAt || 'selected'}`,
+    layout: layoutMatchedFramePreset?.layout || layout,
     shots: shotsPreview,
     selected: [0, 1, 2, 3],
     T: T,
@@ -2207,9 +2219,9 @@ function SetupScreen({
     scale: mobile ? 0.96 : 1.08,
     orientation: "portrait",
     frameColor: frameColor,
-    framePreset: selectedFramePreset
+    framePreset: layoutMatchedFramePreset
   }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
-    layout: selectedFramePreset?.layout || layout,
+    layout: layoutMatchedFramePreset?.layout || layout,
     T: T,
     size: "lg"
   })), /*#__PURE__*/React.createElement("div", {
@@ -2219,16 +2231,16 @@ function SetupScreen({
       gap: 8
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => selectedFramePreset && applyFramePreset && applyFramePreset(selectedFramePreset),
-    disabled: !selectedFramePreset,
+    onClick: () => layoutMatchedFramePreset && applyFramePreset && applyFramePreset(layoutMatchedFramePreset),
+    disabled: !layoutMatchedFramePreset,
     style: {
       border: 'none',
       borderRadius: 999,
       padding: '10px 14px',
       minHeight: 44,
-      background: selectedFramePreset ? T.ink : 'rgba(26,26,31,0.06)',
-      color: selectedFramePreset ? T.bg : T.inkSoft,
-      cursor: selectedFramePreset ? 'pointer' : 'default',
+      background: layoutMatchedFramePreset ? T.ink : 'rgba(26,26,31,0.06)',
+      color: layoutMatchedFramePreset ? T.bg : T.inkSoft,
+      cursor: layoutMatchedFramePreset ? 'pointer' : 'default',
       fontSize: 11,
       fontWeight: 800,
       letterSpacing: 1,
@@ -2434,7 +2446,7 @@ function SetupScreen({
     tone: "light"
   }, savedFrames.length), saveCustomFrame && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      var suggested = selectedFramePreset?.name ? `${selectedFramePreset.name} Copy` : 'My Frame';
+      var suggested = layoutMatchedFramePreset?.name ? `${layoutMatchedFramePreset.name} Copy` : selectedFramePreset?.name ? `${selectedFramePreset.name} Copy` : 'My Frame';
       var name = window.prompt('Save frame as', suggested);
       if (!name || !name.trim()) return;
       saveCustomFrame({
@@ -2486,7 +2498,7 @@ function SetupScreen({
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => openDesigner({
       mode: 'new',
-      preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null
+      preset: layoutMatchedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null
     }),
     style: {
       minHeight: 44,

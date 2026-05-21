@@ -1150,7 +1150,6 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       setToasts([]);
       setShowPrintIntro(false);
       setResultAssetRecord(null);
-      setLocalSaveState(null);
     };
   }, [activeSessionId]);
 

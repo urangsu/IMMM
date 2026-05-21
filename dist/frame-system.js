@@ -609,6 +609,7 @@ async function renderComposition(ctx, data, options = {}) {
   var drawPresetLayer = presetApi?.drawFramePresetLayer || window.drawFramePresetLayer || null;
   var drawPresetWatermark = presetApi?.drawFramePresetWatermark || window.drawFramePresetWatermark || null;
   var orderedLayers = framePreset?.layers?.length ? presetApi?.getFrameLayerOrder?.(framePreset) || framePreset.layers : [];
+  var drawableLayers = orderedLayers.filter(layer => layer && layer.visible !== false && !['background', 'photo-slots', 'watermark'].includes(layer.type));
 
   // 1. Background
   if (framePreset && typeof drawPresetBackground === 'function') {
@@ -642,11 +643,9 @@ async function renderComposition(ctx, data, options = {}) {
     count: images.length
   });
   var tStickerDrawStart = nowMs();
-  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
-    orderedLayers.filter(layer => layer && layer.visible !== false && Number(layer.zIndex) < 0).forEach(layer => {
-      if (layer.type !== 'background' && layer.type !== 'photo-slots') {
-        drawPresetLayer(ctx, framePreset, w, h, layer);
-      }
+  if (framePreset && typeof drawPresetLayer === 'function' && drawableLayers.length) {
+    drawableLayers.filter(layer => layer && layer.visible !== false && Number(layer.zIndex) < 0).forEach(layer => {
+      drawPresetLayer(ctx, framePreset, w, h, layer);
     });
   } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'back');
@@ -727,11 +726,9 @@ async function renderComposition(ctx, data, options = {}) {
     }
     ctx.restore();
   });
-  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
-    orderedLayers.filter(layer => layer && layer.visible !== false && Number(layer.zIndex) >= 0).forEach(layer => {
-      if (layer.type !== 'background' && layer.type !== 'photo-slots') {
-        drawPresetLayer(ctx, framePreset, w, h, layer);
-      }
+  if (framePreset && typeof drawPresetLayer === 'function' && drawableLayers.length) {
+    drawableLayers.filter(layer => layer && layer.visible !== false && Number(layer.zIndex) >= 0).forEach(layer => {
+      drawPresetLayer(ctx, framePreset, w, h, layer);
     });
   } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'front');

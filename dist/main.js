@@ -2035,7 +2035,7 @@ function App() {
     setShots(nextShots);
     try {
       if (nextPresetId) {
-        localStorage.removeItem('immm.v2.selectedFramePresetId');
+        localStorage.setItem('immm.v2.selectedFramePresetId', nextPresetId);
       } else {
         localStorage.removeItem('immm.v2.selectedFramePresetId');
       }

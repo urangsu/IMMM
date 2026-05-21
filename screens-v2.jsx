@@ -372,6 +372,20 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     if (!selectedFramePresetId) return framePreset || null;
     return allStorePresets.find((preset) => preset.id === selectedFramePresetId) || framePreset || null;
   }, [allStorePresets, framePreset, selectedFramePresetId]);
+  const layoutMatchedFramePreset = uM(() => {
+    const currentLayout = frameApi?.normalizePresetLayout?.(layout) || layout;
+    const selectedLayout = selectedFramePreset?.layout
+      ? (frameApi?.normalizePresetLayout?.(selectedFramePreset.layout) || selectedFramePreset.layout)
+      : '';
+    if (selectedFramePreset && selectedLayout === currentLayout) {
+      return selectedFramePreset;
+    }
+    const layoutPreset = allStorePresets.find((preset) => {
+      const presetLayout = frameApi?.normalizePresetLayout?.(preset.layout) || preset.layout;
+      return presetLayout === currentLayout;
+    }) || null;
+    return layoutPreset || framePreset || selectedFramePreset || null;
+  }, [allStorePresets, frameApi, framePreset, layout, selectedFramePreset]);
   const selectedPack = uM(() => allPacks.find((pack) => pack.id === activePackId) || allPacks[0] || null, [activePackId, allPacks]);
   const packPresets = uM(() => {
     if (!selectedPack) return [];
@@ -647,8 +661,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           layout={layout}
         >
           {WFrameThumb ? (
-            <WFrameThumb key={`${frameColor}-${selectedFramePreset?.id || 'base'}`} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
-              logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} framePreset={selectedFramePreset} />
+            <WFrameThumb key={`${frameColor}-${layoutMatchedFramePreset?.id || selectedFramePreset?.id || 'base'}`} layout={layout} shots={[{ filter }, { filter }, { filter }, { filter }]} selected={[0, 1, 2, 3]} T={T}
+              logo={logo} dateText={dateText} accent={accent} scale={1} orientation={orientation} frameColor={frameColor} framePreset={layoutMatchedFramePreset} />
           ) : (
             <div style={{ position: 'relative', display: 'grid', placeItems: 'center' }}>
               <FramePickerFallback layout={layout} T={T} size="lg" />
@@ -743,12 +757,12 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
           <div style={{ minWidth: 0 }}>
             <Kick T={T}>Frame Store</Kick>
             <div style={{ marginTop: 4, fontSize: 11, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
-              {selectedFramePreset ? `${selectedFramePreset.name} · ${selectedFramePreset.layout} · ${selectedFramePreset.photoSlots?.length || 0}컷` : 'Pick, save, rename, and reuse frame presets.'}
+              {layoutMatchedFramePreset ? `${layoutMatchedFramePreset.name} · ${layoutMatchedFramePreset.layout} · ${layoutMatchedFramePreset.photoSlots?.length || 0}컷` : 'Pick, save, rename, and reuse frame presets.'}
             </div>
           </div>
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
             <button
-              onClick={() => openDesigner && openDesigner({ mode: 'new', preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null })}
+              onClick={() => openDesigner && openDesigner({ mode: 'new', preset: layoutMatchedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null })}
               style={{
                 border: 'none',
                 background: T.ink,
@@ -1405,7 +1419,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                       {openDesigner && (
                         <div style={{ marginTop: 10 }}>
                           <button
-                            onClick={() => openDesigner({ mode: 'new', preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null })}
+                            onClick={() => openDesigner({ mode: 'new', preset: layoutMatchedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null })}
                             style={{
                               border: 'none',
                               borderRadius: 999,
@@ -1449,15 +1463,15 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                 <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:10 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 900, color: T.ink, fontFamily: 'Pretendard,system-ui' }}>
-                      {selectedFramePreset?.name || 'Selected preset'}
+                      {layoutMatchedFramePreset?.name || selectedFramePreset?.name || 'Selected preset'}
                     </div>
                     <div style={{ marginTop: 4, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
-                      {selectedFramePreset ? `${selectedFramePreset.layout} · ${selectedFramePreset.photoSlots?.length || 0}컷 · ${selectedFramePreset.category}` : 'No preset selected'}
+                      {layoutMatchedFramePreset ? `${layoutMatchedFramePreset.layout} · ${layoutMatchedFramePreset.photoSlots?.length || 0}컷 · ${layoutMatchedFramePreset.category}` : 'No preset selected'}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {selectedFramePreset && (
-                      <StoreBadge T={T} tone="light">{selectedFramePreset.source === 'custom' ? 'My Frame' : 'Preset'}</StoreBadge>
+                    {layoutMatchedFramePreset && (
+                      <StoreBadge T={T} tone="light">{layoutMatchedFramePreset.source === 'custom' ? 'My Frame' : 'Preset'}</StoreBadge>
                     )}
                     {selectedFramePresetId && selectedFramePresetId === selectedFramePreset?.id && (
                       <StoreBadge T={T}>Active</StoreBadge>
@@ -1467,8 +1481,8 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                 <div style={{ display: 'grid', placeItems: 'center', minHeight: 170, background: 'rgba(26,26,31,0.02)', borderRadius: 16 }}>
                   {WFrameThumb ? (
                     <WFrameThumb
-                      key={`${selectedFramePreset?.id || layout}-${selectedFramePreset?.updatedAt || 'selected'}`}
-                      layout={selectedFramePreset?.layout || layout}
+                      key={`${layoutMatchedFramePreset?.id || selectedFramePreset?.id || layout}-${layoutMatchedFramePreset?.updatedAt || selectedFramePreset?.updatedAt || 'selected'}`}
+                      layout={layoutMatchedFramePreset?.layout || layout}
                       shots={shotsPreview}
                       selected={[0, 1, 2, 3]}
                       T={T}
@@ -1478,24 +1492,24 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                       scale={mobile ? 0.96 : 1.08}
                       orientation="portrait"
                       frameColor={frameColor}
-                      framePreset={selectedFramePreset}
+                      framePreset={layoutMatchedFramePreset}
                     />
                   ) : (
-                    <FramePickerFallback layout={selectedFramePreset?.layout || layout} T={T} size="lg" />
+                    <FramePickerFallback layout={layoutMatchedFramePreset?.layout || layout} T={T} size="lg" />
                   )}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   <button
-                    onClick={() => selectedFramePreset && applyFramePreset && applyFramePreset(selectedFramePreset)}
-                    disabled={!selectedFramePreset}
+                    onClick={() => layoutMatchedFramePreset && applyFramePreset && applyFramePreset(layoutMatchedFramePreset)}
+                    disabled={!layoutMatchedFramePreset}
                     style={{
                       border: 'none',
                       borderRadius: 999,
                       padding: '10px 14px',
                       minHeight: 44,
-                      background: selectedFramePreset ? T.ink : 'rgba(26,26,31,0.06)',
-                      color: selectedFramePreset ? T.bg : T.inkSoft,
-                      cursor: selectedFramePreset ? 'pointer' : 'default',
+                      background: layoutMatchedFramePreset ? T.ink : 'rgba(26,26,31,0.06)',
+                      color: layoutMatchedFramePreset ? T.bg : T.inkSoft,
+                      cursor: layoutMatchedFramePreset ? 'pointer' : 'default',
                       fontSize: 11,
                       fontWeight: 800,
                       letterSpacing: 1,
@@ -1650,7 +1664,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                       {saveCustomFrame && (
                         <button
                           onClick={() => {
-                            const suggested = selectedFramePreset?.name ? `${selectedFramePreset.name} Copy` : 'My Frame';
+                            const suggested = layoutMatchedFramePreset?.name ? `${layoutMatchedFramePreset.name} Copy` : selectedFramePreset?.name ? `${selectedFramePreset.name} Copy` : 'My Frame';
                             const name = window.prompt('Save frame as', suggested);
                             if (!name || !name.trim()) return;
                             saveCustomFrame({
@@ -1705,7 +1719,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                       {openDesigner && (
                         <div style={{ marginTop: 10 }}>
                           <button
-                            onClick={() => openDesigner({ mode: 'new', preset: selectedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null })}
+                            onClick={() => openDesigner({ mode: 'new', preset: layoutMatchedFramePreset || selectedPackCoverPreset || framePreset || allStorePresets[0] || null })}
                             style={{
                               minHeight: 44,
                               borderRadius: 12,

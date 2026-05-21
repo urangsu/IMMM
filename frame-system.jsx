@@ -504,6 +504,11 @@ async function renderComposition(ctx, data, options = {}) {
   const orderedLayers = framePreset?.layers?.length
     ? (presetApi?.getFrameLayerOrder?.(framePreset) || framePreset.layers)
     : [];
+  const drawableLayers = orderedLayers.filter((layer) =>
+    layer
+    && layer.visible !== false
+    && !['background', 'photo-slots', 'watermark'].includes(layer.type)
+  );
 
   // 1. Background
   if (framePreset && typeof drawPresetBackground === 'function') {
@@ -532,13 +537,11 @@ async function renderComposition(ctx, data, options = {}) {
   logExportPerf('photo-slots', { ms: nowMs() - tPhotoStart, count: images.length });
 
   const tStickerDrawStart = nowMs();
-  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
-    orderedLayers
+  if (framePreset && typeof drawPresetLayer === 'function' && drawableLayers.length) {
+    drawableLayers
       .filter((layer) => layer && layer.visible !== false && Number(layer.zIndex) < 0)
       .forEach((layer) => {
-        if (layer.type !== 'background' && layer.type !== 'photo-slots') {
-          drawPresetLayer(ctx, framePreset, w, h, layer);
-        }
+        drawPresetLayer(ctx, framePreset, w, h, layer);
       });
   } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'back');
@@ -615,13 +618,11 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.restore();
   });
 
-  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
-    orderedLayers
+  if (framePreset && typeof drawPresetLayer === 'function' && drawableLayers.length) {
+    drawableLayers
       .filter((layer) => layer && layer.visible !== false && Number(layer.zIndex) >= 0)
       .forEach((layer) => {
-        if (layer.type !== 'background' && layer.type !== 'photo-slots') {
-          drawPresetLayer(ctx, framePreset, w, h, layer);
-        }
+        drawPresetLayer(ctx, framePreset, w, h, layer);
       });
   } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'front');
