@@ -331,6 +331,21 @@ function getStickerPickerPacks() {
     : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
 }
 
+function formatFrameDate(value) {
+  if (!value) return '';
+  try {
+    return new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value));
+  } catch (_) {
+    return String(value);
+  }
+}
+
 function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, framePresets = [], framePackList = [], customFrames = [], selectedFramePresetId, applyFramePreset, saveCustomFrame, exportCustomFramesAsJson, importFramePackFromJson, openDesigner, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame, favoriteFramePresetIds = [], toggleFavoriteFramePreset, favoriteFramePackIds = [], toggleFavoriteFramePack, unlockFramePackForDev, unlockedFramePackIds = [], frameLikeIds = [], toggleFrameLike, frameUseCounts = {}, recordFrameUse, creatorProfiles = [], setCreatorProfiles, exportPresetId = 'hd', setExportPresetId, generateFrameIdea, designerDraftRecovery = null, clearDesignerDraftRecovery, storeTabFocus = '' }) {
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
@@ -535,19 +550,9 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
     window.IMMM_DEBUG_BUILD === true ||
     new URLSearchParams(location.search).get('fieldTest') === '1'
   );
-  const formatFrameDate = (value) => {
-    if (!value) return '';
-    try {
-      return new Intl.DateTimeFormat('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(new Date(value));
-    } catch (_) {
-      return String(value);
-    }
+  const getFramePreviewAspect = (preset, fallbackLayout = layout) => {
+    const size = preset?.canvasSize || frameApi?.getCanvasSizeForLayout?.(fallbackLayout) || { width: 560, height: 1808 };
+    return `${Math.max(1, Number(size.width) || 560)} / ${Math.max(1, Number(size.height) || 1808)}`;
   };
   const visibleFramePresets = uM(() => {
     if (frameCategory === 'my-frames') return savedFrames;
@@ -1002,7 +1007,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                               <div style={{ marginTop: 4, fontSize: 10, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
                                 {pack.author?.name || 'IMMM Studio'} · {pack.license || 'internal'} · Trend {Math.round(getPackTrendingScore(pack))}
                               </div>
-                              <div style={{ marginTop: 10, display: 'grid', placeItems: 'center', minHeight: 128 }}>
+                              <div style={{ margin: '10px auto 0', height: 128, aspectRatio: getFramePreviewAspect(coverPreset, coverPreset?.layout || 'strip'), maxWidth: '100%', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
                                 {WFrameThumb && coverPreset ? (
                                   <WFrameThumb
                                     key={`${pack.id}-${coverPreset.id}`}
@@ -1017,6 +1022,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                                     orientation="portrait"
                                     frameColor={frameColor}
                                     framePreset={coverPreset}
+                                    fill
                                   />
                                 ) : (
                                   <FramePickerFallback layout={coverPreset?.layout || 'strip'} T={T} size="sm" />
@@ -1479,7 +1485,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                     )}
                   </div>
                 </div>
-                <div style={{ display: 'grid', placeItems: 'center', minHeight: 170, background: 'rgba(26,26,31,0.02)', borderRadius: 16 }}>
+                <div style={{ display: 'grid', placeItems: 'center', height: 220, aspectRatio: getFramePreviewAspect(layoutMatchedFramePreset, layoutMatchedFramePreset?.layout || layout), maxWidth: '100%', margin: '0 auto', background: 'rgba(26,26,31,0.02)', borderRadius: 16, overflow: 'hidden' }}>
                   {WFrameThumb ? (
                     <WFrameThumb
                       key={`${layoutMatchedFramePreset?.id || selectedFramePreset?.id || layout}-${layoutMatchedFramePreset?.updatedAt || selectedFramePreset?.updatedAt || 'selected'}`}
@@ -1494,6 +1500,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                       orientation="portrait"
                       frameColor={frameColor}
                       framePreset={layoutMatchedFramePreset}
+                      fill
                     />
                   ) : (
                     <FramePickerFallback layout={layoutMatchedFramePreset?.layout || layout} T={T} size="lg" />
@@ -1601,7 +1608,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                             <div style={{ marginTop: 4, fontSize: 10.5, color: T.inkSoft, fontFamily: 'Pretendard,system-ui' }}>
                               {preset.layout} · {preset.photoSlots.length}컷
                             </div>
-                            <div style={{ marginTop: 8, display: 'grid', placeItems: 'center', minHeight: 126 }}>
+                            <div style={{ margin: '8px auto 0', height: 126, aspectRatio: getFramePreviewAspect(preset, preset.layout), maxWidth: '100%', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
                               {WFrameThumb ? (
                                 <WFrameThumb
                                   key={`${preset.id}-${preset.updatedAt || 'builtin'}`}
@@ -1616,6 +1623,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                                   orientation="portrait"
                                   frameColor={frameColor}
                                   framePreset={preset}
+                                  fill
                                 />
                               ) : (
                                 <FramePickerFallback layout={preset.layout} T={T} size="sm" />
@@ -1768,8 +1776,12 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                               padding: 0,
                               cursor: 'pointer',
                               minWidth: 0,
+                              height: 96,
+                              aspectRatio: getFramePreviewAspect(preset, preset.layout),
+                              maxWidth: '100%',
                               display: 'grid',
                               placeItems: 'center',
+                              overflow: 'hidden',
                             }}
                           >
                             {WFrameThumb ? (
@@ -1786,6 +1798,7 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
                                 orientation="portrait"
                                 frameColor={frameColor}
                                 framePreset={preset}
+                                fill
                               />
                             ) : (
                               <FramePickerFallback layout={preset.layout} T={T} size="sm" />
@@ -2653,7 +2666,7 @@ function DesignerScreen({
         const base = frameApi?.normalizeDesignerDraft?.(prev || drag.snapshot) || prev || drag.snapshot;
         if (drag.kind === 'slot') {
           const nextSlots = [...(base.photoSlots || [])];
-          const source = nextSlots[drag.index];
+          const source = (drag.snapshot.photoSlots || [])[drag.index] || nextSlots[drag.index];
           if (!source) return base;
           const patch = drag.mode === 'resize'
             ? { width: source.width + dx, height: source.height + dy }
@@ -2666,7 +2679,7 @@ function DesignerScreen({
         }
         if (drag.kind === 'decor') {
           const nextDecos = [...(base.decorations || [])];
-          const source = nextDecos[drag.index];
+          const source = (drag.snapshot.decorations || [])[drag.index] || nextDecos[drag.index];
           if (!source) return base;
           const patch = drag.mode === 'resize'
             ? { width: source.width + dx, height: source.height + dy }
@@ -2869,8 +2882,11 @@ function DesignerScreen({
             ref={previewRef}
             style={{
               position: 'relative',
-              width: '100%',
+              height: mobile ? 'min(54vh, 520px)' : 'min(68vh, 680px)',
+              maxHeight: mobile ? 520 : 680,
+              width: 'auto',
               maxWidth: '100%',
+              justifySelf: 'center',
               aspectRatio: `${previewCanvas.width} / ${previewCanvas.height}`,
               borderRadius: 18,
               overflow: 'hidden',
@@ -2894,6 +2910,7 @@ function DesignerScreen({
                   orientation="portrait"
                   frameColor={normalizedDraft.frameColor}
                   framePreset={normalizedDraft}
+                  fill
                 />
               </div>
             ) : (

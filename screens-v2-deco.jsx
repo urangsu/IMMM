@@ -417,8 +417,9 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         console.warn('[IMMM] skip draw: frame template unavailable', layout);
         return;
       }
-      const baseW = template.canvasSize.width;
-      const baseH = template.canvasSize.height;
+      const presetCanvas = framePreset?.canvasSize || null;
+      const baseW = presetCanvas?.width || template.canvasSize.width;
+      const baseH = presetCanvas?.height || template.canvasSize.height;
 
       const data = {
         layout, shots, selected, filter, frameColor,
@@ -968,8 +969,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     if (!shots || shots.length === 0) throw new Error('No shots available');
 
     const canvas = document.createElement('canvas');
-    canvas.width = template.canvasSize.width;
-    canvas.height = template.canvasSize.height;
+    const presetCanvas = framePreset?.canvasSize || null;
+    canvas.width = presetCanvas?.width || template.canvasSize.width;
+    canvas.height = presetCanvas?.height || template.canvasSize.height;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Failed to get context');
 
@@ -1693,8 +1695,9 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       console.warn('[IMMM] skip draw: frame template unavailable', layout);
       return;
     }
-    const baseW = template?.canvasSize?.width || 720;
-    const baseH = template?.canvasSize?.height || 960;
+    const presetCanvas = framePreset?.canvasSize || null;
+    const baseW = presetCanvas?.width || template?.canvasSize?.width || 720;
+    const baseH = presetCanvas?.height || template?.canvasSize?.height || 960;
     const W = 720;
     const H = Math.round(W * (baseH / baseW));
     const cvs = document.createElement('canvas');

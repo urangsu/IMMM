@@ -714,6 +714,20 @@ var zoomBtnStyle = {
 function getStickerPickerPacks() {
   return typeof getVisibleStickerPacks === 'function' ? getVisibleStickerPacks() : Object.entries(STICKER_CATALOG).filter(([k, pack]) => !pack.hidden);
 }
+function formatFrameDate(value) {
+  if (!value) return '';
+  try {
+    return new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(value));
+  } catch (_) {
+    return String(value);
+  }
+}
 function SetupScreen({
   T,
   go,
@@ -967,19 +981,12 @@ function SetupScreen({
   }, [allPacks, favoriteFramePresetIds, getPackTrendingScore, storeSearch, storeSort, storeTab]);
   var activePackBlocked = Boolean(selectedPack?.locked && !(frameApi?.isFramePackUnlocked?.(selectedPack.id) ?? unlockedFramePackIds.includes(selectedPack?.id)));
   var devUnlockVisible = typeof window !== 'undefined' && (window.IMMM_FIELD_TEST === true || window.IMMM_DEBUG_BUILD === true || new URLSearchParams(location.search).get('fieldTest') === '1');
-  var formatFrameDate = value => {
-    if (!value) return '';
-    try {
-      return new Intl.DateTimeFormat('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(new Date(value));
-    } catch (_) {
-      return String(value);
-    }
+  var getFramePreviewAspect = (preset, fallbackLayout = layout) => {
+    var size = preset?.canvasSize || frameApi?.getCanvasSizeForLayout?.(fallbackLayout) || {
+      width: 560,
+      height: 1808
+    };
+    return `${Math.max(1, Number(size.width) || 560)} / ${Math.max(1, Number(size.height) || 1808)}`;
   };
   var visibleFramePresets = uM(() => {
     if (frameCategory === 'my-frames') return savedFrames;
@@ -1639,10 +1646,13 @@ function SetupScreen({
       }
     }, pack.author?.name || 'IMMM Studio', " \xB7 ", pack.license || 'internal', " \xB7 Trend ", Math.round(getPackTrendingScore(pack))), /*#__PURE__*/React.createElement("div", {
       style: {
-        marginTop: 10,
+        margin: '10px auto 0',
+        height: 128,
+        aspectRatio: getFramePreviewAspect(coverPreset, coverPreset?.layout || 'strip'),
+        maxWidth: '100%',
         display: 'grid',
         placeItems: 'center',
-        minHeight: 128
+        overflow: 'hidden'
       }
     }, WFrameThumb && coverPreset ? /*#__PURE__*/React.createElement(WFrameThumb, {
       key: `${pack.id}-${coverPreset.id}`,
@@ -1656,7 +1666,8 @@ function SetupScreen({
       scale: 0.82,
       orientation: "portrait",
       frameColor: frameColor,
-      framePreset: coverPreset
+      framePreset: coverPreset,
+      fill: true
     }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
       layout: coverPreset?.layout || 'strip',
       T: T,
@@ -2216,9 +2227,13 @@ function SetupScreen({
     style: {
       display: 'grid',
       placeItems: 'center',
-      minHeight: 170,
+      height: 220,
+      aspectRatio: getFramePreviewAspect(layoutMatchedFramePreset, layoutMatchedFramePreset?.layout || layout),
+      maxWidth: '100%',
+      margin: '0 auto',
       background: 'rgba(26,26,31,0.02)',
-      borderRadius: 16
+      borderRadius: 16,
+      overflow: 'hidden'
     }
   }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
     key: `${layoutMatchedFramePreset?.id || selectedFramePreset?.id || layout}-${layoutMatchedFramePreset?.updatedAt || selectedFramePreset?.updatedAt || 'selected'}`,
@@ -2232,7 +2247,8 @@ function SetupScreen({
     scale: mobile ? 0.96 : 1.08,
     orientation: "portrait",
     frameColor: frameColor,
-    framePreset: layoutMatchedFramePreset
+    framePreset: layoutMatchedFramePreset,
+    fill: true
   }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
     layout: layoutMatchedFramePreset?.layout || layout,
     T: T,
@@ -2379,10 +2395,13 @@ function SetupScreen({
       }
     }, preset.layout, " \xB7 ", preset.photoSlots.length, "\uCEF7"), /*#__PURE__*/React.createElement("div", {
       style: {
-        marginTop: 8,
+        margin: '8px auto 0',
+        height: 126,
+        aspectRatio: getFramePreviewAspect(preset, preset.layout),
+        maxWidth: '100%',
         display: 'grid',
         placeItems: 'center',
-        minHeight: 126
+        overflow: 'hidden'
       }
     }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
       key: `${preset.id}-${preset.updatedAt || 'builtin'}`,
@@ -2396,7 +2415,8 @@ function SetupScreen({
       scale: 0.84,
       orientation: "portrait",
       frameColor: frameColor,
-      framePreset: preset
+      framePreset: preset,
+      fill: true
     }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
       layout: preset.layout,
       T: T,
@@ -2555,8 +2575,12 @@ function SetupScreen({
         padding: 0,
         cursor: 'pointer',
         minWidth: 0,
+        height: 96,
+        aspectRatio: getFramePreviewAspect(preset, preset.layout),
+        maxWidth: '100%',
         display: 'grid',
-        placeItems: 'center'
+        placeItems: 'center',
+        overflow: 'hidden'
       }
     }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
       key: `${preset.id}-${preset.updatedAt || 'thumb'}`,
@@ -2570,7 +2594,8 @@ function SetupScreen({
       scale: 0.7,
       orientation: "portrait",
       frameColor: frameColor,
-      framePreset: preset
+      framePreset: preset,
+      fill: true
     }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
       layout: preset.layout,
       T: T,
@@ -4011,7 +4036,7 @@ function DesignerScreen({
         var base = frameApi?.normalizeDesignerDraft?.(prev || drag.snapshot) || prev || drag.snapshot;
         if (drag.kind === 'slot') {
           var nextSlots = [...(base.photoSlots || [])];
-          var source = nextSlots[drag.index];
+          var source = (drag.snapshot.photoSlots || [])[drag.index] || nextSlots[drag.index];
           if (!source) return base;
           var patch = drag.mode === 'resize' ? {
             width: source.width + dx,
@@ -4043,7 +4068,7 @@ function DesignerScreen({
         }
         if (drag.kind === 'decor') {
           var nextDecos = [...(base.decorations || [])];
-          var _source = nextDecos[drag.index];
+          var _source = (drag.snapshot.decorations || [])[drag.index] || nextDecos[drag.index];
           if (!_source) return base;
           var _patch = drag.mode === 'resize' ? {
             width: _source.width + dx,
@@ -4388,8 +4413,11 @@ function DesignerScreen({
     ref: previewRef,
     style: {
       position: 'relative',
-      width: '100%',
+      height: mobile ? 'min(54vh, 520px)' : 'min(68vh, 680px)',
+      maxHeight: mobile ? 520 : 680,
+      width: 'auto',
       maxWidth: '100%',
+      justifySelf: 'center',
       aspectRatio: `${previewCanvas.width} / ${previewCanvas.height}`,
       borderRadius: 18,
       overflow: 'hidden',
@@ -4414,7 +4442,8 @@ function DesignerScreen({
     scale: 1,
     orientation: "portrait",
     frameColor: normalizedDraft.frameColor,
-    framePreset: normalizedDraft
+    framePreset: normalizedDraft,
+    fill: true
   })) : /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',

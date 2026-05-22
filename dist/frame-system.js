@@ -207,6 +207,58 @@ var FRAME_TEMPLATES = {
     },
     photoSlots: []
   },
+  '1x3': {
+    id: 'core-1x3',
+    type: '1x3',
+    name: 'Trip 1x3',
+    ko: '트립 1x3',
+    canvasSize: {
+      width: 700,
+      height: 1380
+    },
+    theme: {
+      frameFill: '#fff'
+    },
+    photoRects: [{
+      x: 0.08,
+      y: 0.114,
+      w: 0.84,
+      h: 0.215
+    }, {
+      x: 0.08,
+      y: 0.392,
+      w: 0.84,
+      h: 0.215
+    }, {
+      x: 0.08,
+      y: 0.67,
+      w: 0.84,
+      h: 0.215
+    }],
+    logo: {
+      x: 0.068,
+      y: 0.052,
+      fontSize: 0.048
+    },
+    dot: {
+      x: 0.928,
+      y: 0.052,
+      r: 0.018
+    },
+    captionRect: {
+      x: 0,
+      y: 0.88,
+      w: 1,
+      h: 0.12
+    },
+    date: {
+      x: 0.5,
+      y: 0.5,
+      fontSize: 0.038,
+      align: 'center'
+    },
+    photoSlots: []
+  },
   '1x1': {
     id: 'core-1x1',
     type: '1x1',
@@ -629,9 +681,10 @@ async function renderComposition(ctx, data, options = {}) {
     throw new Error('[IMMM frame template unavailable]');
   }
   var scale = options.scale || 1;
-  var w = template.canvasSize.width * scale;
-  var h = template.canvasSize.height * scale;
   var framePreset = data.framePreset || null;
+  var renderCanvasSize = framePreset?.canvasSize || template.canvasSize;
+  var w = renderCanvasSize.width * scale;
+  var h = renderCanvasSize.height * scale;
   var theme = getFrameTheme(template, data);
   var presetApi = getFramePresetApiSafe();
   var drawPresetBackground = presetApi?.drawFramePresetBackground || window.drawFramePresetBackground || null;
@@ -783,8 +836,10 @@ async function renderFrameToCanvas(input) {
     throw new Error('[IMMM] frame template unavailable');
   }
   var scale = input.scale || 1;
-  var w = template.canvasSize.width * scale;
-  var h = template.canvasSize.height * scale;
+  var framePreset = input.framePreset || null;
+  var canvasSize = framePreset?.canvasSize || template.canvasSize;
+  var w = canvasSize.width * scale;
+  var h = canvasSize.height * scale;
   var cvs = document.createElement('canvas');
   cvs.width = Math.round(w);
   cvs.height = Math.round(h);
@@ -968,7 +1023,8 @@ function FrameThumb({
   accent,
   scale = 1,
   orientation,
-  framePreset = null
+  framePreset = null,
+  fill = false
 }) {
   var canvasRef = React.useRef(null);
   React.useEffect(() => {
@@ -985,8 +1041,9 @@ function FrameThumb({
         console.warn('[IMMM] skip draw: frame template unavailable', layout);
         return;
       }
-      var baseW = template.canvasSize.width;
-      var baseH = template.canvasSize.height;
+      var canvasSize = framePreset?.canvasSize || template.canvasSize;
+      var baseW = canvasSize.width;
+      var baseH = canvasSize.height;
       cvs.width = baseW;
       cvs.height = baseH;
       var data = {
@@ -1021,10 +1078,11 @@ function FrameThumb({
   return /*#__PURE__*/React.createElement("canvas", {
     ref: canvasRef,
     style: {
-      width: 200 * scale * (layout === 'strip' || layout === 'trip' ? 1 : 1.2),
-      height: 'auto',
+      width: fill ? '100%' : 200 * scale * (layout === 'strip' || layout === 'trip' ? 1 : 1.2),
+      height: fill ? '100%' : 'auto',
       display: 'block',
-      maxWidth: '100%'
+      maxWidth: '100%',
+      objectFit: fill ? 'contain' : 'initial'
     }
   });
 }

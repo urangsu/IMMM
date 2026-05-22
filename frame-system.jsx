@@ -133,6 +133,24 @@ const FRAME_TEMPLATES = {
     date: { x: 0.5, y: 0.5, fontSize: 0.035, align: 'center' },
     photoSlots: [],
   },
+  '1x3': {
+    id: 'core-1x3',
+    type: '1x3',
+    name: 'Trip 1x3',
+    ko: '트립 1x3',
+    canvasSize: { width: 700, height: 1380 },
+    theme: { frameFill: '#fff' },
+    photoRects: [
+      { x: 0.08, y: 0.114, w: 0.84, h: 0.215 },
+      { x: 0.08, y: 0.392, w: 0.84, h: 0.215 },
+      { x: 0.08, y: 0.67, w: 0.84, h: 0.215 },
+    ],
+    logo: { x: 0.068, y: 0.052, fontSize: 0.048 },
+    dot: { x: 0.928, y: 0.052, r: 0.018 },
+    captionRect: { x: 0, y: 0.88, w: 1, h: 0.12 },
+    date: { x: 0.5, y: 0.5, fontSize: 0.038, align: 'center' },
+    photoSlots: [],
+  },
   '1x1': {
     id: 'core-1x1',
     type: '1x1',
@@ -523,9 +541,10 @@ async function renderComposition(ctx, data, options = {}) {
     throw new Error('[IMMM frame template unavailable]');
   }
   const scale = options.scale || 1;
-  const w = template.canvasSize.width * scale;
-  const h = template.canvasSize.height * scale;
   const framePreset = data.framePreset || null;
+  const renderCanvasSize = framePreset?.canvasSize || template.canvasSize;
+  const w = renderCanvasSize.width * scale;
+  const h = renderCanvasSize.height * scale;
 
   const theme = getFrameTheme(template, data);
   const presetApi = getFramePresetApiSafe();
@@ -681,8 +700,10 @@ async function renderFrameToCanvas(input) {
     throw new Error('[IMMM] frame template unavailable');
   }
   const scale = input.scale || 1;
-  const w = template.canvasSize.width * scale;
-  const h = template.canvasSize.height * scale;
+  const framePreset = input.framePreset || null;
+  const canvasSize = framePreset?.canvasSize || template.canvasSize;
+  const w = canvasSize.width * scale;
+  const h = canvasSize.height * scale;
   
   const cvs = document.createElement('canvas');
   cvs.width = Math.round(w);
@@ -836,7 +857,7 @@ function generateQrDataUrl(text) {
 /**
  * A consistent, canvas-based preview component.
  */
-function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = [], drawStrokes = [], logo, dateText, accent, scale = 1, orientation, framePreset = null }) {
+function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = [], drawStrokes = [], logo, dateText, accent, scale = 1, orientation, framePreset = null, fill = false }) {
   const canvasRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -854,8 +875,9 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
         return;
       }
       
-      const baseW = template.canvasSize.width;
-      const baseH = template.canvasSize.height;
+      const canvasSize = framePreset?.canvasSize || template.canvasSize;
+      const baseW = canvasSize.width;
+      const baseH = canvasSize.height;
       cvs.width = baseW;
       cvs.height = baseH;
 
@@ -880,10 +902,11 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
     <canvas 
       ref={canvasRef} 
       style={{ 
-        width: 200 * scale * (layout === 'strip' || layout === 'trip' ? 1 : 1.2), 
-        height: 'auto', 
+        width: fill ? '100%' : 200 * scale * (layout === 'strip' || layout === 'trip' ? 1 : 1.2), 
+        height: fill ? '100%' : 'auto', 
         display: 'block',
-        maxWidth: '100%'
+        maxWidth: '100%',
+        objectFit: fill ? 'contain' : 'initial'
       }} 
     />
   );
