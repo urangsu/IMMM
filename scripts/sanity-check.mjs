@@ -1051,6 +1051,36 @@ function checkFrameStoreFoundation() {
     console.error('❌ FAIL: screens-v2.jsx missing designer editors');
     hasErrors = true;
   }
+  const cloudQa = readFile('scripts/cloud-qa-check.mjs');
+  const exportSamples = readFile('scripts/export-frame-samples.mjs');
+  const frameSamplePage = readFile('qa/frame-samples/index.html');
+  const frameDesignQa = readFile('docs/FRAME_DESIGN_QA.md');
+  const qaMatrix = readFile('QA_MATRIX.md');
+  const fieldQaScript = readFile('FIELD_QA_SCRIPT.md');
+  if (!cloudQa || !cloudQa.includes('FRAME_PACKS') || !cloudQa.includes('qa/frame-samples/index.html')) {
+    console.error('❌ FAIL: scripts/cloud-qa-check.mjs missing frame sample contract checks');
+    hasErrors = true;
+  }
+  if (!exportSamples || !exportSamples.includes('dist/frame-presets.js') || !exportSamples.includes('frame-samples') || !exportSamples.includes('index.html')) {
+    console.error('❌ FAIL: scripts/export-frame-samples.mjs missing sample page generator');
+    hasErrors = true;
+  }
+  if (!frameSamplePage || !frameSamplePage.includes('IMMM Frame Samples QA') || !frameSamplePage.includes('QA Checklist')) {
+    console.error('❌ FAIL: qa/frame-samples/index.html missing frame sample content');
+    hasErrors = true;
+  }
+  if (!frameDesignQa || !frameDesignQa.includes('Designer save/load QA') || !frameDesignQa.includes('My Frames regression checklist')) {
+    console.error('❌ FAIL: docs/FRAME_DESIGN_QA.md missing QA instructions');
+    hasErrors = true;
+  }
+  if (!qaMatrix || !qaMatrix.includes('Frame sample review') || !qaMatrix.includes('Designer save/load')) {
+    console.error('❌ FAIL: QA_MATRIX.md missing frame QA matrix entries');
+    hasErrors = true;
+  }
+  if (!fieldQaScript || !fieldQaScript.includes('Frame samples') || !fieldQaScript.includes('Designer')) {
+    console.error('❌ FAIL: FIELD_QA_SCRIPT.md missing field QA steps');
+    hasErrors = true;
+  }
   if (deco && !deco.includes('saveCustomFrame')) {
     console.error('❌ FAIL: screens-v2-deco.jsx missing custom frame save hook');
     hasErrors = true;

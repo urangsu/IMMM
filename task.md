@@ -2109,3 +2109,16 @@ QA steps:
 - [ ] Mobile designer usability field test
 - [ ] Designer save/load field test
 - [ ] Export/import designer pack field test
+
+## Phase 4.71~4.95 — Frame QA Contract + Sample Review
+- [x] Frame Store tabs prioritized for featured/free access
+- [x] Cloud QA contract checks added
+- [x] Frame sample export script added
+- [x] Frame sample QA page added
+- [x] FRAME_DESIGN_QA.md added
+- [x] QA_MATRIX.md updated for frame sample review
+- [x] FIELD_QA_SCRIPT.md updated for frame visual review
+- [x] task.md phase checklist updated
+- [ ] Real-device frame sample review
+- [ ] Real-device Designer save/load review
+- [ ] Real-device pack import/export review

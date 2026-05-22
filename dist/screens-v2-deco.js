@@ -253,9 +253,53 @@ function DecoV2({
   };
   var onFile = e => {
     var f = e.target.files?.[0];
+    // Reset input value so the same file can be selected again
+    if (e.target) e.target.value = '';
     if (!f) return;
+    if (!f.type.startsWith('image/')) {
+      console.warn('[IMMM] Album import: not an image file', f.type);
+      return;
+    }
+    var MAX_EDGE = 2048;
     var rd = new FileReader();
-    rd.onload = () => addUpload(rd.result);
+    rd.onload = () => {
+      try {
+        var img = new Image();
+        img.onload = () => {
+          try {
+            var longEdge = Math.max(img.width, img.height);
+            if (longEdge <= MAX_EDGE) {
+              // No resize needed
+              addUpload(rd.result);
+              return;
+            }
+            // Resize via canvas
+            var scale = MAX_EDGE / longEdge;
+            var w = Math.round(img.width * scale);
+            var h = Math.round(img.height * scale);
+            var cvs = document.createElement('canvas');
+            cvs.width = w;
+            cvs.height = h;
+            var ctx2d = cvs.getContext('2d');
+            ctx2d.drawImage(img, 0, 0, w, h);
+            // Preserve PNG transparency if original is png, otherwise use jpeg
+            var mime = f.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            var resized = cvs.toDataURL(mime, 0.92);
+            addUpload(resized);
+          } catch (err) {
+            console.warn('[IMMM] Album import resize failed, using original:', err);
+            addUpload(rd.result);
+          }
+        };
+        img.onerror = () => {
+          console.warn('[IMMM] Album import: image load failed');
+        };
+        img.src = rd.result;
+      } catch (err) {
+        console.warn('[IMMM] Album import FileReader processing failed:', err);
+      }
+    };
+    rd.onerror = () => console.warn('[IMMM] Album import: FileReader error');
     rd.readAsDataURL(f);
   };
   var shotsForFrame = shots;
@@ -707,26 +751,70 @@ function DecoV2({
     }
   }, "Add"))), /*#__PURE__*/React.createElement("div", {
     style: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: 16
+      marginTop: 16,
+      padding: '12px 14px',
+      background: `rgba(217,136,147,0.06)`,
+      borderRadius: 14,
+      border: `1px dashed rgba(217,136,147,0.35)`
     }
   }, /*#__PURE__*/React.createElement(Kick, {
     T: T
-  }, "Stickers \xB7 \uC2A4\uD2F0\uCEE4"), /*#__PURE__*/React.createElement("button", {
+  }, "My Album \xB7 \uB0B4 \uC774\uBBF8\uC9C0"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6,
+      display: 'flex',
+      gap: 10,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    id: "album-import-btn",
     onClick: () => fileRef.current?.click(),
     style: {
-      padding: '6px 10px',
+      flex: 1,
+      padding: mobile ? '11px 10px' : '11px 16px',
       background: T.ink,
       color: T.bg,
       border: 'none',
-      borderRadius: 999,
-      fontSize: 11,
+      borderRadius: 12,
+      fontWeight: 700,
+      fontSize: mobile ? 13 : 14,
       cursor: 'pointer',
-      fontWeight: 600
+      fontFamily: '"Plus Jakarta Sans",system-ui',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      justifyContent: 'center'
     }
-  }, "+ Upload"), /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "16",
+    height: "16",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2.2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("rect", {
+    x: "3",
+    y: "3",
+    width: "18",
+    height: "18",
+    rx: "3"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "8.5",
+    cy: "8.5",
+    r: "1.5"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M21 15l-5-5L5 21"
+  })), "\uB0B4 \uC568\uBC94\uC5D0\uC11C \uAC00\uC838\uC624\uAE30")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6,
+      fontSize: 11,
+      color: T.inkSoft,
+      fontFamily: 'Pretendard,system-ui',
+      lineHeight: 1.4
+    }
+  }, "\uC0AC\uC9C4\uC774\uB098 PNG \uC2A4\uD2F0\uCEE4\uB97C \uAC00\uC838\uC640 \uD504\uB808\uC784\uC5D0 \uBD99\uC77C \uC218 \uC788\uC5B4\uC694."), /*#__PURE__*/React.createElement("input", {
     ref: fileRef,
     type: "file",
     accept: "image/*",
@@ -734,7 +822,16 @@ function DecoV2({
       display: 'none'
     },
     onChange: onFile
-  })), layerBar, getStickerPickerPacks().map(([k, pack]) => /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 16
+    }
+  }, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, "Stickers \xB7 \uC2A4\uD2F0\uCEE4")), layerBar, getStickerPickerPacks().map(([k, pack]) => /*#__PURE__*/React.createElement("div", {
     key: k,
     style: {
       marginTop: 14
@@ -2069,6 +2166,10 @@ function ResultV2({
   var handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    if (window.trackImmmEvent) window.trackImmmEvent('result_download', {
+      layout,
+      action: 'save_image'
+    });
     try {
       var blob = await getFinalResultBlob();
       var fname = getFormattedFilename();
@@ -2088,6 +2189,10 @@ function ResultV2({
   var handleShare = async () => {
     if (sharing) return;
     setSharing(true);
+    if (window.trackImmmEvent) window.trackImmmEvent('result_share_attempt', {
+      layout,
+      action: 'native_share'
+    });
     try {
       var blob = await getFinalResultBlob();
       var fname = getFormattedFilename();
