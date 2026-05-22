@@ -741,8 +741,8 @@ function buildBuiltinFramePresets() {
       canvasSize: stripSize,
     }),
     makePreset({
-      id: 'clean-cotton-4cut',
-      name: 'Clean Cotton 4cut',
+      id: 'soft-cream-4cut',
+      name: 'Soft Cream 4cut',
       category: 'basic',
       layout: 'strip',
       background: createBackground('pattern', {
@@ -753,7 +753,7 @@ function buildBuiltinFramePresets() {
       frameColor: '#F9F6F2',
       decorations: [
         { type: 'shape', shape: 'ribbon', x: 0.07, y: 0.028, width: 0.18, height: 0.06, rotation: -5, opacity: 0.7, zIndex: -2, fill: '#EFC9D0' },
-        { type: 'text', text: 'soft cotton', x: 0.79, y: 0.055, width: 0.14, height: 0.03, rotation: 0, opacity: 0.66, zIndex: 1, fill: '#6F6A64', fontWeight: 600 },
+        { type: 'text', text: 'soft cream', x: 0.79, y: 0.055, width: 0.14, height: 0.03, rotation: 0, opacity: 0.66, zIndex: 1, fill: '#6F6A64', fontWeight: 600 },
       ],
       watermark: { text: 'IMMM', x: 0.5, y: 0.962, opacity: 0.42 },
       canvasSize: stripSize,
@@ -773,8 +773,8 @@ function buildBuiltinFramePresets() {
       canvasSize: stripSize,
     }),
     makePreset({
-      id: 'kitsch-bear-2x2',
-      name: 'Kitsch Bear 2x2',
+      id: 'pink-kitsch-2x2',
+      name: 'Pink Kitsch 2x2',
       category: 'character',
       layout: 'grid',
       background: createBackground('gradient', {
@@ -788,14 +788,14 @@ function buildBuiltinFramePresets() {
         { type: 'shape', shape: 'circle', x: 0.10, y: 0.045, width: 0.09, height: 0.09, rotation: 0, opacity: 0.95, zIndex: -2, fill: '#A7715A' },
         { type: 'shape', shape: 'heart', x: 0.50, y: 0.07, width: 0.09, height: 0.07, rotation: -8, opacity: 0.95, zIndex: 1, fill: '#E58AA0' },
         { type: 'shape', shape: 'star', x: 0.88, y: 0.08, width: 0.08, height: 0.08, rotation: 14, opacity: 0.85, zIndex: 1, fill: '#F1C75B' },
-        { type: 'text', text: 'bear mood', x: 0.5, y: 0.94, width: 0.16, height: 0.04, rotation: 0, opacity: 0.7, zIndex: 1, fill: '#6B574E', fontWeight: 700 },
+        { type: 'text', text: 'kitsch mood', x: 0.5, y: 0.94, width: 0.16, height: 0.04, rotation: 0, opacity: 0.7, zIndex: 1, fill: '#6B574E', fontWeight: 700 },
       ],
       watermark: { text: 'IMMM', x: 0.5, y: 0.962, opacity: 0.45 },
       canvasSize: gridSize,
     }),
     makePreset({
-      id: 'heart-gem-2x2',
-      name: 'Heart Gem 2x2',
+      id: 'y2k-gem-2x2',
+      name: 'Y2K Gem 2x2',
       category: 'character',
       layout: 'grid',
       background: createBackground('gradient', {
@@ -928,7 +928,7 @@ const BUILTIN_FRAME_PACKS = [
     category: 'basic',
     priceType: 'free',
     priceLabel: 'Free',
-    presetIds: ['clean-white-4cut', 'clean-cotton-4cut', 'black-studio-4cut', 'clean-polaroid-1x1'],
+    presetIds: ['clean-white-4cut', 'soft-cream-4cut', 'black-studio-4cut', 'clean-polaroid-1x1'],
     coverPresetId: 'clean-white-4cut',
     tags: ['clean', 'minimal', 'daily'],
     locked: false,
@@ -954,8 +954,8 @@ const BUILTIN_FRAME_PACKS = [
     category: 'character',
     priceType: 'premium',
     priceLabel: 'Pro',
-    presetIds: ['kitsch-bear-2x2', 'heart-gem-2x2'],
-    coverPresetId: 'kitsch-bear-2x2',
+    presetIds: ['pink-kitsch-2x2', 'y2k-gem-2x2'],
+    coverPresetId: 'pink-kitsch-2x2',
     tags: ['cute', 'character', 'kitsch'],
     locked: true,
     featured: true,
@@ -1527,7 +1527,7 @@ function getFramePresetsByCategory(category, customFrames = []) {
 function getDefaultFramePresetIdForLayout(layout, customFrames = []) {
   const normalizedLayout = normalizePresetLayout(layout);
   if (normalizedLayout === 'strip') return 'clean-white-4cut';
-  if (normalizedLayout === 'grid') return 'heart-gem-2x2';
+  if (normalizedLayout === 'grid') return 'y2k-gem-2x2';
   if (normalizedLayout === 'trip') return 'friend-bubble-1x3';
   if (normalizedLayout === 'polaroid') return 'clean-polaroid-1x1';
   const builtins = getBuiltinFramePresets().filter((preset) => preset.layout === normalizedLayout);

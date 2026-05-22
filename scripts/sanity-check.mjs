@@ -823,8 +823,8 @@ function checkFrameStoreFoundation() {
     const defaultChecks = [
       ['strip', 'clean-white-4cut'],
       ['1x4', 'clean-white-4cut'],
-      ['grid', 'heart-gem-2x2'],
-      ['2x2', 'heart-gem-2x2'],
+      ['grid', 'y2k-gem-2x2'],
+      ['2x2', 'y2k-gem-2x2'],
       ['trip', 'friend-bubble-1x3'],
       ['1x3', 'friend-bubble-1x3'],
       ['polaroid', 'clean-polaroid-1x1'],
@@ -934,10 +934,10 @@ function checkFrameStoreFoundation() {
         }
       });
     });
-    if (!['heart-gem-2x2', 'kitsch-bear-2x2'].includes(api.getDefaultFramePresetIdForLayout('grid', []))) {
+    if (!['y2k-gem-2x2', 'pink-kitsch-2x2'].includes(api.getDefaultFramePresetIdForLayout('grid', []))) {
       throw new Error('grid default preset should not resolve to a strip preset');
     }
-    if (!['heart-gem-2x2', 'kitsch-bear-2x2'].includes(api.getDefaultFramePresetIdForLayout('2x2', []))) {
+    if (!['y2k-gem-2x2', 'pink-kitsch-2x2'].includes(api.getDefaultFramePresetIdForLayout('2x2', []))) {
       throw new Error('2x2 default preset should not resolve to a strip preset');
     }
     if (api.getDefaultFramePresetIdForLayout('trip', []) !== 'friend-bubble-1x3') {
@@ -3470,3 +3470,15 @@ if (hasErrors) {
 } else {
   console.log('\n✅ All sanity checks passed. Zero-Distortion & Zero-Crash baseline restored.');
 }
+
+
+function checkCloudQaArtifacts() {
+  ['scripts/cloud-qa-check.mjs','QA_MATRIX.md','FIELD_QA_SCRIPT.md','docs/STORAGE_CONTRACT.md','docs/TOUCH_POLICY.md','docs/RENDER_PARITY_CHECKLIST.md'].forEach((f) => {
+    if (!fs.existsSync(path.join(rootDir, f))) {
+      console.error(`❌ FAIL: required cloud QA artifact missing: ${f}`);
+      hasErrors = true;
+    }
+  });
+}
+checkCloudQaArtifacts();
+
