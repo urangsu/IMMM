@@ -2109,3 +2109,34 @@ QA steps:
 - [ ] Mobile designer usability field test
 - [ ] Designer save/load field test
 - [ ] Export/import designer pack field test
+
+
+## Phase 4.46~4.70 — Cloud QA Hardening + Contract Regression Gate
+
+- [x] cloud QA runner added
+- [x] layer rendering contract checks added
+- [x] layout/preset sync contract checks added
+- [x] storage contract documented
+- [x] designer recovery contract documented
+- [x] touch policy documented
+- [x] render parity checklist documented
+- [x] QA matrix added
+- [x] field QA script added
+- [x] qa:cloud script added if package.json supports it
+- [x] sanity-check links to cloud QA docs
+- [x] pgpt guard preserved
+- [ ] Samsung Internet real-device QA
+- [ ] iPhone Safari real-device QA
+- [ ] QR second-device QA
+
+
+## Phase 4.71~4.95 — Frame Quality Rebuild + Render Audit
+- [x] built-in frame design polish pass
+- [x] layout slot geometry parity checks added
+- [x] render parity cloud contract expanded
+- [x] frame store/setup layoutMatchedFramePreset guard preserved
+- [x] watermark/background/photo-slot duplication guard preserved
+- [x] frame design QA doc added
+- [ ] Samsung Internet real-device visual QA
+- [ ] iPhone Safari real-device visual QA
+- [ ] Export parity on second device QA

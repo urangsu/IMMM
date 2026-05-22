@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:precompile": "node scripts/build-precompile.mjs"
+    "build:precompile": "node scripts/build-precompile.mjs",
+    "qa:cloud": "node scripts/cloud-qa-check.mjs"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.1",
