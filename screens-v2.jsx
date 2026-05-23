@@ -346,7 +346,599 @@ function formatFrameDate(value) {
   }
 }
 
-function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, framePresets = [], framePackList = [], customFrames = [], selectedFramePresetId, applyFramePreset, saveCustomFrame, exportCustomFramesAsJson, importFramePackFromJson, openDesigner, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame, favoriteFramePresetIds = [], toggleFavoriteFramePreset, favoriteFramePackIds = [], toggleFavoriteFramePack, unlockFramePackForDev, unlockedFramePackIds = [], frameLikeIds = [], toggleFrameLike, frameUseCounts = {}, recordFrameUse, creatorProfiles = [], setCreatorProfiles, exportPresetId = 'hd', setExportPresetId, generateFrameIdea, designerDraftRecovery = null, clearDesignerDraftRecovery, storeTabFocus = '' }) {
+function getCleanSetupSlotCount(layout) {
+  if (typeof window !== 'undefined' && typeof window.getLayoutSlotCount === 'function') {
+    return window.getLayoutSlotCount(layout);
+  }
+  return layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
+}
+
+function getCleanSetupCaptureCount(layout) {
+  if (typeof getShotCountForLayout === 'function') {
+    return getShotCountForLayout(layout);
+  }
+  return getCleanSetupSlotCount(layout);
+}
+
+function CleanFrameMiniPreview({ layout, T }) {
+  const isGrid = layout === 'grid';
+  const isPolaroid = layout === 'polaroid';
+  const isTrip = layout === 'trip';
+  const slots = isPolaroid ? 1 : isGrid ? 4 : isTrip ? 3 : 4;
+  return (
+    <div style={{
+      width: isGrid || isPolaroid ? 78 : 54,
+      height: isPolaroid ? 88 : isGrid ? 78 : 100,
+      background: '#fff',
+      borderRadius: isPolaroid ? 6 : 4,
+      border: `1px solid ${T.line}`,
+      boxSizing: 'border-box',
+      padding: isPolaroid ? '8px 7px 18px' : isGrid ? 8 : '8px 7px',
+      display: 'grid',
+      gridTemplateColumns: isGrid ? '1fr 1fr' : '1fr',
+      gridTemplateRows: isGrid ? '1fr 1fr' : `repeat(${slots}, 1fr)`,
+      gap: isGrid ? 5 : 6,
+      boxShadow: '0 4px 14px rgba(0,0,0,0.06)',
+      position: 'relative',
+    }}>
+      {Array.from({ length: slots }).map((_, i) => (
+        <div key={i} style={{ borderRadius: 2, background: T.placeholderFill || '#EFEDEA' }} />
+      ))}
+      <div style={{ position: 'absolute', top: 7, right: 7, width: 5, height: 5, borderRadius: 999, background: T.ink }} />
+    </div>
+  );
+}
+
+function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, selectedFramePresetId, setSetupStoreTabFocus }) {
+  const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
+    ? window.FrameThumb
+    : null;
+  const [tab, setTab] = uS(editMode ? 'photos' : 'frame');
+  const [selStId, setSelStId] = uS(null);
+  const [setupZoom, setSetupZoom] = uS(mobile ? 0.92 : 1.12);
+  const fileRef = uR(null);
+  const photoFileRefs = [uR(null), uR(null), uR(null), uR(null), uR(null), uR(null)];
+  const setupFrameRef = uR(null);
+  const setupContainerRef = uR(null);
+  const slotCount = getCleanSetupSlotCount(layout);
+  const captureCount = getCleanSetupCaptureCount(layout);
+  const selectedPresetLayout = framePreset?.layout;
+  const setupPreviewPreset = framePreset && selectedFramePresetId && selectedPresetLayout === layout ? framePreset : null;
+  const shotsPreview = Array.from({ length: Math.max(1, slotCount) }, () => ({ filter: filter || 'original', dataUrl: null }));
+  const selectedPreview = Array.from({ length: Math.max(1, slotCount) }, (_, i) => i);
+
+  uE(() => {
+    const fit = () => {
+      if (!setupContainerRef.current || !setupFrameRef.current) return;
+      const cW = setupContainerRef.current.clientWidth - 32;
+      const cH = setupContainerRef.current.clientHeight - 32;
+      const fW = setupFrameRef.current.offsetWidth;
+      const fH = setupFrameRef.current.offsetHeight;
+      if (!fW || !fH) return;
+      setSetupZoom(Math.max(0.18, Math.min(mobile ? 0.98 : 1.28, cW / fW, cH / fH)));
+    };
+    const tid = setTimeout(fit, 40);
+    fit();
+    const ro = new ResizeObserver(fit);
+    if (setupContainerRef.current) ro.observe(setupContainerRef.current);
+    if (setupFrameRef.current) ro.observe(setupFrameRef.current);
+    return () => { clearTimeout(tid); ro.disconnect(); };
+  }, [layout, mobile, orientation, selectedFramePresetId]);
+
+  const addPresetSticker = (libId) => {
+    const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
+    const sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
+    setPreStickers((prev) => [...prev, makeSticker('preset', { libId }, { sizeNorm })]);
+  };
+  const addUploadSticker = (dataUrl) => {
+    const img = new Image();
+    img.onload = () => {
+      setPreStickers((prev) => [...prev, makeSticker('upload', {
+        dataUrl,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height,
+      }, { scale: 0.6 })]);
+    };
+    img.onerror = () => setPreStickers((prev) => [...prev, makeSticker('upload', { dataUrl }, { scale: 0.6 })]);
+    img.src = dataUrl;
+  };
+  const onStickerFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => addUploadSticker(rd.result);
+    rd.readAsDataURL(f);
+  };
+  const onPhotoUpload = async (idx, e) => {
+    const files = Array.from(e.target.files || []);
+    for (let i = 0; i < files.length; i++) {
+      const targetIdx = idx + i;
+      if (targetIdx >= captureCount) break;
+      const f = files[i];
+      const dataUrl = await new Promise((res) => {
+        const rd = new FileReader();
+        rd.onload = () => res(rd.result);
+        rd.readAsDataURL(f);
+      });
+      setShots((prev) => {
+        const n = [...prev];
+        while (n.length <= targetIdx) n.push(null);
+        n[targetIdx] = { dataUrl, filter, renderMode: 'upload', capturedFilter: filter, ts: Date.now() };
+        return n;
+      });
+    }
+  };
+  const selectBaseLayout = (layoutId) => {
+    setLayout(layoutId, { baseOnly: true });
+    const count = getCleanSetupSlotCount(layoutId);
+    setSelected(Array.from({ length: count }, (_, i) => i));
+  };
+  const goFrames = (tabId) => {
+    if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus(tabId || 'featured');
+    go('frames');
+  };
+  const zoomIn = () => setSetupZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)));
+  const zoomOut = () => setSetupZoom((z) => Math.max(0.18, +(z - 0.15).toFixed(2)));
+  const frameW = layout === 'polaroid' ? 220 : layout === 'grid' ? 240 : layout === 'trip' ? 172 : 160;
+  const uploadedCount = editMode ? Array.from({ length: captureCount }, (_, i) => shots?.[i]).filter((s) => s?.dataUrl).length : 0;
+
+  const preview = (
+    <div ref={setupContainerRef} style={{ overflow: 'hidden', width: '100%', height: '100%', position: 'relative' }}>
+      <div ref={setupFrameRef} style={{ position: 'absolute', top: '50%', left: '50%', transform: `translate(-50%, -50%) scale(${setupZoom})`, transformOrigin: 'center' }}>
+        <StickerCanvas
+          T={T}
+          stickers={preStickers}
+          setStickers={setPreStickers}
+          selectedId={selStId}
+          setSelectedId={setSelStId}
+          width={frameW}
+          canvasW={frameW}
+          height="auto"
+          layout={layout}
+        >
+          {WFrameThumb ? (
+            <WFrameThumb
+              key={`${layout}-${frameColor}-${setupPreviewPreset?.id || 'base'}`}
+              layout={layout}
+              shots={shotsPreview}
+              selected={selectedPreview}
+              T={T}
+              logo={logo}
+              dateText={dateText}
+              accent={accent}
+              scale={1}
+              orientation={orientation}
+              frameColor={frameColor}
+              framePreset={setupPreviewPreset}
+            />
+          ) : (
+            <FramePickerFallback layout={layout} T={T} size="lg" />
+          )}
+        </StickerCanvas>
+      </div>
+    </div>
+  );
+
+  const frameTab = (
+    <div>
+      <Kick T={T}>Choose your frame · 프레임 선택</Kick>
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+        {[
+          { id: 'strip', label: '1×4 Strip', ko: '스트립' },
+          { id: 'trip', label: '1×3 Trip', ko: '트리플' },
+          { id: 'grid', label: '2×2 Grid', ko: '그리드' },
+          { id: 'polaroid', label: '1×1 Polaroid', ko: '폴라로이드' },
+        ].map((o) => {
+          const count = getCleanSetupSlotCount(o.id);
+          const selected = layout === o.id && !selectedFramePresetId;
+          return (
+            <button key={o.id} onClick={() => selectBaseLayout(o.id)} style={{
+              padding: '14px 8px 10px',
+              minHeight: 148,
+              background: selected ? T.card : '#FFFFFF',
+              border: 'none',
+              borderRadius: 16,
+              cursor: 'pointer',
+              boxShadow: selected ? `0 0 0 2px ${T.ink} inset` : `0 0 0 1px ${T.line} inset`,
+              display: 'grid',
+              gap: 8,
+              justifyItems: 'center',
+            }}>
+              <div style={{ width: '100%', height: 106, overflow: 'hidden', display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+                <CleanFrameMiniPreview layout={o.id} T={T} />
+              </div>
+              <div style={{ fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 700, textAlign: 'center' }}>
+                {o.label}<span style={{ color: T.inkSoft, fontWeight: 400, marginLeft: 4, fontFamily: 'Pretendard,system-ui' }}>{o.ko}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+        <button onClick={() => goFrames('featured')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+          추천 프레임
+        </button>
+        <button onClick={() => goFrames('my-frames')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+          내 프레임
+        </button>
+        <button onClick={() => goFrames('featured')} style={{ minHeight: 48, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+          프레임 스토어 가기
+        </button>
+      </div>
+      {setupPreviewPreset && (
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(26,26,31,0.04)', color: T.inkSoft, fontSize: 11, lineHeight: 1.45 }}>
+          적용 중: {setupPreviewPreset.name}. 기본 카드 선택 시 기본 프레임으로 돌아갑니다.
+        </div>
+      )}
+    </div>
+  );
+
+  const filterTab = (
+    <div>
+      <Kick T={T}>Choose a filter · 필터 선택</Kick>
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        {(typeof getVisibleFilters === 'function' ? getVisibleFilters() : Object.entries(FILTERS).filter(([, v]) => !v.hidden)).map(([k, v]) => (
+          <button key={k} onClick={() => setFilter(k)} style={{ padding: 0, border: 'none', cursor: 'pointer', background: T.card, borderRadius: 14, overflow: 'hidden', textAlign: 'left', boxShadow: filter === k ? `0 0 0 2px ${T.ink}` : '0 0 0 1px rgba(26,26,31,0.08)' }}>
+            <div style={{ aspectRatio: '1', position: 'relative', overflow: 'hidden' }}>
+              <img src="asset/filter-sample.jpg" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: v.css }} />
+              <FilterOverlay filter={k} />
+            </div>
+            <div style={{ padding: '6px 10px', fontSize: 11, fontFamily: '"Plus Jakarta Sans",system-ui', fontWeight: 600 }}>{v.name}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const stickersTab = (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <Kick T={T}>Stickers · 스티커</Kick>
+        <button onClick={() => fileRef.current?.click()} style={{ padding: '8px 10px', minHeight: 44, background: T.ink, color: T.bg, border: 'none', borderRadius: 999, fontSize: 11, cursor: 'pointer', fontWeight: 800 }}>Upload</button>
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onStickerFile} />
+      </div>
+      {getStickerPickerPacks().map(([k, pack]) => (
+        <div key={k} style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: 700, textTransform: 'uppercase', color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', marginBottom: 6 }}>{pack.name}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 8 }}>
+            {pack.items.slice(0, 10).map((it) => (
+              <button key={it.id} onClick={() => addPresetSticker(it.id)} style={{ padding: 10, background: T.card, border: 'none', borderRadius: 12, minHeight: 58, cursor: 'pointer', overflow: 'hidden' }}>
+                <div style={{ height: 42, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>{renderLibSticker(it, 0.65)}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const photosTab = editMode ? (
+    <div>
+      <Kick T={T}>사진 불러오기 · Upload Photos</Kick>
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+        {Array.from({ length: captureCount }, (_, i) => {
+          const s = shots?.[i];
+          return (
+            <div key={i} onClick={() => photoFileRefs[i].current?.click()} style={{ aspectRatio: '4/3', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', position: 'relative', background: s?.dataUrl ? 'transparent' : 'rgba(26,26,31,0.05)', border: s?.dataUrl ? 'none' : `1.5px dashed rgba(26,26,31,0.15)`, display: 'grid', placeItems: 'center' }}>
+              {s?.dataUrl ? <img src={s.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ color: T.inkSoft, fontSize: 11 }}>컷 {i + 1}</div>}
+              <input ref={photoFileRefs[i]} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => onPhotoUpload(i, e)} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
+
+  const optionsTab = (
+    <div>
+      <Kick T={T}>Frame options · 프레임 옵션</Kick>
+      <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
+        <button onClick={() => setOrientation && setOrientation(orientation === 'portrait' ? 'landscape' : 'portrait')} disabled={layout === 'grid' || layout === 'polaroid'} style={{ minHeight: 48, borderRadius: 12, border: `1px solid ${T.line}`, background: T.softSurface, color: T.ink, opacity: layout === 'grid' || layout === 'polaroid' ? 0.45 : 1, cursor: layout === 'grid' || layout === 'polaroid' ? 'default' : 'pointer' }}>
+          방향 · {orientation === 'portrait' ? '세로' : '가로'}
+        </button>
+        <button onClick={() => setDateText && setDateText(!dateText)} style={{ minHeight: 48, borderRadius: 12, border: `1px solid ${T.line}`, background: T.softSurface, color: T.ink, cursor: 'pointer' }}>
+          날짜 표시 · {dateText ? 'On' : 'Off'}
+        </button>
+        <button onClick={() => setLogo && setLogo(!logo)} style={{ minHeight: 48, borderRadius: 12, border: `1px solid ${T.line}`, background: T.softSurface, color: T.ink, cursor: 'pointer' }}>
+          로고 표시 · {logo ? 'On' : 'Off'}
+        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {['#ffffff', '#111111', '#F1C0C5', '#A6C8DE', '#E6C8BE', '#A2352B'].map((c) => (
+            <button key={c} onClick={() => setFrameColor && setFrameColor(c)} style={{ width: 34, height: 34, borderRadius: 999, border: 'none', cursor: 'pointer', background: c, boxShadow: frameColor === c ? `0 0 0 2px ${T.bg}, 0 0 0 4px ${T.ink}` : 'inset 0 0 0 1px rgba(0,0,0,0.1)' }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const tabContent = tab === 'photos' ? photosTab : tab === 'frame' ? frameTab : tab === 'filter' ? filterTab : tab === 'stickers' ? stickersTab : optionsTab;
+  const tabs = [...(editMode ? [['photos', '사진']] : []), ['frame', '프레임'], ['filter', '필터'], ['stickers', '스티커'], ['options', '옵션']];
+  const tabBar = (
+    <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${T.line}`, marginBottom: 18 }}>
+      {tabs.map(([k, ko]) => (
+        <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: '14px 6px', border: 'none', borderBottom: tab === k ? `2px solid ${T.ink}` : '2px solid transparent', background: 'transparent', color: tab === k ? T.ink : T.inkSoft, fontSize: 11, fontWeight: 800, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase' }}>{ko}</button>
+      ))}
+    </div>
+  );
+
+  if (mobile) {
+    return (
+      <div style={{ height: '100%', background: T.bg, padding: '50px 0 0', display: 'flex', flexDirection: 'column' }}>
+        <TopBar step={0} back={() => go('landing')} T={T} mobile title={editMode ? '편집하기' : 'Setup · 세팅'} right={<BtnPrimary T={T} size="sm" onClick={() => editMode ? go('deco') : startNewCaptureSession()} disabled={editMode && uploadedCount < captureCount}>{editMode ? '편집 시작' : 'Next'}</BtnPrimary>} />
+        <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
+          {preview}
+          <div style={{ position: 'absolute', bottom: 14, right: 14, display: 'flex', gap: 10, zIndex: 20 }}>
+            <button onClick={zoomOut} style={zoomBtnStyle} aria-label="Zoom out"><ZoomMinusIcon /></button>
+            <button onClick={zoomIn} style={zoomBtnStyle} aria-label="Zoom in"><ZoomPlusIcon /></button>
+          </div>
+        </div>
+        <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', padding: '20px 20px 28px', borderTop: '1px solid rgba(0,0,0,0.08)', maxHeight: '58%', overflow: 'auto' }}>
+          {tabBar}
+          {tabContent}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ height: '100%', background: 'transparent', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px' }}>
+      <div style={{ padding: '24px 48px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <TopBar step={0} back={() => go('landing')} T={T} title={editMode ? '편집하기 · Upload & Edit' : 'Step 1 · Setup the booth'} right={<BtnPrimary T={T} size="md" onClick={() => editMode ? go('deco') : startNewCaptureSession()} disabled={editMode && uploadedCount < captureCount}>{editMode ? '편집 시작' : 'Continue · 다음'} {!editMode && I.arrowR(14, T.bg)}</BtnPrimary>} />
+        <div style={{ flex: 1, minHeight: 0, background: T.bgAlt, borderRadius: 28, display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden', border: `1px solid ${T.line}`, boxShadow: '0 8px 32px rgba(0,0,0,0.04)' }}>
+          {preview}
+          <div style={{ position: 'absolute', bottom: 16, left: 18, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1.5 }}>LIVE PREVIEW</div>
+          <div style={{ position: 'absolute', bottom: 18, right: 18, display: 'flex', gap: 10, zIndex: 20 }}>
+            <button onClick={zoomOut} style={zoomBtnStyle} aria-label="Zoom out"><ZoomMinusIcon /></button>
+            <button onClick={zoomIn} style={zoomBtnStyle} aria-label="Zoom in"><ZoomPlusIcon /></button>
+          </div>
+        </div>
+      </div>
+      <div style={{ background: 'rgba(255,255,255,0.74)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderLeft: '1px solid rgba(255,255,255,0.5)', padding: '24px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {tabBar}
+        <div style={{ flex: 1 }}>{tabContent}</div>
+      </div>
+    </div>
+  );
+}
+
+function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePreset, framePresets = [], framePackList = [], customFrames = [], selectedFramePresetId, applyFramePreset, openDesigner, exportCustomFramesAsJson, importFramePackFromJson, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame, favoriteFramePresetIds = [], toggleFavoriteFramePreset, favoriteFramePackIds = [], toggleFavoriteFramePack, unlockedFramePackIds = [], unlockFramePackForDev, frameLikeIds = [], toggleFrameLike, recordFrameUse, creatorProfiles = [], storeTabFocus = '' }) {
+  const frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
+  const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
+  const [storeTab, setStoreTab] = uS(storeTabFocus || 'featured');
+  const [storeSearch, setStoreSearch] = uS('');
+  const [storeSort, setStoreSort] = uS('recommended');
+  const [importJsonText, setImportJsonText] = uS('');
+  const [importMessage, setImportMessage] = uS('');
+  const [selectedPresetId, setSelectedPresetId] = uS(selectedFramePresetId || '');
+  const savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter((preset) => !preset.deletedAt), [customFrames]);
+  const allPresets = uM(() => {
+    const byId = new Map();
+    [...(Array.isArray(framePresets) ? framePresets : []), ...savedFrames].forEach((preset) => {
+      if (preset?.id && !byId.has(preset.id)) byId.set(preset.id, preset);
+    });
+    return Array.from(byId.values());
+  }, [framePresets, savedFrames]);
+  const allPacks = Array.isArray(framePackList) ? framePackList : [];
+  const selectedPreset = allPresets.find((preset) => preset.id === selectedPresetId) || allPresets.find((preset) => preset.id === selectedFramePresetId) || framePreset || allPresets[0] || null;
+  const shotsPreview = (preset) => Array.from({ length: Math.max(1, preset?.photoSlots?.length || getCleanSetupSlotCount(preset?.layout || layout)) }, () => ({ filter: 'original', dataUrl: null }));
+  const previewAspect = (preset) => {
+    const size = preset?.canvasSize || frameApi?.getCanvasSizeForLayout?.(preset?.layout || layout) || { width: 560, height: 1808 };
+    return `${Math.max(1, Number(size.width) || 560)} / ${Math.max(1, Number(size.height) || 1808)}`;
+  };
+  const packById = (id) => frameApi?.getFramePackById?.(id, savedFrames) || allPacks.find((pack) => pack.id === id) || null;
+  const packUnlocked = (pack) => Boolean(!pack?.locked || frameApi?.isFramePackUnlocked?.(pack.id) || unlockedFramePackIds.includes(pack.id));
+  const visiblePresets = uM(() => {
+    const q = storeSearch.trim().toLowerCase();
+    let items = allPresets.filter(Boolean);
+    if (storeTab === 'free') items = items.filter((preset) => (preset.packPriceType || packById(preset.packId)?.priceType || 'free') === 'free');
+    if (storeTab === 'premium') items = items.filter((preset) => (preset.packPriceType || packById(preset.packId)?.priceType || 'free') === 'premium');
+    if (storeTab === 'my-frames') items = items.filter((preset) => preset.source === 'custom' || preset.source === 'imported');
+    if (storeTab === 'favorites') items = items.filter((preset) => favoriteFramePresetIds.includes(preset.id));
+    if (storeTab === 'imported') items = items.filter((preset) => preset.source === 'imported');
+    if (storeTab === 'featured') {
+      const featured = new Set(allPacks.filter((pack) => pack.featured).flatMap((pack) => pack.presetIds || []));
+      items = items.filter((preset) => featured.has(preset.id) || preset.category === 'basic' || preset.category === 'character');
+    }
+    if (q) {
+      items = items.filter((preset) => [preset.name, preset.category, preset.layout, preset.author?.name, preset.packName, ...(preset.packTags || [])].join(' ').toLowerCase().includes(q));
+    }
+    if (storeSort === 'newest') items = [...items].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    if (storeSort === 'az') items = [...items].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    return items;
+  }, [allPacks, allPresets, favoriteFramePresetIds, storeSearch, storeSort, storeTab]);
+  const visiblePacks = uM(() => {
+    let items = [...allPacks];
+    if (storeTab === 'free') items = items.filter((pack) => (pack.priceType || 'free') === 'free');
+    if (storeTab === 'premium') items = items.filter((pack) => (pack.priceType || 'free') === 'premium');
+    if (storeTab === 'favorites') items = items.filter((pack) => favoriteFramePackIds.includes(pack.id) || (pack.presetIds || []).some((id) => favoriteFramePresetIds.includes(id)));
+    if (storeTab === 'my-frames' || storeTab === 'imported') items = [];
+    if (storeTab === 'featured') items = items.filter((pack) => pack.featured).slice(0, 6);
+    return items;
+  }, [allPacks, favoriteFramePackIds, favoriteFramePresetIds, storeTab]);
+  uE(() => {
+    if (storeTabFocus) setStoreTab(storeTabFocus);
+  }, [storeTabFocus]);
+  const applyToBooth = (preset) => {
+    if (!preset) return;
+    const pack = preset.packId ? packById(preset.packId) : null;
+    if (pack?.locked && !packUnlocked(pack)) {
+      setImportMessage('This frame pack is premium. Unlock coming soon.');
+      return;
+    }
+    const applied = applyFramePreset?.(preset, { syncFrameColor: true });
+    if (applied) {
+      recordFrameUse?.(preset.id);
+      go('setup');
+    }
+  };
+  const renderThumb = (preset, height = 150) => (
+    <div style={{ height, aspectRatio: previewAspect(preset), maxWidth: '100%', margin: '0 auto', display: 'grid', placeItems: 'center', overflow: 'hidden', borderRadius: 12, background: 'rgba(26,26,31,0.03)' }}>
+      {WFrameThumb && preset ? (
+        <WFrameThumb layout={preset.layout} shots={shotsPreview(preset)} selected={shotsPreview(preset).map((_, i) => i)} T={T} logo={false} dateText={false} accent={accent || T.pinkDeep} scale={1} orientation="portrait" frameColor={frameColor} framePreset={preset} fill />
+      ) : (
+        <FramePickerFallback layout={preset?.layout || 'strip'} T={T} size="sm" />
+      )}
+    </div>
+  );
+  const tabs = [
+    ['featured', 'Featured'],
+    ['free', 'Free'],
+    ['my-frames', 'My Frames'],
+    ['premium', 'Premium'],
+    ['favorites', 'Favorites'],
+    ['imported', 'Imported'],
+    ['all', 'All Presets'],
+  ];
+  const cardStyle = {
+    border: `1px solid ${T.line}`,
+    borderRadius: 18,
+    background: '#fff',
+    padding: 14,
+    minWidth: 0,
+    display: 'grid',
+    gap: 10,
+  };
+  return (
+    <div style={{ height: '100%', overflow: 'auto', background: T.bg, color: T.ink, fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui' }}>
+      <div style={{ padding: mobile ? 16 : 28, display: 'grid', gap: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 5, background: T.bg, paddingBottom: 12 }}>
+          <button onClick={() => go('landing')} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase' }}>Back</button>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ fontSize: 12, color: T.inkSoft, letterSpacing: 3, fontWeight: 900, textTransform: 'uppercase' }}>Frame Store</div>
+            <div style={{ marginTop: 4, fontSize: mobile ? 22 : 30, fontWeight: 900 }}>Choose or create a frame</div>
+          </div>
+          <button onClick={() => openDesigner?.({ mode: 'new', preset: selectedPreset })} style={{ minHeight: 48, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 18px', fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase' }}>Create Frame</button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1fr) minmax(300px, 380px)', gap: 18, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
+            <div style={{ ...cardStyle, position: 'sticky', top: mobile ? 72 : 82, zIndex: 4 }}>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+                {tabs.map(([id, label]) => (
+                  <button key={id} onClick={() => setStoreTab(id)} style={{ flex: '0 0 auto', minHeight: 44, borderRadius: 999, border: 'none', background: storeTab === id ? T.ink : 'rgba(26,26,31,0.06)', color: storeTab === id ? T.bg : T.inkSoft, padding: '0 13px', fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: 'uppercase' }}>{label}</button>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1fr) 150px', gap: 8 }}>
+                <input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search frames, packs, tags" style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 12px', fontSize: 12 }} />
+                <select value={storeSort} onChange={(e) => setStoreSort(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 12px', fontSize: 12, background: '#fff' }}>
+                  <option value="recommended">Recommended</option>
+                  <option value="newest">Newest</option>
+                  <option value="az">A-Z</option>
+                </select>
+              </div>
+            </div>
+
+            {visiblePacks.length > 0 && (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <Kick T={T}>{storeTab === 'premium' ? 'Premium Packs' : storeTab === 'free' ? 'Free Packs' : 'Featured Packs'}</Kick>
+                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                  {visiblePacks.map((pack) => {
+                    const cover = allPresets.find((preset) => preset.id === pack.coverPresetId) || allPresets.find((preset) => (pack.presetIds || []).includes(preset.id));
+                    const unlocked = packUnlocked(pack);
+                    return (
+                      <div key={pack.id} style={cardStyle}>
+                        {renderThumb(cover, 130)}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 900 }}>{pack.name}</div>
+                            <div style={{ marginTop: 4, fontSize: 11, color: T.inkSoft, lineHeight: 1.4 }}>{pack.description}</div>
+                          </div>
+                          <StoreBadge T={T} tone="light">{unlocked ? pack.priceLabel : 'Locked'}</StoreBadge>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button onClick={() => cover && setSelectedPresetId(cover.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Preview</button>
+                          <button onClick={() => applyToBooth(cover)} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: unlocked ? T.ink : 'rgba(26,26,31,0.08)', color: unlocked ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>{unlocked ? 'Apply to Booth' : 'Preview only'}</button>
+                          {pack.locked && !unlocked && unlockFramePackForDev && (
+                            <button onClick={() => unlockFramePackForDev(pack.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Dev Unlock</button>
+                          )}
+                          <button onClick={() => toggleFavoriteFramePack?.(pack.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: favoriteFramePackIds.includes(pack.id) ? T.ink : '#fff', color: favoriteFramePackIds.includes(pack.id) ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Fav Pack</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gap: 10 }}>
+              <Kick T={T}>{storeTab === 'my-frames' ? 'My Frames' : 'All Frames'}</Kick>
+              {visiblePresets.length === 0 ? (
+                <div style={cardStyle}>
+                  <div style={{ fontSize: 15, fontWeight: 900 }}>No frames here yet</div>
+                  <div style={{ fontSize: 12, color: T.inkSoft }}>Create your first frame or import a frame pack.</div>
+                  <button onClick={() => openDesigner?.({ mode: 'new', preset: selectedPreset })} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 900, justifySelf: 'start' }}>Create your first frame</button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                  {visiblePresets.map((preset) => {
+                    const active = selectedFramePresetId === preset.id;
+                    const custom = preset.source === 'custom' || preset.source === 'imported';
+                    return (
+                      <div key={preset.id} style={{ ...cardStyle, boxShadow: active ? `0 0 0 2px ${T.ink} inset` : 'none' }}>
+                        <button onClick={() => setSelectedPresetId(preset.id)} style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}>{renderThumb(preset, 150)}</button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 900 }}>{preset.name}</div>
+                            <div style={{ marginTop: 4, fontSize: 11, color: T.inkSoft }}>{preset.layout} · {preset.photoSlots?.length || getCleanSetupSlotCount(preset.layout)}컷</div>
+                            <div style={{ marginTop: 4, fontSize: 10, color: T.inkSoft }}>{preset.author?.name || 'IMMM Studio'} · {preset.license || 'personal'}</div>
+                          </div>
+                          {active && <StoreBadge T={T} tone="light">Active</StoreBadge>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button onClick={() => applyToBooth(preset)} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Apply to Booth</button>
+                          <button onClick={() => toggleFavoriteFramePreset?.(preset.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: favoriteFramePresetIds.includes(preset.id) ? T.ink : '#fff', color: favoriteFramePresetIds.includes(preset.id) ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Favorite</button>
+                          <button onClick={() => toggleFrameLike?.(preset.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: frameLikeIds.includes(preset.id) ? T.ink : '#fff', color: frameLikeIds.includes(preset.id) ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Like</button>
+                          {custom && <button onClick={() => openDesigner?.({ mode: 'edit', preset })} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Edit</button>}
+                          {custom && <button onClick={() => duplicateCustomFrame?.(preset.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Duplicate</button>}
+                          {custom && <button onClick={() => deleteCustomFrame?.(preset.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Delete</button>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {(storeTab === 'my-frames' || storeTab === 'imported') && (
+              <div style={cardStyle}>
+                <Kick T={T}>Import / Export</Kick>
+                <textarea value={importJsonText} onChange={(e) => setImportJsonText(e.target.value)} placeholder="Paste frame pack JSON here" style={{ width: '100%', minHeight: 140, resize: 'vertical', borderRadius: 12, border: `1px solid ${T.line}`, padding: 12, fontSize: 12, fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button onClick={() => {
+                    const raw = exportCustomFramesAsJson?.() || '';
+                    if (raw && navigator.clipboard?.writeText) navigator.clipboard.writeText(raw).catch(() => {});
+                    setImportMessage(raw ? 'Exported My Frames as JSON.' : 'Nothing to export.');
+                  }} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 900 }}>Export My Frames as JSON</button>
+                  <button onClick={() => {
+                    const result = importFramePackFromJson?.(importJsonText) || { ok: false, error: 'Import unavailable' };
+                    setImportMessage(result.ok ? `Imported ${result.presets?.length || 0} frames.` : result.error || 'Import failed');
+                    if (result.ok) setStoreTab('imported');
+                  }} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 900 }}>Import Frame Pack JSON</button>
+                </div>
+                {importMessage && <div style={{ fontSize: 12, color: T.inkSoft }}>{importMessage}</div>}
+              </div>
+            )}
+          </div>
+
+          <aside style={{ ...cardStyle, position: mobile ? 'static' : 'sticky', top: 100 }}>
+            <Kick T={T}>Preview</Kick>
+            {renderThumb(selectedPreset, mobile ? 260 : 360)}
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 900 }}>{selectedPreset?.name || 'Select a frame'}</div>
+              <div style={{ marginTop: 6, fontSize: 12, color: T.inkSoft, lineHeight: 1.5 }}>
+                {selectedPreset ? `${selectedPreset.layout} · ${selectedPreset.photoSlots?.length || getCleanSetupSlotCount(selectedPreset.layout)} slots · ${selectedPreset.category || 'frame'}` : 'Pick a frame card to preview.'}
+              </div>
+            </div>
+            <button disabled={!selectedPreset} onClick={() => applyToBooth(selectedPreset)} style={{ minHeight: 48, borderRadius: 999, border: 'none', background: selectedPreset ? T.ink : 'rgba(26,26,31,0.08)', color: selectedPreset ? T.bg : T.inkSoft, padding: '0 16px', fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase' }}>Apply to Booth</button>
+            <button onClick={() => openDesigner?.({ mode: 'duplicate', preset: selectedPreset })} disabled={!selectedPreset} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 900 }}>Duplicate & Edit</button>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeprecatedSetupWithEmbeddedStore({ T, go, mobile, variant, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, framePresets = [], framePackList = [], customFrames = [], selectedFramePresetId, applyFramePreset, saveCustomFrame, exportCustomFramesAsJson, importFramePackFromJson, openDesigner, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame, favoriteFramePresetIds = [], toggleFavoriteFramePreset, favoriteFramePackIds = [], toggleFavoriteFramePack, unlockFramePackForDev, unlockedFramePackIds = [], frameLikeIds = [], toggleFrameLike, frameUseCounts = {}, recordFrameUse, creatorProfiles = [], setCreatorProfiles, exportPresetId = 'hd', setExportPresetId, generateFrameIdea, designerDraftRecovery = null, clearDesignerDraftRecovery, storeTabFocus = '' }) {
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
@@ -2325,6 +2917,220 @@ function SetupScreen({ T, go, mobile, variant, layout, setLayout, filter, setFil
   );
 }
 
+function getDesignerPreviewMetrics(containerRect, canvasSize) {
+  const canvasW = Number(canvasSize?.width) || 560;
+  const canvasH = Number(canvasSize?.height) || 1808;
+  const maxW = Math.max(1, Number(containerRect?.width) || 1);
+  const maxH = Math.max(1, Number(containerRect?.height) || 1);
+  const scale = Math.max(0.001, Math.min(maxW / canvasW, maxH / canvasH));
+  const width = Math.round(canvasW * scale);
+  const height = Math.round(canvasH * scale);
+  return {
+    canvasW,
+    canvasH,
+    scale,
+    width,
+    height,
+    offsetX: Math.round((maxW - width) / 2),
+    offsetY: Math.round((maxH - height) / 2),
+  };
+}
+
+function canvasRectToPreviewRect(rect, metrics) {
+  return {
+    left: metrics.offsetX + Number(rect?.x || 0) * metrics.scale,
+    top: metrics.offsetY + Number(rect?.y || 0) * metrics.scale,
+    width: Number(rect?.width || 0) * metrics.scale,
+    height: Number(rect?.height || 0) * metrics.scale,
+  };
+}
+
+function clientPointToCanvasPoint(event, previewEl, metrics) {
+  if (!previewEl || !metrics) return { x: 0, y: 0 };
+  const point = event && typeof event.clientX === 'number'
+    ? { clientX: event.clientX, clientY: event.clientY }
+    : (() => {
+        const touch = event?.touches?.[0] || event?.changedTouches?.[0];
+        return touch ? { clientX: touch.clientX, clientY: touch.clientY } : { clientX: 0, clientY: 0 };
+      })();
+  const box = previewEl.getBoundingClientRect();
+  return {
+    x: (point.clientX - box.left - metrics.offsetX) / metrics.scale,
+    y: (point.clientY - box.top - metrics.offsetY) / metrics.scale,
+  };
+}
+
+function DesignerPreviewCanvas({
+  draft,
+  T,
+  previewShots,
+  selectedSlotIndex,
+  selectedDecorationIndex,
+  startDrag,
+  activeGuides,
+  showGuides,
+  gridEnabled,
+  useTouchFallback,
+}) {
+  const viewportRef = uR(null);
+  const canvasRef = uR(null);
+  const [metrics, setMetrics] = uS(null);
+  const canvasSize = draft?.canvasSize || { width: 560, height: 1808 };
+
+  uE(() => {
+    const update = () => {
+      if (!viewportRef.current || !canvasSize) return;
+      setMetrics(getDesignerPreviewMetrics(viewportRef.current.getBoundingClientRect(), canvasSize));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    if (viewportRef.current) ro.observe(viewportRef.current);
+    window.addEventListener('resize', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [canvasSize.width, canvasSize.height]);
+
+  uE(() => {
+    let cancelled = false;
+    const draw = async () => {
+      if (!canvasRef.current || !draft || !metrics) return;
+      const canvas = canvasRef.current;
+      canvas.width = Math.max(1, Math.round(canvasSize.width));
+      canvas.height = Math.max(1, Math.round(canvasSize.height));
+      const ctx = canvas.getContext('2d');
+      const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+      if (!renderComp || !ctx) return;
+      await renderComp(ctx, {
+        layout: draft.layout,
+        shots: previewShots,
+        selected: previewShots.map((_, i) => i),
+        frameColor: draft.frameColor,
+        logo: false,
+        dateText: false,
+        accent: T.pinkDeep,
+        framePreset: draft,
+      }, { scale: 1 });
+      if (cancelled) return;
+    };
+    draw();
+    return () => { cancelled = true; };
+  }, [draft, previewShots, metrics, canvasSize.width, canvasSize.height, T.pinkDeep]);
+
+  const shellStyle = metrics ? {
+    position: 'absolute',
+    left: metrics.offsetX,
+    top: metrics.offsetY,
+    width: metrics.width,
+    height: metrics.height,
+  } : {};
+  const shellMetrics = metrics ? { ...metrics, offsetX: 0, offsetY: 0 } : null;
+
+  return (
+    <div ref={viewportRef} style={{
+      position: 'relative',
+      width: '100%',
+      height: 'min(72vh, 760px)',
+      minHeight: 420,
+      borderRadius: 18,
+      overflow: 'hidden',
+      border: `1px solid ${T.line}`,
+      background: '#F8F8F5',
+      touchAction: 'none',
+    }}>
+      {metrics && (
+        <div style={shellStyle}>
+          <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+          {gridEnabled && (
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(rgba(130,92,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(130,92,255,0.08) 1px, transparent 1px)', backgroundSize: '20% 20%', zIndex: 1 }} />
+          )}
+          {(draft.photoSlots || []).map((slot, index) => {
+            const active = selectedSlotIndex === index;
+            const r = canvasRectToPreviewRect(slot, shellMetrics);
+            return (
+              <div
+                key={`slot-${index}`}
+                onPointerDown={useTouchFallback ? undefined : startDrag('slot', index, 'move', metrics, viewportRef)}
+                onTouchStart={useTouchFallback ? startDrag('slot', index, 'move', metrics, viewportRef) : undefined}
+                style={{
+                  position: 'absolute',
+                  left: r.left,
+                  top: r.top,
+                  width: r.width,
+                  height: r.height,
+                  borderRadius: Math.max(4, Number(slot.radius || 0) * metrics.scale),
+                  boxSizing: 'border-box',
+                  border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.28)'}`,
+                  background: active ? 'rgba(26,26,31,0.04)' : 'rgba(255,255,255,0.04)',
+                  cursor: 'move',
+                  touchAction: 'none',
+                  zIndex: 4,
+                }}
+              >
+                <div style={{ position: 'absolute', top: 4, left: 4, padding: '2px 5px', borderRadius: 999, background: active ? T.ink : 'rgba(26,26,31,0.65)', color: active ? T.bg : '#fff', fontSize: 9, fontWeight: 800 }}>{index + 1}</div>
+                <div
+                  onPointerDown={useTouchFallback ? undefined : startDrag('slot', index, 'resize', metrics, viewportRef)}
+                  onTouchStart={useTouchFallback ? startDrag('slot', index, 'resize', metrics, viewportRef) : undefined}
+                  style={{ position: 'absolute', right: -4, bottom: -4, width: 16, height: 16, borderRadius: 5, background: T.ink, cursor: 'nwse-resize', touchAction: 'none' }}
+                />
+              </div>
+            );
+          })}
+          {(draft.decorations || []).map((deco, index) => {
+            const active = selectedDecorationIndex === index;
+            const rect = { x: deco.x || 0, y: deco.y || 0, width: deco.width || 80, height: deco.height || 80 };
+            const r = canvasRectToPreviewRect(rect, shellMetrics);
+            return (
+              <div
+                key={deco.id || index}
+                onPointerDown={useTouchFallback ? undefined : startDrag('decor', index, 'move', metrics, viewportRef)}
+                onTouchStart={useTouchFallback ? startDrag('decor', index, 'move', metrics, viewportRef) : undefined}
+                style={{
+                  position: 'absolute',
+                  left: r.left,
+                  top: r.top,
+                  width: r.width,
+                  height: r.height,
+                  border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.18)'}`,
+                  background: deco.type === 'text' ? 'rgba(255,255,255,0.7)' : 'rgba(26,26,31,0.04)',
+                  borderRadius: deco.shape === 'circle' ? 999 : 10,
+                  display: 'grid',
+                  placeItems: 'center',
+                  cursor: 'move',
+                  boxSizing: 'border-box',
+                  opacity: deco.opacity ?? 1,
+                  transform: `rotate(${deco.rotation || 0}deg)`,
+                  touchAction: 'none',
+                  zIndex: 5,
+                }}
+              >
+                <div style={{ fontSize: deco.type === 'text' ? 12 : 10, fontWeight: 800, color: deco.fill || T.ink, textAlign: 'center', padding: 4 }}>{deco.type === 'text' ? (deco.text || 'TEXT') : (deco.shape || 'shape')}</div>
+                <div
+                  onPointerDown={useTouchFallback ? undefined : startDrag('decor', index, 'resize', metrics, viewportRef)}
+                  onTouchStart={useTouchFallback ? startDrag('decor', index, 'resize', metrics, viewportRef) : undefined}
+                  style={{ position: 'absolute', right: -4, bottom: -4, width: 16, height: 16, borderRadius: 5, background: T.ink, cursor: 'nwse-resize', touchAction: 'none' }}
+                />
+              </div>
+            );
+          })}
+          {showGuides && (activeGuides || []).map((guide, index) => (
+            <div key={`${guide.axis}-${guide.kind}-${index}`} style={{
+              position: 'absolute',
+              pointerEvents: 'none',
+              background: 'rgba(130, 92, 255, 0.8)',
+              zIndex: 7,
+              ...(guide.axis === 'v'
+                ? { top: 0, bottom: 0, left: guide.value * metrics.scale, width: 2, transform: 'translateX(-1px)' }
+                : { left: 0, right: 0, top: guide.value * metrics.scale, height: 2, transform: 'translateY(-1px)' }),
+            }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DesignerScreen({
   T,
   go,
@@ -2353,9 +3159,6 @@ function DesignerScreen({
   setExportPresetId,
 }) {
   const frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
-  const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
-    ? window.FrameThumb
-    : null;
   const useTouchFallback = typeof window !== 'undefined'
     && (!('PointerEvent' in window) || (typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || '')));
   const previewRef = uR(null);
@@ -2616,8 +3419,9 @@ function DesignerScreen({
     setActiveLayerIndex(0);
   };
 
-  const startDrag = (kind, index, mode = 'move') => (event) => {
-    if (!previewRef.current || !normalizedDraft) return;
+  const startDrag = (kind, index, mode = 'move', metrics = null, viewportRefArg = null) => (event) => {
+    const viewportEl = viewportRefArg?.current || previewRef.current;
+    if (!viewportEl || !normalizedDraft) return;
     const point = getDragPoint(event);
     if (!point) return;
     if (event.cancelable) event.preventDefault();
@@ -2625,15 +3429,22 @@ function DesignerScreen({
     if (event.currentTarget?.setPointerCapture && event.pointerId != null) {
       try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
     }
-    const rect = previewRef.current.getBoundingClientRect();
+    const snapshot = frameApi?.normalizeDesignerDraft?.(normalizedDraft) || normalizedDraft;
+    const originalRect = kind === 'slot'
+      ? { ...((snapshot.photoSlots || [])[index] || {}) }
+      : { ...((snapshot.decorations || [])[index] || {}) };
     dragRef.current = {
       kind,
       index,
       mode,
       startX: point.clientX,
       startY: point.clientY,
-      rect,
-      snapshot: frameApi?.normalizeDesignerDraft?.(normalizedDraft) || normalizedDraft,
+      rect: viewportEl.getBoundingClientRect(),
+      viewportEl,
+      metrics,
+      startPoint: metrics ? clientPointToCanvasPoint(event, viewportEl, metrics) : null,
+      originalRect,
+      snapshot,
     };
     if (kind === 'slot') {
       setSelectedSlotIndex(index);
@@ -2657,16 +3468,21 @@ function DesignerScreen({
       if (!drag || !drag.snapshot) return;
       const point = getDragPoint(event);
       if (!point) return;
-      const scaleX = (drag.snapshot.canvasSize?.width || 1) / Math.max(1, drag.rect.width);
-      const scaleY = (drag.snapshot.canvasSize?.height || 1) / Math.max(1, drag.rect.height);
-      const dx = (point.clientX - drag.startX) * scaleX;
-      const dy = (point.clientY - drag.startY) * scaleY;
+      const currentCanvasPoint = drag.metrics && drag.viewportEl
+        ? clientPointToCanvasPoint(event, drag.viewportEl, drag.metrics)
+        : null;
+      const dx = currentCanvasPoint && drag.startPoint
+        ? currentCanvasPoint.x - drag.startPoint.x
+        : (point.clientX - drag.startX) * ((drag.snapshot.canvasSize?.width || 1) / Math.max(1, drag.rect.width));
+      const dy = currentCanvasPoint && drag.startPoint
+        ? currentCanvasPoint.y - drag.startPoint.y
+        : (point.clientY - drag.startY) * ((drag.snapshot.canvasSize?.height || 1) / Math.max(1, drag.rect.height));
       if (event.cancelable) event.preventDefault();
       normalizeNextDraft((prev) => {
         const base = frameApi?.normalizeDesignerDraft?.(prev || drag.snapshot) || prev || drag.snapshot;
         if (drag.kind === 'slot') {
           const nextSlots = [...(base.photoSlots || [])];
-          const source = (drag.snapshot.photoSlots || [])[drag.index] || nextSlots[drag.index];
+          const source = drag.originalRect || (drag.snapshot.photoSlots || [])[drag.index] || nextSlots[drag.index];
           if (!source) return base;
           const patch = drag.mode === 'resize'
             ? { width: source.width + dx, height: source.height + dy }
@@ -2679,7 +3495,7 @@ function DesignerScreen({
         }
         if (drag.kind === 'decor') {
           const nextDecos = [...(base.decorations || [])];
-          const source = (drag.snapshot.decorations || [])[drag.index] || nextDecos[drag.index];
+          const source = drag.originalRect || (drag.snapshot.decorations || [])[drag.index] || nextDecos[drag.index];
           if (!source) return base;
           const patch = drag.mode === 'resize'
             ? { width: source.width + dx, height: source.height + dy }
@@ -2734,7 +3550,8 @@ function DesignerScreen({
     }
     setValidationError('');
     setStatusMessage('Saved to My Frames');
-    go('setup');
+    if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus('my-frames');
+    go('frames');
   };
 
   const handleSaveAsNew = () => {
@@ -2752,7 +3569,8 @@ function DesignerScreen({
     }
     setStatusMessage('Saved as a new frame');
     setValidationError('');
-    go('setup');
+    if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus('my-frames');
+    go('frames');
   };
 
   const handlePackExport = () => {
@@ -2790,7 +3608,7 @@ function DesignerScreen({
     setStatusMessage(`Imported ${result.presets?.length || 0} frames`);
     setDesignerMode('edit');
     if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus('imported');
-    go('setup');
+    go('frames');
   };
 
   const handleDiscard = () => {
@@ -2799,7 +3617,7 @@ function DesignerScreen({
     setDesignerMode('edit');
     clearDesignerDraftRecovery && clearDesignerDraftRecovery();
     setStatusMessage('Draft discarded');
-    go('setup');
+    go('frames');
   };
 
   if (!normalizedDraft) {
@@ -2810,7 +3628,7 @@ function DesignerScreen({
           <div style={{ fontSize: 12, lineHeight: 1.5, color: T.inkSoft }}>
             The previous designer route did not include a recoverable frame draft.
           </div>
-          <button onClick={() => go('setup')} style={{ minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
+          <button onClick={() => go('frames')} style={{ minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
             Back to Frame Store
           </button>
           {openDesigner && (
@@ -2858,7 +3676,7 @@ function DesignerScreen({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button onClick={() => go('setup')} style={{ minHeight: 44, padding: '0 12px', borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Back to Store</button>
+            <button onClick={() => go('frames')} style={{ minHeight: 44, padding: '0 12px', borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Back to Store</button>
             <button onClick={handleDiscard} style={{ minHeight: 44, padding: '0 12px', borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Discard</button>
             <button onClick={handleSaveAsNew} style={{ minHeight: 44, padding: '0 14px', borderRadius: 999, border: 'none', background: 'rgba(26,26,31,0.08)', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save as New</button>
             <button onClick={handleSaveFrame} style={{ minHeight: 44, padding: '0 14px', borderRadius: 999, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save Frame</button>
@@ -2891,166 +3709,18 @@ function DesignerScreen({
             ))}
           </div>
 
-          <div
-            ref={previewRef}
-            style={{
-              position: 'relative',
-              height: mobile ? 'min(54vh, 520px)' : 'min(68vh, 680px)',
-              maxHeight: mobile ? 520 : 680,
-              width: 'auto',
-              maxWidth: '100%',
-              justifySelf: 'center',
-              aspectRatio: `${previewCanvas.width} / ${previewCanvas.height}`,
-              borderRadius: 18,
-              overflow: 'hidden',
-              border: `1px solid ${T.line}`,
-              background: '#F8F8F5',
-              touchAction: 'none',
-            }}
-          >
-            {WFrameThumb ? (
-              <div style={{ position: 'absolute', inset: 0 }}>
-                <WFrameThumb
-                  key={`${normalizedDraft.id}-${normalizedDraft.updatedAt || 'draft'}`}
-                  layout={normalizedDraft.layout}
-                  shots={previewShots}
-                  selected={previewShots.map((_, i) => i)}
-                  T={T}
-                  logo={false}
-                  dateText={false}
-                  accent={T.pinkDeep}
-                  scale={1}
-                  orientation="portrait"
-                  frameColor={normalizedDraft.frameColor}
-                  framePreset={normalizedDraft}
-                  fill
-                />
-              </div>
-            ) : (
-              <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>Preview unavailable</div>
-            )}
-
-            {currentLayoutSlots.map((slot, index) => {
-              const active = selectedSlotIndex === index;
-              return (
-                <div
-                  key={`slot-${index}`}
-                  onPointerDown={useTouchFallback ? undefined : startDrag('slot', index, 'move')}
-                  onTouchStart={useTouchFallback ? startDrag('slot', index, 'move') : undefined}
-                  style={{
-                    position: 'absolute',
-                    left: `${(slot.x / previewCanvas.width) * 100}%`,
-                    top: `${(slot.y / previewCanvas.height) * 100}%`,
-                    width: `${(slot.width / previewCanvas.width) * 100}%`,
-                    height: `${(slot.height / previewCanvas.height) * 100}%`,
-                    borderRadius: Math.max(8, (slot.radius / Math.max(1, slot.width)) * 100 * 0.5),
-                    boxSizing: 'border-box',
-                    border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.28)'}`,
-                    background: active ? 'rgba(26,26,31,0.04)' : 'rgba(255,255,255,0.04)',
-                    cursor: 'move',
-                    touchAction: 'none',
-                  }}
-                >
-                  <div style={{
-                    position: 'absolute',
-                    top: 4,
-                    left: 4,
-                    padding: '2px 5px',
-                    borderRadius: 999,
-                    background: active ? T.ink : 'rgba(26,26,31,0.65)',
-                    color: active ? T.bg : '#fff',
-                    fontSize: 9,
-                    fontWeight: 800,
-                  }}>
-                    {index + 1}
-                  </div>
-                  <div
-                    onPointerDown={useTouchFallback ? undefined : startDrag('slot', index, 'resize')}
-                    onTouchStart={useTouchFallback ? startDrag('slot', index, 'resize') : undefined}
-                    style={{
-                      position: 'absolute',
-                      right: -3,
-                      bottom: -3,
-                      width: 14,
-                      height: 14,
-                      borderRadius: 4,
-                      background: T.ink,
-                      cursor: 'nwse-resize',
-                      touchAction: 'none',
-                    }}
-                  />
-                </div>
-              );
-            })}
-
-            {currentDecorations.map((deco, index) => {
-              const active = selectedDecorationIndex === index;
-              const x = deco.x || 0;
-              const y = deco.y || 0;
-              const w = deco.width || 80;
-              const h = deco.height || 80;
-              return (
-                <div
-                  key={deco.id || index}
-                  onPointerDown={useTouchFallback ? undefined : startDrag('decor', index, 'move')}
-                  onTouchStart={useTouchFallback ? startDrag('decor', index, 'move') : undefined}
-                  style={{
-                    position: 'absolute',
-                    left: `${(x / previewCanvas.width) * 100}%`,
-                    top: `${(y / previewCanvas.height) * 100}%`,
-                    width: `${(w / previewCanvas.width) * 100}%`,
-                    height: `${(h / previewCanvas.height) * 100}%`,
-                    border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.18)'}`,
-                    background: deco.type === 'text' ? 'rgba(255,255,255,0.7)' : 'rgba(26,26,31,0.04)',
-                    borderRadius: deco.shape === 'circle' ? 999 : 10,
-                    display: 'grid',
-                    placeItems: 'center',
-                    cursor: 'move',
-                    boxSizing: 'border-box',
-                    opacity: deco.opacity ?? 1,
-                    transform: `rotate(${deco.rotation || 0}deg)`,
-                    touchAction: 'none',
-                  }}
-                >
-                  <div style={{ fontSize: deco.type === 'text' ? 12 : 10, fontWeight: 800, color: deco.fill || T.ink, textAlign: 'center', padding: 4 }}>
-                    {deco.type === 'text' ? (deco.text || 'TEXT') : (deco.shape || 'shape')}
-                  </div>
-                  <div
-                    onPointerDown={useTouchFallback ? undefined : startDrag('decor', index, 'resize')}
-                    onTouchStart={useTouchFallback ? startDrag('decor', index, 'resize') : undefined}
-                    style={{
-                      position: 'absolute',
-                      right: -3,
-                      bottom: -3,
-                      width: 14,
-                      height: 14,
-                      borderRadius: 4,
-                      background: T.ink,
-                      cursor: 'nwse-resize',
-                      touchAction: 'none',
-                    }}
-                  />
-                </div>
-              );
-            })}
-            {showGuides && activeGuides.map((guide, index) => (
-              <div
-                key={`${guide.axis}-${guide.kind}-${index}`}
-                style={{
-                  position: 'absolute',
-                  pointerEvents: 'none',
-                  background: 'rgba(130, 92, 255, 0.8)',
-                  zIndex: 6,
-                  ...(guide.axis === 'v'
-                    ? { top: 0, bottom: 0, left: `${(guide.value / previewCanvas.width) * 100}%`, width: 2, transform: 'translateX(-1px)' }
-                    : { left: 0, right: 0, top: `${(guide.value / previewCanvas.height) * 100}%`, height: 2, transform: 'translateY(-1px)' }),
-                }}
-              />
-            ))}
-            {gridEnabled && (
-              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(rgba(130,92,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(130,92,255,0.08) 1px, transparent 1px)', backgroundSize: '20% 20%', zIndex: 1 }} />
-            )}
-          </div>
+          <DesignerPreviewCanvas
+            draft={normalizedDraft}
+            T={T}
+            previewShots={previewShots}
+            selectedSlotIndex={selectedSlotIndex}
+            selectedDecorationIndex={selectedDecorationIndex}
+            startDrag={startDrag}
+            activeGuides={activeGuides}
+            showGuides={showGuides}
+            gridEnabled={gridEnabled}
+            useTouchFallback={useTouchFallback}
+          />
         </div>
       </div>
 

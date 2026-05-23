@@ -15,6 +15,24 @@ function readFile(filename) {
   }
 }
 
+function extractFunctionBody(source, signature) {
+  if (!source || !signature) return '';
+  const start = source.indexOf(signature);
+  if (start === -1) return '';
+  const open = source.indexOf('{', start);
+  if (open === -1) return '';
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) return source.slice(open + 1, i);
+    }
+  }
+  return '';
+}
+
 let hasErrors = false;
 
 function checkRepositoryScope() {
@@ -3482,6 +3500,82 @@ function checkInteractiveCreatorPlatform() {
   }
 }
 
+function checkProductionSetupFramesHotfix() {
+  const main = readFile('main.jsx') || '';
+  const screens = readFile('screens-v2.jsx') || '';
+  const frameSystem = readFile('frame-system.jsx') || '';
+  const setupStart = screens.indexOf('function SetupScreen');
+  const frameStoreStart = screens.indexOf('function FrameStoreScreen');
+  const setupBody = setupStart !== -1 && frameStoreStart > setupStart
+    ? screens.slice(setupStart, frameStoreStart)
+    : extractFunctionBody(screens, 'function SetupScreen');
+  const designerBody = extractFunctionBody(screens, 'function DesignerScreen');
+
+  if (!main.includes("case 'frames'")) {
+    console.error("❌ FAIL: main.jsx missing case 'frames'");
+    hasErrors = true;
+  }
+  if (!main.includes("go('frames')")) {
+    console.error("❌ FAIL: Landing Frames action must navigate to go('frames')");
+    hasErrors = true;
+  }
+  if (main.includes('setSelectedFramePresetId(defaultFramePresetId)')) {
+    console.error('❌ FAIL: selectedFramePresetId must not auto-inject defaultFramePresetId');
+    hasErrors = true;
+  }
+  if (!main.includes('options.baseOnly === true')) {
+    console.error('❌ FAIL: setLayoutAndPreset missing baseOnly mode');
+    hasErrors = true;
+  }
+  if (!screens.includes('function FrameStoreScreen')) {
+    console.error('❌ FAIL: screens-v2.jsx missing independent FrameStoreScreen');
+    hasErrors = true;
+  }
+  if (!setupBody) {
+    console.error('❌ FAIL: screens-v2.jsx missing SetupScreen body');
+    hasErrors = true;
+  } else {
+    ['frameStoreOpen', 'importJsonText', 'storeSearch', 'selectedCreatorId'].forEach((needle) => {
+      if (setupBody.includes(needle)) {
+        console.error(`❌ FAIL: SetupScreen still owns Frame Store state: ${needle}`);
+        hasErrors = true;
+      }
+    });
+    ['Paste frame pack JSON here', 'Export My Frames as JSON', 'Featured Packs', 'View Creator'].forEach((needle) => {
+      if (setupBody.includes(needle)) {
+        console.error(`❌ FAIL: SetupScreen still renders Frame Store UI: ${needle}`);
+        hasErrors = true;
+      }
+    });
+    if (!setupBody.includes('baseOnly: true')) {
+      console.error('❌ FAIL: Setup base layout cards must call setLayout with baseOnly true');
+      hasErrors = true;
+    }
+    if (!setupBody.includes('CleanFrameMiniPreview') && !setupBody.includes('framePreset={null}')) {
+      console.error('❌ FAIL: Setup base frame thumbnails must not use applied frame presets');
+      hasErrors = true;
+    }
+  }
+  if (!frameSystem.includes("'1x3':") && !frameSystem.includes('"1x3":')) {
+    console.error("❌ FAIL: frame-system.jsx FRAME_TEMPLATES missing '1x3'");
+    hasErrors = true;
+  }
+  if (!screens.includes('function DesignerPreviewCanvas')) {
+    console.error('❌ FAIL: DesignerPreviewCanvas missing');
+    hasErrors = true;
+  }
+  ['getDesignerPreviewMetrics', 'clientPointToCanvasPoint', 'canvasRectToPreviewRect'].forEach((needle) => {
+    if (!screens.includes(needle)) {
+      console.error(`❌ FAIL: screens-v2.jsx missing Designer preview coordinate helper: ${needle}`);
+      hasErrors = true;
+    }
+  });
+  if (designerBody.includes('<WFrameThumb') || designerBody.includes('FrameThumb')) {
+    console.error('❌ FAIL: DesignerScreen manipulation preview must not use FrameThumb');
+    hasErrors = true;
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -3492,6 +3586,7 @@ checkStabilityAuditDocumented();
 checkReactProductionMode();
 checkReleaseCandidateLock();
 checkInteractiveCreatorPlatform();
+checkProductionSetupFramesHotfix();
 
 
 if (hasErrors) {

@@ -1251,13 +1251,8 @@ function App() {
     const payload = framePresetApi?.saveDesignerDraftRecovery?.(designerDraftFrame);
     if (payload) setDesignerDraftRecovery(payload);
   }, [designerDraftFrame, framePresetApi]);
-  React.useEffect(() => {
-    if (!defaultFramePresetId) return;
-    const hasSelected = selectedFramePresetId && framePresetList.some((preset) => preset.id === selectedFramePresetId);
-    if (!hasSelected) {
-      setSelectedFramePresetId(defaultFramePresetId);
-    }
-  }, [defaultFramePresetId, framePresetList, selectedFramePresetId]);
+  // Empty selectedFramePresetId is a valid state: it means "base FRAME_TEMPLATES mode".
+  // Do not auto-inject a default preset, or the clean setup flow becomes polluted again.
   React.useEffect(() => {
     if (!activeFramePreset?.layout) return;
     const nextLayout = normalizePresetLayout(activeFramePreset.layout);
@@ -1501,11 +1496,13 @@ function App() {
     const next = customFrames.map((frame) => frame.id === frameId ? { ...frame, deletedAt: now, updatedAt: now } : frame);
     persistCustomFrames(next);
     if (selectedFramePresetId === frameId) {
-      const fallbackId = framePresetApi?.getDefaultFramePresetIdForLayout?.(tweaks.layout, next) || '';
-      setSelectedFramePresetId(fallbackId);
+      setSelectedFramePresetId('');
+      try {
+        localStorage.removeItem('immm.v2.selectedFramePresetId');
+      } catch (_) {}
     }
     return next.find((frame) => frame.id === frameId) || null;
-  }, [customFrames, framePresetApi, persistCustomFrames, selectedFramePresetId, tweaks.layout]);
+  }, [customFrames, persistCustomFrames, selectedFramePresetId]);
   const openDesigner = React.useCallback((input = {}) => {
     const mode = input.mode || 'new';
     const basePreset =
@@ -1654,8 +1651,26 @@ function App() {
     setFrameUseCounts(next);
     return nextCount;
   }, [framePresetApi, frameUseCounts]);
-  const setLayoutAndPreset = React.useCallback((layoutId) => {
+  const setLayoutAndPreset = React.useCallback((layoutId, options = {}) => {
     const normalizedLayout = normalizePresetLayout(layoutId);
+    if (options.baseOnly === true) {
+      updateTweak('layout', normalizedLayout);
+      updateTweak('orientation', 'portrait');
+      setSelectedFramePresetId('');
+      const slotCount = getLayoutSlotCount(normalizedLayout);
+      const captureCount = getLayoutCaptureCount(normalizedLayout);
+      const nextSelected = Array.from({ length: slotCount }, (_, i) => i);
+      const nextShots = Array.from({ length: captureCount }, (_, i) => shots[i] || null);
+      setSelected(nextSelected);
+      setShots(nextShots);
+      try {
+        localStorage.removeItem('immm.v2.selectedFramePresetId');
+        localStorage.setItem('immm.v2.sel', JSON.stringify(nextSelected));
+      } catch (e) {
+        console.warn('[IMMM] base layout sync failed:', e);
+      }
+      return;
+    }
     const nextPresetId = framePresetApi?.getDefaultFramePresetIdForLayout?.(normalizedLayout, customFrames)
       || framePresetList.find((preset) => preset.layout === normalizedLayout)?.id
       || '';
@@ -1796,13 +1811,29 @@ function App() {
         return <LandingV2 {...p}
           onStart={() => { setPhotoEditMode(false); go('setup'); }}
           onEdit={() => { setPhotoEditMode(true); go('setup'); }}
-          onFrames={() => { setPhotoEditMode(false); go('setup'); }}
+          onFrames={() => { setPhotoEditMode(false); go('frames'); }}
           onGallery={() => go('gallery')}
         />;
       case 'gallery':
         return <GalleryV2 {...p} />;
       case 'share':
         return <SharedPhotoV2 {...p} />;
+      case 'frames':
+        return <FrameStoreScreen {...p}
+          setLayout={setLayoutAndPreset}
+          framePreset={activeFramePreset}
+          framePresets={framePresetList}
+          customFrames={customFrames}
+          applyFramePreset={applyFramePreset}
+          saveCustomFrame={saveCustomFrame}
+          exportCustomFramesAsJson={exportCustomFramesAsJson}
+          importFramePackFromJson={importFramePackFromJson}
+          openDesigner={openDesigner}
+          renameCustomFrame={renameCustomFrame}
+          duplicateCustomFrame={duplicateCustomFrame}
+          deleteCustomFrame={softDeleteCustomFrame}
+          storeTabFocus={setupStoreTabFocus}
+        />;
       case 'designer':
         return <DesignerScreen {...p}
           draftFrame={designerDraftFrame}

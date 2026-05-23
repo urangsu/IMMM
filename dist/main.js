@@ -1589,13 +1589,8 @@ function App() {
     var payload = framePresetApi?.saveDesignerDraftRecovery?.(designerDraftFrame);
     if (payload) setDesignerDraftRecovery(payload);
   }, [designerDraftFrame, framePresetApi]);
-  React.useEffect(() => {
-    if (!defaultFramePresetId) return;
-    var hasSelected = selectedFramePresetId && framePresetList.some(preset => preset.id === selectedFramePresetId);
-    if (!hasSelected) {
-      setSelectedFramePresetId(defaultFramePresetId);
-    }
-  }, [defaultFramePresetId, framePresetList, selectedFramePresetId]);
+  // Empty selectedFramePresetId is a valid state: it means "base FRAME_TEMPLATES mode".
+  // Do not auto-inject a default preset, or the clean setup flow becomes polluted again.
   React.useEffect(() => {
     if (!activeFramePreset?.layout) return;
     var nextLayout = normalizePresetLayout(activeFramePreset.layout);
@@ -1863,11 +1858,13 @@ function App() {
     } : frame);
     persistCustomFrames(next);
     if (selectedFramePresetId === frameId) {
-      var fallbackId = framePresetApi?.getDefaultFramePresetIdForLayout?.(tweaks.layout, next) || '';
-      setSelectedFramePresetId(fallbackId);
+      setSelectedFramePresetId('');
+      try {
+        localStorage.removeItem('immm.v2.selectedFramePresetId');
+      } catch (_) {}
     }
     return next.find(frame => frame.id === frameId) || null;
-  }, [customFrames, framePresetApi, persistCustomFrames, selectedFramePresetId, tweaks.layout]);
+  }, [customFrames, persistCustomFrames, selectedFramePresetId]);
   var openDesigner = React.useCallback((input = {}) => {
     var mode = input.mode || 'new';
     var basePreset = input.preset || (input.presetId ? framePresetApi?.getFramePresetById?.(input.presetId, customFrames) : null) || activeFramePreset || framePresetList.find(preset => preset.source !== 'custom') || framePresetList[0] || null;
@@ -2030,8 +2027,30 @@ function App() {
     setFrameUseCounts(next);
     return nextCount;
   }, [framePresetApi, frameUseCounts]);
-  var setLayoutAndPreset = React.useCallback(layoutId => {
+  var setLayoutAndPreset = React.useCallback((layoutId, options = {}) => {
     var normalizedLayout = normalizePresetLayout(layoutId);
+    if (options.baseOnly === true) {
+      updateTweak('layout', normalizedLayout);
+      updateTweak('orientation', 'portrait');
+      setSelectedFramePresetId('');
+      var _slotCount = getLayoutSlotCount(normalizedLayout);
+      var _captureCount = getLayoutCaptureCount(normalizedLayout);
+      var _nextSelected = Array.from({
+        length: _slotCount
+      }, (_, i) => i);
+      var _nextShots = Array.from({
+        length: _captureCount
+      }, (_, i) => shots[i] || null);
+      setSelected(_nextSelected);
+      setShots(_nextShots);
+      try {
+        localStorage.removeItem('immm.v2.selectedFramePresetId');
+        localStorage.setItem('immm.v2.sel', JSON.stringify(_nextSelected));
+      } catch (e) {
+        console.warn('[IMMM] base layout sync failed:', e);
+      }
+      return;
+    }
     var nextPresetId = framePresetApi?.getDefaultFramePresetIdForLayout?.(normalizedLayout, customFrames) || framePresetList.find(preset => preset.layout === normalizedLayout)?.id || '';
     if (nextPresetId) {
       var preset = framePresetApi?.getFramePresetById?.(nextPresetId, customFrames) || framePresetList.find(framePreset => framePreset.id === nextPresetId) || null;
@@ -2192,7 +2211,7 @@ function App() {
           },
           onFrames: () => {
             setPhotoEditMode(false);
-            go('setup');
+            go('frames');
           },
           onGallery: () => go('gallery')
         }));
@@ -2200,6 +2219,22 @@ function App() {
         return /*#__PURE__*/React.createElement(GalleryV2, p);
       case 'share':
         return /*#__PURE__*/React.createElement(SharedPhotoV2, p);
+      case 'frames':
+        return /*#__PURE__*/React.createElement(FrameStoreScreen, _extends({}, p, {
+          setLayout: setLayoutAndPreset,
+          framePreset: activeFramePreset,
+          framePresets: framePresetList,
+          customFrames: customFrames,
+          applyFramePreset: applyFramePreset,
+          saveCustomFrame: saveCustomFrame,
+          exportCustomFramesAsJson: exportCustomFramesAsJson,
+          importFramePackFromJson: importFramePackFromJson,
+          openDesigner: openDesigner,
+          renameCustomFrame: renameCustomFrame,
+          duplicateCustomFrame: duplicateCustomFrame,
+          deleteCustomFrame: softDeleteCustomFrame,
+          storeTabFocus: setupStoreTabFocus
+        }));
       case 'designer':
         return /*#__PURE__*/React.createElement(DesignerScreen, _extends({}, p, {
           draftFrame: designerDraftFrame,

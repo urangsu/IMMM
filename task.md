@@ -2122,3 +2122,19 @@ QA steps:
 - [ ] Real-device frame sample review
 - [ ] Real-device Designer save/load review
 - [ ] Real-device pack import/export review
+
+## Production Hotfix — Restore Setup Flow + Isolate Frame Store
+- [x] Landing Frames route moved to independent frames screen
+- [x] SetupScreen restored to clean capture setup responsibilities
+- [x] Frame Store / My Frames / import-export UI isolated from setup
+- [x] Base frame selection clears selectedFramePresetId
+- [x] Base frame cards render without applied preset pollution
+- [x] 1x3 template path verified in frame-system
+- [x] Designer preview moved to direct renderComposition canvas
+- [x] Designer slot/decoration overlays share canvas metrics
+- [x] Designer drag/resize uses canvas-coordinate deltas
+- [x] sanity-check hotfix guards added
+- [x] Browser QA: setup/store separation
+- [x] Browser QA: preset pollution recovery after reload
+- [x] Browser QA: Designer 1x3 slot count
+- [ ] Real-device Samsung Internet touch QA

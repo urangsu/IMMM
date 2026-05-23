@@ -728,7 +728,1467 @@ function formatFrameDate(value) {
     return String(value);
   }
 }
+function getCleanSetupSlotCount(layout) {
+  if (typeof window !== 'undefined' && typeof window.getLayoutSlotCount === 'function') {
+    return window.getLayoutSlotCount(layout);
+  }
+  return layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
+}
+function getCleanSetupCaptureCount(layout) {
+  if (typeof getShotCountForLayout === 'function') {
+    return getShotCountForLayout(layout);
+  }
+  return getCleanSetupSlotCount(layout);
+}
+function CleanFrameMiniPreview({
+  layout,
+  T
+}) {
+  var isGrid = layout === 'grid';
+  var isPolaroid = layout === 'polaroid';
+  var isTrip = layout === 'trip';
+  var slots = isPolaroid ? 1 : isGrid ? 4 : isTrip ? 3 : 4;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: isGrid || isPolaroid ? 78 : 54,
+      height: isPolaroid ? 88 : isGrid ? 78 : 100,
+      background: '#fff',
+      borderRadius: isPolaroid ? 6 : 4,
+      border: `1px solid ${T.line}`,
+      boxSizing: 'border-box',
+      padding: isPolaroid ? '8px 7px 18px' : isGrid ? 8 : '8px 7px',
+      display: 'grid',
+      gridTemplateColumns: isGrid ? '1fr 1fr' : '1fr',
+      gridTemplateRows: isGrid ? '1fr 1fr' : `repeat(${slots}, 1fr)`,
+      gap: isGrid ? 5 : 6,
+      boxShadow: '0 4px 14px rgba(0,0,0,0.06)',
+      position: 'relative'
+    }
+  }, Array.from({
+    length: slots
+  }).map((_, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      borderRadius: 2,
+      background: T.placeholderFill || '#EFEDEA'
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      top: 7,
+      right: 7,
+      width: 5,
+      height: 5,
+      borderRadius: 999,
+      background: T.ink
+    }
+  }));
+}
 function SetupScreen({
+  T,
+  go,
+  mobile,
+  layout,
+  setLayout,
+  filter,
+  setFilter,
+  preStickers,
+  setPreStickers,
+  logo,
+  setLogo,
+  dateText,
+  setDateText,
+  orientation,
+  setOrientation,
+  frameColor,
+  setFrameColor,
+  accent,
+  editMode,
+  shots,
+  setShots,
+  setSelected,
+  setUseWebgl,
+  tweaks,
+  startNewCaptureSession,
+  framePreset,
+  selectedFramePresetId,
+  setSetupStoreTabFocus
+}) {
+  var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
+  var [tab, setTab] = uS(editMode ? 'photos' : 'frame');
+  var [selStId, setSelStId] = uS(null);
+  var [setupZoom, setSetupZoom] = uS(mobile ? 0.92 : 1.12);
+  var fileRef = uR(null);
+  var photoFileRefs = [uR(null), uR(null), uR(null), uR(null), uR(null), uR(null)];
+  var setupFrameRef = uR(null);
+  var setupContainerRef = uR(null);
+  var slotCount = getCleanSetupSlotCount(layout);
+  var captureCount = getCleanSetupCaptureCount(layout);
+  var selectedPresetLayout = framePreset?.layout;
+  var setupPreviewPreset = framePreset && selectedFramePresetId && selectedPresetLayout === layout ? framePreset : null;
+  var shotsPreview = Array.from({
+    length: Math.max(1, slotCount)
+  }, () => ({
+    filter: filter || 'original',
+    dataUrl: null
+  }));
+  var selectedPreview = Array.from({
+    length: Math.max(1, slotCount)
+  }, (_, i) => i);
+  uE(() => {
+    var fit = () => {
+      if (!setupContainerRef.current || !setupFrameRef.current) return;
+      var cW = setupContainerRef.current.clientWidth - 32;
+      var cH = setupContainerRef.current.clientHeight - 32;
+      var fW = setupFrameRef.current.offsetWidth;
+      var fH = setupFrameRef.current.offsetHeight;
+      if (!fW || !fH) return;
+      setSetupZoom(Math.max(0.18, Math.min(mobile ? 0.98 : 1.28, cW / fW, cH / fH)));
+    };
+    var tid = setTimeout(fit, 40);
+    fit();
+    var ro = new ResizeObserver(fit);
+    if (setupContainerRef.current) ro.observe(setupContainerRef.current);
+    if (setupFrameRef.current) ro.observe(setupFrameRef.current);
+    return () => {
+      clearTimeout(tid);
+      ro.disconnect();
+    };
+  }, [layout, mobile, orientation, selectedFramePresetId]);
+  var addPresetSticker = libId => {
+    var item = typeof getStickerByLibId === 'function' ? getStickerByLibId(libId) : null;
+    var sizeNorm = typeof getDefaultStickerSizeNorm === 'function' ? getDefaultStickerSizeNorm(item) : undefined;
+    setPreStickers(prev => [...prev, makeSticker('preset', {
+      libId
+    }, {
+      sizeNorm
+    })]);
+  };
+  var addUploadSticker = dataUrl => {
+    var img = new Image();
+    img.onload = () => {
+      setPreStickers(prev => [...prev, makeSticker('upload', {
+        dataUrl,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height
+      }, {
+        scale: 0.6
+      })]);
+    };
+    img.onerror = () => setPreStickers(prev => [...prev, makeSticker('upload', {
+      dataUrl
+    }, {
+      scale: 0.6
+    })]);
+    img.src = dataUrl;
+  };
+  var onStickerFile = e => {
+    var f = e.target.files?.[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = () => addUploadSticker(rd.result);
+    rd.readAsDataURL(f);
+  };
+  var onPhotoUpload = async (idx, e) => {
+    var files = Array.from(e.target.files || []);
+    var _loop = async function () {
+      var targetIdx = idx + i;
+      if (targetIdx >= captureCount) return 1; // break
+      var f = files[i];
+      var dataUrl = await new Promise(res => {
+        var rd = new FileReader();
+        rd.onload = () => res(rd.result);
+        rd.readAsDataURL(f);
+      });
+      setShots(prev => {
+        var n = [...prev];
+        while (n.length <= targetIdx) n.push(null);
+        n[targetIdx] = {
+          dataUrl,
+          filter,
+          renderMode: 'upload',
+          capturedFilter: filter,
+          ts: Date.now()
+        };
+        return n;
+      });
+    };
+    for (var i = 0; i < files.length; i++) {
+      if (await _loop()) break;
+    }
+  };
+  var selectBaseLayout = layoutId => {
+    setLayout(layoutId, {
+      baseOnly: true
+    });
+    var count = getCleanSetupSlotCount(layoutId);
+    setSelected(Array.from({
+      length: count
+    }, (_, i) => i));
+  };
+  var goFrames = tabId => {
+    if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus(tabId || 'featured');
+    go('frames');
+  };
+  var zoomIn = () => setSetupZoom(z => Math.min(3, +(z + 0.15).toFixed(2)));
+  var zoomOut = () => setSetupZoom(z => Math.max(0.18, +(z - 0.15).toFixed(2)));
+  var frameW = layout === 'polaroid' ? 220 : layout === 'grid' ? 240 : layout === 'trip' ? 172 : 160;
+  var uploadedCount = editMode ? Array.from({
+    length: captureCount
+  }, (_, i) => shots?.[i]).filter(s => s?.dataUrl).length : 0;
+  var preview = /*#__PURE__*/React.createElement("div", {
+    ref: setupContainerRef,
+    style: {
+      overflow: 'hidden',
+      width: '100%',
+      height: '100%',
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    ref: setupFrameRef,
+    style: {
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: `translate(-50%, -50%) scale(${setupZoom})`,
+      transformOrigin: 'center'
+    }
+  }, /*#__PURE__*/React.createElement(StickerCanvas, {
+    T: T,
+    stickers: preStickers,
+    setStickers: setPreStickers,
+    selectedId: selStId,
+    setSelectedId: setSelStId,
+    width: frameW,
+    canvasW: frameW,
+    height: "auto",
+    layout: layout
+  }, WFrameThumb ? /*#__PURE__*/React.createElement(WFrameThumb, {
+    key: `${layout}-${frameColor}-${setupPreviewPreset?.id || 'base'}`,
+    layout: layout,
+    shots: shotsPreview,
+    selected: selectedPreview,
+    T: T,
+    logo: logo,
+    dateText: dateText,
+    accent: accent,
+    scale: 1,
+    orientation: orientation,
+    frameColor: frameColor,
+    framePreset: setupPreviewPreset
+  }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
+    layout: layout,
+    T: T,
+    size: "lg"
+  }))));
+  var frameTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, "Choose your frame \xB7 \uD504\uB808\uC784 \uC120\uD0DD"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+      gap: 8
+    }
+  }, [{
+    id: 'strip',
+    label: '1×4 Strip',
+    ko: '스트립'
+  }, {
+    id: 'trip',
+    label: '1×3 Trip',
+    ko: '트리플'
+  }, {
+    id: 'grid',
+    label: '2×2 Grid',
+    ko: '그리드'
+  }, {
+    id: 'polaroid',
+    label: '1×1 Polaroid',
+    ko: '폴라로이드'
+  }].map(o => {
+    var count = getCleanSetupSlotCount(o.id);
+    var selected = layout === o.id && !selectedFramePresetId;
+    return /*#__PURE__*/React.createElement("button", {
+      key: o.id,
+      onClick: () => selectBaseLayout(o.id),
+      style: {
+        padding: '14px 8px 10px',
+        minHeight: 148,
+        background: selected ? T.card : '#FFFFFF',
+        border: 'none',
+        borderRadius: 16,
+        cursor: 'pointer',
+        boxShadow: selected ? `0 0 0 2px ${T.ink} inset` : `0 0 0 1px ${T.line} inset`,
+        display: 'grid',
+        gap: 8,
+        justifyItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: '100%',
+        height: 106,
+        overflow: 'hidden',
+        display: 'grid',
+        placeItems: 'center',
+        pointerEvents: 'none'
+      }
+    }, /*#__PURE__*/React.createElement(CleanFrameMiniPreview, {
+      layout: o.id,
+      T: T
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        fontFamily: '"Plus Jakarta Sans",system-ui',
+        fontWeight: 700,
+        textAlign: 'center'
+      }
+    }, o.label, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: T.inkSoft,
+        fontWeight: 400,
+        marginLeft: 4,
+        fontFamily: 'Pretendard,system-ui'
+      }
+    }, o.ko)));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => goFrames('featured'),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase'
+    }
+  }, "\uCD94\uCC9C \uD504\uB808\uC784"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => goFrames('my-frames'),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800,
+      letterSpacing: 1,
+      textTransform: 'uppercase'
+    }
+  }, "\uB0B4 \uD504\uB808\uC784"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => goFrames('featured'),
+    style: {
+      minHeight: 48,
+      borderRadius: 12,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      fontSize: 11,
+      fontWeight: 900,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase'
+    }
+  }, "\uD504\uB808\uC784 \uC2A4\uD1A0\uC5B4 \uAC00\uAE30")), setupPreviewPreset && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      padding: 12,
+      borderRadius: 14,
+      background: 'rgba(26,26,31,0.04)',
+      color: T.inkSoft,
+      fontSize: 11,
+      lineHeight: 1.45
+    }
+  }, "\uC801\uC6A9 \uC911: ", setupPreviewPreset.name, ". \uAE30\uBCF8 \uCE74\uB4DC \uC120\uD0DD \uC2DC \uAE30\uBCF8 \uD504\uB808\uC784\uC73C\uB85C \uB3CC\uC544\uAC11\uB2C8\uB2E4."));
+  var filterTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, "Choose a filter \xB7 \uD544\uD130 \uC120\uD0DD"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: 8
+    }
+  }, (typeof getVisibleFilters === 'function' ? getVisibleFilters() : Object.entries(FILTERS).filter(([, v]) => !v.hidden)).map(([k, v]) => /*#__PURE__*/React.createElement("button", {
+    key: k,
+    onClick: () => setFilter(k),
+    style: {
+      padding: 0,
+      border: 'none',
+      cursor: 'pointer',
+      background: T.card,
+      borderRadius: 14,
+      overflow: 'hidden',
+      textAlign: 'left',
+      boxShadow: filter === k ? `0 0 0 2px ${T.ink}` : '0 0 0 1px rgba(26,26,31,0.08)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      aspectRatio: '1',
+      position: 'relative',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: "asset/filter-sample.jpg",
+    style: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      filter: v.css
+    }
+  }), /*#__PURE__*/React.createElement(FilterOverlay, {
+    filter: k
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '6px 10px',
+      fontSize: 11,
+      fontFamily: '"Plus Jakarta Sans",system-ui',
+      fontWeight: 600
+    }
+  }, v.name)))));
+  var stickersTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, "Stickers \xB7 \uC2A4\uD2F0\uCEE4"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => fileRef.current?.click(),
+    style: {
+      padding: '8px 10px',
+      minHeight: 44,
+      background: T.ink,
+      color: T.bg,
+      border: 'none',
+      borderRadius: 999,
+      fontSize: 11,
+      cursor: 'pointer',
+      fontWeight: 800
+    }
+  }, "Upload"), /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: 'none'
+    },
+    onChange: onStickerFile
+  })), getStickerPickerPacks().map(([k, pack]) => /*#__PURE__*/React.createElement("div", {
+    key: k,
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      letterSpacing: 1.5,
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      color: T.inkSoft,
+      fontFamily: '"Plus Jakarta Sans",system-ui',
+      marginBottom: 6
+    }
+  }, pack.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))',
+      gap: 8
+    }
+  }, pack.items.slice(0, 10).map(it => /*#__PURE__*/React.createElement("button", {
+    key: it.id,
+    onClick: () => addPresetSticker(it.id),
+    style: {
+      padding: 10,
+      background: T.card,
+      border: 'none',
+      borderRadius: 12,
+      minHeight: 58,
+      cursor: 'pointer',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 42,
+      display: 'grid',
+      placeItems: 'center',
+      overflow: 'hidden'
+    }
+  }, renderLibSticker(it, 0.65))))))));
+  var photosTab = editMode ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, "\uC0AC\uC9C4 \uBD88\uB7EC\uC624\uAE30 \xB7 Upload Photos"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: 8
+    }
+  }, Array.from({
+    length: captureCount
+  }, (_, i) => {
+    var s = shots?.[i];
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      onClick: () => photoFileRefs[i].current?.click(),
+      style: {
+        aspectRatio: '4/3',
+        borderRadius: 10,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        position: 'relative',
+        background: s?.dataUrl ? 'transparent' : 'rgba(26,26,31,0.05)',
+        border: s?.dataUrl ? 'none' : `1.5px dashed rgba(26,26,31,0.15)`,
+        display: 'grid',
+        placeItems: 'center'
+      }
+    }, s?.dataUrl ? /*#__PURE__*/React.createElement("img", {
+      src: s.dataUrl,
+      style: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover'
+      }
+    }) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: T.inkSoft,
+        fontSize: 11
+      }
+    }, "\uCEF7 ", i + 1), /*#__PURE__*/React.createElement("input", {
+      ref: photoFileRefs[i],
+      type: "file",
+      accept: "image/*",
+      style: {
+        display: 'none'
+      },
+      onChange: e => onPhotoUpload(i, e)
+    }));
+  }))) : null;
+  var optionsTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, "Frame options \xB7 \uD504\uB808\uC784 \uC635\uC158"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOrientation && setOrientation(orientation === 'portrait' ? 'landscape' : 'portrait'),
+    disabled: layout === 'grid' || layout === 'polaroid',
+    style: {
+      minHeight: 48,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: T.softSurface,
+      color: T.ink,
+      opacity: layout === 'grid' || layout === 'polaroid' ? 0.45 : 1,
+      cursor: layout === 'grid' || layout === 'polaroid' ? 'default' : 'pointer'
+    }
+  }, "\uBC29\uD5A5 \xB7 ", orientation === 'portrait' ? '세로' : '가로'), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setDateText && setDateText(!dateText),
+    style: {
+      minHeight: 48,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: T.softSurface,
+      color: T.ink,
+      cursor: 'pointer'
+    }
+  }, "\uB0A0\uC9DC \uD45C\uC2DC \xB7 ", dateText ? 'On' : 'Off'), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setLogo && setLogo(!logo),
+    style: {
+      minHeight: 48,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: T.softSurface,
+      color: T.ink,
+      cursor: 'pointer'
+    }
+  }, "\uB85C\uACE0 \uD45C\uC2DC \xB7 ", logo ? 'On' : 'Off'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, ['#ffffff', '#111111', '#F1C0C5', '#A6C8DE', '#E6C8BE', '#A2352B'].map(c => /*#__PURE__*/React.createElement("button", {
+    key: c,
+    onClick: () => setFrameColor && setFrameColor(c),
+    style: {
+      width: 34,
+      height: 34,
+      borderRadius: 999,
+      border: 'none',
+      cursor: 'pointer',
+      background: c,
+      boxShadow: frameColor === c ? `0 0 0 2px ${T.bg}, 0 0 0 4px ${T.ink}` : 'inset 0 0 0 1px rgba(0,0,0,0.1)'
+    }
+  })))));
+  var tabContent = tab === 'photos' ? photosTab : tab === 'frame' ? frameTab : tab === 'filter' ? filterTab : tab === 'stickers' ? stickersTab : optionsTab;
+  var tabs = [...(editMode ? [['photos', '사진']] : []), ['frame', '프레임'], ['filter', '필터'], ['stickers', '스티커'], ['options', '옵션']];
+  var tabBar = /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 0,
+      borderBottom: `1px solid ${T.line}`,
+      marginBottom: 18
+    }
+  }, tabs.map(([k, ko]) => /*#__PURE__*/React.createElement("button", {
+    key: k,
+    onClick: () => setTab(k),
+    style: {
+      flex: 1,
+      padding: '14px 6px',
+      border: 'none',
+      borderBottom: tab === k ? `2px solid ${T.ink}` : '2px solid transparent',
+      background: 'transparent',
+      color: tab === k ? T.ink : T.inkSoft,
+      fontSize: 11,
+      fontWeight: 800,
+      cursor: 'pointer',
+      letterSpacing: 1,
+      textTransform: 'uppercase'
+    }
+  }, ko)));
+  if (mobile) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: '100%',
+        background: T.bg,
+        padding: '50px 0 0',
+        display: 'flex',
+        flexDirection: 'column'
+      }
+    }, /*#__PURE__*/React.createElement(TopBar, {
+      step: 0,
+      back: () => go('landing'),
+      T: T,
+      mobile: true,
+      title: editMode ? '편집하기' : 'Setup · 세팅',
+      right: /*#__PURE__*/React.createElement(BtnPrimary, {
+        T: T,
+        size: "sm",
+        onClick: () => editMode ? go('deco') : startNewCaptureSession(),
+        disabled: editMode && uploadedCount < captureCount
+      }, editMode ? '편집 시작' : 'Next')
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: '1 1 0',
+        minHeight: 0,
+        position: 'relative'
+      }
+    }, preview, /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        bottom: 14,
+        right: 14,
+        display: 'flex',
+        gap: 10,
+        zIndex: 20
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: zoomOut,
+      style: zoomBtnStyle,
+      "aria-label": "Zoom out"
+    }, /*#__PURE__*/React.createElement(ZoomMinusIcon, null)), /*#__PURE__*/React.createElement("button", {
+      onClick: zoomIn,
+      style: zoomBtnStyle,
+      "aria-label": "Zoom in"
+    }, /*#__PURE__*/React.createElement(ZoomPlusIcon, null)))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 'auto',
+        background: 'rgba(255,255,255,0.98)',
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
+        padding: '20px 20px 28px',
+        borderTop: '1px solid rgba(0,0,0,0.08)',
+        maxHeight: '58%',
+        overflow: 'auto'
+      }
+    }, tabBar, tabContent));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: '100%',
+      background: 'transparent',
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1fr) 380px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '24px 48px',
+      display: 'flex',
+      flexDirection: 'column',
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement(TopBar, {
+    step: 0,
+    back: () => go('landing'),
+    T: T,
+    title: editMode ? '편집하기 · Upload & Edit' : 'Step 1 · Setup the booth',
+    right: /*#__PURE__*/React.createElement(BtnPrimary, {
+      T: T,
+      size: "md",
+      onClick: () => editMode ? go('deco') : startNewCaptureSession(),
+      disabled: editMode && uploadedCount < captureCount
+    }, editMode ? '편집 시작' : 'Continue · 다음', " ", !editMode && I.arrowR(14, T.bg))
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minHeight: 0,
+      background: T.bgAlt,
+      borderRadius: 28,
+      display: 'grid',
+      placeItems: 'center',
+      position: 'relative',
+      overflow: 'hidden',
+      border: `1px solid ${T.line}`,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.04)'
+    }
+  }, preview, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      bottom: 16,
+      left: 18,
+      fontSize: 11,
+      color: T.inkSoft,
+      fontFamily: '"Plus Jakarta Sans",system-ui',
+      letterSpacing: 1.5
+    }
+  }, "LIVE PREVIEW"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      bottom: 18,
+      right: 18,
+      display: 'flex',
+      gap: 10,
+      zIndex: 20
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: zoomOut,
+    style: zoomBtnStyle,
+    "aria-label": "Zoom out"
+  }, /*#__PURE__*/React.createElement(ZoomMinusIcon, null)), /*#__PURE__*/React.createElement("button", {
+    onClick: zoomIn,
+    style: zoomBtnStyle,
+    "aria-label": "Zoom in"
+  }, /*#__PURE__*/React.createElement(ZoomPlusIcon, null))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'rgba(255,255,255,0.74)',
+      backdropFilter: 'blur(40px)',
+      WebkitBackdropFilter: 'blur(40px)',
+      borderLeft: '1px solid rgba(255,255,255,0.5)',
+      padding: '24px 22px',
+      overflow: 'auto',
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, tabBar, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, tabContent)));
+}
+function FrameStoreScreen({
+  T,
+  go,
+  mobile,
+  layout,
+  frameColor,
+  accent,
+  framePreset,
+  framePresets = [],
+  framePackList = [],
+  customFrames = [],
+  selectedFramePresetId,
+  applyFramePreset,
+  openDesigner,
+  exportCustomFramesAsJson,
+  importFramePackFromJson,
+  renameCustomFrame,
+  duplicateCustomFrame,
+  deleteCustomFrame,
+  favoriteFramePresetIds = [],
+  toggleFavoriteFramePreset,
+  favoriteFramePackIds = [],
+  toggleFavoriteFramePack,
+  unlockedFramePackIds = [],
+  unlockFramePackForDev,
+  frameLikeIds = [],
+  toggleFrameLike,
+  recordFrameUse,
+  creatorProfiles = [],
+  storeTabFocus = ''
+}) {
+  var frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
+  var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
+  var [storeTab, setStoreTab] = uS(storeTabFocus || 'featured');
+  var [storeSearch, setStoreSearch] = uS('');
+  var [storeSort, setStoreSort] = uS('recommended');
+  var [importJsonText, setImportJsonText] = uS('');
+  var [importMessage, setImportMessage] = uS('');
+  var [selectedPresetId, setSelectedPresetId] = uS(selectedFramePresetId || '');
+  var savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter(preset => !preset.deletedAt), [customFrames]);
+  var allPresets = uM(() => {
+    var byId = new Map();
+    [...(Array.isArray(framePresets) ? framePresets : []), ...savedFrames].forEach(preset => {
+      if (preset?.id && !byId.has(preset.id)) byId.set(preset.id, preset);
+    });
+    return Array.from(byId.values());
+  }, [framePresets, savedFrames]);
+  var allPacks = Array.isArray(framePackList) ? framePackList : [];
+  var selectedPreset = allPresets.find(preset => preset.id === selectedPresetId) || allPresets.find(preset => preset.id === selectedFramePresetId) || framePreset || allPresets[0] || null;
+  var shotsPreview = preset => Array.from({
+    length: Math.max(1, preset?.photoSlots?.length || getCleanSetupSlotCount(preset?.layout || layout))
+  }, () => ({
+    filter: 'original',
+    dataUrl: null
+  }));
+  var previewAspect = preset => {
+    var size = preset?.canvasSize || frameApi?.getCanvasSizeForLayout?.(preset?.layout || layout) || {
+      width: 560,
+      height: 1808
+    };
+    return `${Math.max(1, Number(size.width) || 560)} / ${Math.max(1, Number(size.height) || 1808)}`;
+  };
+  var packById = id => frameApi?.getFramePackById?.(id, savedFrames) || allPacks.find(pack => pack.id === id) || null;
+  var packUnlocked = pack => Boolean(!pack?.locked || frameApi?.isFramePackUnlocked?.(pack.id) || unlockedFramePackIds.includes(pack.id));
+  var visiblePresets = uM(() => {
+    var q = storeSearch.trim().toLowerCase();
+    var items = allPresets.filter(Boolean);
+    if (storeTab === 'free') items = items.filter(preset => (preset.packPriceType || packById(preset.packId)?.priceType || 'free') === 'free');
+    if (storeTab === 'premium') items = items.filter(preset => (preset.packPriceType || packById(preset.packId)?.priceType || 'free') === 'premium');
+    if (storeTab === 'my-frames') items = items.filter(preset => preset.source === 'custom' || preset.source === 'imported');
+    if (storeTab === 'favorites') items = items.filter(preset => favoriteFramePresetIds.includes(preset.id));
+    if (storeTab === 'imported') items = items.filter(preset => preset.source === 'imported');
+    if (storeTab === 'featured') {
+      var featured = new Set(allPacks.filter(pack => pack.featured).flatMap(pack => pack.presetIds || []));
+      items = items.filter(preset => featured.has(preset.id) || preset.category === 'basic' || preset.category === 'character');
+    }
+    if (q) {
+      items = items.filter(preset => [preset.name, preset.category, preset.layout, preset.author?.name, preset.packName, ...(preset.packTags || [])].join(' ').toLowerCase().includes(q));
+    }
+    if (storeSort === 'newest') items = [...items].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    if (storeSort === 'az') items = [...items].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    return items;
+  }, [allPacks, allPresets, favoriteFramePresetIds, storeSearch, storeSort, storeTab]);
+  var visiblePacks = uM(() => {
+    var items = [...allPacks];
+    if (storeTab === 'free') items = items.filter(pack => (pack.priceType || 'free') === 'free');
+    if (storeTab === 'premium') items = items.filter(pack => (pack.priceType || 'free') === 'premium');
+    if (storeTab === 'favorites') items = items.filter(pack => favoriteFramePackIds.includes(pack.id) || (pack.presetIds || []).some(id => favoriteFramePresetIds.includes(id)));
+    if (storeTab === 'my-frames' || storeTab === 'imported') items = [];
+    if (storeTab === 'featured') items = items.filter(pack => pack.featured).slice(0, 6);
+    return items;
+  }, [allPacks, favoriteFramePackIds, favoriteFramePresetIds, storeTab]);
+  uE(() => {
+    if (storeTabFocus) setStoreTab(storeTabFocus);
+  }, [storeTabFocus]);
+  var applyToBooth = preset => {
+    if (!preset) return;
+    var pack = preset.packId ? packById(preset.packId) : null;
+    if (pack?.locked && !packUnlocked(pack)) {
+      setImportMessage('This frame pack is premium. Unlock coming soon.');
+      return;
+    }
+    var applied = applyFramePreset?.(preset, {
+      syncFrameColor: true
+    });
+    if (applied) {
+      recordFrameUse?.(preset.id);
+      go('setup');
+    }
+  };
+  var renderThumb = (preset, height = 150) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      height,
+      aspectRatio: previewAspect(preset),
+      maxWidth: '100%',
+      margin: '0 auto',
+      display: 'grid',
+      placeItems: 'center',
+      overflow: 'hidden',
+      borderRadius: 12,
+      background: 'rgba(26,26,31,0.03)'
+    }
+  }, WFrameThumb && preset ? /*#__PURE__*/React.createElement(WFrameThumb, {
+    layout: preset.layout,
+    shots: shotsPreview(preset),
+    selected: shotsPreview(preset).map((_, i) => i),
+    T: T,
+    logo: false,
+    dateText: false,
+    accent: accent || T.pinkDeep,
+    scale: 1,
+    orientation: "portrait",
+    frameColor: frameColor,
+    framePreset: preset,
+    fill: true
+  }) : /*#__PURE__*/React.createElement(FramePickerFallback, {
+    layout: preset?.layout || 'strip',
+    T: T,
+    size: "sm"
+  }));
+  var tabs = [['featured', 'Featured'], ['free', 'Free'], ['my-frames', 'My Frames'], ['premium', 'Premium'], ['favorites', 'Favorites'], ['imported', 'Imported'], ['all', 'All Presets']];
+  var cardStyle = {
+    border: `1px solid ${T.line}`,
+    borderRadius: 18,
+    background: '#fff',
+    padding: 14,
+    minWidth: 0,
+    display: 'grid',
+    gap: 10
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: '100%',
+      overflow: 'auto',
+      background: T.bg,
+      color: T.ink,
+      fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: mobile ? 16 : 28,
+      display: 'grid',
+      gap: 18
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      flexWrap: 'wrap',
+      position: 'sticky',
+      top: 0,
+      zIndex: 5,
+      background: T.bg,
+      paddingBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => go('landing'),
+    style: {
+      minHeight: 44,
+      borderRadius: 999,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      padding: '0 14px',
+      fontSize: 11,
+      fontWeight: 900,
+      letterSpacing: 1,
+      textTransform: 'uppercase'
+    }
+  }, "Back"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 180
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: T.inkSoft,
+      letterSpacing: 3,
+      fontWeight: 900,
+      textTransform: 'uppercase'
+    }
+  }, "Frame Store"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4,
+      fontSize: mobile ? 22 : 30,
+      fontWeight: 900
+    }
+  }, "Choose or create a frame")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openDesigner?.({
+      mode: 'new',
+      preset: selectedPreset
+    }),
+    style: {
+      minHeight: 48,
+      borderRadius: 999,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      padding: '0 18px',
+      fontSize: 11,
+      fontWeight: 900,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase'
+    }
+  }, "Create Frame")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1fr) minmax(300px, 380px)',
+      gap: 18,
+      alignItems: 'start'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 14,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...cardStyle,
+      position: 'sticky',
+      top: mobile ? 72 : 82,
+      zIndex: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      overflowX: 'auto',
+      paddingBottom: 2
+    }
+  }, tabs.map(([id, label]) => /*#__PURE__*/React.createElement("button", {
+    key: id,
+    onClick: () => setStoreTab(id),
+    style: {
+      flex: '0 0 auto',
+      minHeight: 44,
+      borderRadius: 999,
+      border: 'none',
+      background: storeTab === id ? T.ink : 'rgba(26,26,31,0.06)',
+      color: storeTab === id ? T.bg : T.inkSoft,
+      padding: '0 13px',
+      fontSize: 10,
+      fontWeight: 900,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase'
+    }
+  }, label))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1fr) 150px',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: storeSearch,
+    onChange: e => setStoreSearch(e.target.value),
+    placeholder: "Search frames, packs, tags",
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 12px',
+      fontSize: 12
+    }
+  }), /*#__PURE__*/React.createElement("select", {
+    value: storeSort,
+    onChange: e => setStoreSort(e.target.value),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 12px',
+      fontSize: 12,
+      background: '#fff'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "recommended"
+  }, "Recommended"), /*#__PURE__*/React.createElement("option", {
+    value: "newest"
+  }, "Newest"), /*#__PURE__*/React.createElement("option", {
+    value: "az"
+  }, "A-Z")))), visiblePacks.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, storeTab === 'premium' ? 'Premium Packs' : storeTab === 'free' ? 'Free Packs' : 'Featured Packs'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(240px, 1fr))',
+      gap: 12
+    }
+  }, visiblePacks.map(pack => {
+    var cover = allPresets.find(preset => preset.id === pack.coverPresetId) || allPresets.find(preset => (pack.presetIds || []).includes(preset.id));
+    var unlocked = packUnlocked(pack);
+    return /*#__PURE__*/React.createElement("div", {
+      key: pack.id,
+      style: cardStyle
+    }, renderThumb(cover, 130), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 14,
+        fontWeight: 900
+      }
+    }, pack.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 4,
+        fontSize: 11,
+        color: T.inkSoft,
+        lineHeight: 1.4
+      }
+    }, pack.description)), /*#__PURE__*/React.createElement(StoreBadge, {
+      T: T,
+      tone: "light"
+    }, unlocked ? pack.priceLabel : 'Locked')), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => cover && setSelectedPresetId(cover.id),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        color: T.ink,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, "Preview"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => applyToBooth(cover),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: 'none',
+        background: unlocked ? T.ink : 'rgba(26,26,31,0.08)',
+        color: unlocked ? T.bg : T.ink,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, unlocked ? 'Apply to Booth' : 'Preview only'), pack.locked && !unlocked && unlockFramePackForDev && /*#__PURE__*/React.createElement("button", {
+      onClick: () => unlockFramePackForDev(pack.id),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        color: T.ink,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, "Dev Unlock"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => toggleFavoriteFramePack?.(pack.id),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: favoriteFramePackIds.includes(pack.id) ? T.ink : '#fff',
+        color: favoriteFramePackIds.includes(pack.id) ? T.bg : T.ink,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, "Fav Pack")));
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, storeTab === 'my-frames' ? 'My Frames' : 'All Frames'), visiblePresets.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: cardStyle
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      fontWeight: 900
+    }
+  }, "No frames here yet"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: T.inkSoft
+    }
+  }, "Create your first frame or import a frame pack."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openDesigner?.({
+      mode: 'new',
+      preset: selectedPreset
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 999,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      padding: '0 14px',
+      fontSize: 11,
+      fontWeight: 900,
+      justifySelf: 'start'
+    }
+  }, "Create your first frame")) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(220px, 1fr))',
+      gap: 12
+    }
+  }, visiblePresets.map(preset => {
+    var active = selectedFramePresetId === preset.id;
+    var custom = preset.source === 'custom' || preset.source === 'imported';
+    return /*#__PURE__*/React.createElement("div", {
+      key: preset.id,
+      style: {
+        ...cardStyle,
+        boxShadow: active ? `0 0 0 2px ${T.ink} inset` : 'none'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setSelectedPresetId(preset.id),
+      style: {
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        cursor: 'pointer'
+      }
+    }, renderThumb(preset, 150)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 14,
+        fontWeight: 900
+      }
+    }, preset.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 4,
+        fontSize: 11,
+        color: T.inkSoft
+      }
+    }, preset.layout, " \xB7 ", preset.photoSlots?.length || getCleanSetupSlotCount(preset.layout), "\uCEF7"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 4,
+        fontSize: 10,
+        color: T.inkSoft
+      }
+    }, preset.author?.name || 'IMMM Studio', " \xB7 ", preset.license || 'personal')), active && /*#__PURE__*/React.createElement(StoreBadge, {
+      T: T,
+      tone: "light"
+    }, "Active")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => applyToBooth(preset),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: 'none',
+        background: T.ink,
+        color: T.bg,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, "Apply to Booth"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => toggleFavoriteFramePreset?.(preset.id),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: favoriteFramePresetIds.includes(preset.id) ? T.ink : '#fff',
+        color: favoriteFramePresetIds.includes(preset.id) ? T.bg : T.ink,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, "Favorite"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => toggleFrameLike?.(preset.id),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: frameLikeIds.includes(preset.id) ? T.ink : '#fff',
+        color: frameLikeIds.includes(preset.id) ? T.bg : T.ink,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, "Like"), custom && /*#__PURE__*/React.createElement("button", {
+      onClick: () => openDesigner?.({
+        mode: 'edit',
+        preset
+      }),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        color: T.ink,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, "Edit"), custom && /*#__PURE__*/React.createElement("button", {
+      onClick: () => duplicateCustomFrame?.(preset.id),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        color: T.ink,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, "Duplicate"), custom && /*#__PURE__*/React.createElement("button", {
+      onClick: () => deleteCustomFrame?.(preset.id),
+      style: {
+        minHeight: 44,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        color: T.ink,
+        padding: '0 12px',
+        fontSize: 11,
+        fontWeight: 900
+      }
+    }, "Delete")));
+  }))), (storeTab === 'my-frames' || storeTab === 'imported') && /*#__PURE__*/React.createElement("div", {
+    style: cardStyle
+  }, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, "Import / Export"), /*#__PURE__*/React.createElement("textarea", {
+    value: importJsonText,
+    onChange: e => setImportJsonText(e.target.value),
+    placeholder: "Paste frame pack JSON here",
+    style: {
+      width: '100%',
+      minHeight: 140,
+      resize: 'vertical',
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: 12,
+      fontSize: 12,
+      fontFamily: 'monospace',
+      boxSizing: 'border-box'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var raw = exportCustomFramesAsJson?.() || '';
+      if (raw && navigator.clipboard?.writeText) navigator.clipboard.writeText(raw).catch(() => {});
+      setImportMessage(raw ? 'Exported My Frames as JSON.' : 'Nothing to export.');
+    },
+    style: {
+      minHeight: 44,
+      borderRadius: 999,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      padding: '0 14px',
+      fontSize: 11,
+      fontWeight: 900
+    }
+  }, "Export My Frames as JSON"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var result = importFramePackFromJson?.(importJsonText) || {
+        ok: false,
+        error: 'Import unavailable'
+      };
+      setImportMessage(result.ok ? `Imported ${result.presets?.length || 0} frames.` : result.error || 'Import failed');
+      if (result.ok) setStoreTab('imported');
+    },
+    style: {
+      minHeight: 44,
+      borderRadius: 999,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      padding: '0 14px',
+      fontSize: 11,
+      fontWeight: 900
+    }
+  }, "Import Frame Pack JSON")), importMessage && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: T.inkSoft
+    }
+  }, importMessage))), /*#__PURE__*/React.createElement("aside", {
+    style: {
+      ...cardStyle,
+      position: mobile ? 'static' : 'sticky',
+      top: 100
+    }
+  }, /*#__PURE__*/React.createElement(Kick, {
+    T: T
+  }, "Preview"), renderThumb(selectedPreset, mobile ? 260 : 360), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 18,
+      fontWeight: 900
+    }
+  }, selectedPreset?.name || 'Select a frame'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6,
+      fontSize: 12,
+      color: T.inkSoft,
+      lineHeight: 1.5
+    }
+  }, selectedPreset ? `${selectedPreset.layout} · ${selectedPreset.photoSlots?.length || getCleanSetupSlotCount(selectedPreset.layout)} slots · ${selectedPreset.category || 'frame'}` : 'Pick a frame card to preview.')), /*#__PURE__*/React.createElement("button", {
+    disabled: !selectedPreset,
+    onClick: () => applyToBooth(selectedPreset),
+    style: {
+      minHeight: 48,
+      borderRadius: 999,
+      border: 'none',
+      background: selectedPreset ? T.ink : 'rgba(26,26,31,0.08)',
+      color: selectedPreset ? T.bg : T.inkSoft,
+      padding: '0 16px',
+      fontSize: 11,
+      fontWeight: 900,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase'
+    }
+  }, "Apply to Booth"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openDesigner?.({
+      mode: 'duplicate',
+      preset: selectedPreset
+    }),
+    disabled: !selectedPreset,
+    style: {
+      minHeight: 44,
+      borderRadius: 999,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      padding: '0 14px',
+      fontSize: 11,
+      fontWeight: 900
+    }
+  }, "Duplicate & Edit")))));
+}
+function DeprecatedSetupWithEmbeddedStore({
   T,
   go,
   mobile,
@@ -3272,7 +4732,7 @@ function SetupScreen({
   var onPhotoUpload = async (idx, e) => {
     var files = Array.from(e.target.files || []);
     if (!files.length) return;
-    var _loop = async function () {
+    var _loop2 = async function () {
       var targetIdx = idx + i;
       if (targetIdx >= maxUploadCount) return 1; // break
       var f = files[i];
@@ -3295,7 +4755,7 @@ function SetupScreen({
       });
     };
     for (var i = 0; i < files.length; i++) {
-      if (await _loop()) break;
+      if (await _loop2()) break;
     }
   };
   var photosTab = editMode ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
@@ -3570,6 +5030,286 @@ function SetupScreen({
     }
   }, tabContent)));
 }
+function getDesignerPreviewMetrics(containerRect, canvasSize) {
+  var canvasW = Number(canvasSize?.width) || 560;
+  var canvasH = Number(canvasSize?.height) || 1808;
+  var maxW = Math.max(1, Number(containerRect?.width) || 1);
+  var maxH = Math.max(1, Number(containerRect?.height) || 1);
+  var scale = Math.max(0.001, Math.min(maxW / canvasW, maxH / canvasH));
+  var width = Math.round(canvasW * scale);
+  var height = Math.round(canvasH * scale);
+  return {
+    canvasW,
+    canvasH,
+    scale,
+    width,
+    height,
+    offsetX: Math.round((maxW - width) / 2),
+    offsetY: Math.round((maxH - height) / 2)
+  };
+}
+function canvasRectToPreviewRect(rect, metrics) {
+  return {
+    left: metrics.offsetX + Number(rect?.x || 0) * metrics.scale,
+    top: metrics.offsetY + Number(rect?.y || 0) * metrics.scale,
+    width: Number(rect?.width || 0) * metrics.scale,
+    height: Number(rect?.height || 0) * metrics.scale
+  };
+}
+function clientPointToCanvasPoint(event, previewEl, metrics) {
+  if (!previewEl || !metrics) return {
+    x: 0,
+    y: 0
+  };
+  var point = event && typeof event.clientX === 'number' ? {
+    clientX: event.clientX,
+    clientY: event.clientY
+  } : (() => {
+    var touch = event?.touches?.[0] || event?.changedTouches?.[0];
+    return touch ? {
+      clientX: touch.clientX,
+      clientY: touch.clientY
+    } : {
+      clientX: 0,
+      clientY: 0
+    };
+  })();
+  var box = previewEl.getBoundingClientRect();
+  return {
+    x: (point.clientX - box.left - metrics.offsetX) / metrics.scale,
+    y: (point.clientY - box.top - metrics.offsetY) / metrics.scale
+  };
+}
+function DesignerPreviewCanvas({
+  draft,
+  T,
+  previewShots,
+  selectedSlotIndex,
+  selectedDecorationIndex,
+  startDrag,
+  activeGuides,
+  showGuides,
+  gridEnabled,
+  useTouchFallback
+}) {
+  var viewportRef = uR(null);
+  var canvasRef = uR(null);
+  var [metrics, setMetrics] = uS(null);
+  var canvasSize = draft?.canvasSize || {
+    width: 560,
+    height: 1808
+  };
+  uE(() => {
+    var update = () => {
+      if (!viewportRef.current || !canvasSize) return;
+      setMetrics(getDesignerPreviewMetrics(viewportRef.current.getBoundingClientRect(), canvasSize));
+    };
+    update();
+    var ro = new ResizeObserver(update);
+    if (viewportRef.current) ro.observe(viewportRef.current);
+    window.addEventListener('resize', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [canvasSize.width, canvasSize.height]);
+  uE(() => {
+    var cancelled = false;
+    var draw = async () => {
+      if (!canvasRef.current || !draft || !metrics) return;
+      var canvas = canvasRef.current;
+      canvas.width = Math.max(1, Math.round(canvasSize.width));
+      canvas.height = Math.max(1, Math.round(canvasSize.height));
+      var ctx = canvas.getContext('2d');
+      var renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
+      if (!renderComp || !ctx) return;
+      await renderComp(ctx, {
+        layout: draft.layout,
+        shots: previewShots,
+        selected: previewShots.map((_, i) => i),
+        frameColor: draft.frameColor,
+        logo: false,
+        dateText: false,
+        accent: T.pinkDeep,
+        framePreset: draft
+      }, {
+        scale: 1
+      });
+      if (cancelled) return;
+    };
+    draw();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft, previewShots, metrics, canvasSize.width, canvasSize.height, T.pinkDeep]);
+  var shellStyle = metrics ? {
+    position: 'absolute',
+    left: metrics.offsetX,
+    top: metrics.offsetY,
+    width: metrics.width,
+    height: metrics.height
+  } : {};
+  var shellMetrics = metrics ? {
+    ...metrics,
+    offsetX: 0,
+    offsetY: 0
+  } : null;
+  return /*#__PURE__*/React.createElement("div", {
+    ref: viewportRef,
+    style: {
+      position: 'relative',
+      width: '100%',
+      height: 'min(72vh, 760px)',
+      minHeight: 420,
+      borderRadius: 18,
+      overflow: 'hidden',
+      border: `1px solid ${T.line}`,
+      background: '#F8F8F5',
+      touchAction: 'none'
+    }
+  }, metrics && /*#__PURE__*/React.createElement("div", {
+    style: shellStyle
+  }, /*#__PURE__*/React.createElement("canvas", {
+    ref: canvasRef,
+    style: {
+      width: '100%',
+      height: '100%',
+      display: 'block'
+    }
+  }), gridEnabled && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      inset: 0,
+      pointerEvents: 'none',
+      backgroundImage: 'linear-gradient(rgba(130,92,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(130,92,255,0.08) 1px, transparent 1px)',
+      backgroundSize: '20% 20%',
+      zIndex: 1
+    }
+  }), (draft.photoSlots || []).map((slot, index) => {
+    var active = selectedSlotIndex === index;
+    var r = canvasRectToPreviewRect(slot, shellMetrics);
+    return /*#__PURE__*/React.createElement("div", {
+      key: `slot-${index}`,
+      onPointerDown: useTouchFallback ? undefined : startDrag('slot', index, 'move', metrics, viewportRef),
+      onTouchStart: useTouchFallback ? startDrag('slot', index, 'move', metrics, viewportRef) : undefined,
+      style: {
+        position: 'absolute',
+        left: r.left,
+        top: r.top,
+        width: r.width,
+        height: r.height,
+        borderRadius: Math.max(4, Number(slot.radius || 0) * metrics.scale),
+        boxSizing: 'border-box',
+        border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.28)'}`,
+        background: active ? 'rgba(26,26,31,0.04)' : 'rgba(255,255,255,0.04)',
+        cursor: 'move',
+        touchAction: 'none',
+        zIndex: 4
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        top: 4,
+        left: 4,
+        padding: '2px 5px',
+        borderRadius: 999,
+        background: active ? T.ink : 'rgba(26,26,31,0.65)',
+        color: active ? T.bg : '#fff',
+        fontSize: 9,
+        fontWeight: 800
+      }
+    }, index + 1), /*#__PURE__*/React.createElement("div", {
+      onPointerDown: useTouchFallback ? undefined : startDrag('slot', index, 'resize', metrics, viewportRef),
+      onTouchStart: useTouchFallback ? startDrag('slot', index, 'resize', metrics, viewportRef) : undefined,
+      style: {
+        position: 'absolute',
+        right: -4,
+        bottom: -4,
+        width: 16,
+        height: 16,
+        borderRadius: 5,
+        background: T.ink,
+        cursor: 'nwse-resize',
+        touchAction: 'none'
+      }
+    }));
+  }), (draft.decorations || []).map((deco, index) => {
+    var active = selectedDecorationIndex === index;
+    var rect = {
+      x: deco.x || 0,
+      y: deco.y || 0,
+      width: deco.width || 80,
+      height: deco.height || 80
+    };
+    var r = canvasRectToPreviewRect(rect, shellMetrics);
+    return /*#__PURE__*/React.createElement("div", {
+      key: deco.id || index,
+      onPointerDown: useTouchFallback ? undefined : startDrag('decor', index, 'move', metrics, viewportRef),
+      onTouchStart: useTouchFallback ? startDrag('decor', index, 'move', metrics, viewportRef) : undefined,
+      style: {
+        position: 'absolute',
+        left: r.left,
+        top: r.top,
+        width: r.width,
+        height: r.height,
+        border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.18)'}`,
+        background: deco.type === 'text' ? 'rgba(255,255,255,0.7)' : 'rgba(26,26,31,0.04)',
+        borderRadius: deco.shape === 'circle' ? 999 : 10,
+        display: 'grid',
+        placeItems: 'center',
+        cursor: 'move',
+        boxSizing: 'border-box',
+        opacity: deco.opacity ?? 1,
+        transform: `rotate(${deco.rotation || 0}deg)`,
+        touchAction: 'none',
+        zIndex: 5
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: deco.type === 'text' ? 12 : 10,
+        fontWeight: 800,
+        color: deco.fill || T.ink,
+        textAlign: 'center',
+        padding: 4
+      }
+    }, deco.type === 'text' ? deco.text || 'TEXT' : deco.shape || 'shape'), /*#__PURE__*/React.createElement("div", {
+      onPointerDown: useTouchFallback ? undefined : startDrag('decor', index, 'resize', metrics, viewportRef),
+      onTouchStart: useTouchFallback ? startDrag('decor', index, 'resize', metrics, viewportRef) : undefined,
+      style: {
+        position: 'absolute',
+        right: -4,
+        bottom: -4,
+        width: 16,
+        height: 16,
+        borderRadius: 5,
+        background: T.ink,
+        cursor: 'nwse-resize',
+        touchAction: 'none'
+      }
+    }));
+  }), showGuides && (activeGuides || []).map((guide, index) => /*#__PURE__*/React.createElement("div", {
+    key: `${guide.axis}-${guide.kind}-${index}`,
+    style: {
+      position: 'absolute',
+      pointerEvents: 'none',
+      background: 'rgba(130, 92, 255, 0.8)',
+      zIndex: 7,
+      ...(guide.axis === 'v' ? {
+        top: 0,
+        bottom: 0,
+        left: guide.value * metrics.scale,
+        width: 2,
+        transform: 'translateX(-1px)'
+      } : {
+        left: 0,
+        right: 0,
+        top: guide.value * metrics.scale,
+        height: 2,
+        transform: 'translateY(-1px)'
+      })
+    }
+  }))));
+}
 function DesignerScreen({
   T,
   go,
@@ -3598,7 +5338,6 @@ function DesignerScreen({
   setExportPresetId
 }) {
   var frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
-  var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   var useTouchFallback = typeof window !== 'undefined' && (!('PointerEvent' in window) || typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || ''));
   var previewRef = uR(null);
   var dragRef = uR(null);
@@ -3986,8 +5725,9 @@ function DesignerScreen({
     }));
     setActiveLayerIndex(0);
   };
-  var startDrag = (kind, index, mode = 'move') => event => {
-    if (!previewRef.current || !normalizedDraft) return;
+  var startDrag = (kind, index, mode = 'move', metrics = null, viewportRefArg = null) => event => {
+    var viewportEl = viewportRefArg?.current || previewRef.current;
+    if (!viewportEl || !normalizedDraft) return;
     var point = getDragPoint(event);
     if (!point) return;
     if (event.cancelable) event.preventDefault();
@@ -3997,15 +5737,24 @@ function DesignerScreen({
         event.currentTarget.setPointerCapture(event.pointerId);
       } catch (_) {}
     }
-    var rect = previewRef.current.getBoundingClientRect();
+    var snapshot = frameApi?.normalizeDesignerDraft?.(normalizedDraft) || normalizedDraft;
+    var originalRect = kind === 'slot' ? {
+      ...((snapshot.photoSlots || [])[index] || {})
+    } : {
+      ...((snapshot.decorations || [])[index] || {})
+    };
     dragRef.current = {
       kind,
       index,
       mode,
       startX: point.clientX,
       startY: point.clientY,
-      rect,
-      snapshot: frameApi?.normalizeDesignerDraft?.(normalizedDraft) || normalizedDraft
+      rect: viewportEl.getBoundingClientRect(),
+      viewportEl,
+      metrics,
+      startPoint: metrics ? clientPointToCanvasPoint(event, viewportEl, metrics) : null,
+      originalRect,
+      snapshot
     };
     if (kind === 'slot') {
       setSelectedSlotIndex(index);
@@ -4027,16 +5776,15 @@ function DesignerScreen({
       if (!drag || !drag.snapshot) return;
       var point = getDragPoint(event);
       if (!point) return;
-      var scaleX = (drag.snapshot.canvasSize?.width || 1) / Math.max(1, drag.rect.width);
-      var scaleY = (drag.snapshot.canvasSize?.height || 1) / Math.max(1, drag.rect.height);
-      var dx = (point.clientX - drag.startX) * scaleX;
-      var dy = (point.clientY - drag.startY) * scaleY;
+      var currentCanvasPoint = drag.metrics && drag.viewportEl ? clientPointToCanvasPoint(event, drag.viewportEl, drag.metrics) : null;
+      var dx = currentCanvasPoint && drag.startPoint ? currentCanvasPoint.x - drag.startPoint.x : (point.clientX - drag.startX) * ((drag.snapshot.canvasSize?.width || 1) / Math.max(1, drag.rect.width));
+      var dy = currentCanvasPoint && drag.startPoint ? currentCanvasPoint.y - drag.startPoint.y : (point.clientY - drag.startY) * ((drag.snapshot.canvasSize?.height || 1) / Math.max(1, drag.rect.height));
       if (event.cancelable) event.preventDefault();
       normalizeNextDraft(prev => {
         var base = frameApi?.normalizeDesignerDraft?.(prev || drag.snapshot) || prev || drag.snapshot;
         if (drag.kind === 'slot') {
           var nextSlots = [...(base.photoSlots || [])];
-          var source = (drag.snapshot.photoSlots || [])[drag.index] || nextSlots[drag.index];
+          var source = drag.originalRect || (drag.snapshot.photoSlots || [])[drag.index] || nextSlots[drag.index];
           if (!source) return base;
           var patch = drag.mode === 'resize' ? {
             width: source.width + dx,
@@ -4068,7 +5816,7 @@ function DesignerScreen({
         }
         if (drag.kind === 'decor') {
           var nextDecos = [...(base.decorations || [])];
-          var _source = (drag.snapshot.decorations || [])[drag.index] || nextDecos[drag.index];
+          var _source = drag.originalRect || (drag.snapshot.decorations || [])[drag.index] || nextDecos[drag.index];
           if (!_source) return base;
           var _patch = drag.mode === 'resize' ? {
             width: _source.width + dx,
@@ -4172,7 +5920,8 @@ function DesignerScreen({
     }
     setValidationError('');
     setStatusMessage('Saved to My Frames');
-    go('setup');
+    if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus('my-frames');
+    go('frames');
   };
   var handleSaveAsNew = () => {
     if (!validation.ok) {
@@ -4192,7 +5941,8 @@ function DesignerScreen({
     }
     setStatusMessage('Saved as a new frame');
     setValidationError('');
-    go('setup');
+    if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus('my-frames');
+    go('frames');
   };
   var handlePackExport = () => {
     if (!validation.ok) {
@@ -4238,7 +5988,7 @@ function DesignerScreen({
     setStatusMessage(`Imported ${result.presets?.length || 0} frames`);
     setDesignerMode('edit');
     if (typeof setSetupStoreTabFocus === 'function') setSetupStoreTabFocus('imported');
-    go('setup');
+    go('frames');
   };
   var handleDiscard = () => {
     if (isDirty && !window.confirm('Discard designer changes?')) return;
@@ -4246,7 +5996,7 @@ function DesignerScreen({
     setDesignerMode('edit');
     clearDesignerDraftRecovery && clearDesignerDraftRecovery();
     setStatusMessage('Draft discarded');
-    go('setup');
+    go('frames');
   };
   if (!normalizedDraft) {
     return /*#__PURE__*/React.createElement("div", {
@@ -4281,7 +6031,7 @@ function DesignerScreen({
         color: T.inkSoft
       }
     }, "The previous designer route did not include a recoverable frame draft."), /*#__PURE__*/React.createElement("button", {
-      onClick: () => go('setup'),
+      onClick: () => go('frames'),
       style: {
         minHeight: 44,
         borderRadius: 12,
@@ -4371,7 +6121,7 @@ function DesignerScreen({
       justifyContent: 'flex-end'
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => go('setup'),
+    onClick: () => go('frames'),
     style: {
       minHeight: 44,
       padding: '0 12px',
@@ -4453,174 +6203,18 @@ function DesignerScreen({
       letterSpacing: 1,
       cursor: 'pointer'
     }
-  }, tab.label))), /*#__PURE__*/React.createElement("div", {
-    ref: previewRef,
-    style: {
-      position: 'relative',
-      height: mobile ? 'min(54vh, 520px)' : 'min(68vh, 680px)',
-      maxHeight: mobile ? 520 : 680,
-      width: 'auto',
-      maxWidth: '100%',
-      justifySelf: 'center',
-      aspectRatio: `${previewCanvas.width} / ${previewCanvas.height}`,
-      borderRadius: 18,
-      overflow: 'hidden',
-      border: `1px solid ${T.line}`,
-      background: '#F8F8F5',
-      touchAction: 'none'
-    }
-  }, WFrameThumb ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'absolute',
-      inset: 0
-    }
-  }, /*#__PURE__*/React.createElement(WFrameThumb, {
-    key: `${normalizedDraft.id}-${normalizedDraft.updatedAt || 'draft'}`,
-    layout: normalizedDraft.layout,
-    shots: previewShots,
-    selected: previewShots.map((_, i) => i),
+  }, tab.label))), /*#__PURE__*/React.createElement(DesignerPreviewCanvas, {
+    draft: normalizedDraft,
     T: T,
-    logo: false,
-    dateText: false,
-    accent: T.pinkDeep,
-    scale: 1,
-    orientation: "portrait",
-    frameColor: normalizedDraft.frameColor,
-    framePreset: normalizedDraft,
-    fill: true
-  })) : /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'grid',
-      placeItems: 'center',
-      height: '100%'
-    }
-  }, "Preview unavailable"), currentLayoutSlots.map((slot, index) => {
-    var active = selectedSlotIndex === index;
-    return /*#__PURE__*/React.createElement("div", {
-      key: `slot-${index}`,
-      onPointerDown: useTouchFallback ? undefined : startDrag('slot', index, 'move'),
-      onTouchStart: useTouchFallback ? startDrag('slot', index, 'move') : undefined,
-      style: {
-        position: 'absolute',
-        left: `${slot.x / previewCanvas.width * 100}%`,
-        top: `${slot.y / previewCanvas.height * 100}%`,
-        width: `${slot.width / previewCanvas.width * 100}%`,
-        height: `${slot.height / previewCanvas.height * 100}%`,
-        borderRadius: Math.max(8, slot.radius / Math.max(1, slot.width) * 100 * 0.5),
-        boxSizing: 'border-box',
-        border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.28)'}`,
-        background: active ? 'rgba(26,26,31,0.04)' : 'rgba(255,255,255,0.04)',
-        cursor: 'move',
-        touchAction: 'none'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        position: 'absolute',
-        top: 4,
-        left: 4,
-        padding: '2px 5px',
-        borderRadius: 999,
-        background: active ? T.ink : 'rgba(26,26,31,0.65)',
-        color: active ? T.bg : '#fff',
-        fontSize: 9,
-        fontWeight: 800
-      }
-    }, index + 1), /*#__PURE__*/React.createElement("div", {
-      onPointerDown: useTouchFallback ? undefined : startDrag('slot', index, 'resize'),
-      onTouchStart: useTouchFallback ? startDrag('slot', index, 'resize') : undefined,
-      style: {
-        position: 'absolute',
-        right: -3,
-        bottom: -3,
-        width: 14,
-        height: 14,
-        borderRadius: 4,
-        background: T.ink,
-        cursor: 'nwse-resize',
-        touchAction: 'none'
-      }
-    }));
-  }), currentDecorations.map((deco, index) => {
-    var active = selectedDecorationIndex === index;
-    var x = deco.x || 0;
-    var y = deco.y || 0;
-    var w = deco.width || 80;
-    var h = deco.height || 80;
-    return /*#__PURE__*/React.createElement("div", {
-      key: deco.id || index,
-      onPointerDown: useTouchFallback ? undefined : startDrag('decor', index, 'move'),
-      onTouchStart: useTouchFallback ? startDrag('decor', index, 'move') : undefined,
-      style: {
-        position: 'absolute',
-        left: `${x / previewCanvas.width * 100}%`,
-        top: `${y / previewCanvas.height * 100}%`,
-        width: `${w / previewCanvas.width * 100}%`,
-        height: `${h / previewCanvas.height * 100}%`,
-        border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.18)'}`,
-        background: deco.type === 'text' ? 'rgba(255,255,255,0.7)' : 'rgba(26,26,31,0.04)',
-        borderRadius: deco.shape === 'circle' ? 999 : 10,
-        display: 'grid',
-        placeItems: 'center',
-        cursor: 'move',
-        boxSizing: 'border-box',
-        opacity: deco.opacity ?? 1,
-        transform: `rotate(${deco.rotation || 0}deg)`,
-        touchAction: 'none'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: deco.type === 'text' ? 12 : 10,
-        fontWeight: 800,
-        color: deco.fill || T.ink,
-        textAlign: 'center',
-        padding: 4
-      }
-    }, deco.type === 'text' ? deco.text || 'TEXT' : deco.shape || 'shape'), /*#__PURE__*/React.createElement("div", {
-      onPointerDown: useTouchFallback ? undefined : startDrag('decor', index, 'resize'),
-      onTouchStart: useTouchFallback ? startDrag('decor', index, 'resize') : undefined,
-      style: {
-        position: 'absolute',
-        right: -3,
-        bottom: -3,
-        width: 14,
-        height: 14,
-        borderRadius: 4,
-        background: T.ink,
-        cursor: 'nwse-resize',
-        touchAction: 'none'
-      }
-    }));
-  }), showGuides && activeGuides.map((guide, index) => /*#__PURE__*/React.createElement("div", {
-    key: `${guide.axis}-${guide.kind}-${index}`,
-    style: {
-      position: 'absolute',
-      pointerEvents: 'none',
-      background: 'rgba(130, 92, 255, 0.8)',
-      zIndex: 6,
-      ...(guide.axis === 'v' ? {
-        top: 0,
-        bottom: 0,
-        left: `${guide.value / previewCanvas.width * 100}%`,
-        width: 2,
-        transform: 'translateX(-1px)'
-      } : {
-        left: 0,
-        right: 0,
-        top: `${guide.value / previewCanvas.height * 100}%`,
-        height: 2,
-        transform: 'translateY(-1px)'
-      })
-    }
-  })), gridEnabled && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'absolute',
-      inset: 0,
-      pointerEvents: 'none',
-      backgroundImage: 'linear-gradient(rgba(130,92,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(130,92,255,0.08) 1px, transparent 1px)',
-      backgroundSize: '20% 20%',
-      zIndex: 1
-    }
-  })))), /*#__PURE__*/React.createElement("div", {
+    previewShots: previewShots,
+    selectedSlotIndex: selectedSlotIndex,
+    selectedDecorationIndex: selectedDecorationIndex,
+    startDrag: startDrag,
+    activeGuides: activeGuides,
+    showGuides: showGuides,
+    gridEnabled: gridEnabled,
+    useTouchFallback: useTouchFallback
+  }))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gap: 12,
