@@ -2804,8 +2804,21 @@ function DesignerScreen({
 
   if (!normalizedDraft) {
     return (
-      <div style={{ minHeight: '100%', padding: 24, background: T.bg, color: T.ink, fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui' }}>
-        <div style={{ fontSize: 18, fontWeight: 800 }}>Designer draft loading...</div>
+      <div style={{ minHeight: '100%', padding: 24, background: T.bg, color: T.ink, fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui', display: 'grid', placeItems: 'center' }}>
+        <div style={{ width: 'min(100%, 420px)', border: `1px solid ${T.line}`, borderRadius: 18, background: '#fff', padding: 18, display: 'grid', gap: 12 }}>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>Designer draft unavailable</div>
+          <div style={{ fontSize: 12, lineHeight: 1.5, color: T.inkSoft }}>
+            The previous designer route did not include a recoverable frame draft.
+          </div>
+          <button onClick={() => go('setup')} style={{ minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
+            Back to Frame Store
+          </button>
+          {openDesigner && (
+            <button onClick={() => openDesigner({ mode: 'new' })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
+              Create Default Frame
+            </button>
+          )}
+        </div>
       </div>
     );
   }

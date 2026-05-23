@@ -4255,14 +4255,58 @@ function DesignerScreen({
         padding: 24,
         background: T.bg,
         color: T.ink,
-        fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui'
+        fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui',
+        display: 'grid',
+        placeItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 'min(100%, 420px)',
+        border: `1px solid ${T.line}`,
+        borderRadius: 18,
+        background: '#fff',
+        padding: 18,
+        display: 'grid',
+        gap: 12
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 18,
         fontWeight: 800
       }
-    }, "Designer draft loading..."));
+    }, "Designer draft unavailable"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        lineHeight: 1.5,
+        color: T.inkSoft
+      }
+    }, "The previous designer route did not include a recoverable frame draft."), /*#__PURE__*/React.createElement("button", {
+      onClick: () => go('setup'),
+      style: {
+        minHeight: 44,
+        borderRadius: 12,
+        border: 'none',
+        background: T.ink,
+        color: T.bg,
+        fontSize: 11,
+        fontWeight: 800,
+        textTransform: 'uppercase'
+      }
+    }, "Back to Frame Store"), openDesigner && /*#__PURE__*/React.createElement("button", {
+      onClick: () => openDesigner({
+        mode: 'new'
+      }),
+      style: {
+        minHeight: 44,
+        borderRadius: 12,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        color: T.ink,
+        fontSize: 11,
+        fontWeight: 800,
+        textTransform: 'uppercase'
+      }
+    }, "Create Default Frame")));
   }
   var previewWidth = 540;
   var previewHeight = Math.round(previewWidth * (previewCanvas.height / previewCanvas.width));

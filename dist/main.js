@@ -296,7 +296,16 @@ function App() {
     frameColor: '#ffffff',
     useWebgl: window.innerWidth >= 640 // Default off on mobile for stability
   });
-  var [screen, setScreen] = React.useState(() => location.hash.startsWith('#/s/') ? 'share' : localStorage.getItem('immm.v2.screen') || 'landing');
+  var [screen, setScreen] = React.useState(() => {
+    if (location.hash.startsWith('#/s/')) return 'share';
+    var stored = 'landing';
+    try {
+      stored = localStorage.getItem('immm.v2.screen') || 'landing';
+    } catch (_) {}
+    // Designer is draft-backed and cannot be restored safely from screen state alone.
+    if (stored === 'designer') return 'setup';
+    return stored;
+  });
 
   // Session tracking for state isolation
   var [activeSessionId, setActiveSessionId] = React.useState(() => {
@@ -1480,7 +1489,9 @@ function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
   React.useEffect(() => {
-    if (screen !== 'share') localStorage.setItem('immm.v2.screen', screen);
+    if (screen === 'share') return;
+    var persistedScreen = screen === 'designer' ? 'setup' : screen;
+    localStorage.setItem('immm.v2.screen', persistedScreen);
   }, [screen]);
   React.useEffect(() => {
     try {
@@ -1875,6 +1886,22 @@ function App() {
     setScreen('designer');
     return nextDraft;
   }, [activeFramePreset, customFrames, framePresetApi, framePresetList]);
+  React.useEffect(() => {
+    if (screen !== 'designer' || designerDraftFrame || !framePresetApi) return;
+    var recovered = framePresetApi.loadDesignerDraftRecovery?.();
+    var recoveredDraft = recovered?.draft ? framePresetApi.normalizeDesignerDraft?.(recovered.draft) : null;
+    var fallbackPreset = activeFramePreset || framePresetList.find(preset => preset.id === defaultFramePresetId) || framePresetList.find(preset => preset.source !== 'custom') || framePresetList[0] || null;
+    var fallbackDraft = recoveredDraft || framePresetApi.createFrameDesignerDraft?.(fallbackPreset);
+    var nextDraft = framePresetApi.normalizeDesignerDraft?.(fallbackDraft) || fallbackDraft;
+    if (!nextDraft) {
+      setScreen('setup');
+      return;
+    }
+    setDesignerMode(recoveredDraft ? 'edit' : 'new');
+    setDesignerBasePresetId(fallbackPreset?.id || '');
+    setDesignerDraftFrame(nextDraft);
+    setDesignerInitialDraftFrame(nextDraft);
+  }, [activeFramePreset, defaultFramePresetId, designerDraftFrame, framePresetApi, framePresetList, screen]);
   var saveDesignerFrame = React.useCallback((inputDraft = null, options = {}) => {
     var targetDraft = inputDraft || designerDraftFrame;
     if (!targetDraft) {
