@@ -1681,6 +1681,11 @@ function ResultV2({
       resultPreviewUrlRef.current = null;
       revokeBlobUrl(saveSheetUrlRef.current);
       saveSheetUrlRef.current = null;
+
+      // Clear all shared blob URLs from ShareStore
+      if (typeof window !== 'undefined' && window.ShareStore && typeof window.ShareStore.clearAllLocalUrls === 'function') {
+        window.ShareStore.clearAllLocalUrls();
+      }
     };
   }, []);
 
@@ -2180,11 +2185,16 @@ function ResultV2({
   var handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    var sessionAtStart = activeSessionId;
     if (window.trackImmmEvent) window.trackImmmEvent('result_download', {
       layout,
       action: 'save_image'
     });
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       var blob = await getFinalResultBlob();
       var fname = getFormattedFilename();
       await saveResultToGallery(blob, 'local', {
@@ -2203,11 +2213,16 @@ function ResultV2({
   var handleShare = async () => {
     if (sharing) return;
     setSharing(true);
+    var sessionAtStart = activeSessionId;
     if (window.trackImmmEvent) window.trackImmmEvent('result_share_attempt', {
       layout,
       action: 'native_share'
     });
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       var blob = await getFinalResultBlob();
       var fname = getFormattedFilename();
       var file = new File([blob], fname, {
@@ -2284,8 +2299,13 @@ function ResultV2({
     var state = getQrShareState();
     if (!state.ready) return;
     if (qrBusy) return;
+    var sessionAtStart = activeSessionId;
     setQrBusy(true);
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       var blob = await getFinalResultBlob();
       if (!blob) throw Object.assign(new Error('No blob available'), {
         reason: QR_SHARE_FAILURE_REASONS.ASSET_RESOLVE_FAILED

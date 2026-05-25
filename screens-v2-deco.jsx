@@ -1082,6 +1082,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
       revokeBlobUrl(saveSheetUrlRef.current);
       saveSheetUrlRef.current = null;
+
+      // Clear all shared blob URLs from ShareStore
+      if (typeof window !== 'undefined' && window.ShareStore && typeof window.ShareStore.clearAllLocalUrls === 'function') {
+        window.ShareStore.clearAllLocalUrls();
+      }
     };
   }, []);
 
@@ -1506,8 +1511,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    const sessionAtStart = activeSessionId;
     if (window.trackImmmEvent) window.trackImmmEvent('result_download', { layout, action: 'save_image' });
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();
       await saveResultToGallery(blob, 'local', {
@@ -1527,8 +1537,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const handleShare = async () => {
     if (sharing) return;
     setSharing(true);
+    const sessionAtStart = activeSessionId;
     if (window.trackImmmEvent) window.trackImmmEvent('result_share_attempt', { layout, action: 'native_share' });
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();
       const file = new File([blob], fname, { type: 'image/png' });
@@ -1581,8 +1596,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     if (!state.ready) return;
     if (qrBusy) return;
 
+    const sessionAtStart = activeSessionId;
     setQrBusy(true);
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       const blob = await getFinalResultBlob();
       if (!blob) throw Object.assign(new Error('No blob available'), { reason: QR_SHARE_FAILURE_REASONS.ASSET_RESOLVE_FAILED });
 
