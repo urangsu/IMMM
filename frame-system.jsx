@@ -121,6 +121,24 @@ const FRAME_TEMPLATES = {
     date: { x: 0.5, y: 0.5, fontSize: 0.035, align: 'center' },
     photoSlots: [],
   },
+  '1x3': {
+    id: 'core-1x3',
+    type: '1x3',
+    name: 'Trip 1x3',
+    ko: '트립 1x3',
+    canvasSize: { width: 560, height: 1200 },
+    theme: { frameFill: '#fff' },
+    photoRects: [
+      { x: 0.093, y: 0.092, w: 0.814, h: 0.26 },
+      { x: 0.093, y: 0.38, w: 0.814, h: 0.26 },
+      { x: 0.093, y: 0.668, w: 0.814, h: 0.26 },
+    ],
+    logo: { x: 0.071, y: 0.03, fontSize: 0.05 },
+    dot: { x: 0.92, y: 0.03, r: 0.024 },
+    captionRect: { x: 0, y: 0.92, w: 1, h: 0.08 },
+    date: { x: 0.5, y: 0.5, fontSize: 0.035, align: 'center' },
+    photoSlots: [],
+  },
   '1x1': {
     id: 'core-1x1',
     type: '1x1',
@@ -234,9 +252,17 @@ async function preloadStickerImages(stickers = []) {
 
 async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets = {}) {
   if (!sticker) return;
+
+  // Validate sticker position (should be 0-100)
+  const x = Math.max(0, Math.min(100, Number(sticker.x) || 50));
+  const y = Math.max(0, Math.min(100, Number(sticker.y) || 50));
+  if ((x !== sticker.x || y !== sticker.y) && sticker.x != null && sticker.y != null) {
+    console.warn(`[IMMM] Sticker position out of bounds: x=${sticker.x}, y=${sticker.y}`);
+  }
+
   ctx.save();
-  const cx = (sticker.x / 100) * baseW;
-  const cy = (sticker.y / 100) * baseH;
+  const cx = (x / 100) * baseW;
+  const cy = (y / 100) * baseH;
   ctx.translate(cx, cy);
   ctx.rotate((sticker.rotation || 0) * Math.PI / 180);
   const actualSizeNorm = sticker.sizeNorm ?? sticker.payload?.sizeNorm;
@@ -588,6 +614,11 @@ async function renderComposition(ctx, data, options = {}) {
       ctx.lineWidth = lineWidth;
       ctx.beginPath();
       stroke.points.forEach(([px, py], idx) => {
+        // Validate point coordinates are valid numbers
+        if (typeof px !== 'number' || typeof py !== 'number') {
+          console.warn(`[IMMM] Invalid stroke point at index ${idx}:`, [px, py]);
+          return;
+        }
         const tx = (px / 100) * w;
         const ty = (py / 100) * h;
         if (idx === 0) ctx.moveTo(tx, ty);

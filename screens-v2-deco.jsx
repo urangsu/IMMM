@@ -878,6 +878,19 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     ? getShotCountForLayout(layout)
     : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
 
+  // Validate selected indices on entry to prevent contamination from stale data
+  const effectiveSelected = selected.filter((idx) => {
+    if (typeof idx !== 'number' || idx < 0 || idx >= shots.length) {
+      console.warn(`[IMMM] Invalid selection index: ${idx} (shots.length=${shots.length})`);
+      return false;
+    }
+    return true;
+  });
+
+  if (effectiveSelected.length !== selected.length) {
+    console.warn(`[IMMM] Auto-corrected selection: ${selected.length} → ${effectiveSelected.length}`);
+  }
+
   const getResultPreviewBaseWidth = (layoutId, isMobile) => {
     if (isMobile) {
       if (layoutId === 'strip') return 230;
