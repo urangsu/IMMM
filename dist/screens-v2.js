@@ -5412,6 +5412,26 @@ function DesignerScreen({
     width: 560,
     height: 1808
   };
+  var clampRectToCanvasFallback = (rect, canvasSize, minWidth = 24, minHeight = 24) => {
+    var width = canvasSize?.width || 1;
+    var height = canvasSize?.height || 1;
+    var nextWidth = Math.max(minWidth, Math.min(width, Number(rect?.width) || minWidth));
+    var nextHeight = Math.max(minHeight, Math.min(height, Number(rect?.height) || minHeight));
+    var nextX = Math.max(0, Math.min(Number(rect?.x) ?? 0, Math.max(0, width - nextWidth)));
+    var nextY = Math.max(0, Math.min(Number(rect?.y) ?? 0, Math.max(0, height - nextHeight)));
+    return {
+      x: nextX,
+      y: nextY,
+      width: nextWidth,
+      height: nextHeight,
+      ...(typeof rect?.rotation === 'number' && {
+        rotation: rect.rotation
+      }),
+      ...(typeof rect?.opacity === 'number' && {
+        opacity: rect.opacity
+      })
+    };
+  };
   var getDragPoint = event => {
     if (!event) return null;
     if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
@@ -5562,13 +5582,12 @@ function DesignerScreen({
     normalizeNextDraft(prev => {
       var next = [...(prev.photoSlots || [])];
       if (!next[index]) return prev;
-      next[index] = frameApi?.clampRectToCanvas?.({
-        ...next[index],
-        ...patch
-      }, prev.canvasSize, 24, 24) || {
+      var merged = {
         ...next[index],
         ...patch
       };
+      var clamped = frameApi?.clampRectToCanvas?.(merged, prev.canvasSize, 24, 24) || clampRectToCanvasFallback(merged, prev.canvasSize, 24, 24);
+      next[index] = clamped;
       return {
         ...prev,
         photoSlots: next
@@ -5628,16 +5647,25 @@ function DesignerScreen({
     normalizeNextDraft(prev => {
       var next = [...(prev.decorations || [])];
       if (!next[index]) return prev;
-      next[index] = frameApi?.normalizeDesignerDraft?.({
-        ...prev,
-        decorations: next.map((deco, i) => i === index ? {
-          ...deco,
-          ...patch
-        } : deco)
-      })?.decorations?.[index] || {
+      var canvasSize = prev.canvasSize || previewCanvas;
+      var merged = {
         ...next[index],
         ...patch
       };
+
+      // Validate position and size if being changed
+      if (patch.hasOwnProperty('x') || patch.hasOwnProperty('y') || patch.hasOwnProperty('width') || patch.hasOwnProperty('height')) {
+        var clamped = clampRectToCanvasFallback(merged, canvasSize, 24, 24);
+        next[index] = frameApi?.normalizeDesignerDraft?.({
+          ...prev,
+          decorations: next.map((deco, i) => i === index ? clamped : deco)
+        })?.decorations?.[index] || clamped;
+      } else {
+        next[index] = frameApi?.normalizeDesignerDraft?.({
+          ...prev,
+          decorations: next.map((deco, i) => i === index ? merged : deco)
+        })?.decorations?.[index] || merged;
+      }
       return {
         ...prev,
         decorations: next
@@ -5794,17 +5822,13 @@ function DesignerScreen({
             y: source.y + dy
           };
           var peers = nextSlots.filter((_, i) => i !== drag.index);
-          var snapped = snapEnabled ? snapRectToGuides({
+          var nextRect = {
             ...source,
             ...patch
-          }, base.canvasSize, peers) : {
-            rect: frameApi?.clampRectToCanvas?.({
-              ...source,
-              ...patch
-            }, base.canvasSize, 24, 24) || {
-              ...source,
-              ...patch
-            },
+          };
+          var clampedRect = frameApi?.clampRectToCanvas?.(nextRect, base.canvasSize, 24, 24) || clampRectToCanvasFallback(nextRect, base.canvasSize, 24, 24);
+          var snapped = snapEnabled ? snapRectToGuides(clampedRect, base.canvasSize, peers) : {
+            rect: clampedRect,
             guides: []
           };
           setActiveGuides(snapped.guides);
@@ -5831,17 +5855,13 @@ function DesignerScreen({
             width: item.width,
             height: item.height
           }));
-          var _snapped = snapEnabled ? snapRectToGuides({
+          var _nextRect = {
             ..._source,
             ..._patch
-          }, base.canvasSize, _peers) : {
-            rect: frameApi?.clampRectToCanvas?.({
-              ..._source,
-              ..._patch
-            }, base.canvasSize, 24, 24) || {
-              ..._source,
-              ..._patch
-            },
+          };
+          var _clampedRect = frameApi?.clampRectToCanvas?.(_nextRect, base.canvasSize, 24, 24) || clampRectToCanvasFallback(_nextRect, base.canvasSize, 24, 24);
+          var _snapped = snapEnabled ? snapRectToGuides(_clampedRect, base.canvasSize, _peers) : {
+            rect: _clampedRect,
             guides: []
           };
           setActiveGuides(_snapped.guides);
