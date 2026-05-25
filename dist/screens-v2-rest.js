@@ -116,6 +116,7 @@ function CaptureV2({
   var [zoomToggleError, setZoomToggleError] = React.useState('');
   var touchStartY = React.useRef(null);
   var cameraFrameRef = React.useRef(null);
+  var isCapturingRef = React.useRef(false); // Debounce rapid-click shutter
 
   // Only show stickers assigned to the current frame slot during live capture preview.
   // Extra candidate shots (idx >= slotCount) get no stickers to prevent duplication.
@@ -365,6 +366,8 @@ function CaptureV2({
     return dataUrl;
   }, []);
   var takeShot = React.useCallback(() => {
+    if (isCapturingRef.current) return; // Prevent rapid-click overlap
+    isCapturingRef.current = true;
     setFlashing(true);
     setTimeout(() => setFlashing(false), 140);
     var doCapture = async () => {
@@ -457,6 +460,7 @@ function CaptureV2({
         return copy;
       });
       setIdx(i => Math.min(i + 1, shotCount));
+      isCapturingRef.current = false; // Allow next capture
     };
 
     // Wait for video ready if needed

@@ -1703,6 +1703,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     const cvs = document.createElement('canvas');
     cvs.width = W; cvs.height = H;
     const ctx = cvs.getContext('2d');
+    if (!ctx) throw new Error('[IMMM] Canvas 2D context unavailable for video export');
 
     const mimeTypes = ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
     const mimeType = (typeof MediaRecorder !== 'undefined' && mimeTypes.find(m => MediaRecorder.isTypeSupported(m))) || 'video/webm';
@@ -1769,6 +1770,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       fallback.width = W;
       fallback.height = H;
       const fctx = fallback.getContext('2d');
+      if (!fctx) throw new Error('[IMMM] Canvas 2D context unavailable for video fallback');
       fctx.fillStyle = frameColor || '#fff';
       fctx.fillRect(0, 0, W, H);
       return fallback;

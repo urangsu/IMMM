@@ -351,7 +351,16 @@ function getFrameTemplate(layoutOrType) {
   return FRAME_TEMPLATES[type] || FRAME_TEMPLATES['1x4'];
 }
 function getShotCountForFrame(layoutOrType) {
+<<<<<<< HEAD
   return getLayoutSlotCount(layoutOrType);
+=======
+  var template = getFrameTemplateSafe(layoutOrType);
+  if (!template?.photoSlots?.length) {
+    console.warn(`[IMMM] Invalid frame template: ${layoutOrType}`);
+    return 4; // Safe default
+  }
+  return template.photoSlots.length;
+>>>>>>> 6a6402e (fix: phase 1-2 layout reset, debounce, array bounds, error handling)
 }
 function loadImageForCanvas(src) {
   return new Promise(resolve => {
@@ -694,12 +703,18 @@ async function renderComposition(ctx, data, options = {}) {
   var drawableLayers = orderedLayers.filter(layer => layer && layer.visible !== false && !['background', 'photo-slots', 'watermark'].includes(layer.type));
 
   // 1. Background
+<<<<<<< HEAD
   if (framePreset && typeof drawPresetBackground === 'function') {
     drawPresetBackground(ctx, framePreset, w, h);
   } else {
     ctx.fillStyle = theme.frameBg;
     ctx.fillRect(0, 0, w, h);
   }
+=======
+  if (!ctx) throw new Error('[IMMM] Canvas 2D context unavailable');
+  ctx.fillStyle = theme.frameBg;
+  ctx.fillRect(0, 0, w, h);
+>>>>>>> 6a6402e (fix: phase 1-2 layout reset, debounce, array bounds, error handling)
 
   // 1b. Preload Stickers (parallel)
   var tPreloadStart = nowMs();
@@ -715,10 +730,27 @@ async function renderComposition(ctx, data, options = {}) {
   var selected = data.selected || [];
   var shots = data.shots || [];
   var tPhotoStart = nowMs();
+<<<<<<< HEAD
   var photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : template.photoSlots;
   var images = await Promise.all(photoSlots.map((_, i) => {
     var shot = shots[selected[i]];
     return loadImageForCanvas(shot?.dataUrl);
+=======
+  var images = await Promise.all(template.photoSlots.map((_, i) => {
+    var shotIdx = selected[i];
+    // Validate array bounds
+    if (typeof shotIdx !== 'number' || shotIdx < 0 || shotIdx >= shots.length) {
+      if (shotIdx != null) {
+        console.warn(`[IMMM] Invalid shot index: ${shotIdx} (shots.length=${shots.length})`);
+      }
+      return null; // Empty slot
+    }
+    var shot = shots[shotIdx];
+    return loadImageForCanvas(shot?.dataUrl).catch(err => {
+      console.warn(`[IMMM] Image load failed (slot ${i}):`, err);
+      return null;
+    });
+>>>>>>> 6a6402e (fix: phase 1-2 layout reset, debounce, array bounds, error handling)
   }));
   logExportPerf('photo-slots', {
     ms: nowMs() - tPhotoStart,
@@ -844,6 +876,7 @@ async function renderFrameToCanvas(input) {
   cvs.width = Math.round(w);
   cvs.height = Math.round(h);
   var ctx = cvs.getContext('2d');
+  if (!ctx) throw new Error(`[IMMM] Canvas 2D context unavailable (${Math.round(w)}×${Math.round(h)})`);
   await window.renderComposition(ctx, input, {
     scale
   });
@@ -853,7 +886,15 @@ var FrameRenderEngine = {
   renderToCanvas: renderFrameToCanvas,
   async renderToBlob(input, type = 'image/png', quality = 0.96) {
     var canvas = await renderFrameToCanvas(input);
-    return new Promise(resolve => canvas.toBlob(resolve, type, quality));
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (!blob) {
+          reject(new Error(`[IMMM] canvas.toBlob returned null (${type})`));
+        } else {
+          resolve(blob);
+        }
+      }, type, quality);
+    });
   },
   async renderToDataUrl(input, type = 'image/png', quality = 0.96) {
     var canvas = await renderFrameToCanvas(input);
@@ -1035,6 +1076,10 @@ function FrameThumb({
       if (!canvasRef.current) return;
       var cvs = canvasRef.current;
       var ctx = cvs.getContext('2d');
+      if (!ctx) {
+        console.error('[IMMM] Canvas 2D context unavailable for frame overlay');
+        return;
+      }
       var getTpl = window.getFrameTemplateSafe || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
       var template = getTpl ? getTpl(layout) : null;
       if (!template) {

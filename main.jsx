@@ -227,16 +227,9 @@ function App() {
     useWebgl: window.innerWidth >= 640, // Default off on mobile for stability
   });
 
-  const [screen, setScreen] = React.useState(() => {
-    if (location.hash.startsWith('#/s/')) return 'share';
-    let stored = 'landing';
-    try {
-      stored = localStorage.getItem('immm.v2.screen') || 'landing';
-    } catch (_) {}
-    // Designer is draft-backed and cannot be restored safely from screen state alone.
-    if (stored === 'designer') return 'setup';
-    return stored;
-  });
+  const [screen, setScreen] = React.useState(
+    () => location.hash.startsWith('#/s/') ? 'share' : (localStorage.getItem('immm.v2.screen') || 'landing')
+  );
 
   // Session tracking for state isolation
   const [activeSessionId, setActiveSessionId] = React.useState(() => {
@@ -257,104 +250,6 @@ function App() {
   const [drawStrokes, setDrawStrokes] = React.useState([]);
   const [photoEditMode, setPhotoEditMode] = React.useState(false);
   const [lang, setLang] = React.useState('ko');
-  const [customFrames, setCustomFrames] = React.useState(() => {
-    try {
-      const api = window.IMMMFramePresets;
-      if (api && typeof api.loadCustomFramePresets === 'function') {
-        return api.loadCustomFramePresets();
-      }
-      return JSON.parse(localStorage.getItem('immm.v2.customFrames') || '[]');
-    } catch (e) {
-      console.warn('[IMMM] custom frame load failed:', e);
-      return [];
-    }
-  });
-  const [selectedFramePresetId, setSelectedFramePresetId] = React.useState(() => {
-    try {
-      return localStorage.getItem('immm.v2.selectedFramePresetId') || '';
-    } catch (e) {
-      return '';
-    }
-  });
-  const [unlockedFramePackIds, setUnlockedFramePackIds] = React.useState(() => {
-    try {
-      const api = window.IMMMFramePresets;
-      if (api && typeof api.getUnlockedFramePackIds === 'function') {
-        return api.getUnlockedFramePackIds();
-      }
-      return JSON.parse(localStorage.getItem('immm.v2.unlockedFramePacks') || '[]');
-    } catch (e) {
-      return [];
-    }
-  });
-  const [favoriteFramePresetIds, setFavoriteFramePresetIds] = React.useState(() => {
-    try {
-      const api = window.IMMMFramePresets;
-      if (api && typeof api.loadFavoriteFramePresetIds === 'function') {
-        return api.loadFavoriteFramePresetIds();
-      }
-      return JSON.parse(localStorage.getItem('immm.v2.favoriteFramePresets') || '[]');
-    } catch (e) {
-      return [];
-    }
-  });
-  const [favoriteFramePackIds, setFavoriteFramePackIds] = React.useState(() => {
-    try {
-      const api = window.IMMMFramePresets;
-      if (api && typeof api.loadFavoriteFramePackIds === 'function') {
-        return api.loadFavoriteFramePackIds();
-      }
-      return JSON.parse(localStorage.getItem('immm.v2.favoriteFramePacks') || '[]');
-    } catch (e) {
-      return [];
-    }
-  });
-  const [frameLikeIds, setFrameLikeIds] = React.useState(() => {
-    try {
-      const api = window.IMMMFramePresets;
-      if (api && typeof api.getFrameLikeIds === 'function') {
-        return api.getFrameLikeIds();
-      }
-      return JSON.parse(localStorage.getItem('immm.v2.frameLikes') || '[]');
-    } catch (e) {
-      return [];
-    }
-  });
-  const [frameUseCounts, setFrameUseCounts] = React.useState(() => {
-    try {
-      const api = window.IMMMFramePresets;
-      if (api && typeof api.getFrameUseCounts === 'function') {
-        return api.getFrameUseCounts();
-      }
-      return JSON.parse(localStorage.getItem('immm.v2.frameUses') || '{}');
-    } catch (e) {
-      return {};
-    }
-  });
-  const [creatorProfiles, setCreatorProfiles] = React.useState(() => {
-    try {
-      const api = window.IMMMCreatorProfiles;
-      if (api && typeof api.loadCreatorProfiles === 'function') {
-        return api.loadCreatorProfiles();
-      }
-      return JSON.parse(localStorage.getItem('immm.v2.creatorProfiles') || '[]');
-    } catch (e) {
-      return [];
-    }
-  });
-  const [exportPresetId, setExportPresetId] = React.useState(() => {
-    try {
-      return localStorage.getItem('immm.v2.exportPresetId') || 'hd';
-    } catch (e) {
-      return 'hd';
-    }
-  });
-  const [designerDraftFrame, setDesignerDraftFrame] = React.useState(null);
-  const [designerInitialDraftFrame, setDesignerInitialDraftFrame] = React.useState(null);
-  const [designerBasePresetId, setDesignerBasePresetId] = React.useState('');
-  const [designerMode, setDesignerMode] = React.useState('new');
-  const [designerDraftRecovery, setDesignerDraftRecovery] = React.useState(null);
-  const [setupStoreTabFocus, setSetupStoreTabFocus] = React.useState('');
 
   // Responsive mobile detection
   const [mobile, setMobile] = React.useState(() => window.innerWidth < 640);
@@ -364,65 +259,6 @@ function App() {
     return () => window.removeEventListener('resize', handler);
   }, []);
   const safeFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
-  const framePresetApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
-  const creatorApi = typeof window !== 'undefined' ? window.IMMMCreatorProfiles : null;
-  const framePresetList = React.useMemo(() => {
-    if (framePresetApi && typeof framePresetApi.listFramePresets === 'function') {
-      return framePresetApi.listFramePresets(customFrames);
-    }
-    return customFrames;
-  }, [framePresetApi, customFrames]);
-  const framePackList = React.useMemo(() => {
-    if (framePresetApi && typeof framePresetApi.getFramePacks === 'function') {
-      return framePresetApi.getFramePacks(customFrames);
-    }
-    return [];
-  }, [framePresetApi, customFrames]);
-  const activeFramePreset = React.useMemo(() => {
-    if (framePresetApi && typeof framePresetApi.getFramePresetById === 'function') {
-      return framePresetApi.getFramePresetById(selectedFramePresetId, customFrames);
-    }
-    return framePresetList.find((preset) => preset.id === selectedFramePresetId) || null;
-  }, [framePresetApi, selectedFramePresetId, customFrames, framePresetList]);
-  const defaultFramePresetId = React.useMemo(() => {
-    if (framePresetApi && typeof framePresetApi.getDefaultFramePresetIdForLayout === 'function') {
-      return framePresetApi.getDefaultFramePresetIdForLayout(tweaks.layout, customFrames);
-    }
-    const first = framePresetList.find((preset) => preset.layout === tweaks.layout);
-    return first ? first.id : '';
-  }, [framePresetApi, tweaks.layout, customFrames, framePresetList]);
-  const normalizePresetLayout = React.useCallback((layout) => {
-    if (framePresetApi && typeof framePresetApi.normalizePresetLayout === 'function') {
-      return framePresetApi.normalizePresetLayout(layout);
-    }
-    if (layout === '1x4' || layout === 'strip') return 'strip';
-    if (layout === '2x2' || layout === 'grid') return 'grid';
-    if (layout === '1x3' || layout === 'trip') return 'trip';
-    if (layout === '1x1' || layout === 'polaroid') return 'polaroid';
-    return 'strip';
-  }, [framePresetApi]);
-  const getLayoutTemplate = React.useCallback((layout) => {
-    const normalized = normalizePresetLayout(layout);
-    if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
-      return window.getFrameTemplateSafe(normalized);
-    }
-    if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
-      return window.getFrameTemplate(normalized);
-    }
-    return null;
-  }, [normalizePresetLayout]);
-  const getLayoutSlotCount = React.useCallback((layout) => {
-    const template = getLayoutTemplate(layout);
-    if (template?.photoSlots?.length) return template.photoSlots.length;
-    const normalized = normalizePresetLayout(layout);
-    if (normalized === 'polaroid') return 1;
-    if (normalized === 'trip') return 3;
-    return 4;
-  }, [getLayoutTemplate, normalizePresetLayout]);
-  const getLayoutCaptureCount = React.useCallback((layout) => {
-    const normalized = normalizePresetLayout(layout);
-    return getCaptureShotCountForLayout(normalized);
-  }, [normalizePresetLayout]);
 
   // EMERGENCY FACE SHAPE SAFETY:
   // Disabling ALL face-tracked filters and geometry warp to prevent distortion on Galaxy/Samsung Internet.
@@ -627,7 +463,7 @@ function App() {
     ].slice(0, 10));
   }, []);
 
-  // Session reset helper: clears main app state without wiping persisted storage wholesale
+  // Session reset helper: clears main app state without using localStorage.clear()
   const resetSessionState = React.useCallback((reason = 'new-session', shotCount = 6) => {
     console.debug(`[IMMM] Resetting session (${reason}, shotCount=${shotCount})`);
 
@@ -667,7 +503,7 @@ function App() {
     const newShotCount = getCaptureShotCountForLayout(tweaks.layout);
     resetSessionState('start-new-capture', newShotCount);
     setScreen('capture');
-  }, [tweaks.layout, resetSessionState]);
+  }, [tweaks.layout]);
 
   const cameraZoomOptions = React.useMemo(
     () => deriveCameraZoomOptions({
@@ -1151,159 +987,9 @@ function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
   React.useEffect(() => {
-    if (screen === 'share') return;
-    const persistedScreen = screen === 'designer' ? 'setup' : screen;
-    localStorage.setItem('immm.v2.screen', persistedScreen);
+    if (screen !== 'share') localStorage.setItem('immm.v2.screen', screen);
   }, [screen]);
-  React.useEffect(() => {
-    try {
-      if (customFrames.length > 0) {
-        localStorage.setItem('immm.v2.customFrames', JSON.stringify(customFrames));
-      } else {
-        localStorage.removeItem('immm.v2.customFrames');
-      }
-    } catch (e) {
-      console.warn('[IMMM] custom frame sync failed:', e);
-    }
-  }, [customFrames]);
-  React.useEffect(() => {
-    try {
-      if (selectedFramePresetId) {
-        localStorage.setItem('immm.v2.selectedFramePresetId', selectedFramePresetId);
-      } else {
-        localStorage.removeItem('immm.v2.selectedFramePresetId');
-      }
-    } catch (e) {
-      console.warn('[IMMM] selected frame sync failed:', e);
-    }
-  }, [selectedFramePresetId]);
-  React.useEffect(() => {
-    try {
-      if (unlockedFramePackIds.length > 0) {
-        localStorage.setItem('immm.v2.unlockedFramePacks', JSON.stringify(Array.from(new Set(unlockedFramePackIds))));
-      } else {
-        localStorage.removeItem('immm.v2.unlockedFramePacks');
-      }
-    } catch (e) {
-      console.warn('[IMMM] unlocked frame pack sync failed:', e);
-    }
-  }, [unlockedFramePackIds]);
-  React.useEffect(() => {
-    try {
-      if (favoriteFramePresetIds.length > 0) {
-        localStorage.setItem('immm.v2.favoriteFramePresets', JSON.stringify(Array.from(new Set(favoriteFramePresetIds))));
-      } else {
-        localStorage.removeItem('immm.v2.favoriteFramePresets');
-      }
-    } catch (e) {
-      console.warn('[IMMM] favorite frame sync failed:', e);
-    }
-  }, [favoriteFramePresetIds]);
-  React.useEffect(() => {
-    try {
-      if (favoriteFramePackIds.length > 0) {
-        localStorage.setItem('immm.v2.favoriteFramePacks', JSON.stringify(Array.from(new Set(favoriteFramePackIds))));
-      } else {
-        localStorage.removeItem('immm.v2.favoriteFramePacks');
-      }
-    } catch (e) {
-      console.warn('[IMMM] favorite pack sync failed:', e);
-    }
-  }, [favoriteFramePackIds]);
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('immm.v2.frameLikes', JSON.stringify(Array.from(new Set(frameLikeIds))));
-    } catch (e) {
-      console.warn('[IMMM] frame likes sync failed:', e);
-    }
-  }, [frameLikeIds]);
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('immm.v2.frameUses', JSON.stringify(frameUseCounts || {}));
-    } catch (e) {
-      console.warn('[IMMM] frame uses sync failed:', e);
-    }
-  }, [frameUseCounts]);
-  React.useEffect(() => {
-    try {
-      if (creatorProfiles.length > 0) {
-        localStorage.setItem('immm.v2.creatorProfiles', JSON.stringify(creatorProfiles));
-      } else {
-        localStorage.removeItem('immm.v2.creatorProfiles');
-      }
-    } catch (e) {
-      console.warn('[IMMM] creator profile sync failed:', e);
-    }
-  }, [creatorProfiles]);
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('immm.v2.exportPresetId', exportPresetId || 'hd');
-    } catch (e) {
-      console.warn('[IMMM] export preset sync failed:', e);
-    }
-  }, [exportPresetId]);
-  React.useEffect(() => {
-    const recovered = framePresetApi?.loadDesignerDraftRecovery?.() || null;
-    setDesignerDraftRecovery(recovered);
-  }, [framePresetApi]);
-  React.useEffect(() => {
-    if (!designerDraftFrame) return;
-    const payload = framePresetApi?.saveDesignerDraftRecovery?.(designerDraftFrame);
-    if (payload) setDesignerDraftRecovery(payload);
-  }, [designerDraftFrame, framePresetApi]);
-  // Empty selectedFramePresetId is a valid state: it means "base FRAME_TEMPLATES mode".
-  // Do not auto-inject a default preset, or the clean setup flow becomes polluted again.
-  React.useEffect(() => {
-    if (!activeFramePreset?.layout) return;
-    const nextLayout = normalizePresetLayout(activeFramePreset.layout);
-    if (tweaks.layout !== nextLayout) {
-      const slotCount = getLayoutSlotCount(nextLayout);
-      const captureCount = getLayoutCaptureCount(nextLayout);
-      const nextSelected = Array.isArray(selected)
-        ? selected.filter((index) => Number.isInteger(index) && index >= 0 && index < slotCount).slice(0, slotCount)
-        : [];
-      const safeSelected = nextSelected.length > 0 ? nextSelected : Array.from({ length: slotCount }, (_, i) => i);
-      const nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
-      while (nextShots.length < captureCount) nextShots.push(null);
-      setSelectedFramePresetId(activeFramePreset.id || '');
-      setSelected(safeSelected);
-      setShots(nextShots);
-      updateTweak('layout', nextLayout);
-      updateTweak('orientation', 'portrait');
-      if (activeFramePreset.frameColor && activeFramePreset.background?.type === 'solid') {
-        updateTweak('frameColor', activeFramePreset.frameColor);
-      }
-      try {
-        localStorage.setItem('immm.v2.selectedFramePresetId', activeFramePreset.id || '');
-        if (safeSelected.length > 0) {
-          localStorage.setItem('immm.v2.sel', JSON.stringify(safeSelected));
-        } else {
-          localStorage.removeItem('immm.v2.sel');
-        }
-      } catch (e) {
-        console.warn('[IMMM] frame preset sync failed:', e);
-      }
-    }
-  }, [activeFramePreset?.background?.type, activeFramePreset?.frameColor, activeFramePreset?.id, activeFramePreset?.layout, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, selected, shots, setSelected, setSelectedFramePresetId, setShots, tweaks.layout]);
-  React.useEffect(() => {
-    try {
-      if (selected.length > 0) {
-        localStorage.setItem('immm.v2.sel', JSON.stringify(selected));
-      } else {
-        localStorage.removeItem('immm.v2.sel');
-      }
-    } catch (e) {
-      console.warn('[IMMM] localStorage selected sync failed:', e);
-    }
-
-    if (window.SessionTracer && window.IMMM_DEBUG_SESSION) {
-      window.SessionTracer.trace('STATE_UPDATE:selected', {
-        activeSessionId,
-        selectedLength: selected.length,
-        selected: selected.slice(),
-      });
-    }
-  }, [selected, activeSessionId]);
+  React.useEffect(() => { localStorage.setItem('immm.v2.sel', JSON.stringify(selected)); }, [selected]);
 
   // Samsung Internet suspends background video (opacity:0, zIndex:-1 screens).
   // Force-resume when user enters capture so the camera feed is guaranteed live.
@@ -1347,362 +1033,6 @@ function App() {
     setScreen(s);
   };
   const updateTweak = (k, v) => setTweaks(prev => ({ ...prev, [k]: v }));
-  const persistCustomFrames = React.useCallback((frames) => {
-    const nextFrames = Array.isArray(frames) ? frames : [];
-    if (typeof framePresetApi?.saveCustomFramePresets === 'function') {
-      const saved = framePresetApi.saveCustomFramePresets(nextFrames);
-      setCustomFrames(saved);
-      return saved;
-    }
-    try {
-      localStorage.setItem('immm.v2.customFrames', JSON.stringify(nextFrames));
-    } catch (e) {
-      console.warn('[IMMM] custom frame persist failed:', e);
-    }
-    setCustomFrames(nextFrames);
-    return nextFrames;
-  }, [framePresetApi]);
-  const applyFramePreset = React.useCallback((presetOrId, options = {}) => {
-    const preset = typeof presetOrId === 'string'
-      ? (framePresetApi?.getFramePresetById?.(presetOrId, customFrames) || framePresetList.find((p) => p.id === presetOrId) || null)
-      : presetOrId;
-    if (!preset) return null;
-
-    const pack = preset.packId ? framePresetApi?.getFramePackById?.(preset.packId, customFrames) : null;
-    const packLocked = Boolean(pack?.locked && !(framePresetApi?.isFramePackUnlocked?.(pack.id) ?? unlockedFramePackIds.includes(pack.id)));
-    if (packLocked) {
-      if (typeof options.onBlocked === 'function') {
-        options.onBlocked({ preset, pack });
-      }
-      return null;
-    }
-
-    const normalizedLayout = normalizePresetLayout(preset.layout || tweaks.layout);
-    const slotCount = getLayoutSlotCount(normalizedLayout);
-    const captureCount = getLayoutCaptureCount(normalizedLayout);
-    const nextSelected = Array.isArray(selected)
-      ? selected.filter((index) => Number.isInteger(index) && index >= 0 && index < slotCount).slice(0, slotCount)
-      : [];
-    const safeSelected = nextSelected.length > 0 ? nextSelected : Array.from({ length: slotCount }, (_, i) => i);
-    const nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
-    while (nextShots.length < captureCount) nextShots.push(null);
-
-    setSelectedFramePresetId(preset.id);
-    setSelected(safeSelected);
-    setShots(nextShots);
-    if (tweaks.layout !== normalizedLayout) {
-      updateTweak('layout', normalizedLayout);
-    }
-    if (tweaks.orientation !== 'portrait') {
-      updateTweak('orientation', 'portrait');
-    }
-    if (options.syncFrameColor !== false && preset.frameColor && preset.background?.type === 'solid') {
-      updateTweak('frameColor', preset.frameColor);
-    }
-    try {
-      localStorage.setItem('immm.v2.selectedFramePresetId', preset.id);
-      if (safeSelected.length > 0) {
-        localStorage.setItem('immm.v2.sel', JSON.stringify(safeSelected));
-      } else {
-        localStorage.removeItem('immm.v2.sel');
-      }
-    } catch (e) {
-      console.warn('[IMMM] selected frame sync failed:', e);
-    }
-    if (typeof options.onApply === 'function') {
-      options.onApply(preset);
-    }
-    recordFrameUse(preset.id);
-    return preset;
-  }, [customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, recordFrameUse, selected, shots, tweaks.layout, tweaks.orientation, unlockedFramePackIds]);
-  const saveCustomFrame = React.useCallback((input = {}) => {
-    if (!framePresetApi || typeof framePresetApi.createCustomFramePresetFromAppState !== 'function') return null;
-    const preset = framePresetApi.createCustomFramePresetFromAppState({
-      name: input.name || 'My Frame',
-      layout: input.layout || tweaks.layout,
-      frameColor: input.frameColor || tweaks.frameColor,
-      background: input.background || (activeFramePreset?.background || { type: 'solid', value: input.frameColor || tweaks.frameColor || '#FFFFFF' }),
-      decorations: input.decorations || activeFramePreset?.decorations || [],
-      stickers: input.stickers || [],
-      drawStrokes: input.drawStrokes || [],
-      photoSlots: input.photoSlots || activeFramePreset?.photoSlots,
-      watermark: input.watermark || activeFramePreset?.watermark,
-      canvasSize: input.canvasSize || activeFramePreset?.canvasSize,
-    });
-    const next = [...customFrames.filter((item) => item.id !== preset.id), preset];
-    persistCustomFrames(next);
-    applyFramePreset(preset, { syncFrameColor: true });
-    return preset;
-  }, [activeFramePreset, applyFramePreset, customFrames, framePresetApi, persistCustomFrames, tweaks.frameColor, tweaks.layout]);
-  const exportCustomFramesAsJson = React.useCallback((options = {}) => {
-    if (framePresetApi && typeof framePresetApi.exportCustomFramePackJson === 'function') {
-      return framePresetApi.exportCustomFramePackJson(customFrames, {
-        name: options.name || 'My Frames Export',
-        description: options.description || 'Exported custom frames pack.',
-        author: options.author || { name: 'You', handle: '', url: '' },
-        license: options.license || 'personal',
-        tags: Array.isArray(options.tags) ? options.tags : ['my-frames'],
-      });
-    }
-    return JSON.stringify({ schemaVersion: '1.0.0', kind: 'frame-pack', exportedAt: new Date().toISOString(), pack: {}, presets: [] }, null, 2);
-  }, [customFrames, framePresetApi]);
-  const importFramePackFromJson = React.useCallback((raw) => {
-    if (!raw || !String(raw).trim()) {
-      return { ok: false, error: 'Empty frame pack JSON' };
-    }
-    if (!framePresetApi || typeof framePresetApi.importFramePackJson !== 'function') {
-      return { ok: false, error: 'Frame pack import is unavailable' };
-    }
-    const result = framePresetApi.importFramePackJson(String(raw));
-    if (!result?.ok) return result;
-    const importedFrames = Array.isArray(result.presets) ? result.presets : [];
-    const next = [
-      ...customFrames.filter((frame) => !importedFrames.some((incoming) => incoming.id === frame.id)),
-      ...importedFrames,
-    ];
-    persistCustomFrames(next);
-    return result;
-  }, [customFrames, framePresetApi, persistCustomFrames]);
-  const renameCustomFrame = React.useCallback((frameId, nextName) => {
-    const name = String(nextName || '').trim();
-    if (!frameId || !name) return null;
-    const now = new Date().toISOString();
-    const next = customFrames.map((frame) => frame.id === frameId ? { ...frame, name, updatedAt: now } : frame);
-    persistCustomFrames(next);
-    return next.find((frame) => frame.id === frameId) || null;
-  }, [customFrames, persistCustomFrames]);
-  const duplicateCustomFrame = React.useCallback((frameId) => {
-    const source = customFrames.find((frame) => frame.id === frameId);
-    if (!source) return null;
-    const now = new Date().toISOString();
-    const copyId = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-    const copy = {
-      ...source,
-      id: copyId,
-      name: `${source.name || 'My Frame'} Copy`,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      source: 'custom',
-    };
-    const next = [...customFrames, copy];
-    persistCustomFrames(next);
-    setSelectedFramePresetId(copy.id);
-    return copy;
-  }, [customFrames, persistCustomFrames]);
-  const softDeleteCustomFrame = React.useCallback((frameId) => {
-    if (!frameId) return null;
-    const now = new Date().toISOString();
-    const next = customFrames.map((frame) => frame.id === frameId ? { ...frame, deletedAt: now, updatedAt: now } : frame);
-    persistCustomFrames(next);
-    if (selectedFramePresetId === frameId) {
-      setSelectedFramePresetId('');
-      try {
-        localStorage.removeItem('immm.v2.selectedFramePresetId');
-      } catch (_) {}
-    }
-    return next.find((frame) => frame.id === frameId) || null;
-  }, [customFrames, persistCustomFrames, selectedFramePresetId]);
-  const openDesigner = React.useCallback((input = {}) => {
-    const mode = input.mode || 'new';
-    const basePreset =
-      input.preset
-      || (input.presetId ? framePresetApi?.getFramePresetById?.(input.presetId, customFrames) : null)
-      || activeFramePreset
-      || framePresetList.find((preset) => preset.source !== 'custom')
-      || framePresetList[0]
-      || null;
-    const shouldDuplicate = mode === 'duplicate' || (mode === 'new' && basePreset && basePreset.source !== 'custom');
-    const created = shouldDuplicate
-      ? framePresetApi?.duplicateFramePresetAsDraft?.(basePreset)
-      : framePresetApi?.createFrameDesignerDraft?.(basePreset);
-    if (!created) return null;
-    const nextDraft = framePresetApi?.normalizeDesignerDraft?.(created) || created;
-    if (mode === 'edit' && basePreset?.id) {
-      nextDraft.id = basePreset.id;
-    }
-    setDesignerMode(mode);
-    setDesignerBasePresetId(basePreset?.id || '');
-    setDesignerDraftFrame(nextDraft);
-    setDesignerInitialDraftFrame(nextDraft);
-    setSetupStoreTabFocus(mode === 'edit' || mode === 'duplicate' || basePreset?.source === 'custom' ? 'my-frames' : 'featured');
-    setScreen('designer');
-    return nextDraft;
-  }, [activeFramePreset, customFrames, framePresetApi, framePresetList]);
-
-  React.useEffect(() => {
-    if (screen !== 'designer' || designerDraftFrame || !framePresetApi) return;
-    const recovered = framePresetApi.loadDesignerDraftRecovery?.();
-    const recoveredDraft = recovered?.draft
-      ? framePresetApi.normalizeDesignerDraft?.(recovered.draft)
-      : null;
-    const fallbackPreset =
-      activeFramePreset
-      || framePresetList.find((preset) => preset.id === defaultFramePresetId)
-      || framePresetList.find((preset) => preset.source !== 'custom')
-      || framePresetList[0]
-      || null;
-    const fallbackDraft = recoveredDraft || framePresetApi.createFrameDesignerDraft?.(fallbackPreset);
-    const nextDraft = framePresetApi.normalizeDesignerDraft?.(fallbackDraft) || fallbackDraft;
-    if (!nextDraft) {
-      setScreen('setup');
-      return;
-    }
-    setDesignerMode(recoveredDraft ? 'edit' : 'new');
-    setDesignerBasePresetId(fallbackPreset?.id || '');
-    setDesignerDraftFrame(nextDraft);
-    setDesignerInitialDraftFrame(nextDraft);
-  }, [activeFramePreset, defaultFramePresetId, designerDraftFrame, framePresetApi, framePresetList, screen]);
-  const saveDesignerFrame = React.useCallback((inputDraft = null, options = {}) => {
-    const targetDraft = inputDraft || designerDraftFrame;
-    if (!targetDraft) {
-      return { ok: false, error: 'Designer draft missing' };
-    }
-    const validation = framePresetApi?.validateDesignerDraft?.(targetDraft);
-    if (!validation?.ok) {
-      return validation || { ok: false, error: 'Designer draft invalid' };
-    }
-    const preset = framePresetApi?.draftToCustomFramePreset?.(validation.draft);
-    if (!preset) {
-      return { ok: false, error: 'Unable to save designer frame' };
-    }
-    const next = [...customFrames.filter((item) => item.id !== preset.id), preset];
-    persistCustomFrames(next);
-    setSelectedFramePresetId(preset.id);
-    setDesignerDraftFrame(validation.draft);
-    setDesignerInitialDraftFrame(validation.draft);
-    setDesignerMode('edit');
-    framePresetApi?.clearDesignerDraftRecovery?.();
-    setDesignerDraftRecovery(null);
-    applyFramePreset(preset, { syncFrameColor: true });
-    setSetupStoreTabFocus('my-frames');
-    recordFrameUse(preset.id);
-    if (options.stayOnDesigner) {
-      return { ok: true, preset };
-    }
-    setScreen('setup');
-    return { ok: true, preset };
-  }, [applyFramePreset, customFrames, designerDraftFrame, framePresetApi, persistCustomFrames, recordFrameUse]);
-  const saveDesignerPackDraft = React.useCallback((inputDraft = null, options = {}) => {
-    const targetDraft = inputDraft || designerDraftFrame;
-    if (!targetDraft) {
-      return { ok: false, error: 'Designer draft missing' };
-    }
-    const validation = framePresetApi?.validateDesignerDraft?.(targetDraft);
-    if (!validation?.ok) {
-      return validation || { ok: false, error: 'Designer draft invalid' };
-    }
-    const preset = framePresetApi?.draftToCustomFramePreset?.(validation.draft);
-    if (!preset) {
-      return { ok: false, error: 'Unable to export pack draft' };
-    }
-    const json = framePresetApi?.exportCustomFramePackJson?.([preset], {
-      id: options.id || preset.packId || preset.id,
-      name: options.name || preset.name || 'Pack Draft',
-      description: options.description || 'Designer pack draft.',
-      author: options.author || preset.author,
-      license: options.license || preset.license,
-      tags: options.tags || preset.packTags || [],
-      coverPresetId: preset.id,
-    });
-    if (!json) {
-      return { ok: false, error: 'Pack export unavailable' };
-    }
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(json).catch(() => {});
-    }
-    framePresetApi?.clearDesignerDraftRecovery?.();
-    setDesignerDraftRecovery(null);
-    return { ok: true, json };
-  }, [designerDraftFrame, framePresetApi]);
-  const unlockFramePackForDev = React.useCallback((packId) => {
-    if (!packId) return [];
-    const next = framePresetApi?.unlockFramePackForDev?.(packId) || Array.from(new Set([...unlockedFramePackIds, packId]));
-    setUnlockedFramePackIds(next);
-    return next;
-  }, [framePresetApi, unlockedFramePackIds]);
-  const toggleFavoriteFramePack = React.useCallback((packId) => {
-    if (!packId) return [];
-    const next = framePresetApi?.toggleFavoriteFramePackId?.(packId, favoriteFramePackIds)
-      || (favoriteFramePackIds.includes(packId) ? favoriteFramePackIds.filter((id) => id !== packId) : [...favoriteFramePackIds, packId]);
-    setFavoriteFramePackIds(next);
-    return next;
-  }, [favoriteFramePackIds, framePresetApi]);
-  const toggleFavoriteFramePreset = React.useCallback((presetId) => {
-    if (!presetId) return [];
-    const next = framePresetApi?.toggleFavoriteFramePresetId?.(presetId, favoriteFramePresetIds)
-      || (favoriteFramePresetIds.includes(presetId)
-        ? favoriteFramePresetIds.filter((id) => id !== presetId)
-        : [...favoriteFramePresetIds, presetId]);
-    setFavoriteFramePresetIds(next);
-    return next;
-  }, [favoriteFramePresetIds, framePresetApi]);
-  const toggleFrameLike = React.useCallback((frameId) => {
-    if (!frameId) return [];
-    const next = framePresetApi?.toggleFrameLikeId?.(frameId, frameLikeIds)
-      || (frameLikeIds.includes(frameId) ? frameLikeIds.filter((id) => id !== frameId) : [...frameLikeIds, frameId]);
-    setFrameLikeIds(next);
-    return next;
-  }, [frameLikeIds, framePresetApi]);
-  const recordFrameUse = React.useCallback((frameId) => {
-    if (!frameId) return 0;
-    const nextCount = framePresetApi?.incrementFrameUseCount?.(frameId) ?? ((Number(frameUseCounts?.[frameId]) || 0) + 1);
-    const next = { ...(frameUseCounts || {}), [frameId]: nextCount };
-    setFrameUseCounts(next);
-    return nextCount;
-  }, [framePresetApi, frameUseCounts]);
-  const setLayoutAndPreset = React.useCallback((layoutId, options = {}) => {
-    const normalizedLayout = normalizePresetLayout(layoutId);
-    if (options.baseOnly === true) {
-      updateTweak('layout', normalizedLayout);
-      updateTweak('orientation', 'portrait');
-      setSelectedFramePresetId('');
-      const slotCount = getLayoutSlotCount(normalizedLayout);
-      const captureCount = getLayoutCaptureCount(normalizedLayout);
-      const nextSelected = Array.from({ length: slotCount }, (_, i) => i);
-      const nextShots = Array.from({ length: captureCount }, (_, i) => shots[i] || null);
-      setSelected(nextSelected);
-      setShots(nextShots);
-      try {
-        localStorage.removeItem('immm.v2.selectedFramePresetId');
-        localStorage.setItem('immm.v2.sel', JSON.stringify(nextSelected));
-      } catch (e) {
-        console.warn('[IMMM] base layout sync failed:', e);
-      }
-      return;
-    }
-    const nextPresetId = framePresetApi?.getDefaultFramePresetIdForLayout?.(normalizedLayout, customFrames)
-      || framePresetList.find((preset) => preset.layout === normalizedLayout)?.id
-      || '';
-    if (nextPresetId) {
-      const preset = framePresetApi?.getFramePresetById?.(nextPresetId, customFrames) || framePresetList.find((framePreset) => framePreset.id === nextPresetId) || null;
-      const pack = preset?.packId ? framePresetApi?.getFramePackById?.(preset.packId, customFrames) : null;
-      const packLocked = Boolean(pack?.locked && !(framePresetApi?.isFramePackUnlocked?.(pack.id) ?? unlockedFramePackIds.includes(pack.id)));
-      if (preset && !packLocked) {
-        applyFramePreset({ ...preset, layout: normalizedLayout }, { syncFrameColor: true });
-        return;
-      }
-    }
-    updateTweak('layout', normalizedLayout);
-    updateTweak('orientation', 'portrait');
-    setSelectedFramePresetId('');
-    const slotCount = getLayoutSlotCount(normalizedLayout);
-    const captureCount = getLayoutCaptureCount(normalizedLayout);
-    const nextSelected = Array.from({ length: slotCount }, (_, i) => i);
-    const nextShots = Array.from({ length: captureCount }, (_, i) => shots[i] || null);
-    setSelected(nextSelected);
-    setShots(nextShots);
-    try {
-      if (nextPresetId) {
-        localStorage.setItem('immm.v2.selectedFramePresetId', nextPresetId);
-      } else {
-        localStorage.removeItem('immm.v2.selectedFramePresetId');
-      }
-      localStorage.setItem('immm.v2.sel', JSON.stringify(nextSelected));
-    } catch (e) {
-      console.warn('[IMMM] layout preset sync failed:', e);
-    }
-  }, [applyFramePreset, customFrames, framePresetApi, framePresetList, getLayoutCaptureCount, getLayoutSlotCount, normalizePresetLayout, shots, unlockedFramePackIds]);
 
   const frameShotCount = typeof getShotCountForLayout === 'function'
     ? getShotCountForLayout(tweaks.layout)
@@ -1738,60 +1068,6 @@ function App() {
     lang, setLang,
     activeSessionId,
     resetSessionState,
-    selectedFramePresetId,
-    setSelectedFramePresetId,
-    framePresetList,
-    framePackList,
-    customFrames,
-    setCustomFrames,
-    designerDraftFrame,
-    setDesignerDraftFrame,
-    designerInitialDraftFrame,
-    setDesignerInitialDraftFrame,
-    designerBasePresetId,
-    setDesignerBasePresetId,
-    designerMode,
-    setDesignerMode,
-    setupStoreTabFocus,
-    setSetupStoreTabFocus,
-    activeFramePreset,
-    applyFramePreset,
-    saveCustomFrame,
-    exportCustomFramesAsJson,
-    importFramePackFromJson,
-    openDesigner,
-    saveDesignerFrame,
-    saveDesignerPackDraft,
-    renameCustomFrame,
-    duplicateCustomFrame,
-    deleteCustomFrame: softDeleteCustomFrame,
-    unlockedFramePackIds,
-    setUnlockedFramePackIds,
-    favoriteFramePackIds,
-    setFavoriteFramePackIds,
-    favoriteFramePresetIds,
-    setFavoriteFramePresetIds,
-    unlockFramePackForDev,
-    toggleFavoriteFramePack,
-    toggleFavoriteFramePreset,
-    toggleFrameLike,
-    frameLikeIds,
-    frameUseCounts,
-    recordFrameUse,
-    creatorProfiles,
-    setCreatorProfiles,
-    exportPresetId,
-    setExportPresetId,
-    getExportPresetById: framePresetApi?.getExportPresetById,
-    getExportPresets: framePresetApi?.getExportPresets,
-    getDefaultExportPresetId: framePresetApi?.getDefaultExportPresetId,
-    generateFrameIdea: framePresetApi?.generateFrameIdea,
-    loadDesignerDraftRecovery: framePresetApi?.loadDesignerDraftRecovery,
-    saveDesignerDraftRecovery: framePresetApi?.saveDesignerDraftRecovery,
-    clearDesignerDraftRecovery: framePresetApi?.clearDesignerDraftRecovery,
-    designerDraftRecovery,
-    setDesignerDraftRecovery,
-    setLayoutAndPreset,
     cameraZoomSupported,
     cameraZoomMin,
     cameraZoomMax,
@@ -1811,44 +1087,18 @@ function App() {
         return <LandingV2 {...p}
           onStart={() => { setPhotoEditMode(false); go('setup'); }}
           onEdit={() => { setPhotoEditMode(true); go('setup'); }}
-          onFrames={() => { setPhotoEditMode(false); go('frames'); }}
           onGallery={() => go('gallery')}
         />;
       case 'gallery':
         return <GalleryV2 {...p} />;
       case 'share':
         return <SharedPhotoV2 {...p} />;
-      case 'frames':
-        return <FrameStoreScreen {...p}
-          setLayout={setLayoutAndPreset}
-          framePreset={activeFramePreset}
-          framePresets={framePresetList}
-          customFrames={customFrames}
-          applyFramePreset={applyFramePreset}
-          saveCustomFrame={saveCustomFrame}
-          exportCustomFramesAsJson={exportCustomFramesAsJson}
-          importFramePackFromJson={importFramePackFromJson}
-          openDesigner={openDesigner}
-          renameCustomFrame={renameCustomFrame}
-          duplicateCustomFrame={duplicateCustomFrame}
-          deleteCustomFrame={softDeleteCustomFrame}
-          storeTabFocus={setupStoreTabFocus}
-        />;
-      case 'designer':
-        return <DesignerScreen {...p}
-          draftFrame={designerDraftFrame}
-          setDraftFrame={setDesignerDraftFrame}
-          initialDraftFrame={designerInitialDraftFrame}
-          designerBasePresetId={designerBasePresetId}
-          designerMode={designerMode}
-          setDesignerMode={setDesignerMode}
-          saveDesignerFrame={saveDesignerFrame}
-          saveDesignerPackDraft={saveDesignerPackDraft}
-          openDesigner={openDesigner}
-        />;
       case 'setup':
         return <SetupScreen {...p}
-          setLayout={setLayoutAndPreset}
+          setLayout={v => {
+            updateTweak('layout', v);
+            startNewCaptureSession();  // Reset session when layout changes
+          }}
           setFilter={v => updateTweak('filter', v)}
           setLogo={v => updateTweak('logo', v)}
           setDateText={v => updateTweak('dateText', v)}
@@ -1856,18 +1106,9 @@ function App() {
           setFrameColor={v => updateTweak('frameColor', v)}
           setUseWebgl={v => updateTweak('useWebgl', v)}
           preStickers={preStickers} setPreStickers={setPreStickers}
-          framePreset={activeFramePreset}
-          framePresets={framePresetList}
-          customFrames={customFrames}
-          applyFramePreset={applyFramePreset}
-          saveCustomFrame={saveCustomFrame}
-          exportCustomFramesAsJson={exportCustomFramesAsJson}
-          importFramePackFromJson={importFramePackFromJson}
-          openDesigner={openDesigner}
           editMode={photoEditMode}
           shots={shots} setShots={setShots} setSelected={setSelected}
           startNewCaptureSession={startNewCaptureSession}
-          storeTabFocus={setupStoreTabFocus}
         />;
       case 'capture':
         return <CaptureV2 {...p}
@@ -1902,7 +1143,6 @@ function App() {
           lastWideTogglePath={lastWideTogglePath}
           cameraZoomHistory={cameraZoomHistory}
           onDebugSwitchCameraDevice={onDebugSwitchCameraDevice}
-          framePreset={activeFramePreset}
         />;
       case 'select':
         return <SelectV2 {...p}
@@ -1915,15 +1155,12 @@ function App() {
           stickers={stickers} setStickers={setStickers}
           drawStrokes={drawStrokes} setDrawStrokes={setDrawStrokes}
           setDateText={v => updateTweak('dateText', v)}
-          framePreset={activeFramePreset}
-          saveCustomFrame={saveCustomFrame}
         />;
       case 'result':
         // Guard moved to effect — screen should be 'setup' if no photos in current session
         return <ResultV2 {...p}
           shots={effShots} selected={effSelected}
           stickers={stickers} drawStrokes={drawStrokes}
-          framePreset={activeFramePreset}
         />;
       default:
         return null;

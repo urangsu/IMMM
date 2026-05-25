@@ -2249,7 +2249,14 @@ function App() {
         }));
       case 'setup':
         return /*#__PURE__*/React.createElement(SetupScreen, _extends({}, p, {
+<<<<<<< HEAD
           setLayout: setLayoutAndPreset,
+=======
+          setLayout: v => {
+            updateTweak('layout', v);
+            startNewCaptureSession(); // Reset session when layout changes
+          },
+>>>>>>> 6a6402e (fix: phase 1-2 layout reset, debounce, array bounds, error handling)
           setFilter: v => updateTweak('filter', v),
           setLogo: v => updateTweak('logo', v),
           setDateText: v => updateTweak('dateText', v),
