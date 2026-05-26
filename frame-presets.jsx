@@ -12,6 +12,7 @@ const FRAME_EXPORT_PRESET_STORAGE_KEY = 'immm.v2.exportPresets';
 
 const FRAME_BLEND_MODE_WHITELIST = ['normal', 'multiply', 'screen', 'overlay', 'soft-light'];
 const FRAME_LAYER_TYPES = ['background', 'photo-slots', 'overlays', 'text', 'stickers', 'watermark', 'fx'];
+const FRAME_SYSTEM_LAYER_TYPES = ['background', 'photo-slots', 'watermark'];
 
 const FRAME_EXPORT_PRESETS = [
   { id: 'hd', name: 'HD', widthFactor: 1, heightFactor: 1, description: 'Original high quality export.' },
@@ -166,9 +167,29 @@ function buildDefaultFrameLayers() {
 }
 
 function normalizeFrameLayers(layers) {
-  const source = Array.isArray(layers) && layers.length ? layers : buildDefaultFrameLayers();
-  const normalized = source.map((layer, index) => createFrameLayer(layer, index)).filter(Boolean);
-  return normalized.sort((a, b) => Number(a.zIndex) - Number(b.zIndex));
+  const defaults = buildDefaultFrameLayers();
+  const source = Array.isArray(layers) && layers.length ? layers : defaults;
+  const byType = new Map();
+
+  source.forEach((layer, index) => {
+    const normalized = createFrameLayer(layer, index);
+    if (!normalized || !FRAME_LAYER_TYPES.includes(normalized.type)) return;
+    byType.set(normalized.type, normalized);
+  });
+
+  return defaults
+    .map((fallbackLayer, index) => {
+      const incoming = byType.get(fallbackLayer.type) || {};
+      return createFrameLayer({
+        ...fallbackLayer,
+        ...incoming,
+        id: incoming.id || fallbackLayer.id,
+        visible: FRAME_SYSTEM_LAYER_TYPES.includes(fallbackLayer.type) ? true : incoming.visible !== false,
+        locked: FRAME_SYSTEM_LAYER_TYPES.includes(fallbackLayer.type) ? true : Boolean(incoming.locked),
+        zIndex: Number.isFinite(incoming.zIndex) ? Number(incoming.zIndex) : fallbackLayer.zIndex,
+      }, index);
+    })
+    .sort((a, b) => Number(a.zIndex) - Number(b.zIndex));
 }
 
 function getFrameLayerOrder(preset) {

@@ -5404,6 +5404,7 @@ function DesignerScreen({
   var currentDecorations = normalizedDraft?.decorations || [];
   var currentLayers = normalizedDraft?.layers || [];
   var currentMotionLayers = normalizedDraft?.motionLayers || [];
+  var isSystemLayer = layer => ['background', 'photo-slots', 'watermark'].includes(layer?.type);
   var selectedSlot = currentLayoutSlots[selectedSlotIndex] || currentLayoutSlots[0] || null;
   var selectedDecoration = currentDecorations[selectedDecorationIndex] || currentDecorations[0] || null;
   var selectedLayer = currentLayers[activeLayerIndex] || currentLayers[0] || null;
@@ -6583,6 +6584,7 @@ function DesignerScreen({
     }
   }, currentLayers.map((layer, index) => {
     var active = activeLayerIndex === index;
+    var readOnly = isSystemLayer(layer);
     return /*#__PURE__*/React.createElement("div", {
       key: layer.id || index,
       style: {
@@ -6606,13 +6608,20 @@ function DesignerScreen({
         fontWeight: 800,
         color: T.ink
       }
-    }, index + 1, ". ", layer.type), /*#__PURE__*/React.createElement("div", {
+    }, index + 1, ". ", layer.type), readOnly && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10.5,
+        lineHeight: 1.45,
+        color: T.inkSoft
+      }
+    }, "System layer. Background, photo slots, and watermark stay fixed so the preview/export pipeline does not break."), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 6,
         flexWrap: 'wrap'
       }
     }, /*#__PURE__*/React.createElement("button", {
+      disabled: readOnly,
       onClick: () => setLayerPatch(index, {
         visible: !layer.visible
       }),
@@ -6620,14 +6629,16 @@ function DesignerScreen({
         minHeight: 38,
         borderRadius: 999,
         border: `1px solid ${T.line}`,
-        background: layer.visible ? T.ink : '#fff',
-        color: layer.visible ? T.bg : T.ink,
+        background: !readOnly && layer.visible ? T.ink : '#fff',
+        color: !readOnly && layer.visible ? T.bg : T.ink,
         padding: '0 10px',
         fontSize: 10,
         fontWeight: 800,
-        textTransform: 'uppercase'
+        textTransform: 'uppercase',
+        opacity: readOnly ? 0.45 : 1
       }
     }, layer.visible ? 'Visible' : 'Hidden'), /*#__PURE__*/React.createElement("button", {
+      disabled: readOnly,
       onClick: () => setLayerPatch(index, {
         locked: !layer.locked
       }),
@@ -6635,16 +6646,17 @@ function DesignerScreen({
         minHeight: 38,
         borderRadius: 999,
         border: `1px solid ${T.line}`,
-        background: layer.locked ? T.ink : '#fff',
-        color: layer.locked ? T.bg : T.ink,
+        background: !readOnly && layer.locked ? T.ink : '#fff',
+        color: !readOnly && layer.locked ? T.bg : T.ink,
         padding: '0 10px',
         fontSize: 10,
         fontWeight: 800,
-        textTransform: 'uppercase'
+        textTransform: 'uppercase',
+        opacity: readOnly ? 0.45 : 1
       }
     }, layer.locked ? 'Locked' : 'Unlocked'), /*#__PURE__*/React.createElement("button", {
       onClick: () => moveLayer(index, -1),
-      disabled: index === 0,
+      disabled: readOnly || index === 0,
       style: {
         minHeight: 38,
         borderRadius: 999,
@@ -6653,11 +6665,12 @@ function DesignerScreen({
         padding: '0 10px',
         fontSize: 10,
         fontWeight: 800,
-        textTransform: 'uppercase'
+        textTransform: 'uppercase',
+        opacity: readOnly ? 0.45 : 1
       }
     }, "Up"), /*#__PURE__*/React.createElement("button", {
       onClick: () => moveLayer(index, 1),
-      disabled: index === currentLayers.length - 1,
+      disabled: readOnly || index === currentLayers.length - 1,
       style: {
         minHeight: 38,
         borderRadius: 999,
@@ -6666,10 +6679,12 @@ function DesignerScreen({
         padding: '0 10px',
         fontSize: 10,
         fontWeight: 800,
-        textTransform: 'uppercase'
+        textTransform: 'uppercase',
+        opacity: readOnly ? 0.45 : 1
       }
     }, "Down"), /*#__PURE__*/React.createElement("button", {
       onClick: () => duplicateLayer(index),
+      disabled: readOnly,
       style: {
         minHeight: 38,
         borderRadius: 999,
@@ -6678,10 +6693,12 @@ function DesignerScreen({
         padding: '0 10px',
         fontSize: 10,
         fontWeight: 800,
-        textTransform: 'uppercase'
+        textTransform: 'uppercase',
+        opacity: readOnly ? 0.45 : 1
       }
     }, "Duplicate"), /*#__PURE__*/React.createElement("button", {
       onClick: () => deleteLayer(index),
+      disabled: readOnly,
       style: {
         minHeight: 38,
         borderRadius: 999,
@@ -6690,7 +6707,8 @@ function DesignerScreen({
         padding: '0 10px',
         fontSize: 10,
         fontWeight: 800,
-        textTransform: 'uppercase'
+        textTransform: 'uppercase',
+        opacity: readOnly ? 0.45 : 1
       }
     }, "Delete")), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -6706,6 +6724,7 @@ function DesignerScreen({
         color: T.inkSoft
       }
     }, "Opacity", /*#__PURE__*/React.createElement("input", {
+      disabled: readOnly,
       type: "number",
       min: "0",
       max: "1",
@@ -6718,7 +6737,8 @@ function DesignerScreen({
         minHeight: 38,
         borderRadius: 10,
         border: `1px solid ${T.line}`,
-        padding: '0 10px'
+        padding: '0 10px',
+        opacity: readOnly ? 0.55 : 1
       }
     })), /*#__PURE__*/React.createElement("label", {
       style: {
@@ -6728,6 +6748,7 @@ function DesignerScreen({
         color: T.inkSoft
       }
     }, "Blend", /*#__PURE__*/React.createElement("select", {
+      disabled: readOnly,
       value: layer.blendMode || 'normal',
       onChange: e => setLayerPatch(index, {
         blendMode: e.target.value
@@ -6736,7 +6757,8 @@ function DesignerScreen({
         minHeight: 38,
         borderRadius: 10,
         border: `1px solid ${T.line}`,
-        padding: '0 10px'
+        padding: '0 10px',
+        opacity: readOnly ? 0.55 : 1
       }
     }, ['normal', 'multiply', 'screen', 'overlay', 'soft-light'].map(mode => /*#__PURE__*/React.createElement("option", {
       key: mode,
@@ -6749,6 +6771,7 @@ function DesignerScreen({
         color: T.inkSoft
       }
     }, "zIndex", /*#__PURE__*/React.createElement("input", {
+      disabled: readOnly,
       type: "number",
       value: Number(layer.zIndex ?? index),
       onChange: e => setLayerPatch(index, {
@@ -6758,10 +6781,17 @@ function DesignerScreen({
         minHeight: 38,
         borderRadius: 10,
         border: `1px solid ${T.line}`,
-        padding: '0 10px'
+        padding: '0 10px',
+        opacity: readOnly ? 0.55 : 1
       }
     }))));
   })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      lineHeight: 1.45,
+      color: T.inkSoft
+    }
+  }, "Layers control render groups only. Use Decorations and Text tabs to move actual objects on canvas."), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,

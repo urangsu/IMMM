@@ -3203,6 +3203,7 @@ function DesignerScreen({
   const currentDecorations = normalizedDraft?.decorations || [];
   const currentLayers = normalizedDraft?.layers || [];
   const currentMotionLayers = normalizedDraft?.motionLayers || [];
+  const isSystemLayer = (layer) => ['background', 'photo-slots', 'watermark'].includes(layer?.type);
   const selectedSlot = currentLayoutSlots[selectedSlotIndex] || currentLayoutSlots[0] || null;
   const selectedDecoration = currentDecorations[selectedDecorationIndex] || currentDecorations[0] || null;
   const selectedLayer = currentLayers[activeLayerIndex] || currentLayers[0] || null;
@@ -3848,42 +3849,51 @@ function DesignerScreen({
             <div style={{ display: 'grid', gap: 8 }}>
               {currentLayers.map((layer, index) => {
                 const active = activeLayerIndex === index;
+                const readOnly = isSystemLayer(layer);
                 return (
                   <div key={layer.id || index} style={{ border: `1px solid ${active ? T.ink : T.line}`, borderRadius: 12, background: active ? T.card : '#fff', padding: 10, display: 'grid', gap: 8 }}>
                     <button onClick={() => setActiveLayerIndex(index)} style={{ minHeight: 44, borderRadius: 10, border: 'none', background: 'transparent', padding: 0, textAlign: 'left', fontSize: 11, fontWeight: 800, color: T.ink }}>
                       {index + 1}. {layer.type}
                     </button>
+                    {readOnly && (
+                      <div style={{ fontSize: 10.5, lineHeight: 1.45, color: T.inkSoft }}>
+                        System layer. Background, photo slots, and watermark stay fixed so the preview/export pipeline does not break.
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <button onClick={() => setLayerPatch(index, { visible: !layer.visible })} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: layer.visible ? T.ink : '#fff', color: layer.visible ? T.bg : T.ink, padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>
+                      <button disabled={readOnly} onClick={() => setLayerPatch(index, { visible: !layer.visible })} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: !readOnly && layer.visible ? T.ink : '#fff', color: !readOnly && layer.visible ? T.bg : T.ink, padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', opacity: readOnly ? 0.45 : 1 }}>
                         {layer.visible ? 'Visible' : 'Hidden'}
                       </button>
-                      <button onClick={() => setLayerPatch(index, { locked: !layer.locked })} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: layer.locked ? T.ink : '#fff', color: layer.locked ? T.bg : T.ink, padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>
+                      <button disabled={readOnly} onClick={() => setLayerPatch(index, { locked: !layer.locked })} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: !readOnly && layer.locked ? T.ink : '#fff', color: !readOnly && layer.locked ? T.bg : T.ink, padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', opacity: readOnly ? 0.45 : 1 }}>
                         {layer.locked ? 'Locked' : 'Unlocked'}
                       </button>
-                      <button onClick={() => moveLayer(index, -1)} disabled={index === 0} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>Up</button>
-                      <button onClick={() => moveLayer(index, 1)} disabled={index === currentLayers.length - 1} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>Down</button>
-                      <button onClick={() => duplicateLayer(index)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>Duplicate</button>
-                      <button onClick={() => deleteLayer(index)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>Delete</button>
+                      <button onClick={() => moveLayer(index, -1)} disabled={readOnly || index === 0} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', opacity: readOnly ? 0.45 : 1 }}>Up</button>
+                      <button onClick={() => moveLayer(index, 1)} disabled={readOnly || index === currentLayers.length - 1} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', opacity: readOnly ? 0.45 : 1 }}>Down</button>
+                      <button onClick={() => duplicateLayer(index)} disabled={readOnly} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', opacity: readOnly ? 0.45 : 1 }}>Duplicate</button>
+                      <button onClick={() => deleteLayer(index)} disabled={readOnly} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', padding: '0 10px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', opacity: readOnly ? 0.45 : 1 }}>Delete</button>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                       <label style={{ display: 'grid', gap: 4, fontSize: 10, color: T.inkSoft }}>
                         Opacity
-                        <input type="number" min="0" max="1" step="0.05" value={Number(layer.opacity ?? 1)} onChange={(e) => setLayerPatch(index, { opacity: Number(e.target.value) })} style={{ minHeight: 38, borderRadius: 10, border: `1px solid ${T.line}`, padding: '0 10px' }} />
+                        <input disabled={readOnly} type="number" min="0" max="1" step="0.05" value={Number(layer.opacity ?? 1)} onChange={(e) => setLayerPatch(index, { opacity: Number(e.target.value) })} style={{ minHeight: 38, borderRadius: 10, border: `1px solid ${T.line}`, padding: '0 10px', opacity: readOnly ? 0.55 : 1 }} />
                       </label>
                       <label style={{ display: 'grid', gap: 4, fontSize: 10, color: T.inkSoft }}>
                         Blend
-                        <select value={layer.blendMode || 'normal'} onChange={(e) => setLayerPatch(index, { blendMode: e.target.value })} style={{ minHeight: 38, borderRadius: 10, border: `1px solid ${T.line}`, padding: '0 10px' }}>
+                        <select disabled={readOnly} value={layer.blendMode || 'normal'} onChange={(e) => setLayerPatch(index, { blendMode: e.target.value })} style={{ minHeight: 38, borderRadius: 10, border: `1px solid ${T.line}`, padding: '0 10px', opacity: readOnly ? 0.55 : 1 }}>
                           {['normal', 'multiply', 'screen', 'overlay', 'soft-light'].map((mode) => <option key={mode} value={mode}>{mode}</option>)}
                         </select>
                       </label>
                       <label style={{ display: 'grid', gap: 4, fontSize: 10, color: T.inkSoft }}>
                         zIndex
-                        <input type="number" value={Number(layer.zIndex ?? index)} onChange={(e) => setLayerPatch(index, { zIndex: Number(e.target.value) })} style={{ minHeight: 38, borderRadius: 10, border: `1px solid ${T.line}`, padding: '0 10px' }} />
+                        <input disabled={readOnly} type="number" value={Number(layer.zIndex ?? index)} onChange={(e) => setLayerPatch(index, { zIndex: Number(e.target.value) })} style={{ minHeight: 38, borderRadius: 10, border: `1px solid ${T.line}`, padding: '0 10px', opacity: readOnly ? 0.55 : 1 }} />
                       </label>
                     </div>
                   </div>
                 );
               })}
+            </div>
+            <div style={{ fontSize: 10.5, lineHeight: 1.45, color: T.inkSoft }}>
+              Layers control render groups only. Use Decorations and Text tabs to move actual objects on canvas.
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => setShowGuides((v) => !v)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: showGuides ? T.ink : '#fff', color: showGuides ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>{showGuides ? 'Guides On' : 'Guides Off'}</button>
