@@ -63,6 +63,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const [zoomToggleError, setZoomToggleError] = React.useState('');
   const touchStartY = React.useRef(null);
   const cameraFrameRef = React.useRef(null);
+  const isCapturingRef = React.useRef(false);  // Debounce rapid-click shutter
 
   // Only show stickers assigned to the current frame slot during live capture preview.
   // Extra candidate shots (idx >= slotCount) get no stickers to prevent duplication.
@@ -310,6 +311,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   }, []);
 
   const takeShot = React.useCallback(() => {
+    if (isCapturingRef.current) return;  // Prevent rapid-click overlap
+    isCapturingRef.current = true;
     setFlashing(true);
     setTimeout(()=>setFlashing(false), 140);
 
@@ -386,6 +389,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         return copy;
       });
         setIdx(i => Math.min(i+1, shotCount));
+        isCapturingRef.current = false;  // Allow next capture
       };
 
     // Wait for video ready if needed
@@ -1193,8 +1197,8 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
       console.error('[IMMM] frame-system not ready: getFrameTemplate missing');
       return null;
     };
-    const template = resolveFrameTemplate(layout);
-    if (!template) {
+    const resolvedTemplate = resolveFrameTemplate(layout);  // Use different name to avoid shadowing prop
+    if (!resolvedTemplate) {
       console.warn('[IMMM] skip overlay draw: template unavailable', layout);
       return;
     }
@@ -1202,18 +1206,18 @@ function CaptureOverlay({ template, layout, logo, dateText, accent, frameColor, 
     const renderOverlay = window.renderFrameOverlay || (typeof renderFrameOverlay === 'function' ? renderFrameOverlay : null);
     if (pr && renderOverlay) {
       // Scale factor: the photo rect occupies gW px in the overlay
-      const s = gW / (pr.w * template.canvasSize.width);
-      const fullW = template.canvasSize.width * s;
-      const fullH = template.canvasSize.height * s;
-      const offsetX = l - pr.x * template.canvasSize.width * s;
-      const offsetY = t - pr.y * template.canvasSize.height * s;
+      const s = gW / (pr.w * resolvedTemplate.canvasSize.width);
+      const fullW = resolvedTemplate.canvasSize.width * s;
+      const fullH = resolvedTemplate.canvasSize.height * s;
+      const offsetX = l - pr.x * resolvedTemplate.canvasSize.width * s;
+      const offsetY = t - pr.y * resolvedTemplate.canvasSize.height * s;
 
       ctx.save();
       ctx.translate(offsetX, offsetY);
       const getTheme = window.getFrameTheme || (typeof getFrameTheme === 'function' ? getFrameTheme : null);
-      const theme = getTheme ? getTheme(template, { frameColor }) : null;
+      const theme = getTheme ? getTheme(resolvedTemplate, { frameColor }) : null;
 
-      renderOverlay(ctx, template, fullW, fullH, {
+      renderOverlay(ctx, resolvedTemplate, fullW, fullH, {
         frameColor,
         logo,
         dateText,

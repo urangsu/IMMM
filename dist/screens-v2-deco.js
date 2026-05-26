@@ -1463,6 +1463,18 @@ function ResultV2({
   activeSessionId
 }) {
   var shotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
+
+  // Validate selected indices on entry to prevent contamination from stale data
+  var effectiveSelected = selected.filter(idx => {
+    if (typeof idx !== 'number' || idx < 0 || idx >= shots.length) {
+      console.warn(`[IMMM] Invalid selection index: ${idx} (shots.length=${shots.length})`);
+      return false;
+    }
+    return true;
+  });
+  if (effectiveSelected.length !== selected.length) {
+    console.warn(`[IMMM] Auto-corrected selection: ${selected.length} → ${effectiveSelected.length}`);
+  }
   var getResultPreviewBaseWidth = (layoutId, isMobile) => {
     if (isMobile) {
       if (layoutId === 'strip') return 230;
@@ -1669,6 +1681,11 @@ function ResultV2({
       resultPreviewUrlRef.current = null;
       revokeBlobUrl(saveSheetUrlRef.current);
       saveSheetUrlRef.current = null;
+
+      // Clear all shared blob URLs from ShareStore
+      if (typeof window !== 'undefined' && window.ShareStore && typeof window.ShareStore.clearAllLocalUrls === 'function') {
+        window.ShareStore.clearAllLocalUrls();
+      }
     };
   }, []);
 
@@ -2168,11 +2185,16 @@ function ResultV2({
   var handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    var sessionAtStart = activeSessionId;
     if (window.trackImmmEvent) window.trackImmmEvent('result_download', {
       layout,
       action: 'save_image'
     });
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       var blob = await getFinalResultBlob();
       var fname = getFormattedFilename();
       await saveResultToGallery(blob, 'local', {
@@ -2191,11 +2213,16 @@ function ResultV2({
   var handleShare = async () => {
     if (sharing) return;
     setSharing(true);
+    var sessionAtStart = activeSessionId;
     if (window.trackImmmEvent) window.trackImmmEvent('result_share_attempt', {
       layout,
       action: 'native_share'
     });
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       var blob = await getFinalResultBlob();
       var fname = getFormattedFilename();
       var file = new File([blob], fname, {
@@ -2272,8 +2299,13 @@ function ResultV2({
     var state = getQrShareState();
     if (!state.ready) return;
     if (qrBusy) return;
+    var sessionAtStart = activeSessionId;
     setQrBusy(true);
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       var blob = await getFinalResultBlob();
       if (!blob) throw Object.assign(new Error('No blob available'), {
         reason: QR_SHARE_FAILURE_REASONS.ASSET_RESOLVE_FAILED
@@ -2408,6 +2440,7 @@ function ResultV2({
     cvs.width = W;
     cvs.height = H;
     var ctx = cvs.getContext('2d');
+    if (!ctx) throw new Error('[IMMM] Canvas 2D context unavailable for video export');
     var mimeTypes = ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
     var mimeType = typeof MediaRecorder !== 'undefined' && mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
     var stream = cvs.captureStream(24);
@@ -2494,6 +2527,7 @@ function ResultV2({
       fallback.width = W;
       fallback.height = H;
       var fctx = fallback.getContext('2d');
+      if (!fctx) throw new Error('[IMMM] Canvas 2D context unavailable for video fallback');
       fctx.fillStyle = frameColor || '#fff';
       fctx.fillRect(0, 0, W, H);
       return fallback;

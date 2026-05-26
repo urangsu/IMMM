@@ -8,13 +8,6 @@ function isExportPerfDebugEnabled() {
 function nowMs() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
 function logExportPerf(label, data) { if (isExportPerfDebugEnabled()) console.info?.('[IMMM export perf]', label, data); }
 
-const requestIdleCallbackSafe = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
-  ? window.requestIdleCallback.bind(window)
-  : (cb) => setTimeout(() => cb({ didTimeout: true, timeRemaining: () => 0 }), 1);
-const cancelIdleCallbackSafe = typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function'
-  ? window.cancelIdleCallback.bind(window)
-  : (id) => clearTimeout(id);
-
 const FRAME_TEMPLATE_ALIASES = {
   strip: '1x4',
   grid: '2x2',
@@ -89,11 +82,6 @@ if (typeof window !== 'undefined') {
   window.getFrameTheme = getFrameTheme;
 }
 
-function getFramePresetApiSafe() {
-  if (typeof window === 'undefined') return null;
-  return window.IMMMFramePresets || null;
-}
-
 const FRAME_TEMPLATES = {
   '1x4': {
     id: 'core-1x4',
@@ -138,17 +126,17 @@ const FRAME_TEMPLATES = {
     type: '1x3',
     name: 'Trip 1x3',
     ko: '트립 1x3',
-    canvasSize: { width: 700, height: 1380 },
+    canvasSize: { width: 560, height: 1200 },
     theme: { frameFill: '#fff' },
     photoRects: [
-      { x: 0.08, y: 0.114, w: 0.84, h: 0.215 },
-      { x: 0.08, y: 0.392, w: 0.84, h: 0.215 },
-      { x: 0.08, y: 0.67, w: 0.84, h: 0.215 },
+      { x: 0.093, y: 0.092, w: 0.814, h: 0.26 },
+      { x: 0.093, y: 0.38, w: 0.814, h: 0.26 },
+      { x: 0.093, y: 0.668, w: 0.814, h: 0.26 },
     ],
-    logo: { x: 0.068, y: 0.052, fontSize: 0.048 },
-    dot: { x: 0.928, y: 0.052, r: 0.018 },
-    captionRect: { x: 0, y: 0.88, w: 1, h: 0.12 },
-    date: { x: 0.5, y: 0.5, fontSize: 0.038, align: 'center' },
+    logo: { x: 0.071, y: 0.03, fontSize: 0.05 },
+    dot: { x: 0.92, y: 0.03, r: 0.024 },
+    captionRect: { x: 0, y: 0.92, w: 1, h: 0.08 },
+    date: { x: 0.5, y: 0.5, fontSize: 0.035, align: 'center' },
     photoSlots: [],
   },
   '1x1': {
@@ -182,44 +170,18 @@ Object.keys(FRAME_TEMPLATES).forEach(k => {
   }
 });
 
-/**
- * Returns the number of photo slots for a given layout identifier.
- */
-function getLayoutSlotCount(layoutId) {
-  const alias = FRAME_TEMPLATE_ALIASES[layoutId] || layoutId;
-  const template = FRAME_TEMPLATES[alias];
-  if (template && Array.isArray(template.photoRects)) {
-    return template.photoRects.length;
-  }
-  // Fallbacks based on common names
-  if (layoutId === 'polaroid') return 1;
-  if (layoutId === 'trip') return 3;
-  return 4;
-}
-
-if (typeof window !== 'undefined') {
-  window.getLayoutSlotCount = getLayoutSlotCount;
-}
-
-/**
- * Robust version of getFrameTemplate that accounts for legacy names and aliases.
- */
-function getFrameTemplateSafe(layoutId) {
-  const alias = FRAME_TEMPLATE_ALIASES[layoutId] || layoutId;
-  return FRAME_TEMPLATES[alias] || FRAME_TEMPLATES['1x4'];
-}
-
-if (typeof window !== 'undefined') {
-  window.getFrameTemplateSafe = getFrameTemplateSafe;
-}
-
 function getFrameTemplate(layoutOrType) {
   const type = FRAME_TEMPLATE_ALIASES[layoutOrType] || layoutOrType || '1x4';
   return FRAME_TEMPLATES[type] || FRAME_TEMPLATES['1x4'];
 }
 
 function getShotCountForFrame(layoutOrType) {
-  return getLayoutSlotCount(layoutOrType);
+  const template = getFrameTemplateSafe(layoutOrType);
+  if (!template?.photoSlots?.length) {
+    console.warn(`[IMMM] Invalid frame template: ${layoutOrType}`);
+    return 4;  // Safe default
+  }
+  return template.photoSlots.length;
 }
 
 function loadImageForCanvas(src) {
@@ -290,9 +252,17 @@ async function preloadStickerImages(stickers = []) {
 
 async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets = {}) {
   if (!sticker) return;
+
+  // Validate sticker position (should be 0-100)
+  const x = Math.max(0, Math.min(100, Number(sticker.x) || 50));
+  const y = Math.max(0, Math.min(100, Number(sticker.y) || 50));
+  if ((x !== sticker.x || y !== sticker.y) && sticker.x != null && sticker.y != null) {
+    console.warn(`[IMMM] Sticker position out of bounds: x=${sticker.x}, y=${sticker.y}`);
+  }
+
   ctx.save();
-  const cx = (sticker.x / 100) * baseW;
-  const cy = (sticker.y / 100) * baseH;
+  const cx = (x / 100) * baseW;
+  const cy = (y / 100) * baseH;
   ctx.translate(cx, cy);
   ctx.rotate((sticker.rotation || 0) * Math.PI / 180);
   const actualSizeNorm = sticker.sizeNorm ?? sticker.payload?.sizeNorm;
@@ -541,32 +511,15 @@ async function renderComposition(ctx, data, options = {}) {
     throw new Error('[IMMM frame template unavailable]');
   }
   const scale = options.scale || 1;
-  const framePreset = data.framePreset || null;
-  const renderCanvasSize = framePreset?.canvasSize || template.canvasSize;
-  const w = renderCanvasSize.width * scale;
-  const h = renderCanvasSize.height * scale;
+  const w = template.canvasSize.width * scale;
+  const h = template.canvasSize.height * scale;
 
   const theme = getFrameTheme(template, data);
-  const presetApi = getFramePresetApiSafe();
-  const drawPresetBackground = presetApi?.drawFramePresetBackground || window.drawFramePresetBackground || null;
-  const drawPresetLayer = presetApi?.drawFramePresetLayer || window.drawFramePresetLayer || null;
-  const drawPresetWatermark = presetApi?.drawFramePresetWatermark || window.drawFramePresetWatermark || null;
-  const orderedLayers = framePreset?.layers?.length
-    ? (presetApi?.getFrameLayerOrder?.(framePreset) || framePreset.layers)
-    : [];
-  const drawableLayers = orderedLayers.filter((layer) =>
-    layer
-    && layer.visible !== false
-    && !['background', 'photo-slots', 'watermark'].includes(layer.type)
-  );
 
   // 1. Background
-  if (framePreset && typeof drawPresetBackground === 'function') {
-    drawPresetBackground(ctx, framePreset, w, h);
-  } else {
-    ctx.fillStyle = theme.frameBg;
-    ctx.fillRect(0, 0, w, h);
-  }
+  if (!ctx) throw new Error('[IMMM] Canvas 2D context unavailable');
+  ctx.fillStyle = theme.frameBg;
+  ctx.fillRect(0, 0, w, h);
 
   // 1b. Preload Stickers (parallel)
   const tPreloadStart = nowMs();
@@ -579,25 +532,28 @@ async function renderComposition(ctx, data, options = {}) {
   const selected = data.selected || [];
   const shots = data.shots || [];
   const tPhotoStart = nowMs();
-  const photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : template.photoSlots;
-  const images = await Promise.all(photoSlots.map((_, i) => {
-    const shot = shots[selected[i]];
-    return loadImageForCanvas(shot?.dataUrl);
-  }));
+  const images = await Promise.all(
+    template.photoSlots.map((_, i) => {
+      const shotIdx = selected[i];
+      // Validate array bounds
+      if (typeof shotIdx !== 'number' || shotIdx < 0 || shotIdx >= shots.length) {
+        if (shotIdx != null) {
+          console.warn(`[IMMM] Invalid shot index: ${shotIdx} (shots.length=${shots.length})`);
+        }
+        return null;  // Empty slot
+      }
+      const shot = shots[shotIdx];
+      return loadImageForCanvas(shot?.dataUrl).catch((err) => {
+        console.warn(`[IMMM] Image load failed (slot ${i}):`, err);
+        return null;
+      });
+    })
+  );
   logExportPerf('photo-slots', { ms: nowMs() - tPhotoStart, count: images.length });
 
   const tStickerDrawStart = nowMs();
-  if (framePreset && typeof drawPresetLayer === 'function' && drawableLayers.length) {
-    drawableLayers
-      .filter((layer) => layer && layer.visible !== false && Number(layer.zIndex) < 0)
-      .forEach((layer) => {
-        drawPresetLayer(ctx, framePreset, w, h, layer);
-      });
-  } else if (framePreset && typeof drawPresetLayer === 'function') {
-    drawPresetLayer(ctx, framePreset, w, h, 'back');
-  }
-  for (let i = 0; i < photoSlots.length; i++) {
-    const slot = photoSlots[i];
+  for (let i = 0; i < template.photoSlots.length; i++) {
+    const slot = template.photoSlots[i];
     const sx = slot.x * scale;
     const sy = slot.y * scale;
     const sw = slot.width * scale;
@@ -658,6 +614,11 @@ async function renderComposition(ctx, data, options = {}) {
       ctx.lineWidth = lineWidth;
       ctx.beginPath();
       stroke.points.forEach(([px, py], idx) => {
+        // Validate point coordinates are valid numbers
+        if (typeof px !== 'number' || typeof py !== 'number') {
+          console.warn(`[IMMM] Invalid stroke point at index ${idx}:`, [px, py]);
+          return;
+        }
         const tx = (px / 100) * w;
         const ty = (py / 100) * h;
         if (idx === 0) ctx.moveTo(tx, ty);
@@ -668,16 +629,6 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.restore();
   });
 
-  if (framePreset && typeof drawPresetLayer === 'function' && drawableLayers.length) {
-    drawableLayers
-      .filter((layer) => layer && layer.visible !== false && Number(layer.zIndex) >= 0)
-      .forEach((layer) => {
-        drawPresetLayer(ctx, framePreset, w, h, layer);
-      });
-  } else if (framePreset && typeof drawPresetLayer === 'function') {
-    drawPresetLayer(ctx, framePreset, w, h, 'front');
-  }
-
   // 5. Unified Overlay (Logo, Dot, Date)
   renderFrameOverlay(ctx, template, w, h, {
     frameColor: data.frameColor,
@@ -685,10 +636,6 @@ async function renderComposition(ctx, data, options = {}) {
     dateText: data.dateText,
     accent: data.accent
   });
-
-  if (framePreset && typeof drawPresetWatermark === 'function') {
-    drawPresetWatermark(ctx, framePreset, w, h);
-  }
 }
 
 async function renderFrameToCanvas(input) {
@@ -700,15 +647,14 @@ async function renderFrameToCanvas(input) {
     throw new Error('[IMMM] frame template unavailable');
   }
   const scale = input.scale || 1;
-  const framePreset = input.framePreset || null;
-  const canvasSize = framePreset?.canvasSize || template.canvasSize;
-  const w = canvasSize.width * scale;
-  const h = canvasSize.height * scale;
+  const w = template.canvasSize.width * scale;
+  const h = template.canvasSize.height * scale;
   
   const cvs = document.createElement('canvas');
   cvs.width = Math.round(w);
   cvs.height = Math.round(h);
   const ctx = cvs.getContext('2d');
+  if (!ctx) throw new Error(`[IMMM] Canvas 2D context unavailable (${Math.round(w)}×${Math.round(h)})`);
 
   await window.renderComposition(ctx, input, { scale });
 
@@ -719,7 +665,19 @@ const FrameRenderEngine = {
   renderToCanvas: renderFrameToCanvas,
   async renderToBlob(input, type = 'image/png', quality = 0.96) {
     const canvas = await renderFrameToCanvas(input);
-    return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error(`[IMMM] canvas.toBlob returned null (${type})`));
+          } else {
+            resolve(blob);
+          }
+        },
+        type,
+        quality
+      );
+    });
   },
   async renderToDataUrl(input, type = 'image/png', quality = 0.96) {
     const canvas = await renderFrameToCanvas(input);
@@ -857,17 +815,18 @@ function generateQrDataUrl(text) {
 /**
  * A consistent, canvas-based preview component.
  */
-function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = [], drawStrokes = [], logo, dateText, accent, scale = 1, orientation, framePreset = null, fill = false }) {
+function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = [], drawStrokes = [], logo, dateText, accent, scale = 1, orientation }) {
   const canvasRef = React.useRef(null);
 
   React.useEffect(() => {
-    let cancelled = false;
-    let idleId = null;
     const draw = async () => {
-      if (cancelled) return;
       if (!canvasRef.current) return;
       const cvs = canvasRef.current;
       const ctx = cvs.getContext('2d');
+      if (!ctx) {
+        console.error('[IMMM] Canvas 2D context unavailable for frame overlay');
+        return;
+      }
       const getTpl = window.getFrameTemplateSafe || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
       const template = getTpl ? getTpl(layout) : null;
       if (!template) {
@@ -875,9 +834,8 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
         return;
       }
       
-      const canvasSize = framePreset?.canvasSize || template.canvasSize;
-      const baseW = canvasSize.width;
-      const baseH = canvasSize.height;
+      const baseW = template.canvasSize.width;
+      const baseH = template.canvasSize.height;
       cvs.width = baseW;
       cvs.height = baseH;
 
@@ -885,36 +843,39 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
         layout, shots, selected, filter, frameColor,
         stickers, drawStrokes, logo, dateText, accent, orientation
       };
-      if (framePreset) {
-        data.framePreset = framePreset;
-      }
       const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) await renderComp(ctx, data, { scale: 1 });
     };
-    idleId = requestIdleCallbackSafe(() => { draw(); });
-    return () => {
-      cancelled = true;
-      if (idleId != null) cancelIdleCallbackSafe(idleId);
-    };
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
+    draw();
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
 
   return (
     <canvas 
       ref={canvasRef} 
       style={{ 
-        width: fill ? '100%' : 200 * scale * (layout === 'strip' || layout === 'trip' ? 1 : 1.2), 
-        height: fill ? '100%' : 'auto', 
+        width: 200 * scale * (layout === 'strip' || layout === 'trip' ? 1 : 1.2), 
+        height: 'auto', 
         display: 'block',
-        maxWidth: '100%',
-        objectFit: fill ? 'contain' : 'initial'
+        maxWidth: '100%'
       }} 
     />
   );
 }
 
+function getFrameTemplateSafe(layoutOrType) {
+  if (typeof getFrameTemplate === 'function') {
+    return getFrameTemplate(layoutOrType);
+  }
+  if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') {
+    return window.getFrameTemplate(layoutOrType);
+  }
+  console.error('[IMMM] getFrameTemplate unavailable; using emergency 1x4 fallback');
+  return FRAME_TEMPLATES?.['1x4'];
+}
 
 function getShotCountForFrameSafe(layoutOrType) {
-  return getLayoutSlotCount(layoutOrType);
+  const t = getFrameTemplateSafe(layoutOrType);
+  return t?.photoSlots?.length || 4;
 }
 
 Object.assign(window, {

@@ -3209,6 +3209,23 @@ function DesignerScreen({
   const selectedLayer = currentLayers[activeLayerIndex] || currentLayers[0] || null;
   const slotCount = currentLayoutSlots.length;
   const previewCanvas = normalizedDraft?.canvasSize || frameApi?.getCanvasSizeForLayout?.(normalizedDraft?.layout || layout) || { width: 560, height: 1808 };
+  const clampRectToCanvasFallback = (rect, canvasSize, minWidth = 24, minHeight = 24) => {
+    const width = canvasSize?.width || 1;
+    const height = canvasSize?.height || 1;
+    const nextWidth = Math.max(minWidth, Math.min(width, Number(rect?.width) || minWidth));
+    const nextHeight = Math.max(minHeight, Math.min(height, Number(rect?.height) || minHeight));
+    const nextX = Math.max(0, Math.min(Number(rect?.x) ?? 0, Math.max(0, width - nextWidth)));
+    const nextY = Math.max(0, Math.min(Number(rect?.y) ?? 0, Math.max(0, height - nextHeight)));
+    return {
+      x: nextX,
+      y: nextY,
+      width: nextWidth,
+      height: nextHeight,
+      ...(typeof rect?.rotation === 'number' && { rotation: rect.rotation }),
+      ...(typeof rect?.opacity === 'number' && { opacity: rect.opacity }),
+    };
+  };
+
   const getDragPoint = (event) => {
     if (!event) return null;
     if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
@@ -3327,7 +3344,9 @@ function DesignerScreen({
     normalizeNextDraft((prev) => {
       const next = [...(prev.photoSlots || [])];
       if (!next[index]) return prev;
-      next[index] = frameApi?.clampRectToCanvas?.({ ...next[index], ...patch }, prev.canvasSize, 24, 24) || { ...next[index], ...patch };
+      const merged = { ...next[index], ...patch };
+      const clamped = frameApi?.clampRectToCanvas?.(merged, prev.canvasSize, 24, 24) || clampRectToCanvasFallback(merged, prev.canvasSize, 24, 24);
+      next[index] = clamped;
       return { ...prev, photoSlots: next };
     });
   };
@@ -3359,7 +3378,16 @@ function DesignerScreen({
     normalizeNextDraft((prev) => {
       const next = [...(prev.decorations || [])];
       if (!next[index]) return prev;
-      next[index] = frameApi?.normalizeDesignerDraft?.({ ...prev, decorations: next.map((deco, i) => i === index ? { ...deco, ...patch } : deco) })?.decorations?.[index] || { ...next[index], ...patch };
+      const canvasSize = prev.canvasSize || previewCanvas;
+      const merged = { ...next[index], ...patch };
+
+      // Validate position and size if being changed
+      if (patch.hasOwnProperty('x') || patch.hasOwnProperty('y') || patch.hasOwnProperty('width') || patch.hasOwnProperty('height')) {
+        const clamped = clampRectToCanvasFallback(merged, canvasSize, 24, 24);
+        next[index] = frameApi?.normalizeDesignerDraft?.({ ...prev, decorations: next.map((deco, i) => i === index ? clamped : deco) })?.decorations?.[index] || clamped;
+      } else {
+        next[index] = frameApi?.normalizeDesignerDraft?.({ ...prev, decorations: next.map((deco, i) => i === index ? merged : deco) })?.decorations?.[index] || merged;
+      }
       return { ...prev, decorations: next };
     });
   };
@@ -3489,7 +3517,9 @@ function DesignerScreen({
             ? { width: source.width + dx, height: source.height + dy }
             : { x: source.x + dx, y: source.y + dy };
           const peers = nextSlots.filter((_, i) => i !== drag.index);
-          const snapped = snapEnabled ? snapRectToGuides({ ...source, ...patch }, base.canvasSize, peers) : { rect: frameApi?.clampRectToCanvas?.({ ...source, ...patch }, base.canvasSize, 24, 24) || { ...source, ...patch }, guides: [] };
+          const nextRect = { ...source, ...patch };
+          const clampedRect = frameApi?.clampRectToCanvas?.(nextRect, base.canvasSize, 24, 24) || clampRectToCanvasFallback(nextRect, base.canvasSize, 24, 24);
+          const snapped = snapEnabled ? snapRectToGuides(clampedRect, base.canvasSize, peers) : { rect: clampedRect, guides: [] };
           setActiveGuides(snapped.guides);
           nextSlots[drag.index] = snapped.rect;
           return { ...base, photoSlots: nextSlots };
@@ -3502,7 +3532,9 @@ function DesignerScreen({
             ? { width: source.width + dx, height: source.height + dy }
             : { x: source.x + dx, y: source.y + dy };
           const peers = nextDecos.filter((_, i) => i !== drag.index).map((item) => ({ x: item.x, y: item.y, width: item.width, height: item.height }));
-          const snapped = snapEnabled ? snapRectToGuides({ ...source, ...patch }, base.canvasSize, peers) : { rect: frameApi?.clampRectToCanvas?.({ ...source, ...patch }, base.canvasSize, 24, 24) || { ...source, ...patch }, guides: [] };
+          const nextRect = { ...source, ...patch };
+          const clampedRect = frameApi?.clampRectToCanvas?.(nextRect, base.canvasSize, 24, 24) || clampRectToCanvasFallback(nextRect, base.canvasSize, 24, 24);
+          const snapped = snapEnabled ? snapRectToGuides(clampedRect, base.canvasSize, peers) : { rect: clampedRect, guides: [] };
           setActiveGuides(snapped.guides);
           nextDecos[drag.index] = frameApi?.normalizeDesignerDraft?.({ ...base, decorations: nextDecos.map((item, i) => i === drag.index ? { ...item, ...snapped.rect } : item) })?.decorations?.[drag.index] || { ...source, ...snapped.rect };
           return { ...base, decorations: nextDecos };

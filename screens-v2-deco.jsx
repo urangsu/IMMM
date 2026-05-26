@@ -878,6 +878,19 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     ? getShotCountForLayout(layout)
     : (layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4);
 
+  // Validate selected indices on entry to prevent contamination from stale data
+  const effectiveSelected = selected.filter((idx) => {
+    if (typeof idx !== 'number' || idx < 0 || idx >= shots.length) {
+      console.warn(`[IMMM] Invalid selection index: ${idx} (shots.length=${shots.length})`);
+      return false;
+    }
+    return true;
+  });
+
+  if (effectiveSelected.length !== selected.length) {
+    console.warn(`[IMMM] Auto-corrected selection: ${selected.length} → ${effectiveSelected.length}`);
+  }
+
   const getResultPreviewBaseWidth = (layoutId, isMobile) => {
     if (isMobile) {
       if (layoutId === 'strip') return 230;
@@ -1069,6 +1082,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
       revokeBlobUrl(saveSheetUrlRef.current);
       saveSheetUrlRef.current = null;
+
+      // Clear all shared blob URLs from ShareStore
+      if (typeof window !== 'undefined' && window.ShareStore && typeof window.ShareStore.clearAllLocalUrls === 'function') {
+        window.ShareStore.clearAllLocalUrls();
+      }
     };
   }, []);
 
@@ -1493,8 +1511,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    const sessionAtStart = activeSessionId;
     if (window.trackImmmEvent) window.trackImmmEvent('result_download', { layout, action: 'save_image' });
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();
       await saveResultToGallery(blob, 'local', {
@@ -1514,8 +1537,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const handleShare = async () => {
     if (sharing) return;
     setSharing(true);
+    const sessionAtStart = activeSessionId;
     if (window.trackImmmEvent) window.trackImmmEvent('result_share_attempt', { layout, action: 'native_share' });
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       const blob = await getFinalResultBlob();
       const fname = getFormattedFilename();
       const file = new File([blob], fname, { type: 'image/png' });
@@ -1568,8 +1596,13 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     if (!state.ready) return;
     if (qrBusy) return;
 
+    const sessionAtStart = activeSessionId;
     setQrBusy(true);
     try {
+      if (sessionAtStart !== activeSessionId) {
+        addToast('세션이 변경되었어요');
+        return;
+      }
       const blob = await getFinalResultBlob();
       if (!blob) throw Object.assign(new Error('No blob available'), { reason: QR_SHARE_FAILURE_REASONS.ASSET_RESOLVE_FAILED });
 
@@ -1703,6 +1736,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     const cvs = document.createElement('canvas');
     cvs.width = W; cvs.height = H;
     const ctx = cvs.getContext('2d');
+    if (!ctx) throw new Error('[IMMM] Canvas 2D context unavailable for video export');
 
     const mimeTypes = ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
     const mimeType = (typeof MediaRecorder !== 'undefined' && mimeTypes.find(m => MediaRecorder.isTypeSupported(m))) || 'video/webm';
@@ -1769,6 +1803,7 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
       fallback.width = W;
       fallback.height = H;
       const fctx = fallback.getContext('2d');
+      if (!fctx) throw new Error('[IMMM] Canvas 2D context unavailable for video fallback');
       fctx.fillStyle = frameColor || '#fff';
       fctx.fillRect(0, 0, W, H);
       return fallback;
