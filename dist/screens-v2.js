@@ -812,7 +812,8 @@ function SetupScreen({
   startNewCaptureSession,
   framePreset,
   selectedFramePresetId,
-  setSetupStoreTabFocus
+  setSetupStoreTabFocus,
+  resetAppliedFramePreset
 }) {
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   var [tab, setTab] = uS(editMode ? 'photos' : 'frame');
@@ -1104,9 +1105,26 @@ function SetupScreen({
       background: 'rgba(26,26,31,0.04)',
       color: T.inkSoft,
       fontSize: 11,
-      lineHeight: 1.45
+      lineHeight: 1.45,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
     }
-  }, "\uC801\uC6A9 \uC911: ", setupPreviewPreset.name, ". \uAE30\uBCF8 \uCE74\uB4DC \uC120\uD0DD \uC2DC \uAE30\uBCF8 \uD504\uB808\uC784\uC73C\uB85C \uB3CC\uC544\uAC11\uB2C8\uB2E4."));
+  }, /*#__PURE__*/React.createElement("div", null, "\uC801\uC6A9 \uC911: ", setupPreviewPreset.name, ". \uAE30\uBCF8 \uCE74\uB4DC \uC120\uD0DD \uC2DC \uAE30\uBCF8 \uD504\uB808\uC784\uC73C\uB85C \uB3CC\uC544\uAC11\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => resetAppliedFramePreset(),
+    style: {
+      minHeight: 32,
+      padding: '0 12px',
+      borderRadius: 8,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 10,
+      fontWeight: 700,
+      alignSelf: 'start',
+      cursor: 'pointer'
+    }
+  }, "\uAE30\uBCF8 \uD504\uB808\uC784\uC73C\uB85C \uCD08\uAE30\uD654")));
   var filterTab = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Kick, {
     T: T
   }, "Choose a filter \xB7 \uD544\uD130 \uC120\uD0DD"), /*#__PURE__*/React.createElement("div", {
@@ -1637,7 +1655,7 @@ function FrameStoreScreen({
     T: T,
     size: "sm"
   }));
-  var tabs = [['featured', 'Featured'], ['free', 'Free'], ['my-frames', 'My Frames'], ['premium', 'Premium'], ['favorites', 'Favorites'], ['imported', 'Imported'], ['all', 'All Presets']];
+  var tabs = [['featured', '추천'], ['free', '기본'], ['my-frames', '내 프레임'], ['premium', '유료 예정']];
   var cardStyle = {
     border: `1px solid ${T.line}`,
     borderRadius: 18,
@@ -1849,57 +1867,36 @@ function FrameStoreScreen({
       style: {
         display: 'flex',
         gap: 8,
-        flexWrap: 'wrap'
+        flexWrap: 'wrap',
+        marginTop: 10
       }
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => cover && setSelectedPresetId(cover.id),
       style: {
-        minHeight: 44,
+        minHeight: 38,
         borderRadius: 999,
         border: `1px solid ${T.line}`,
         background: '#fff',
         color: T.ink,
-        padding: '0 12px',
+        padding: '0 14px',
         fontSize: 11,
-        fontWeight: 900
+        fontWeight: 800,
+        cursor: 'pointer'
       }
     }, "Preview"), /*#__PURE__*/React.createElement("button", {
       onClick: () => applyToBooth(cover),
       style: {
-        minHeight: 44,
+        minHeight: 38,
         borderRadius: 999,
         border: 'none',
         background: unlocked ? T.ink : 'rgba(26,26,31,0.08)',
         color: unlocked ? T.bg : T.ink,
-        padding: '0 12px',
+        padding: '0 14px',
         fontSize: 11,
-        fontWeight: 900
+        fontWeight: 800,
+        cursor: 'pointer'
       }
-    }, unlocked ? 'Apply to Booth' : 'Preview only'), pack.locked && !unlocked && unlockFramePackForDev && /*#__PURE__*/React.createElement("button", {
-      onClick: () => unlockFramePackForDev(pack.id),
-      style: {
-        minHeight: 44,
-        borderRadius: 999,
-        border: `1px solid ${T.line}`,
-        background: '#fff',
-        color: T.ink,
-        padding: '0 12px',
-        fontSize: 11,
-        fontWeight: 900
-      }
-    }, "Dev Unlock"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => toggleFavoriteFramePack?.(pack.id),
-      style: {
-        minHeight: 44,
-        borderRadius: 999,
-        border: `1px solid ${T.line}`,
-        background: favoriteFramePackIds.includes(pack.id) ? T.ink : '#fff',
-        color: favoriteFramePackIds.includes(pack.id) ? T.bg : T.ink,
-        padding: '0 12px',
-        fontSize: 11,
-        fontWeight: 900
-      }
-    }, "Fav Pack")));
+    }, unlocked ? '이 프레임으로 촬영' : 'Preview only')));
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
@@ -1991,85 +1988,86 @@ function FrameStoreScreen({
     }, "Active")), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
-        gap: 8,
-        flexWrap: 'wrap'
+        gap: 6,
+        flexWrap: 'wrap',
+        marginTop: 10
       }
     }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setSelectedPresetId(preset.id),
+      style: {
+        minHeight: 38,
+        borderRadius: 999,
+        border: `1px solid ${T.line}`,
+        background: '#fff',
+        color: T.ink,
+        padding: '0 14px',
+        fontSize: 11,
+        fontWeight: 800,
+        cursor: 'pointer'
+      }
+    }, "Preview"), /*#__PURE__*/React.createElement("button", {
       onClick: () => applyToBooth(preset),
       style: {
-        minHeight: 44,
+        minHeight: 38,
         borderRadius: 999,
         border: 'none',
         background: T.ink,
         color: T.bg,
-        padding: '0 12px',
+        padding: '0 14px',
         fontSize: 11,
-        fontWeight: 900
+        fontWeight: 800,
+        cursor: 'pointer'
       }
-    }, "Apply to Booth"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => toggleFavoriteFramePreset?.(preset.id),
+    }, "\uC774 \uD504\uB808\uC784\uC73C\uB85C \uCD2C\uC601"), custom && /*#__PURE__*/React.createElement("div", {
       style: {
-        minHeight: 44,
-        borderRadius: 999,
-        border: `1px solid ${T.line}`,
-        background: favoriteFramePresetIds.includes(preset.id) ? T.ink : '#fff',
-        color: favoriteFramePresetIds.includes(preset.id) ? T.bg : T.ink,
-        padding: '0 12px',
-        fontSize: 11,
-        fontWeight: 900
+        display: 'flex',
+        gap: 4,
+        width: '100%',
+        marginTop: 4
       }
-    }, "Favorite"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => toggleFrameLike?.(preset.id),
-      style: {
-        minHeight: 44,
-        borderRadius: 999,
-        border: `1px solid ${T.line}`,
-        background: frameLikeIds.includes(preset.id) ? T.ink : '#fff',
-        color: frameLikeIds.includes(preset.id) ? T.bg : T.ink,
-        padding: '0 12px',
-        fontSize: 11,
-        fontWeight: 900
-      }
-    }, "Like"), custom && /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement("button", {
       onClick: () => openDesigner?.({
         mode: 'edit',
         preset
       }),
       style: {
-        minHeight: 44,
-        borderRadius: 999,
+        flex: 1,
+        minHeight: 32,
+        borderRadius: 8,
         border: `1px solid ${T.line}`,
         background: '#fff',
         color: T.ink,
-        padding: '0 12px',
-        fontSize: 11,
-        fontWeight: 900
+        fontSize: 10,
+        fontWeight: 700,
+        cursor: 'pointer'
       }
-    }, "Edit"), custom && /*#__PURE__*/React.createElement("button", {
+    }, "Edit"), /*#__PURE__*/React.createElement("button", {
       onClick: () => duplicateCustomFrame?.(preset.id),
       style: {
-        minHeight: 44,
-        borderRadius: 999,
+        flex: 1,
+        minHeight: 32,
+        borderRadius: 8,
         border: `1px solid ${T.line}`,
         background: '#fff',
         color: T.ink,
-        padding: '0 12px',
-        fontSize: 11,
-        fontWeight: 900
+        fontSize: 10,
+        fontWeight: 700,
+        cursor: 'pointer'
       }
-    }, "Duplicate"), custom && /*#__PURE__*/React.createElement("button", {
+    }, "Duplicate"), /*#__PURE__*/React.createElement("button", {
       onClick: () => deleteCustomFrame?.(preset.id),
       style: {
-        minHeight: 44,
-        borderRadius: 999,
+        flex: 1,
+        minHeight: 32,
+        borderRadius: 8,
         border: `1px solid ${T.line}`,
         background: '#fff',
-        color: T.ink,
-        padding: '0 12px',
-        fontSize: 11,
-        fontWeight: 900
+        color: 'red',
+        fontSize: 10,
+        fontWeight: 700,
+        cursor: 'pointer'
       }
-    }, "Delete")));
+    }, "Delete"))));
   }))), (storeTab === 'my-frames' || storeTab === 'imported') && /*#__PURE__*/React.createElement("div", {
     style: cardStyle
   }, /*#__PURE__*/React.createElement(Kick, {
@@ -5358,6 +5356,7 @@ function DesignerScreen({
   var [gridEnabled, setGridEnabled] = uS(false);
   var [activeLayerIndex, setActiveLayerIndex] = uS(0);
   var [activeMotionPreview, setActiveMotionPreview] = uS(false);
+  var [showAdvancedLayers, setShowAdvancedLayers] = uS(false);
   var normalizedDraft = uM(() => frameApi?.normalizeDesignerDraft?.(draftFrame) || draftFrame || null, [draftFrame, frameApi]);
   var normalizedInitial = uM(() => frameApi?.normalizeDesignerDraft?.(initialDraftFrame) || initialDraftFrame || null, [initialDraftFrame, frameApi]);
   var slotDefaults = uM(() => normalizedDraft ? frameApi?.getPhotoSlotsForLayout?.(normalizedDraft.layout) || normalizedDraft.photoSlots || [] : [], [frameApi, normalizedDraft]);
@@ -5387,10 +5386,10 @@ function DesignerScreen({
   }, {
     id: 'slots',
     label: 'Slots'
-  }, {
+  }, ...(showAdvancedLayers ? [{
     id: 'layers',
     label: 'Layers'
-  }, {
+  }] : []), {
     id: 'decorations',
     label: 'Decorations'
   }, {
@@ -6084,7 +6083,7 @@ function DesignerScreen({
   var editorShell = /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
-      gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1.15fr) minmax(300px, 0.85fr)',
+      gridTemplateColumns: mobile ? '1fr' : 'minmax(520px, 1.35fr) minmax(360px, 0.65fr)',
       gap: 14,
       minHeight: '100%',
       background: T.bg,
@@ -6205,6 +6204,14 @@ function DesignerScreen({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
       gap: 8,
       flexWrap: 'wrap'
     }
@@ -6224,7 +6231,26 @@ function DesignerScreen({
       letterSpacing: 1,
       cursor: 'pointer'
     }
-  }, tab.label))), /*#__PURE__*/React.createElement(DesignerPreviewCanvas, {
+  }, tab.label))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var next = !showAdvancedLayers;
+      setShowAdvancedLayers(next);
+      if (!next && activeTab === 'layers') {
+        setActiveTab('layout');
+      }
+    },
+    style: {
+      minHeight: 36,
+      padding: '0 12px',
+      borderRadius: 999,
+      border: `1px solid ${T.line}`,
+      background: showAdvancedLayers ? T.ink : '#fff',
+      color: showAdvancedLayers ? T.bg : T.ink,
+      fontSize: 10,
+      fontWeight: 800,
+      cursor: 'pointer'
+    }
+  }, "\uACE0\uAE09 \uB808\uC774\uC5B4 ", showAdvancedLayers ? 'ON' : 'OFF')), /*#__PURE__*/React.createElement(DesignerPreviewCanvas, {
     draft: normalizedDraft,
     T: T,
     previewShots: previewShots,

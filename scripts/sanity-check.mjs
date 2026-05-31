@@ -3576,6 +3576,78 @@ function checkProductionSetupFramesHotfix() {
   }
 }
 
+function checkProductionHotfix2() {
+  const main = readFile('main.jsx') || '';
+  const screens = readFile('screens-v2.jsx') || '';
+  const presets = readFile('frame-presets.jsx') || '';
+
+  // 1. clean-white-4cut decorations empty check
+  const cleanWhiteMatch = presets.match(/id:\s*'clean-white-4cut'[\s\S]*?decorations:\s*\[([\s\S]*?)\]/);
+  if (cleanWhiteMatch && cleanWhiteMatch[1].trim() !== '') {
+    console.error("❌ FAIL: clean-white-4cut decorations must be empty []");
+    hasErrors = true;
+  }
+
+  // 2. black-studio-4cut decorations empty check
+  const blackStudioMatch = presets.match(/id:\s*'black-studio-4cut'[\s\S]*?decorations:\s*\[([\s\S]*?)\]/);
+  if (blackStudioMatch && blackStudioMatch[1].trim() !== '') {
+    console.error("❌ FAIL: black-studio-4cut decorations must be empty []");
+    hasErrors = true;
+  }
+
+  // 3. resetAppliedFramePreset defined in main.jsx
+  if (!main.includes('resetAppliedFramePreset')) {
+    console.error("❌ FAIL: main.jsx missing resetAppliedFramePreset");
+    hasErrors = true;
+  }
+
+  // 4. resetAppliedFramePreset prop in SetupScreen
+  if (!screens.includes('resetAppliedFramePreset')) {
+    console.error("❌ FAIL: screens-v2.jsx SetupScreen missing resetAppliedFramePreset prop or usage");
+    hasErrors = true;
+  }
+
+  // 5. SetupScreen '기본 프레임으로 초기화' button check
+  if (!screens.includes('기본 프레임으로 초기화')) {
+    console.error("❌ FAIL: SetupScreen missing '기본 프레임으로 초기화' button");
+    hasErrors = true;
+  }
+
+  // 6. FrameStoreScreen simplified tabs check (4 tabs)
+  const storeSection = screens.match(/function FrameStoreScreen[\s\S]*?const\s+tabs\s*=\s*\[([\s\S]*?)\];/);
+  if (storeSection) {
+    const tabsCount = (storeSection[1].match(/\[/g) || []).length;
+    if (tabsCount > 4) {
+      console.error(`❌ FAIL: FrameStoreScreen tabs must be simplified to 4 tabs, found ${tabsCount}`);
+      hasErrors = true;
+    }
+  }
+
+  // 7. DesignerScreen activeTab default layout
+  if (!screens.includes("activeTab, setActiveTab] = uS('layout')")) {
+    console.error("❌ FAIL: DesignerScreen activeTab default state must be 'layout'");
+    hasErrors = true;
+  }
+
+  // 8. DesignerScreen showAdvancedLayers state
+  if (!screens.includes('showAdvancedLayers')) {
+    console.error("❌ FAIL: DesignerScreen missing showAdvancedLayers state");
+    hasErrors = true;
+  }
+
+  // 9. DesignerScreen toggle button text
+  if (!screens.includes('고급 레이어')) {
+    console.error("❌ FAIL: DesignerScreen missing '고급 레이어' toggle button text");
+    hasErrors = true;
+  }
+
+  // 10. DesignerScreen gridTemplateColumns 60%/40% layout
+  if (!screens.includes('minmax(520px, 1.35fr) minmax(360px, 0.65fr)')) {
+    console.error("❌ FAIL: DesignerScreen grid template columns must use 60%/40% proportions");
+    hasErrors = true;
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -3587,6 +3659,7 @@ checkReactProductionMode();
 checkReleaseCandidateLock();
 checkInteractiveCreatorPlatform();
 checkProductionSetupFramesHotfix();
+checkProductionHotfix2();
 
 
 if (hasErrors) {

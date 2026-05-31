@@ -20,6 +20,11 @@ function nowMs() {
 function logExportPerf(label, data) {
   if (isExportPerfDebugEnabled()) console.info?.('[IMMM export perf]', label, data);
 }
+var requestIdleCallbackSafe = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback.bind(window) : cb => setTimeout(() => cb({
+  didTimeout: true,
+  timeRemaining: () => 0
+}), 1);
+var cancelIdleCallbackSafe = typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function' ? window.cancelIdleCallback.bind(window) : id => clearTimeout(id);
 var FRAME_TEMPLATE_ALIASES = {
   strip: '1x4',
   grid: '2x2',
@@ -82,6 +87,10 @@ function getFrameTheme(template, options = {}) {
 }
 if (typeof window !== 'undefined') {
   window.getFrameTheme = getFrameTheme;
+}
+function getFramePresetApiSafe() {
+  if (typeof window === 'undefined') return null;
+  return window.IMMMFramePresets || null;
 }
 var FRAME_TEMPLATES = {
   '1x4': {
@@ -313,12 +322,7 @@ function getFrameTemplate(layoutOrType) {
   return FRAME_TEMPLATES[type] || FRAME_TEMPLATES['1x4'];
 }
 function getShotCountForFrame(layoutOrType) {
-  var template = getFrameTemplateSafe(layoutOrType);
-  if (!template?.photoSlots?.length) {
-    console.warn(`[IMMM] Invalid frame template: ${layoutOrType}`);
-    return 4; // Safe default
-  }
-  return template.photoSlots.length;
+  return getFrameTemplateSafe(layoutOrType).photoSlots.length;
 }
 function loadImageForCanvas(src) {
   return new Promise(resolve => {
@@ -657,12 +661,21 @@ async function renderComposition(ctx, data, options = {}) {
   var scale = options.scale || 1;
   var w = template.canvasSize.width * scale;
   var h = template.canvasSize.height * scale;
+  var framePreset = data.framePreset || null;
   var theme = getFrameTheme(template, data);
+  var presetApi = getFramePresetApiSafe();
+  var drawPresetBackground = presetApi?.drawFramePresetBackground || window.drawFramePresetBackground || null;
+  var drawPresetLayer = presetApi?.drawFramePresetLayer || window.drawFramePresetLayer || null;
+  var drawPresetWatermark = presetApi?.drawFramePresetWatermark || window.drawFramePresetWatermark || null;
+  var orderedLayers = framePreset?.layers?.length ? presetApi?.getFrameLayerOrder?.(framePreset) || framePreset.layers : [];
 
   // 1. Background
-  if (!ctx) throw new Error('[IMMM] Canvas 2D context unavailable');
-  ctx.fillStyle = theme.frameBg;
-  ctx.fillRect(0, 0, w, h);
+  if (framePreset && typeof drawPresetBackground === 'function') {
+    drawPresetBackground(ctx, framePreset, w, h);
+  } else {
+    ctx.fillStyle = theme.frameBg;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   // 1b. Preload Stickers (parallel)
   var tPreloadStart = nowMs();
@@ -678,28 +691,27 @@ async function renderComposition(ctx, data, options = {}) {
   var selected = data.selected || [];
   var shots = data.shots || [];
   var tPhotoStart = nowMs();
-  var images = await Promise.all(template.photoSlots.map((_, i) => {
-    var shotIdx = selected[i];
-    // Validate array bounds
-    if (typeof shotIdx !== 'number' || shotIdx < 0 || shotIdx >= shots.length) {
-      if (shotIdx != null) {
-        console.warn(`[IMMM] Invalid shot index: ${shotIdx} (shots.length=${shots.length})`);
-      }
-      return null; // Empty slot
-    }
-    var shot = shots[shotIdx];
-    return loadImageForCanvas(shot?.dataUrl).catch(err => {
-      console.warn(`[IMMM] Image load failed (slot ${i}):`, err);
-      return null;
-    });
+  var photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : template.photoSlots;
+  var images = await Promise.all(photoSlots.map((_, i) => {
+    var shot = shots[selected[i]];
+    return loadImageForCanvas(shot?.dataUrl);
   }));
   logExportPerf('photo-slots', {
     ms: nowMs() - tPhotoStart,
     count: images.length
   });
   var tStickerDrawStart = nowMs();
+  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
+    orderedLayers.filter(layer => layer && layer.visible !== false && Number(layer.zIndex) < 0).forEach(layer => {
+      if (layer.type !== 'background' && layer.type !== 'photo-slots') {
+        drawPresetLayer(ctx, framePreset, w, h, layer);
+      }
+    });
+  } else if (framePreset && typeof drawPresetLayer === 'function') {
+    drawPresetLayer(ctx, framePreset, w, h, 'back');
+  }
   var _loop = async function (i) {
-    var slot = template.photoSlots[i];
+    var slot = photoSlots[i];
     var sx = slot.x * scale;
     var sy = slot.y * scale;
     var sw = slot.width * scale;
@@ -729,7 +741,7 @@ async function renderComposition(ctx, data, options = {}) {
     }
     ctx.restore();
   };
-  for (var i = 0; i < template.photoSlots.length; i++) {
+  for (var i = 0; i < photoSlots.length; i++) {
     await _loop(i);
   }
 
@@ -779,6 +791,15 @@ async function renderComposition(ctx, data, options = {}) {
     }
     ctx.restore();
   });
+  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
+    orderedLayers.filter(layer => layer && layer.visible !== false && Number(layer.zIndex) >= 0).forEach(layer => {
+      if (layer.type !== 'background' && layer.type !== 'photo-slots') {
+        drawPresetLayer(ctx, framePreset, w, h, layer);
+      }
+    });
+  } else if (framePreset && typeof drawPresetLayer === 'function') {
+    drawPresetLayer(ctx, framePreset, w, h, 'front');
+  }
 
   // 5. Unified Overlay (Logo, Dot, Date)
   renderFrameOverlay(ctx, template, w, h, {
@@ -787,6 +808,9 @@ async function renderComposition(ctx, data, options = {}) {
     dateText: data.dateText,
     accent: data.accent
   });
+  if (framePreset && typeof drawPresetWatermark === 'function') {
+    drawPresetWatermark(ctx, framePreset, w, h);
+  }
 }
 async function renderFrameToCanvas(input) {
   if (document.fonts && document.fonts.ready) {
@@ -803,7 +827,6 @@ async function renderFrameToCanvas(input) {
   cvs.width = Math.round(w);
   cvs.height = Math.round(h);
   var ctx = cvs.getContext('2d');
-  if (!ctx) throw new Error(`[IMMM] Canvas 2D context unavailable (${Math.round(w)}×${Math.round(h)})`);
   await window.renderComposition(ctx, input, {
     scale
   });
@@ -813,15 +836,7 @@ var FrameRenderEngine = {
   renderToCanvas: renderFrameToCanvas,
   async renderToBlob(input, type = 'image/png', quality = 0.96) {
     var canvas = await renderFrameToCanvas(input);
-    return new Promise((resolve, reject) => {
-      canvas.toBlob(blob => {
-        if (!blob) {
-          reject(new Error(`[IMMM] canvas.toBlob returned null (${type})`));
-        } else {
-          resolve(blob);
-        }
-      }, type, quality);
-    });
+    return new Promise(resolve => canvas.toBlob(resolve, type, quality));
   },
   async renderToDataUrl(input, type = 'image/png', quality = 0.96) {
     var canvas = await renderFrameToCanvas(input);
@@ -990,18 +1005,18 @@ function FrameThumb({
   dateText,
   accent,
   scale = 1,
-  orientation
+  orientation,
+  framePreset = null
 }) {
   var canvasRef = React.useRef(null);
   React.useEffect(() => {
+    var cancelled = false;
+    var idleId = null;
     var draw = async () => {
+      if (cancelled) return;
       if (!canvasRef.current) return;
       var cvs = canvasRef.current;
       var ctx = cvs.getContext('2d');
-      if (!ctx) {
-        console.error('[IMMM] Canvas 2D context unavailable for frame overlay');
-        return;
-      }
       var getTpl = window.getFrameTemplateSafe || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
       var template = getTpl ? getTpl(layout) : null;
       if (!template) {
@@ -1025,13 +1040,22 @@ function FrameThumb({
         accent,
         orientation
       };
+      if (framePreset) {
+        data.framePreset = framePreset;
+      }
       var renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) await renderComp(ctx, data, {
         scale: 1
       });
     };
-    draw();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
+    idleId = requestIdleCallbackSafe(() => {
+      draw();
+    });
+    return () => {
+      cancelled = true;
+      if (idleId != null) cancelIdleCallbackSafe(idleId);
+    };
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
   return /*#__PURE__*/React.createElement("canvas", {
     ref: canvasRef,
     style: {

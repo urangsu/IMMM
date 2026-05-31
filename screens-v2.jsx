@@ -389,7 +389,7 @@ function CleanFrameMiniPreview({ layout, T }) {
   );
 }
 
-function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, selectedFramePresetId, setSetupStoreTabFocus }) {
+function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, selectedFramePresetId, setSetupStoreTabFocus, resetAppliedFramePreset }) {
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
@@ -566,8 +566,11 @@ function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preS
         </button>
       </div>
       {setupPreviewPreset && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(26,26,31,0.04)', color: T.inkSoft, fontSize: 11, lineHeight: 1.45 }}>
-          적용 중: {setupPreviewPreset.name}. 기본 카드 선택 시 기본 프레임으로 돌아갑니다.
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(26,26,31,0.04)', color: T.inkSoft, fontSize: 11, lineHeight: 1.45, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div>적용 중: {setupPreviewPreset.name}. 기본 카드 선택 시 기본 프레임으로 돌아갑니다.</div>
+          <button onClick={() => resetAppliedFramePreset()} style={{ minHeight: 32, padding: '0 12px', borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 10, fontWeight: 700, alignSelf: 'start', cursor: 'pointer' }}>
+            기본 프레임으로 초기화
+          </button>
         </div>
       )}
     </div>
@@ -781,13 +784,10 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
     </div>
   );
   const tabs = [
-    ['featured', 'Featured'],
-    ['free', 'Free'],
-    ['my-frames', 'My Frames'],
-    ['premium', 'Premium'],
-    ['favorites', 'Favorites'],
-    ['imported', 'Imported'],
-    ['all', 'All Presets'],
+    ['featured', '추천'],
+    ['free', '기본'],
+    ['my-frames', '내 프레임'],
+    ['premium', '유료 예정'],
   ];
   const cardStyle = {
     border: `1px solid ${T.line}`,
@@ -845,13 +845,9 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
                           </div>
                           <StoreBadge T={T} tone="light">{unlocked ? pack.priceLabel : 'Locked'}</StoreBadge>
                         </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button onClick={() => cover && setSelectedPresetId(cover.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Preview</button>
-                          <button onClick={() => applyToBooth(cover)} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: unlocked ? T.ink : 'rgba(26,26,31,0.08)', color: unlocked ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>{unlocked ? 'Apply to Booth' : 'Preview only'}</button>
-                          {pack.locked && !unlocked && unlockFramePackForDev && (
-                            <button onClick={() => unlockFramePackForDev(pack.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Dev Unlock</button>
-                          )}
-                          <button onClick={() => toggleFavoriteFramePack?.(pack.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: favoriteFramePackIds.includes(pack.id) ? T.ink : '#fff', color: favoriteFramePackIds.includes(pack.id) ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Fav Pack</button>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                          <button onClick={() => cover && setSelectedPresetId(cover.id)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Preview</button>
+                          <button onClick={() => applyToBooth(cover)} style={{ minHeight: 38, borderRadius: 999, border: 'none', background: unlocked ? T.ink : 'rgba(26,26,31,0.08)', color: unlocked ? T.bg : T.ink, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>{unlocked ? '이 프레임으로 촬영' : 'Preview only'}</button>
                         </div>
                       </div>
                     );
@@ -884,13 +880,16 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
                           </div>
                           {active && <StoreBadge T={T} tone="light">Active</StoreBadge>}
                         </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button onClick={() => applyToBooth(preset)} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Apply to Booth</button>
-                          <button onClick={() => toggleFavoriteFramePreset?.(preset.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: favoriteFramePresetIds.includes(preset.id) ? T.ink : '#fff', color: favoriteFramePresetIds.includes(preset.id) ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Favorite</button>
-                          <button onClick={() => toggleFrameLike?.(preset.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: frameLikeIds.includes(preset.id) ? T.ink : '#fff', color: frameLikeIds.includes(preset.id) ? T.bg : T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Like</button>
-                          {custom && <button onClick={() => openDesigner?.({ mode: 'edit', preset })} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Edit</button>}
-                          {custom && <button onClick={() => duplicateCustomFrame?.(preset.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Duplicate</button>}
-                          {custom && <button onClick={() => deleteCustomFrame?.(preset.id)} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 11, fontWeight: 900 }}>Delete</button>}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                          <button onClick={() => setSelectedPresetId(preset.id)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Preview</button>
+                          <button onClick={() => applyToBooth(preset)} style={{ minHeight: 38, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>이 프레임으로 촬영</button>
+                          {custom && (
+                            <div style={{ display: 'flex', gap: 4, width: '100%', marginTop: 4 }}>
+                              <button onClick={() => openDesigner?.({ mode: 'edit', preset })} style={{ flex: 1, minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Edit</button>
+                              <button onClick={() => duplicateCustomFrame?.(preset.id)} style={{ flex: 1, minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Duplicate</button>
+                              <button onClick={() => deleteCustomFrame?.(preset.id)} style={{ flex: 1, minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: 'red', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -3180,6 +3179,7 @@ function DesignerScreen({
   const [gridEnabled, setGridEnabled] = uS(false);
   const [activeLayerIndex, setActiveLayerIndex] = uS(0);
   const [activeMotionPreview, setActiveMotionPreview] = uS(false);
+  const [showAdvancedLayers, setShowAdvancedLayers] = uS(false);
 
   const normalizedDraft = uM(() => frameApi?.normalizeDesignerDraft?.(draftFrame) || draftFrame || null, [draftFrame, frameApi]);
   const normalizedInitial = uM(() => frameApi?.normalizeDesignerDraft?.(initialDraftFrame) || initialDraftFrame || null, [initialDraftFrame, frameApi]);
@@ -3194,7 +3194,7 @@ function DesignerScreen({
     { id: 'layout', label: 'Layout' },
     { id: 'background', label: 'Background' },
     { id: 'slots', label: 'Slots' },
-    { id: 'layers', label: 'Layers' },
+    ...(showAdvancedLayers ? [{ id: 'layers', label: 'Layers' }] : []),
     { id: 'decorations', label: 'Decorations' },
     { id: 'text', label: 'Text' },
     { id: 'save', label: 'Save' },
@@ -3680,7 +3680,7 @@ function DesignerScreen({
   const editorShell = (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1.15fr) minmax(300px, 0.85fr)',
+      gridTemplateColumns: mobile ? '1fr' : 'minmax(520px, 1.35fr) minmax(360px, 0.65fr)',
       gap: 14,
       minHeight: '100%',
       background: T.bg,
@@ -3724,22 +3724,43 @@ function DesignerScreen({
           display: 'grid',
           gap: 8,
         }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {tabs.map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-                minHeight: 44,
-                padding: '0 12px',
-                borderRadius: 999,
-                border: 'none',
-                background: activeTab === tab.id ? T.ink : 'rgba(26,26,31,0.06)',
-                color: activeTab === tab.id ? T.bg : T.inkSoft,
-                fontSize: 10,
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                cursor: 'pointer',
-              }}>{tab.label}</button>
-            ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {tabs.map((tab) => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+                  minHeight: 44,
+                  padding: '0 12px',
+                  borderRadius: 999,
+                  border: 'none',
+                  background: activeTab === tab.id ? T.ink : 'rgba(26,26,31,0.06)',
+                  color: activeTab === tab.id ? T.bg : T.inkSoft,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                  cursor: 'pointer',
+                }}>{tab.label}</button>
+              ))}
+            </div>
+            <button onClick={() => {
+              const next = !showAdvancedLayers;
+              setShowAdvancedLayers(next);
+              if (!next && activeTab === 'layers') {
+                setActiveTab('layout');
+              }
+            }} style={{
+              minHeight: 36,
+              padding: '0 12px',
+              borderRadius: 999,
+              border: `1px solid ${T.line}`,
+              background: showAdvancedLayers ? T.ink : '#fff',
+              color: showAdvancedLayers ? T.bg : T.ink,
+              fontSize: 10,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}>
+              고급 레이어 {showAdvancedLayers ? 'ON' : 'OFF'}
+            </button>
           </div>
 
           <DesignerPreviewCanvas

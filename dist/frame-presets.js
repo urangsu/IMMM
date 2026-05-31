@@ -995,29 +995,7 @@ function buildBuiltinFramePresets() {
     background: createBackground('solid', '#FFFFFF'),
     frameColor: '#FFFFFF',
     photoSlots: getPhotoSlotsForLayout('1x4'),
-    decorations: [{
-      type: 'shape',
-      shape: 'line',
-      x: 0.082,
-      y: 0.043,
-      width: 0.836,
-      height: 0.006,
-      rotation: 0,
-      opacity: 0.24,
-      zIndex: -2,
-      fill: '#1A1A1F'
-    }, {
-      type: 'shape',
-      shape: 'line',
-      x: 0.082,
-      y: 0.955,
-      width: 0.836,
-      height: 0.006,
-      rotation: 0,
-      opacity: 0.14,
-      zIndex: 1,
-      fill: '#1A1A1F'
-    }],
+    decorations: [],
     watermark: {
       text: 'IMMM',
       x: 0.5,
@@ -1074,29 +1052,7 @@ function buildBuiltinFramePresets() {
     layout: 'strip',
     background: createBackground('solid', '#111111'),
     frameColor: '#111111',
-    decorations: [{
-      type: 'shape',
-      shape: 'line',
-      x: 0.08,
-      y: 0.04,
-      width: 0.84,
-      height: 0.006,
-      rotation: 0,
-      opacity: 0.4,
-      zIndex: -2,
-      fill: '#FFFFFF'
-    }, {
-      type: 'shape',
-      shape: 'line',
-      x: 0.08,
-      y: 0.956,
-      width: 0.84,
-      height: 0.006,
-      rotation: 0,
-      opacity: 0.3,
-      zIndex: 1,
-      fill: '#FFFFFF'
-    }],
+    decorations: [],
     watermark: {
       text: 'IMMM',
       x: 0.5,

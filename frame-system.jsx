@@ -8,6 +8,13 @@ function isExportPerfDebugEnabled() {
 function nowMs() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
 function logExportPerf(label, data) { if (isExportPerfDebugEnabled()) console.info?.('[IMMM export perf]', label, data); }
 
+const requestIdleCallbackSafe = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
+  ? window.requestIdleCallback.bind(window)
+  : (cb) => setTimeout(() => cb({ didTimeout: true, timeRemaining: () => 0 }), 1);
+const cancelIdleCallbackSafe = typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function'
+  ? window.cancelIdleCallback.bind(window)
+  : (id) => clearTimeout(id);
+
 const FRAME_TEMPLATE_ALIASES = {
   strip: '1x4',
   grid: '2x2',
@@ -80,6 +87,11 @@ function getFrameTheme(template, options = {}) {
 
 if (typeof window !== 'undefined') {
   window.getFrameTheme = getFrameTheme;
+}
+
+function getFramePresetApiSafe() {
+  if (typeof window === 'undefined') return null;
+  return window.IMMMFramePresets || null;
 }
 
 const FRAME_TEMPLATES = {
@@ -176,12 +188,7 @@ function getFrameTemplate(layoutOrType) {
 }
 
 function getShotCountForFrame(layoutOrType) {
-  const template = getFrameTemplateSafe(layoutOrType);
-  if (!template?.photoSlots?.length) {
-    console.warn(`[IMMM] Invalid frame template: ${layoutOrType}`);
-    return 4;  // Safe default
-  }
-  return template.photoSlots.length;
+  return getFrameTemplateSafe(layoutOrType).photoSlots.length;
 }
 
 function loadImageForCanvas(src) {
@@ -513,13 +520,24 @@ async function renderComposition(ctx, data, options = {}) {
   const scale = options.scale || 1;
   const w = template.canvasSize.width * scale;
   const h = template.canvasSize.height * scale;
+  const framePreset = data.framePreset || null;
 
   const theme = getFrameTheme(template, data);
+  const presetApi = getFramePresetApiSafe();
+  const drawPresetBackground = presetApi?.drawFramePresetBackground || window.drawFramePresetBackground || null;
+  const drawPresetLayer = presetApi?.drawFramePresetLayer || window.drawFramePresetLayer || null;
+  const drawPresetWatermark = presetApi?.drawFramePresetWatermark || window.drawFramePresetWatermark || null;
+  const orderedLayers = framePreset?.layers?.length
+    ? (presetApi?.getFrameLayerOrder?.(framePreset) || framePreset.layers)
+    : [];
 
   // 1. Background
-  if (!ctx) throw new Error('[IMMM] Canvas 2D context unavailable');
-  ctx.fillStyle = theme.frameBg;
-  ctx.fillRect(0, 0, w, h);
+  if (framePreset && typeof drawPresetBackground === 'function') {
+    drawPresetBackground(ctx, framePreset, w, h);
+  } else {
+    ctx.fillStyle = theme.frameBg;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   // 1b. Preload Stickers (parallel)
   const tPreloadStart = nowMs();
@@ -532,28 +550,27 @@ async function renderComposition(ctx, data, options = {}) {
   const selected = data.selected || [];
   const shots = data.shots || [];
   const tPhotoStart = nowMs();
-  const images = await Promise.all(
-    template.photoSlots.map((_, i) => {
-      const shotIdx = selected[i];
-      // Validate array bounds
-      if (typeof shotIdx !== 'number' || shotIdx < 0 || shotIdx >= shots.length) {
-        if (shotIdx != null) {
-          console.warn(`[IMMM] Invalid shot index: ${shotIdx} (shots.length=${shots.length})`);
-        }
-        return null;  // Empty slot
-      }
-      const shot = shots[shotIdx];
-      return loadImageForCanvas(shot?.dataUrl).catch((err) => {
-        console.warn(`[IMMM] Image load failed (slot ${i}):`, err);
-        return null;
-      });
-    })
-  );
+  const photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : template.photoSlots;
+  const images = await Promise.all(photoSlots.map((_, i) => {
+    const shot = shots[selected[i]];
+    return loadImageForCanvas(shot?.dataUrl);
+  }));
   logExportPerf('photo-slots', { ms: nowMs() - tPhotoStart, count: images.length });
 
   const tStickerDrawStart = nowMs();
-  for (let i = 0; i < template.photoSlots.length; i++) {
-    const slot = template.photoSlots[i];
+  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
+    orderedLayers
+      .filter((layer) => layer && layer.visible !== false && Number(layer.zIndex) < 0)
+      .forEach((layer) => {
+        if (layer.type !== 'background' && layer.type !== 'photo-slots') {
+          drawPresetLayer(ctx, framePreset, w, h, layer);
+        }
+      });
+  } else if (framePreset && typeof drawPresetLayer === 'function') {
+    drawPresetLayer(ctx, framePreset, w, h, 'back');
+  }
+  for (let i = 0; i < photoSlots.length; i++) {
+    const slot = photoSlots[i];
     const sx = slot.x * scale;
     const sy = slot.y * scale;
     const sw = slot.width * scale;
@@ -629,6 +646,18 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.restore();
   });
 
+  if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
+    orderedLayers
+      .filter((layer) => layer && layer.visible !== false && Number(layer.zIndex) >= 0)
+      .forEach((layer) => {
+        if (layer.type !== 'background' && layer.type !== 'photo-slots') {
+          drawPresetLayer(ctx, framePreset, w, h, layer);
+        }
+      });
+  } else if (framePreset && typeof drawPresetLayer === 'function') {
+    drawPresetLayer(ctx, framePreset, w, h, 'front');
+  }
+
   // 5. Unified Overlay (Logo, Dot, Date)
   renderFrameOverlay(ctx, template, w, h, {
     frameColor: data.frameColor,
@@ -636,6 +665,10 @@ async function renderComposition(ctx, data, options = {}) {
     dateText: data.dateText,
     accent: data.accent
   });
+
+  if (framePreset && typeof drawPresetWatermark === 'function') {
+    drawPresetWatermark(ctx, framePreset, w, h);
+  }
 }
 
 async function renderFrameToCanvas(input) {
@@ -654,7 +687,6 @@ async function renderFrameToCanvas(input) {
   cvs.width = Math.round(w);
   cvs.height = Math.round(h);
   const ctx = cvs.getContext('2d');
-  if (!ctx) throw new Error(`[IMMM] Canvas 2D context unavailable (${Math.round(w)}×${Math.round(h)})`);
 
   await window.renderComposition(ctx, input, { scale });
 
@@ -665,19 +697,7 @@ const FrameRenderEngine = {
   renderToCanvas: renderFrameToCanvas,
   async renderToBlob(input, type = 'image/png', quality = 0.96) {
     const canvas = await renderFrameToCanvas(input);
-    return new Promise((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error(`[IMMM] canvas.toBlob returned null (${type})`));
-          } else {
-            resolve(blob);
-          }
-        },
-        type,
-        quality
-      );
-    });
+    return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
   },
   async renderToDataUrl(input, type = 'image/png', quality = 0.96) {
     const canvas = await renderFrameToCanvas(input);
@@ -815,18 +835,17 @@ function generateQrDataUrl(text) {
 /**
  * A consistent, canvas-based preview component.
  */
-function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = [], drawStrokes = [], logo, dateText, accent, scale = 1, orientation }) {
+function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = [], drawStrokes = [], logo, dateText, accent, scale = 1, orientation, framePreset = null }) {
   const canvasRef = React.useRef(null);
 
   React.useEffect(() => {
+    let cancelled = false;
+    let idleId = null;
     const draw = async () => {
+      if (cancelled) return;
       if (!canvasRef.current) return;
       const cvs = canvasRef.current;
       const ctx = cvs.getContext('2d');
-      if (!ctx) {
-        console.error('[IMMM] Canvas 2D context unavailable for frame overlay');
-        return;
-      }
       const getTpl = window.getFrameTemplateSafe || (typeof getFrameTemplate === 'function' ? getFrameTemplate : null);
       const template = getTpl ? getTpl(layout) : null;
       if (!template) {
@@ -843,11 +862,18 @@ function FrameThumb({ layout, shots, selected, filter, frameColor, stickers = []
         layout, shots, selected, filter, frameColor,
         stickers, drawStrokes, logo, dateText, accent, orientation
       };
+      if (framePreset) {
+        data.framePreset = framePreset;
+      }
       const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) await renderComp(ctx, data, { scale: 1 });
     };
-    draw();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation]);
+    idleId = requestIdleCallbackSafe(() => { draw(); });
+    return () => {
+      cancelled = true;
+      if (idleId != null) cancelIdleCallbackSafe(idleId);
+    };
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
 
   return (
     <canvas 
