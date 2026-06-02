@@ -86,8 +86,31 @@ async function build() {
     }
   }
 
-  // 3. Generate index.precompiled.html from index.html
+  // 3. Generate index.precompiled.html from index.html and inject release-env
   console.log('Generating index.precompiled.html...');
+  const manifestData = JSON.parse(fs.readFileSync('release-manifest.json', 'utf-8'));
+  const appVersion = manifestData.version;
+  const cacheVersion = manifestData.cache;
+  const buildLabel = `${appVersion}-precompiled-entry`;
+  const rcBaseline = manifestData.rcReleaseCommit ? manifestData.rcReleaseCommit.slice(0, 7) : 'b3f7f1c';
+  const stableBaseline = manifestData.rcBaseCommit ? manifestData.rcBaseCommit.slice(0, 7) : '8b5e42c';
+  const expectedCacheName = `immm-cache-${cacheVersion}-${appVersion}-rc-final`;
+
+  // Write release-env.js in dist
+  const releaseEnvCode = `// Generated release environment configuration
+window.IMMM_RELEASE_ENV = {
+  version: "${appVersion}",
+  cache: "${cacheVersion}",
+  buildLabel: "${buildLabel}",
+  rcBaseline: "${rcBaseline}",
+  stableBaseline: "${stableBaseline}",
+  cacheName: "${expectedCacheName}"
+};
+`;
+  fs.writeFileSync(path.join(distDir, 'release-env.js'), releaseEnvCode);
+  console.log('Generated dist/release-env.js');
+
+  // Load index.html
   let html = fs.readFileSync('index.html', 'utf-8');
 
   // Remove Babel standalone comment if present
@@ -103,7 +126,34 @@ async function build() {
     return `<script src="./dist/${fileName}.js"></script>`;
   });
 
+  // Inject version values in HTML
+  html = html.replace(/window\.IMMM_APP_VERSION\s*=\s*'[^']+';/, `window.IMMM_APP_VERSION = '${appVersion}';`);
+  html = html.replace(/window\.IMMM_BUILD_LABEL\s*=\s*'[^']+';/, `window.IMMM_BUILD_LABEL = '${buildLabel}';`);
+  html = html.replace(/window\.IMMM_RC_BASELINE\s*=\s*'[^']+';/, `window.IMMM_RC_BASELINE = '${rcBaseline}';`);
+  html = html.replace(/window\.IMMM_STABLE_BASELINE\s*=\s*'[^']+';/, `window.IMMM_STABLE_BASELINE = '${stableBaseline}';`);
+
+  // Insert release-env script tag before main.js script tag
+  html = html.replace(
+    '<script src="./dist/main.js"></script>',
+    '<script src="./dist/release-env.js"></script>\n<script src="./dist/main.js"></script>'
+  );
+
   fs.writeFileSync('index.precompiled.html', html);
+
+  // Sync index.html with the same version variables to prevent drift during checks
+  let rawHtml = fs.readFileSync('index.html', 'utf-8');
+  rawHtml = rawHtml.replace(/window\.IMMM_APP_VERSION\s*=\s*'[^']+';/, `window.IMMM_APP_VERSION = '${appVersion}';`);
+  rawHtml = rawHtml.replace(/window\.IMMM_BUILD_LABEL\s*=\s*'[^']+';/, `window.IMMM_BUILD_LABEL = '${buildLabel}';`);
+  rawHtml = rawHtml.replace(/window\.IMMM_RC_BASELINE\s*=\s*'[^']+';/, `window.IMMM_RC_BASELINE = '${rcBaseline}';`);
+  rawHtml = rawHtml.replace(/window\.IMMM_STABLE_BASELINE\s*=\s*'[^']+';/, `window.IMMM_STABLE_BASELINE = '${stableBaseline}';`);
+  fs.writeFileSync('index.html', rawHtml);
+  console.log('Synchronized index.html version headers.');
+
+  // Update sw.js CACHE_NAME
+  let swCode = fs.readFileSync('sw.js', 'utf-8');
+  swCode = swCode.replace(/const CACHE_NAME = '[^']+';/, `const CACHE_NAME = '${expectedCacheName}';`);
+  fs.writeFileSync('sw.js', swCode);
+  console.log(`Updated sw.js CACHE_NAME to: ${expectedCacheName}`);
 
   // 4. Copy release-manifest.json to dist/
   const manifestSrc = path.resolve('release-manifest.json');
@@ -113,6 +163,13 @@ async function build() {
     console.log('Copied release-manifest.json to dist/');
   }
 
+  console.log('========================================================');
+  console.log(`🚀 IMMM BUILD SUMMARY:`);
+  console.log(`   - App Version:   ${appVersion}`);
+  console.log(`   - Cache Version: ${cacheVersion}`);
+  console.log(`   - Cache Name:    ${expectedCacheName}`);
+  console.log(`   - RC Baseline:   ${rcBaseline}`);
+  console.log('========================================================');
   console.log('✅ Precompile complete. Output: index.precompiled.html + dist/*.js');
 }
 

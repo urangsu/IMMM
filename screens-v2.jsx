@@ -711,7 +711,8 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
   const [storeSearch, setStoreSearch] = uS('');
   const [storeSort, setStoreSort] = uS('recommended');
   const [importJsonText, setImportJsonText] = uS('');
-  const [importMessage, setImportMessage] = uS('');
+  const [toastMessage, setToastMessage] = uS('');
+  const [showImportExportModal, setShowImportExportModal] = uS(false);
   const [selectedPresetId, setSelectedPresetId] = uS(selectedFramePresetId || '');
   const savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter((preset) => !preset.deletedAt), [customFrames]);
   const allPresets = uM(() => {
@@ -765,7 +766,7 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
     if (!preset) return;
     const pack = preset.packId ? packById(preset.packId) : null;
     if (pack?.locked && !packUnlocked(pack)) {
-      setImportMessage('This frame pack is premium. Unlock coming soon.');
+      setToastMessage('이 프레임 팩은 유료 패키지입니다. 곧 잠금 해제 기능이 추가됩니다.');
       return;
     }
     const applied = applyFramePreset?.(preset, { syncFrameColor: true });
@@ -774,6 +775,14 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
       go('setup');
     }
   };
+
+  uE(() => {
+    if (toastMessage) {
+      const t = setTimeout(() => setToastMessage(''), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [toastMessage]);
+
   const renderThumb = (preset, height = 150) => (
     <div style={{ height, aspectRatio: previewAspect(preset), maxWidth: '100%', margin: '0 auto', display: 'grid', placeItems: 'center', overflow: 'hidden', borderRadius: 12, background: 'rgba(26,26,31,0.03)' }}>
       {WFrameThumb && preset ? (
@@ -797,9 +806,36 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
     minWidth: 0,
     display: 'grid',
     gap: 10,
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.02)',
   };
   return (
     <div style={{ height: '100%', overflow: 'auto', background: T.bg, color: T.ink, fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui' }}>
+      <style>{`
+        .frame-store-card {
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .frame-store-card:hover {
+          transform: scale(1.015);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06) !important;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes toastFadeIn {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes modalFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes modalSlideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
+
       <div style={{ padding: mobile ? 16 : 28, display: 'grid', gap: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 5, background: T.bg, paddingBottom: 12 }}>
           <button onClick={() => go('landing')} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase' }}>Back</button>
@@ -828,98 +864,118 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
               </div>
             </div>
 
-            {visiblePacks.length > 0 && (
-              <div style={{ display: 'grid', gap: 10 }}>
-                <Kick T={T}>{storeTab === 'premium' ? 'Premium Packs' : storeTab === 'free' ? 'Free Packs' : 'Featured Packs'}</Kick>
-                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
-                  {visiblePacks.map((pack) => {
-                    const cover = allPresets.find((preset) => preset.id === pack.coverPresetId) || allPresets.find((preset) => (pack.presetIds || []).includes(preset.id));
-                    const unlocked = packUnlocked(pack);
-                    return (
-                      <div key={pack.id} style={cardStyle}>
-                        {renderThumb(cover, 130)}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 900 }}>{pack.name}</div>
-                            <div style={{ marginTop: 4, fontSize: 11, color: T.inkSoft, lineHeight: 1.4 }}>{pack.description}</div>
-                          </div>
-                          <StoreBadge T={T} tone="light">{unlocked ? pack.priceLabel : 'Locked'}</StoreBadge>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                          <button onClick={() => cover && setSelectedPresetId(cover.id)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Preview</button>
-                          <button onClick={() => applyToBooth(cover)} style={{ minHeight: 38, borderRadius: 999, border: 'none', background: unlocked ? T.ink : 'rgba(26,26,31,0.08)', color: unlocked ? T.bg : T.ink, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>{unlocked ? '이 프레임으로 촬영' : 'Preview only'}</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gap: 10 }}>
-              <Kick T={T}>{storeTab === 'my-frames' ? 'My Frames' : 'All Frames'}</Kick>
-              {visiblePresets.length === 0 ? (
-                <div style={cardStyle}>
-                  <div style={{ fontSize: 15, fontWeight: 900 }}>No frames here yet</div>
-                  <div style={{ fontSize: 12, color: T.inkSoft }}>Create your first frame or import a frame pack.</div>
-                  <button onClick={() => openDesigner?.({ mode: 'new', preset: selectedPreset })} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 900, justifySelf: 'start' }}>Create your first frame</button>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-                  {visiblePresets.map((preset) => {
-                    const active = selectedFramePresetId === preset.id;
-                    const custom = preset.source === 'custom' || preset.source === 'imported';
-                    return (
-                      <div key={preset.id} style={{ ...cardStyle, boxShadow: active ? `0 0 0 2px ${T.ink} inset` : 'none' }}>
-                        <button onClick={() => setSelectedPresetId(preset.id)} style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}>{renderThumb(preset, 150)}</button>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 900 }}>{preset.name}</div>
-                            <div style={{ marginTop: 4, fontSize: 11, color: T.inkSoft }}>{preset.layout} · {preset.photoSlots?.length || getCleanSetupSlotCount(preset.layout)}컷</div>
-                            <div style={{ marginTop: 4, fontSize: 10, color: T.inkSoft }}>{preset.author?.name || 'IMMM Studio'} · {preset.license || 'personal'}</div>
-                          </div>
-                          {active && <StoreBadge T={T} tone="light">Active</StoreBadge>}
-                        </div>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-                          <button onClick={() => setSelectedPresetId(preset.id)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Preview</button>
-                          <button onClick={() => applyToBooth(preset)} style={{ minHeight: 38, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>이 프레임으로 촬영</button>
-                          {custom && (
-                            <div style={{ display: 'flex', gap: 4, width: '100%', marginTop: 4 }}>
-                              <button onClick={() => openDesigner?.({ mode: 'edit', preset })} style={{ flex: 1, minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Edit</button>
-                              <button onClick={() => duplicateCustomFrame?.(preset.id)} style={{ flex: 1, minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Duplicate</button>
-                              <button onClick={() => deleteCustomFrame?.(preset.id)} style={{ flex: 1, minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: 'red', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
+            <div key={storeTab} style={{ display: 'grid', gap: 14, animation: 'fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+              {visiblePacks.length > 0 && (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <Kick T={T}>{storeTab === 'premium' ? 'Premium Packs' : storeTab === 'free' ? 'Free Packs' : 'Featured Packs'}</Kick>
+                  <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                    {visiblePacks.map((pack) => {
+                      const cover = allPresets.find((preset) => preset.id === pack.coverPresetId) || allPresets.find((preset) => (pack.presetIds || []).includes(preset.id));
+                      const unlocked = packUnlocked(pack);
+                      return (
+                        <div key={pack.id} className="frame-store-card" style={cardStyle}>
+                          {renderThumb(cover, 130)}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 14, fontWeight: 900 }}>{pack.name}</div>
+                              <div style={{ marginTop: 4, fontSize: 11, color: T.inkSoft, lineHeight: 1.4 }}>{pack.description}</div>
                             </div>
-                          )}
+                            <StoreBadge T={T} tone="light">{unlocked ? pack.priceLabel : 'Locked'}</StoreBadge>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                            <button onClick={() => cover && setSelectedPresetId(cover.id)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Preview</button>
+                            <button onClick={() => applyToBooth(cover)} style={{ minHeight: 38, borderRadius: 999, border: 'none', background: unlocked ? T.ink : 'rgba(26,26,31,0.08)', color: unlocked ? T.bg : T.ink, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>{unlocked ? '이 프레임으로 촬영' : 'Preview only'}</button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gap: 10 }}>
+                <Kick T={T}>{storeTab === 'my-frames' ? 'My Frames' : 'All Frames'}</Kick>
+                {visiblePresets.length === 0 ? (
+                  <div className="frame-store-card" style={cardStyle}>
+                    <div style={{ fontSize: 15, fontWeight: 900 }}>No frames here yet</div>
+                    <div style={{ fontSize: 12, color: T.inkSoft }}>Create your first frame or import a frame pack.</div>
+                    <button onClick={() => openDesigner?.({ mode: 'new', preset: selectedPreset })} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 900, justifySelf: 'start' }}>Create your first frame</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                    {visiblePresets.map((preset) => {
+                      const active = selectedFramePresetId === preset.id;
+                      const custom = preset.source === 'custom' || preset.source === 'imported';
+                      return (
+                        <div key={preset.id} className="frame-store-card" style={{ ...cardStyle, boxShadow: active ? `0 0 0 2px ${T.ink} inset, 0 4px 16px rgba(0,0,0,0.02)` : '0 4px 16px rgba(0,0,0,0.02)' }}>
+                          <button onClick={() => setSelectedPresetId(preset.id)} style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', width: '100%' }}>{renderThumb(preset, 150)}</button>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 14, fontWeight: 900 }}>{preset.name}</div>
+                              <div style={{ marginTop: 4, fontSize: 11, color: T.inkSoft }}>{preset.layout} · {preset.photoSlots?.length || getCleanSetupSlotCount(preset.layout)}컷</div>
+                              <div style={{ marginTop: 4, fontSize: 10, color: T.inkSoft }}>{preset.author?.name || 'IMMM Studio'} · {preset.license || 'personal'}</div>
+                            </div>
+                            {active && <StoreBadge T={T} tone="light">Active</StoreBadge>}
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                            <button onClick={() => setSelectedPresetId(preset.id)} style={{ minHeight: 38, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Preview</button>
+                            <button onClick={() => applyToBooth(preset)} style={{ minHeight: 38, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>이 프레임으로 촬영</button>
+                            {custom && (
+                              <div style={{ display: 'flex', gap: 4, width: '100%', marginTop: 4 }}>
+                                <button onClick={() => openDesigner?.({ mode: 'edit', preset })} style={{ flex: 1, minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Edit</button>
+                                <button onClick={() => duplicateCustomFrame?.(preset.id)} style={{ flex: 1, minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Duplicate</button>
+                                <button onClick={() => deleteCustomFrame?.(preset.id)} style={{ flex: 1, minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: 'red', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {(storeTab === 'my-frames' || storeTab === 'imported') && (
+                <div className="frame-store-card" style={{
+                  ...cardStyle,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '20px 24px',
+                  background: 'rgba(26,26,31,0.02)',
+                  border: `1.5px dashed ${T.line}`,
+                  cursor: 'pointer',
+                }}
+                onClick={() => setShowImportExportModal(true)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: T.inkSoft }}>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: T.ink }}>Import / Export Backups</div>
+                      <div style={{ fontSize: 11, color: T.inkSoft, marginTop: 4 }}>내 프레임 백업 코드를 가져오거나 다른 곳으로 내보냅니다.</div>
+                    </div>
+                  </div>
+                  <button style={{
+                    minHeight: 38,
+                    padding: '0 18px',
+                    borderRadius: 999,
+                    border: 'none',
+                    background: T.ink,
+                    color: T.bg,
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: 0.5,
+                    cursor: 'pointer'
+                  }}>열기</button>
                 </div>
               )}
             </div>
-
-            {(storeTab === 'my-frames' || storeTab === 'imported') && (
-              <div style={cardStyle}>
-                <Kick T={T}>Import / Export</Kick>
-                <textarea value={importJsonText} onChange={(e) => setImportJsonText(e.target.value)} placeholder="Paste frame pack JSON here" style={{ width: '100%', minHeight: 140, resize: 'vertical', borderRadius: 12, border: `1px solid ${T.line}`, padding: 12, fontSize: 12, fontFamily: 'monospace', boxSizing: 'border-box' }} />
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button onClick={() => {
-                    const raw = exportCustomFramesAsJson?.() || '';
-                    if (raw && navigator.clipboard?.writeText) navigator.clipboard.writeText(raw).catch(() => {});
-                    setImportMessage(raw ? 'Exported My Frames as JSON.' : 'Nothing to export.');
-                  }} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 900 }}>Export My Frames as JSON</button>
-                  <button onClick={() => {
-                    const result = importFramePackFromJson?.(importJsonText) || { ok: false, error: 'Import unavailable' };
-                    setImportMessage(result.ok ? `Imported ${result.presets?.length || 0} frames.` : result.error || 'Import failed');
-                    if (result.ok) setStoreTab('imported');
-                  }} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 900 }}>Import Frame Pack JSON</button>
-                </div>
-                {importMessage && <div style={{ fontSize: 12, color: T.inkSoft }}>{importMessage}</div>}
-              </div>
-            )}
           </div>
 
-          <aside style={{ ...cardStyle, position: mobile ? 'static' : 'sticky', top: 100 }}>
+          <aside className="frame-store-card" style={{ ...cardStyle, position: mobile ? 'static' : 'sticky', top: 100 }}>
             <Kick T={T}>Preview</Kick>
             {renderThumb(selectedPreset, mobile ? 260 : 360)}
             <div>
@@ -928,11 +984,154 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
                 {selectedPreset ? `${selectedPreset.layout} · ${selectedPreset.photoSlots?.length || getCleanSetupSlotCount(selectedPreset.layout)} slots · ${selectedPreset.category || 'frame'}` : 'Pick a frame card to preview.'}
               </div>
             </div>
-            <button disabled={!selectedPreset} onClick={() => applyToBooth(selectedPreset)} style={{ minHeight: 48, borderRadius: 999, border: 'none', background: selectedPreset ? T.ink : 'rgba(26,26,31,0.08)', color: selectedPreset ? T.bg : T.inkSoft, padding: '0 16px', fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase' }}>Apply to Booth</button>
-            <button onClick={() => openDesigner?.({ mode: 'duplicate', preset: selectedPreset })} disabled={!selectedPreset} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 900 }}>Duplicate & Edit</button>
+            <button disabled={!selectedPreset} onClick={() => applyToBooth(selectedPreset)} style={{ minHeight: 48, borderRadius: 999, border: 'none', background: selectedPreset ? T.ink : 'rgba(26,26,31,0.08)', color: selectedPreset ? T.bg : T.inkSoft, padding: '0 16px', fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase', cursor: selectedPreset ? 'pointer' : 'default' }}>Apply to Booth</button>
+            <button onClick={() => openDesigner?.({ mode: 'duplicate', preset: selectedPreset })} disabled={!selectedPreset} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 900, cursor: selectedPreset ? 'pointer' : 'default' }}>Duplicate & Edit</button>
           </aside>
         </div>
       </div>
+
+      {/* Glassmorphic Modal Sheet for Import/Export */}
+      {showImportExportModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(10, 10, 12, 0.4)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          display: 'grid',
+          placeItems: 'center',
+          zIndex: 1000,
+          padding: 20,
+          animation: 'modalFadeIn 0.25s ease forwards'
+        }}
+        onClick={() => setShowImportExportModal(false)}>
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.85)',
+            border: '1px solid rgba(255, 255, 255, 0.5)',
+            borderRadius: 24,
+            padding: 24,
+            width: '100%',
+            maxWidth: 540,
+            boxShadow: '0 20px 48px rgba(0, 0, 0, 0.15)',
+            display: 'grid',
+            gap: 16,
+            boxSizing: 'border-box',
+            animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+          }}
+          onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: T.ink }}>Import / Export My Frames</div>
+                <div style={{ fontSize: 11, color: T.inkSoft, marginTop: 4 }}>백업 데이터를 가져오거나 파일로 내보냅니다.</div>
+              </div>
+              <button onClick={() => setShowImportExportModal(false)} style={{
+                width: 32, height: 32, borderRadius: 999, border: 'none', background: 'rgba(0,0,0,0.05)', color: T.ink, cursor: 'pointer', display: 'grid', placeItems: 'center'
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+            
+            <textarea
+              value={importJsonText}
+              onChange={(e) => setImportJsonText(e.target.value)}
+              placeholder="여기에 프레임 백업 JSON 코드를 붙여넣으세요..."
+              style={{
+                width: '100%',
+                minHeight: 180,
+                resize: 'vertical',
+                borderRadius: 14,
+                border: `1px solid ${T.line}`,
+                padding: 14,
+                fontSize: 12,
+                fontFamily: 'monospace',
+                boxSizing: 'border-box',
+                background: 'rgba(255, 255, 255, 0.6)',
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={(e) => e.target.style.borderColor = T.ink}
+              onBlur={(e) => e.target.style.borderColor = T.line}
+            />
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <button onClick={() => {
+                const raw = exportCustomFramesAsJson?.() || '';
+                if (raw) {
+                  if (navigator.clipboard?.writeText) {
+                    navigator.clipboard.writeText(raw)
+                      .then(() => setToastMessage('내 프레임 JSON 복사 완료!'))
+                      .catch(() => setToastMessage('복사에 실패했습니다. 직접 복사하세요.'));
+                  } else {
+                    setToastMessage('클립보드 API가 지원되지 않습니다.');
+                  }
+                  setImportJsonText(raw);
+                } else {
+                  setToastMessage('내보낼 프레임이 없습니다.');
+                }
+              }} style={{
+                minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 900, cursor: 'pointer', transition: 'opacity 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.opacity = 0.9}
+              onMouseLeave={(e) => e.target.style.opacity = 1}>
+                내 프레임 복사하기 (Export)
+              </button>
+              
+              <button onClick={() => {
+                if (!importJsonText.trim()) {
+                  setToastMessage('가져올 JSON 데이터가 비어있습니다.');
+                  return;
+                }
+                const result = importFramePackFromJson?.(importJsonText) || { ok: false, error: '가져오기 실패' };
+                if (result.ok) {
+                  setToastMessage(`성공적으로 ${result.presets?.length || 0}개의 프레임을 가져왔습니다!`);
+                  setStoreTab('imported');
+                  setShowImportExportModal(false);
+                } else {
+                  setToastMessage(result.error || '잘못된 형식의 데이터입니다.');
+                }
+              }} style={{
+                minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 900, cursor: 'pointer', transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.background = 'rgba(0,0,0,0.02)'}
+              onMouseLeave={(e) => e.target.style.background = '#fff'}>
+                프레임 등록하기 (Import)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Premium Toast Popup Notification */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: 30,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(20, 20, 25, 0.9)',
+          color: '#fff',
+          padding: '12px 24px',
+          borderRadius: 999,
+          fontSize: 12,
+          fontWeight: 600,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+          zIndex: 9999,
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          animation: 'toastFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+        }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#007AFF' }}>
+            <circle cx="8" cy="8" r="7" />
+            <line x1="8" y1="12" x2="8" y2="8" />
+            <line x1="8" y1="4" x2="8.01" y2="4" />
+          </svg>
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }
@@ -3060,19 +3259,50 @@ function DesignerPreviewCanvas({
                   height: r.height,
                   borderRadius: Math.max(4, Number(slot.radius || 0) * metrics.scale),
                   boxSizing: 'border-box',
-                  border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.28)'}`,
-                  background: active ? 'rgba(26,26,31,0.04)' : 'rgba(255,255,255,0.04)',
+                  border: active ? `1.5px solid #007AFF` : `1px dashed rgba(26,26,31,0.25)`,
+                  background: 'transparent',
                   cursor: 'move',
                   touchAction: 'none',
                   zIndex: 4,
+                  boxShadow: active ? '0 0 0 3px rgba(0, 122, 255, 0.15)' : 'none',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
                 }}
               >
-                <div style={{ position: 'absolute', top: 4, left: 4, padding: '2px 5px', borderRadius: 999, background: active ? T.ink : 'rgba(26,26,31,0.65)', color: active ? T.bg : '#fff', fontSize: 9, fontWeight: 800 }}>{index + 1}</div>
-                <div
-                  onPointerDown={useTouchFallback ? undefined : startDrag('slot', index, 'resize', metrics, viewportRef)}
-                  onTouchStart={useTouchFallback ? startDrag('slot', index, 'resize', metrics, viewportRef) : undefined}
-                  style={{ position: 'absolute', right: -4, bottom: -4, width: 16, height: 16, borderRadius: 5, background: T.ink, cursor: 'nwse-resize', touchAction: 'none' }}
-                />
+                <div style={{
+                  position: 'absolute',
+                  top: 6,
+                  left: 6,
+                  padding: '2px 6px',
+                  borderRadius: 999,
+                  background: active ? '#007AFF' : 'rgba(26,26,31,0.45)',
+                  color: '#fff',
+                  fontSize: 8,
+                  fontWeight: 800,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  pointerEvents: 'none',
+                }}>
+                  {index + 1}
+                </div>
+                {active && (
+                  <div
+                    onPointerDown={useTouchFallback ? undefined : startDrag('slot', index, 'resize', metrics, viewportRef)}
+                    onTouchStart={useTouchFallback ? startDrag('slot', index, 'resize', metrics, viewportRef) : undefined}
+                    style={{
+                      position: 'absolute',
+                      right: -6,
+                      bottom: -6,
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      background: '#fff',
+                      border: '1.5px solid #007AFF',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.18)',
+                      cursor: 'nwse-resize',
+                      touchAction: 'none',
+                      zIndex: 10,
+                    }}
+                  />
+                )}
               </div>
             );
           })}
@@ -3091,8 +3321,8 @@ function DesignerPreviewCanvas({
                   top: r.top,
                   width: r.width,
                   height: r.height,
-                  border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.18)'}`,
-                  background: deco.type === 'text' ? 'rgba(255,255,255,0.7)' : 'rgba(26,26,31,0.04)',
+                  border: active ? `1.5px solid #825CFF` : `1px dashed rgba(26,26,31,0.18)`,
+                  background: 'transparent',
                   borderRadius: deco.shape === 'circle' ? 999 : 10,
                   display: 'grid',
                   placeItems: 'center',
@@ -3102,14 +3332,31 @@ function DesignerPreviewCanvas({
                   transform: `rotate(${deco.rotation || 0}deg)`,
                   touchAction: 'none',
                   zIndex: 5,
+                  boxShadow: active ? '0 0 0 3px rgba(130, 92, 255, 0.15)' : 'none',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
                 }}
               >
                 <div style={{ fontSize: deco.type === 'text' ? 12 : 10, fontWeight: 800, color: deco.fill || T.ink, textAlign: 'center', padding: 4 }}>{deco.type === 'text' ? (deco.text || 'TEXT') : (deco.shape || 'shape')}</div>
-                <div
-                  onPointerDown={useTouchFallback ? undefined : startDrag('decor', index, 'resize', metrics, viewportRef)}
-                  onTouchStart={useTouchFallback ? startDrag('decor', index, 'resize', metrics, viewportRef) : undefined}
-                  style={{ position: 'absolute', right: -4, bottom: -4, width: 16, height: 16, borderRadius: 5, background: T.ink, cursor: 'nwse-resize', touchAction: 'none' }}
-                />
+                {active && (
+                  <div
+                    onPointerDown={useTouchFallback ? undefined : startDrag('decor', index, 'resize', metrics, viewportRef)}
+                    onTouchStart={useTouchFallback ? startDrag('decor', index, 'resize', metrics, viewportRef) : undefined}
+                    style={{
+                      position: 'absolute',
+                      right: -6,
+                      bottom: -6,
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      background: '#fff',
+                      border: '1.5px solid #825CFF',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.18)',
+                      cursor: 'nwse-resize',
+                      touchAction: 'none',
+                      zIndex: 10,
+                    }}
+                  />
+                )}
               </div>
             );
           })}

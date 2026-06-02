@@ -2295,6 +2295,7 @@ function App() {
           facingMode: facingMode,
           setFacingMode: setFacingMode,
           onCameraFrameChange: setCameraBox,
+          setPhotoEditMode: setPhotoEditMode,
           faceDataRef: faceDataRef,
           cameraZoom: cameraZoom,
           cameraCapabilities: cameraCapabilities,

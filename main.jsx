@@ -1884,6 +1884,7 @@ function App() {
           engineRef={engineRef} webglOk={webglOk} firstFrame={firstFrame}
           camOk={camOk} facingMode={facingMode} setFacingMode={setFacingMode}
           onCameraFrameChange={setCameraBox}
+          setPhotoEditMode={setPhotoEditMode}
           faceDataRef={faceDataRef}
           cameraZoom={cameraZoom}
           cameraCapabilities={cameraCapabilities}

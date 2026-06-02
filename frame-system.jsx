@@ -72,7 +72,7 @@ function getFrameTheme(template, options = {}) {
   const markColor = dark ? '#FFFFFF' : '#111111';
   const dotColor = markColor;
   const dateColor = dark ? 'rgba(255,255,255,0.82)' : '#6B6B6B';
-  const photoBg = dark ? 'rgba(255,255,255,0.10)' : '#f0f0f0';
+  const photoBg = dark ? 'rgba(255,255,255,0.03)' : '#FAF9F6';
 
   return {
     frameBg,

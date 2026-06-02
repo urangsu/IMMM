@@ -1,8 +1,8 @@
 {
   "app": "IMMM",
-  "version": "2026-05-16-rc2.4",
+  "version": "2026-06-03-rc2.5",
   "runtime": "precompiled",
-  "cache": "v17",
+  "cache": "v18",
   "branch": "claude/session-adapter-hardening-03que",
   "rcBaseCommit": "8caef463b9e4613549037c351c0bda253b61e1e7",
   "rcReleaseCommit": "cd4736fb96fe90bc787743e8d10238417c3aa845",

@@ -29,7 +29,8 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   lastWideToggleReason = '', lastWideTogglePath = '',
   cameraZoomOptions = [], cameraZoomSupported = false, torchSupported = false, torchActive = false, torchUnavailableReason = '',
   screenFlashOverlay = false, screenLightSupported = false, screenLightActive = false,
-  setCameraZoom, setCameraTorch, setScreenLightActive, runScreenFlash, framePreset
+  setCameraZoom, setCameraTorch, setScreenLightActive, runScreenFlash, framePreset,
+  setPhotoEditMode
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -61,6 +62,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const [auto, setAuto]           = React.useState(false);
   const [overlayBox, setOverlayBox] = React.useState(null);
   const [zoomToggleError, setZoomToggleError] = React.useState('');
+  const [toggleBusy, setToggleBusy] = React.useState(false);
+  const [showDemoFallback, setShowDemoFallback] = React.useState(false);
+  const [captureError, setCaptureError] = React.useState(false);
   const touchStartY = React.useRef(null);
   const cameraFrameRef = React.useRef(null);
   const isCapturingRef = React.useRef(false);  // Debounce rapid-click shutter
@@ -118,20 +122,12 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   }, [onCameraFrameChange, mobile]);
 
   const toggleCamera = () => {
+    if (toggleBusy || cameraToggleBusy || countdown > 0 || isCapturingRef.current) return;
+    setToggleBusy(true);
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  const handleTouchStart = (e) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e) => {
-    if (touchStartY.current === null) return;
-    const touchEndY = e.changedTouches[0].clientY;
-    const diff = touchStartY.current - touchEndY;
-    // Swipe up (diff > 50px)
-    if (diff > 50) toggleCamera();
-    touchStartY.current = null;
+    setTimeout(() => {
+      setToggleBusy(false);
+    }, 500);
   };
 
   const captureFromVideo = React.useCallback(async (v, cssFilter, mirrorX, edge) => {
@@ -365,8 +361,11 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       }
 
       if (!dataUrl) {
-        console.warn('[IMMM] All capture paths failed.');
-        captureMode = 'failed';
+        console.error('[IMMM] All capture paths failed. dataUrl is null.');
+        setCaptureError(true);
+        isCapturingRef.current = false;
+        setCountdown(0);
+        return;
       }
 
       setShots(prev => {
@@ -388,9 +387,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         };
         return copy;
       });
-        setIdx(i => Math.min(i+1, shotCount));
-        isCapturingRef.current = false;  // Allow next capture
-      };
+      setIdx(i => Math.min(i+1, shotCount));
+      isCapturingRef.current = false;  // Allow next capture
+    };
 
     // Wait for video ready if needed
     const v = videoRef.current;
@@ -492,8 +491,6 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
         <div 
           ref={cameraFrameRef}
           onDoubleClick={toggleCamera}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
           style={{
             flex: mobile ? '1 1 auto' : 1,
             width: '100%',
@@ -508,10 +505,133 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             alignItems:'center',
             justifyContent:'center'
           }}>
-          {camOk === false && (
-            <div style={{ position:'absolute', inset:0, borderRadius:24, overflow:'hidden' }}>
+          {camOk === false && !showDemoFallback && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(20, 20, 25, 0.92)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              borderRadius: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 24,
+              color: '#fff',
+              zIndex: 100,
+              textAlign: 'center',
+              boxSizing: 'border-box'
+            }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: 999,
+                background: 'rgba(255, 75, 75, 0.15)',
+                color: '#FF4B4B',
+                display: 'grid', placeItems: 'center', marginBottom: 16
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 8 }}>카메라를 시작할 수 없습니다</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, marginBottom: 24, maxWidth: 280 }}>
+                브라우저의 카메라 권한 설정을 확인해 주세요. 모바일 브라우저인 경우 타 앱의 카메라 점유를 해제해야 할 수 있습니다.
+              </div>
+              <div style={{ display: 'grid', gap: 8, width: '100%', maxWidth: 220 }}>
+                <button
+                  onClick={() => {
+                    if (typeof onRequestCamera === 'function') {
+                      onRequestCamera();
+                    } else {
+                      location.reload();
+                    }
+                  }}
+                  style={{
+                    minHeight: 40, borderRadius: 10, border: 'none',
+                    background: '#fff', color: '#000', fontSize: 12, fontWeight: 800, cursor: 'pointer'
+                  }}
+                >
+                  권한 다시 요청
+                </button>
+                <button
+                  onClick={() => {
+                    setPhotoEditMode?.(true);
+                    go('setup');
+                  }}
+                  style={{
+                    minHeight: 40, borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'transparent', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  사진 업로드로 만들기
+                </button>
+                <button
+                  onClick={() => setShowDemoFallback(true)}
+                  style={{
+                    minHeight: 40, borderRadius: 10, border: 'none',
+                    background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 600, cursor: 'pointer'
+                  }}
+                >
+                  체험 모드로 보기
+                </button>
+              </div>
+            </div>
+          )}
+
+          {camOk === false && showDemoFallback && (
+            <div style={{ position:'absolute', inset:0, borderRadius:24, overflow:'hidden', zIndex: 90 }}>
               <PlaceholderPortrait seed={idx} filter={filter}/>
               <div style={{ position:'absolute', top:12, left:12, padding:'6px 10px', background:'rgba(0,0,0,0.55)', color:'#fff', borderRadius:999, fontSize:10, letterSpacing:1.5, fontFamily:'"Plus Jakarta Sans",system-ui' }}>DEMO MODE</div>
+            </div>
+          )}
+
+          {captureError && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(20, 20, 25, 0.95)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              borderRadius: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 24,
+              color: '#fff',
+              zIndex: 110,
+              textAlign: 'center',
+              boxSizing: 'border-box'
+            }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: 999,
+                background: 'rgba(255, 75, 75, 0.15)',
+                color: '#FF4B4B',
+                display: 'grid', placeItems: 'center', marginBottom: 16
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 8 }}>사진 촬영 실패</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, marginBottom: 24, maxWidth: 280 }}>
+                카메라 스트림으로부터 이미지를 캡처하지 못했습니다. 다시 촬영해 주세요.
+              </div>
+              <button
+                onClick={() => {
+                  setCaptureError(false);
+                  isCapturingRef.current = false;
+                }}
+                style={{
+                  minHeight: 40, padding: '0 24px', borderRadius: 10, border: 'none',
+                  background: '#fff', color: '#000', fontSize: 12, fontWeight: 800, cursor: 'pointer'
+                }}
+              >
+                다시 촬영하기
+              </button>
             </div>
           )}
           
@@ -618,25 +738,25 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   <div style={{ display: 'none' }} onClick={toggleWideCamera} />
                   <button
                     onClick={onLightToggle}
-                    disabled={!lightSupported || cameraToggleBusy}
+                    disabled={!lightSupported || cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current}
                     aria-label={facingMode === 'user' ? (screenLightActive ? 'Turn off selfie light' : 'Turn on selfie light') : (torchActive ? 'Turn off light' : 'Turn on light')}
                     title={facingMode === 'user' ? 'Selfie screen light' : 'Camera light'}
                     style={{
                       ...leftBtnStyle,
                       background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
                       color: isLightOn ? T.bg : T.ink,
-                      opacity: cameraToggleBusy ? 0.6 : (lightSupported ? 1 : 0.4)
+                      opacity: (cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current) ? 0.4 : (lightSupported ? 1 : 0.4)
                     }}
                   >
                     <SoftLightGlyph />
                     {cameraToggleBusy ? '...' : (facingMode === 'user' ? (mobile ? 'Light' : 'Selfie Light') : 'Light')}
                   </button>
 
-                  <button onClick={toggleAuto} disabled={cameraToggleBusy} style={{
+                  <button onClick={toggleAuto} disabled={cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current} style={{
                     ...leftBtnStyle,
                     background: auto? T.ink : 'rgba(26,26,31,0.06)',
                     color: auto? T.bg : T.ink,
-                    opacity: cameraToggleBusy ? 0.6 : 1
+                    opacity: (cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current) ? 0.4 : 1
                   }}>
                     <div style={{ width:6, height:6, borderRadius:999, background: auto? T.pinkDeep : T.inkSoft, transition:'background 0.2s' }}/>
                     Auto
@@ -644,14 +764,19 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                 </div>
 
                 {/* Center: Shutter button */}
-                <button onClick={startCountdown} disabled={idx>=shotCount} style={{
-                  width:72, height:72, borderRadius:999,
-                  border:'none', background: countdown>0? T.pinkDeep : T.ink,
-                  cursor: idx>=shotCount? 'default':'pointer', padding:6,
-                  boxShadow:'0 10px 30px rgba(217,136,147,0.35)',
-                  transition:'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
-                  transform: countdown>0? 'scale(0.92)':'scale(1)',
-                }}>
+                <button 
+                  onClick={startCountdown} 
+                  disabled={idx >= shotCount || toggleBusy || cameraToggleBusy || isCapturingRef.current || captureError || (camOk === false && !showDemoFallback)} 
+                  style={{
+                    width:72, height:72, borderRadius:999,
+                    border:'none', background: countdown>0? T.pinkDeep : T.ink,
+                    cursor: (idx>=shotCount || isCapturingRef.current || captureError)? 'default':'pointer', padding:6,
+                    boxShadow:'0 10px 30px rgba(217,136,147,0.35)',
+                    transition:'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
+                    transform: countdown>0? 'scale(0.92)':'scale(1)',
+                    opacity: (idx >= shotCount || toggleBusy || cameraToggleBusy || isCapturingRef.current || captureError || (camOk === false && !showDemoFallback)) ? 0.4 : 1
+                  }}
+                >
                   <div style={{ width:'100%', height:'100%', borderRadius:999, background:T.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
                     <div style={{ width:52, height:52, borderRadius:999, background: countdown>0? T.pinkDeep : T.ink, transition:'background 0.2s' }}/>
                   </div>
@@ -662,24 +787,25 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   <div style={{ padding:'8px 11px', borderRadius:999, background:'rgba(26,26,31,0.06)', fontSize:11, color:T.inkSoft, fontFamily:'Pretendard,system-ui' }}>
                     {Math.max(0, shotCount-idx)} left
                   </div>
-                  <button onClick={() => setTimerLen(t => t === 3 ? 5 : 3)} style={{
+                  <button onClick={() => setTimerLen(t => t === 3 ? 5 : 3)} disabled={cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current} style={{
                     padding:'8px 11px', borderRadius:999, border:'none',
                     background: 'rgba(26,26,31,0.06)',
                     color: T.ink, fontSize:11, fontWeight:600, cursor:'pointer',
                     display:'flex', alignItems:'center', gap:4, fontFamily:'"Plus Jakarta Sans",system-ui',
                     transition:'all 0.2s',
+                    opacity: (cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current) ? 0.4 : 1
                   }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                     {timerLen}s
                   </button>
                   <button
                     onClick={toggleCamera}
-                    disabled={cameraToggleBusy}
+                    disabled={cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current}
                     aria-label={facingMode === 'user' ? 'Switch to rear camera' : 'Switch to front camera'}
                     title={facingMode === 'user' ? 'Rear camera' : 'Front camera'}
                     style={{
                       ...leftBtnStyle,
-                      opacity: cameraToggleBusy ? 0.6 : 1
+                      opacity: (cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current) ? 0.4 : 1
                     }}
                     data-wide-toggle-marker="true"
                   >
@@ -687,7 +813,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                       <circle cx="12" cy="13" r="4" />
                     </svg>
-                    {cameraToggleBusy ? '...' : 'Switch'}
+                    {cameraToggleBusy || toggleBusy ? '...' : 'Switch'}
                   </button>
                 </div>
               </>

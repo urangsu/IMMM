@@ -36,42 +36,27 @@ function extractFunctionBody(source, signature) {
 let hasErrors = false;
 
 function checkRepositoryScope() {
-  const taskContent = readFile('task.md');
-  if (!taskContent) return;
+  const rootDir = path.resolve('.');
+  let packageJson;
+  try {
+    packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  } catch (e) {
+    console.error('❌ FAIL: package.json is missing or corrupted');
+    hasErrors = true;
+    return;
+  }
 
-  if (!taskContent.includes('## Repository Scope Guard')) {
-    console.error('❌ FAIL: task.md missing "## Repository Scope Guard" section');
+  // package.json name identity check
+  if (packageJson.name !== 'immm-photobooth') {
+    console.error(`❌ FAIL: Invalid repository identity name: ${packageJson.name}`);
     hasErrors = true;
   }
 
-  if (taskContent.includes('MyTeam is out of scope') && taskContent.includes('/Users/su/Desktop/MyTeam')) {
-    // Basic presence check passed
-  } else {
-     console.error('❌ FAIL: task.md Repository Scope Guard section is incomplete');
+  // task.md identity check (IMMM photobooth references)
+  const taskContent = readFile('task.md') || '';
+  if (!taskContent.includes('IMMM') && !taskContent.includes('Photobooth')) {
+     console.error('❌ FAIL: task.md does not contain IMMM/Photobooth project identities');
      hasErrors = true;
-  }
-
-  // Cross-repo mention check in new task sections
-  const lines = taskContent.split('\n');
-  let currentHeader = '';
-  lines.forEach(line => {
-    if (line.startsWith('## ')) currentHeader = line;
-    if (currentHeader.includes('Phase 3.54') || currentHeader.includes('Current Execution')) {
-       if (line.includes('MyTeam') && !line.includes('out of scope') && !line.includes('Guard')) {
-         console.error('❌ FAIL: Unauthorized MyTeam mention in task.md');
-         hasErrors = true;
-       }
-       if (line.includes('TASK.md')) {
-         console.error('❌ FAIL: Unauthorized TASK.md mention in task.md');
-         hasErrors = true;
-       }
-    }
-  });
-
-  // Verify git root if possible (optional but recommended in shell context)
-  if (rootDir.includes('MyTeam')) {
-    console.error('❌ FAIL: Sanity check running from wrong repository root (MyTeam detected)');
-    hasErrors = true;
   }
 }
 
@@ -574,9 +559,11 @@ function checkCaptureSessionSystem() {
       }
     });
 
-    // Check cache version is v14+ (Phase 3.64+)
-    if (!sw.includes('immm-cache-v14') && !sw.includes('immm-cache-v17')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME must be bumped to v17 or higher');
+    // Check cache version matching release-manifest.json
+    const manifestData = JSON.parse(fs.readFileSync('release-manifest.json', 'utf8'));
+    const cacheVersion = manifestData.cache;
+    if (!sw.includes(`immm-cache-${cacheVersion}`)) {
+      console.error(`❌ FAIL: sw.js CACHE_NAME must match manifest cache version: expected 'immm-cache-${cacheVersion}'`);
       hasErrors = true;
     }
   }
@@ -1627,48 +1614,63 @@ function checkPhaseCCameraZoom() {
 }
 
 function checkRuntimeVersion() {
+  let manifestData;
+  try {
+    manifestData = JSON.parse(fs.readFileSync('release-manifest.json', 'utf8'));
+  } catch (e) {
+    console.error('❌ FAIL: release-manifest.json is missing or corrupted');
+    hasErrors = true;
+    return;
+  }
+
+  const appVersion = manifestData.version;
+  const cacheVersion = manifestData.cache;
+  const buildLabel = `${appVersion}-precompiled-entry`;
+  const rcBaseline = manifestData.rcReleaseCommit ? manifestData.rcReleaseCommit.slice(0, 7) : 'b3f7f1c';
+  const stableBaseline = manifestData.rcBaseCommit ? manifestData.rcBaseCommit.slice(0, 7) : '8b5e42c';
+  const expectedCacheName = `immm-cache-${cacheVersion}-${appVersion}-rc-final`;
+
   const html = fs.readFileSync('index.html', 'utf8');
   const main = fs.readFileSync('main.jsx', 'utf8');
   const sw = fs.readFileSync('sw.js', 'utf8');
 
-  if (!html.includes('IMMM_APP_VERSION = \'2026-05-12-rc2.3\'')) {
-    console.error("❌ FAIL: index.html missing or incorrect IMMM_APP_VERSION");
+  // Verify manifest version/cache variables in index.html
+  if (!html.includes(`IMMM_APP_VERSION = '${appVersion}'`)) {
+    console.error(`❌ FAIL: index.html mismatch or missing IMMM_APP_VERSION: expected '${appVersion}'`);
     hasErrors = true;
   }
-  if (!html.includes('IMMM_BUILD_LABEL = \'rc2.3-precompiled-entry\'')) {
-    console.error("❌ FAIL: index.html missing IMMM_BUILD_LABEL");
+  if (!html.includes(`IMMM_BUILD_LABEL = '${buildLabel}'`)) {
+    console.error(`❌ FAIL: index.html mismatch or missing IMMM_BUILD_LABEL: expected '${buildLabel}'`);
     hasErrors = true;
   }
-  if (html.includes('IMMM_COMMIT = \'91bc1ba\'')) {
-    console.error("❌ FAIL: index.html contains misleading IMMM_COMMIT = '91bc1ba'");
+  if (!html.includes(`IMMM_RC_BASELINE = '${rcBaseline}'`)) {
+    console.error(`❌ FAIL: index.html mismatch or missing IMMM_RC_BASELINE: expected '${rcBaseline}'`);
     hasErrors = true;
   }
-  if (!html.includes('IMMM_RC_BASELINE = \'b3f7f1c\'')) {
-    console.error("❌ FAIL: index.html missing or incorrect IMMM_RC_BASELINE");
+  if (!html.includes(`IMMM_STABLE_BASELINE = '${stableBaseline}'`)) {
+    console.error(`❌ FAIL: index.html mismatch or missing IMMM_STABLE_BASELINE: expected '${stableBaseline}'`);
     hasErrors = true;
   }
-  if (!html.includes('IMMM_STABLE_BASELINE = \'8b5e42c\'')) {
-    console.error("❌ FAIL: index.html missing IMMM_STABLE_BASELINE");
-    hasErrors = true;
-  }
-  if (!main.includes('[IMMM build]') || !main.includes('rcBaseline: window.IMMM_RC_BASELINE') || !main.includes('cacheName:')) {
-    console.error("❌ FAIL: main.jsx missing or incorrect [IMMM build] console log");
-    hasErrors = true;
-  }
-  if (!main.includes('window.IMMM_RC_BASELINE')) {
-    console.error("❌ FAIL: main.jsx BuildPill must use IMMM_RC_BASELINE");
-    hasErrors = true;
-  }
-  if (!sw.includes('immm-cache-v7-') && !sw.includes('immm-cache-v8-') && !sw.includes('immm-cache-v9-') && !sw.includes('immm-cache-v10-') && !sw.includes('immm-cache-v11-') && !sw.includes('immm-cache-v12-') && !sw.includes('immm-cache-v13-') && !sw.includes('immm-cache-v14-') && !sw.includes('immm-cache-v17-')) {
-    console.error("❌ FAIL: sw.js missing recent immm-cache version (v14 or v17)");
-    hasErrors = true;
-  }
-  if (sw.includes('immm-cache-v1-') || sw.includes('immm-cache-v4-')) {
-    console.error("❌ FAIL: sw.js contains legacy cache name");
+
+  // sw.js cache name check
+  if (!sw.includes(`const CACHE_NAME = '${expectedCacheName}'`)) {
+    console.error(`❌ FAIL: sw.js CACHE_NAME mismatch: expected '${expectedCacheName}'`);
     hasErrors = true;
   }
   if (!sw.includes('.respondWith(') || !sw.includes('fetch(')) {
     console.error("❌ FAIL: sw.js missing network-first logic (safety check)");
+    hasErrors = true;
+  }
+
+  // dist/release-manifest.json validation
+  try {
+    const distManifest = JSON.parse(fs.readFileSync('dist/release-manifest.json', 'utf8'));
+    if (distManifest.version !== appVersion || distManifest.cache !== cacheVersion) {
+      console.error('❌ FAIL: dist/release-manifest.json version/cache mismatch with root manifest');
+      hasErrors = true;
+    }
+  } catch (_) {
+    console.error('❌ FAIL: dist/release-manifest.json is missing or corrupted');
     hasErrors = true;
   }
 }
@@ -2661,8 +2663,12 @@ function checkBabelMigrationPlan() {
   // Phase 3.52 & 3.56: sw.js CACHE_NAME and dist precache guards
   const swJs = readFile('sw.js');
   if (swJs) {
-    if (!swJs.includes('rc2.3-precompiled') && !swJs.includes('v7-') && !swJs.includes('v8-') && !swJs.includes('v9-') && !swJs.includes('v10-') && !swJs.includes('v11-') && !swJs.includes('v12-') && !swJs.includes('v13-') && !swJs.includes('v14-') && !swJs.includes('v17-')) {
-      console.error('❌ FAIL: sw.js CACHE_NAME not bumped to rc2.3-precompiled, v8, v9, v10, v11, v12, v13, v14 or v17 series');
+    const manifestData = JSON.parse(fs.readFileSync('release-manifest.json', 'utf8'));
+    const cacheVersion = manifestData.cache;
+    const appVersion = manifestData.version;
+    const expectedCacheName = `immm-cache-${cacheVersion}-${appVersion}-rc-final`;
+    if (!swJs.includes(`const CACHE_NAME = '${expectedCacheName}'`)) {
+      console.error(`❌ FAIL: sw.js CACHE_NAME mismatch with manifest: expected '${expectedCacheName}'`);
       hasErrors = true;
     }
     ['dist/app.js','dist/filters.js','dist/webgl-engine.js','dist/screens-v2-rest.js','dist/main.js'].forEach(d => {

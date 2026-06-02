@@ -82,7 +82,8 @@ function CaptureV2({
   setCameraTorch,
   setScreenLightActive,
   runScreenFlash,
-  framePreset
+  framePreset,
+  setPhotoEditMode
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -114,6 +115,9 @@ function CaptureV2({
   var [auto, setAuto] = React.useState(false);
   var [overlayBox, setOverlayBox] = React.useState(null);
   var [zoomToggleError, setZoomToggleError] = React.useState('');
+  var [toggleBusy, setToggleBusy] = React.useState(false);
+  var [showDemoFallback, setShowDemoFallback] = React.useState(false);
+  var [captureError, setCaptureError] = React.useState(false);
   var touchStartY = React.useRef(null);
   var cameraFrameRef = React.useRef(null);
   var isCapturingRef = React.useRef(false); // Debounce rapid-click shutter
@@ -170,18 +174,12 @@ function CaptureV2({
     };
   }, [onCameraFrameChange, mobile]);
   var toggleCamera = () => {
+    if (toggleBusy || cameraToggleBusy || countdown > 0 || isCapturingRef.current) return;
+    setToggleBusy(true);
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-  var handleTouchStart = e => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-  var handleTouchEnd = e => {
-    if (touchStartY.current === null) return;
-    var touchEndY = e.changedTouches[0].clientY;
-    var diff = touchStartY.current - touchEndY;
-    // Swipe up (diff > 50px)
-    if (diff > 50) toggleCamera();
-    touchStartY.current = null;
+    setTimeout(() => {
+      setToggleBusy(false);
+    }, 500);
   };
   var captureFromVideo = React.useCallback(async (v, cssFilter, mirrorX, edge) => {
     if (!v || !v.videoWidth || !v.videoHeight) return null;
@@ -437,8 +435,11 @@ function CaptureV2({
         }
       }
       if (!dataUrl) {
-        console.warn('[IMMM] All capture paths failed.');
-        captureMode = 'failed';
+        console.error('[IMMM] All capture paths failed. dataUrl is null.');
+        setCaptureError(true);
+        isCapturingRef.current = false;
+        setCountdown(0);
+        return;
       }
       setShots(prev => {
         var copy = [...prev];
@@ -627,8 +628,6 @@ function CaptureV2({
   }), /*#__PURE__*/React.createElement("div", {
     ref: cameraFrameRef,
     onDoubleClick: toggleCamera,
-    onTouchStart: handleTouchStart,
-    onTouchEnd: handleTouchEnd,
     style: {
       flex: mobile ? '1 1 auto' : 1,
       width: '100%',
@@ -643,12 +642,122 @@ function CaptureV2({
       alignItems: 'center',
       justifyContent: 'center'
     }
-  }, camOk === false && /*#__PURE__*/React.createElement("div", {
+  }, camOk === false && !showDemoFallback && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      inset: 0,
+      background: 'rgba(20, 20, 25, 0.92)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      borderRadius: 24,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+      color: '#fff',
+      zIndex: 100,
+      textAlign: 'center',
+      boxSizing: 'border-box'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 56,
+      height: 56,
+      borderRadius: 999,
+      background: 'rgba(255, 75, 75, 0.15)',
+      color: '#FF4B4B',
+      display: 'grid',
+      placeItems: 'center',
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "28",
+    height: "28",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2.5"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "1",
+    y1: "1",
+    x2: "23",
+    y2: "23"
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: 900,
+      marginBottom: 8
+    }
+  }, "\uCE74\uBA54\uB77C\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.7)',
+      lineHeight: 1.5,
+      marginBottom: 24,
+      maxWidth: 280
+    }
+  }, "\uBE0C\uB77C\uC6B0\uC800\uC758 \uCE74\uBA54\uB77C \uAD8C\uD55C \uC124\uC815\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694. \uBAA8\uBC14\uC77C \uBE0C\uB77C\uC6B0\uC800\uC778 \uACBD\uC6B0 \uD0C0 \uC571\uC758 \uCE74\uBA54\uB77C \uC810\uC720\uB97C \uD574\uC81C\uD574\uC57C \uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8,
+      width: '100%',
+      maxWidth: 220
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (typeof onRequestCamera === 'function') {
+        onRequestCamera();
+      } else {
+        location.reload();
+      }
+    },
+    style: {
+      minHeight: 40,
+      borderRadius: 10,
+      border: 'none',
+      background: '#fff',
+      color: '#000',
+      fontSize: 12,
+      fontWeight: 800,
+      cursor: 'pointer'
+    }
+  }, "\uAD8C\uD55C \uB2E4\uC2DC \uC694\uCCAD"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setPhotoEditMode?.(true);
+      go('setup');
+    },
+    style: {
+      minHeight: 40,
+      borderRadius: 10,
+      border: '1px solid rgba(255,255,255,0.2)',
+      background: 'transparent',
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: 'pointer'
+    }
+  }, "\uC0AC\uC9C4 \uC5C5\uB85C\uB4DC\uB85C \uB9CC\uB4E4\uAE30"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowDemoFallback(true),
+    style: {
+      minHeight: 40,
+      borderRadius: 10,
+      border: 'none',
+      background: 'rgba(255,255,255,0.1)',
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: 11,
+      fontWeight: 600,
+      cursor: 'pointer'
+    }
+  }, "\uCCB4\uD5D8 \uBAA8\uB4DC\uB85C \uBCF4\uAE30"))), camOk === false && showDemoFallback && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       inset: 0,
       borderRadius: 24,
-      overflow: 'hidden'
+      overflow: 'hidden',
+      zIndex: 90
     }
   }, /*#__PURE__*/React.createElement(PlaceholderPortrait, {
     seed: idx,
@@ -666,7 +775,85 @@ function CaptureV2({
       letterSpacing: 1.5,
       fontFamily: '"Plus Jakarta Sans",system-ui'
     }
-  }, "DEMO MODE")), (() => {
+  }, "DEMO MODE")), captureError && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      inset: 0,
+      background: 'rgba(20, 20, 25, 0.95)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      borderRadius: 24,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+      color: '#fff',
+      zIndex: 110,
+      textAlign: 'center',
+      boxSizing: 'border-box'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 56,
+      height: 56,
+      borderRadius: 999,
+      background: 'rgba(255, 75, 75, 0.15)',
+      color: '#FF4B4B',
+      display: 'grid',
+      placeItems: 'center',
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "28",
+    height: "28",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2.5"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "9",
+    x2: "12",
+    y2: "13"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "17",
+    x2: "12.01",
+    y2: "17"
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: 900,
+      marginBottom: 8
+    }
+  }, "\uC0AC\uC9C4 \uCD2C\uC601 \uC2E4\uD328"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.7)',
+      lineHeight: 1.5,
+      marginBottom: 24,
+      maxWidth: 280
+    }
+  }, "\uCE74\uBA54\uB77C \uC2A4\uD2B8\uB9BC\uC73C\uB85C\uBD80\uD130 \uC774\uBBF8\uC9C0\uB97C \uCEA1\uCC98\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uB2E4\uC2DC \uCD2C\uC601\uD574 \uC8FC\uC138\uC694."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setCaptureError(false);
+      isCapturingRef.current = false;
+    },
+    style: {
+      minHeight: 40,
+      padding: '0 24px',
+      borderRadius: 10,
+      border: 'none',
+      background: '#fff',
+      color: '#000',
+      fontSize: 12,
+      fontWeight: 800,
+      cursor: 'pointer'
+    }
+  }, "\uB2E4\uC2DC \uCD2C\uC601\uD558\uAE30")), (() => {
     var safeFrameColor = frameColor || frameTemplate?.theme?.frameFill || '#fff';
     return /*#__PURE__*/React.createElement(CaptureOverlay, {
       template: frameTemplate,
@@ -818,23 +1005,23 @@ function CaptureV2({
       onClick: toggleWideCamera
     }), /*#__PURE__*/React.createElement("button", {
       onClick: onLightToggle,
-      disabled: !lightSupported || cameraToggleBusy,
+      disabled: !lightSupported || cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current,
       "aria-label": facingMode === 'user' ? screenLightActive ? 'Turn off selfie light' : 'Turn on selfie light' : torchActive ? 'Turn off light' : 'Turn on light',
       title: facingMode === 'user' ? 'Selfie screen light' : 'Camera light',
       style: {
         ...leftBtnStyle,
         background: isLightOn ? T.ink : 'rgba(26,26,31,0.06)',
         color: isLightOn ? T.bg : T.ink,
-        opacity: cameraToggleBusy ? 0.6 : lightSupported ? 1 : 0.4
+        opacity: cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current ? 0.4 : lightSupported ? 1 : 0.4
       }
     }, /*#__PURE__*/React.createElement(SoftLightGlyph, null), cameraToggleBusy ? '...' : facingMode === 'user' ? mobile ? 'Light' : 'Selfie Light' : 'Light'), /*#__PURE__*/React.createElement("button", {
       onClick: toggleAuto,
-      disabled: cameraToggleBusy,
+      disabled: cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current,
       style: {
         ...leftBtnStyle,
         background: auto ? T.ink : 'rgba(26,26,31,0.06)',
         color: auto ? T.bg : T.ink,
-        opacity: cameraToggleBusy ? 0.6 : 1
+        opacity: cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current ? 0.4 : 1
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -846,18 +1033,19 @@ function CaptureV2({
       }
     }), "Auto")), /*#__PURE__*/React.createElement("button", {
       onClick: startCountdown,
-      disabled: idx >= shotCount,
+      disabled: idx >= shotCount || toggleBusy || cameraToggleBusy || isCapturingRef.current || captureError || camOk === false && !showDemoFallback,
       style: {
         width: 72,
         height: 72,
         borderRadius: 999,
         border: 'none',
         background: countdown > 0 ? T.pinkDeep : T.ink,
-        cursor: idx >= shotCount ? 'default' : 'pointer',
+        cursor: idx >= shotCount || isCapturingRef.current || captureError ? 'default' : 'pointer',
         padding: 6,
         boxShadow: '0 10px 30px rgba(217,136,147,0.35)',
         transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
-        transform: countdown > 0 ? 'scale(0.92)' : 'scale(1)'
+        transform: countdown > 0 ? 'scale(0.92)' : 'scale(1)',
+        opacity: idx >= shotCount || toggleBusy || cameraToggleBusy || isCapturingRef.current || captureError || camOk === false && !showDemoFallback ? 0.4 : 1
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -897,6 +1085,7 @@ function CaptureV2({
       }
     }, Math.max(0, shotCount - idx), " left"), /*#__PURE__*/React.createElement("button", {
       onClick: () => setTimerLen(t => t === 3 ? 5 : 3),
+      disabled: cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current,
       style: {
         padding: '8px 11px',
         borderRadius: 999,
@@ -910,7 +1099,8 @@ function CaptureV2({
         alignItems: 'center',
         gap: 4,
         fontFamily: '"Plus Jakarta Sans",system-ui',
-        transition: 'all 0.2s'
+        transition: 'all 0.2s',
+        opacity: cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current ? 0.4 : 1
       }
     }, /*#__PURE__*/React.createElement("svg", {
       width: "14",
@@ -929,12 +1119,12 @@ function CaptureV2({
       points: "12 6 12 12 16 14"
     })), timerLen, "s"), /*#__PURE__*/React.createElement("button", {
       onClick: toggleCamera,
-      disabled: cameraToggleBusy,
+      disabled: cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current,
       "aria-label": facingMode === 'user' ? 'Switch to rear camera' : 'Switch to front camera',
       title: facingMode === 'user' ? 'Rear camera' : 'Front camera',
       style: {
         ...leftBtnStyle,
-        opacity: cameraToggleBusy ? 0.6 : 1
+        opacity: cameraToggleBusy || toggleBusy || countdown > 0 || isCapturingRef.current ? 0.4 : 1
       },
       "data-wide-toggle-marker": "true"
     }, /*#__PURE__*/React.createElement("svg", {
@@ -952,7 +1142,7 @@ function CaptureV2({
       cx: "12",
       cy: "13",
       r: "4"
-    })), cameraToggleBusy ? '...' : 'Switch')));
+    })), cameraToggleBusy || toggleBusy ? '...' : 'Switch')));
   })()), mobile && /*#__PURE__*/React.createElement("div", {
     style: {
       flexShrink: 0,

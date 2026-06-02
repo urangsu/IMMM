@@ -1552,7 +1552,8 @@ function FrameStoreScreen({
   var [storeSearch, setStoreSearch] = uS('');
   var [storeSort, setStoreSort] = uS('recommended');
   var [importJsonText, setImportJsonText] = uS('');
-  var [importMessage, setImportMessage] = uS('');
+  var [toastMessage, setToastMessage] = uS('');
+  var [showImportExportModal, setShowImportExportModal] = uS(false);
   var [selectedPresetId, setSelectedPresetId] = uS(selectedFramePresetId || '');
   var savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter(preset => !preset.deletedAt), [customFrames]);
   var allPresets = uM(() => {
@@ -1614,7 +1615,7 @@ function FrameStoreScreen({
     if (!preset) return;
     var pack = preset.packId ? packById(preset.packId) : null;
     if (pack?.locked && !packUnlocked(pack)) {
-      setImportMessage('This frame pack is premium. Unlock coming soon.');
+      setToastMessage('이 프레임 팩은 유료 패키지입니다. 곧 잠금 해제 기능이 추가됩니다.');
       return;
     }
     var applied = applyFramePreset?.(preset, {
@@ -1625,6 +1626,12 @@ function FrameStoreScreen({
       go('setup');
     }
   };
+  uE(() => {
+    if (toastMessage) {
+      var t = setTimeout(() => setToastMessage(''), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [toastMessage]);
   var renderThumb = (preset, height = 150) => /*#__PURE__*/React.createElement("div", {
     style: {
       height,
@@ -1663,7 +1670,8 @@ function FrameStoreScreen({
     padding: 14,
     minWidth: 0,
     display: 'grid',
-    gap: 10
+    gap: 10,
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.02)'
   };
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1673,7 +1681,31 @@ function FrameStoreScreen({
       color: T.ink,
       fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("style", null, `
+        .frame-store-card {
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .frame-store-card:hover {
+          transform: scale(1.015);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06) !important;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes toastFadeIn {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes modalFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes modalSlideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: mobile ? 16 : 28,
       display: 'grid',
@@ -1819,7 +1851,14 @@ function FrameStoreScreen({
     value: "newest"
   }, "Newest"), /*#__PURE__*/React.createElement("option", {
     value: "az"
-  }, "A-Z")))), visiblePacks.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "A-Z")))), /*#__PURE__*/React.createElement("div", {
+    key: storeTab,
+    style: {
+      display: 'grid',
+      gap: 14,
+      animation: 'fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+    }
+  }, visiblePacks.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gap: 10
@@ -1837,6 +1876,7 @@ function FrameStoreScreen({
     var unlocked = packUnlocked(pack);
     return /*#__PURE__*/React.createElement("div", {
       key: pack.id,
+      className: "frame-store-card",
       style: cardStyle
     }, renderThumb(cover, 130), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -1905,6 +1945,7 @@ function FrameStoreScreen({
   }, /*#__PURE__*/React.createElement(Kick, {
     T: T
   }, storeTab === 'my-frames' ? 'My Frames' : 'All Frames'), visiblePresets.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "frame-store-card",
     style: cardStyle
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1943,9 +1984,10 @@ function FrameStoreScreen({
     var custom = preset.source === 'custom' || preset.source === 'imported';
     return /*#__PURE__*/React.createElement("div", {
       key: preset.id,
+      className: "frame-store-card",
       style: {
         ...cardStyle,
-        boxShadow: active ? `0 0 0 2px ${T.ink} inset` : 'none'
+        boxShadow: active ? `0 0 0 2px ${T.ink} inset, 0 4px 16px rgba(0,0,0,0.02)` : '0 4px 16px rgba(0,0,0,0.02)'
       }
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => setSelectedPresetId(preset.id),
@@ -1953,7 +1995,8 @@ function FrameStoreScreen({
         border: 'none',
         background: 'transparent',
         padding: 0,
-        cursor: 'pointer'
+        cursor: 'pointer',
+        width: '100%'
       }
     }, renderThumb(preset, 150)), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -2069,71 +2112,72 @@ function FrameStoreScreen({
       }
     }, "Delete"))));
   }))), (storeTab === 'my-frames' || storeTab === 'imported') && /*#__PURE__*/React.createElement("div", {
-    style: cardStyle
-  }, /*#__PURE__*/React.createElement(Kick, {
-    T: T
-  }, "Import / Export"), /*#__PURE__*/React.createElement("textarea", {
-    value: importJsonText,
-    onChange: e => setImportJsonText(e.target.value),
-    placeholder: "Paste frame pack JSON here",
+    className: "frame-store-card",
     style: {
-      width: '100%',
-      minHeight: 140,
-      resize: 'vertical',
-      borderRadius: 12,
-      border: `1px solid ${T.line}`,
-      padding: 12,
-      fontSize: 12,
-      fontFamily: 'monospace',
-      boxSizing: 'border-box'
-    }
-  }), /*#__PURE__*/React.createElement("div", {
+      ...cardStyle,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '20px 24px',
+      background: 'rgba(26,26,31,0.02)',
+      border: `1.5px dashed ${T.line}`,
+      cursor: 'pointer'
+    },
+    onClick: () => setShowImportExportModal(true)
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      gap: 8,
-      flexWrap: 'wrap'
+      alignItems: 'center',
+      gap: 16
     }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      var raw = exportCustomFramesAsJson?.() || '';
-      if (raw && navigator.clipboard?.writeText) navigator.clipboard.writeText(raw).catch(() => {});
-      setImportMessage(raw ? 'Exported My Frames as JSON.' : 'Nothing to export.');
-    },
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "22",
+    height: "22",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
     style: {
-      minHeight: 44,
+      color: T.inkSoft
+    }
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "17 8 12 3 7 8"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "3",
+    x2: "12",
+    y2: "15"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 900,
+      color: T.ink
+    }
+  }, "Import / Export Backups"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: T.inkSoft,
+      marginTop: 4
+    }
+  }, "\uB0B4 \uD504\uB808\uC784 \uBC31\uC5C5 \uCF54\uB4DC\uB97C \uAC00\uC838\uC624\uAC70\uB098 \uB2E4\uB978 \uACF3\uC73C\uB85C \uB0B4\uBCF4\uB0C5\uB2C8\uB2E4."))), /*#__PURE__*/React.createElement("button", {
+    style: {
+      minHeight: 38,
+      padding: '0 18px',
       borderRadius: 999,
       border: 'none',
       background: T.ink,
       color: T.bg,
-      padding: '0 14px',
       fontSize: 11,
-      fontWeight: 900
+      fontWeight: 900,
+      letterSpacing: 0.5,
+      cursor: 'pointer'
     }
-  }, "Export My Frames as JSON"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      var result = importFramePackFromJson?.(importJsonText) || {
-        ok: false,
-        error: 'Import unavailable'
-      };
-      setImportMessage(result.ok ? `Imported ${result.presets?.length || 0} frames.` : result.error || 'Import failed');
-      if (result.ok) setStoreTab('imported');
-    },
-    style: {
-      minHeight: 44,
-      borderRadius: 999,
-      border: `1px solid ${T.line}`,
-      background: '#fff',
-      color: T.ink,
-      padding: '0 14px',
-      fontSize: 11,
-      fontWeight: 900
-    }
-  }, "Import Frame Pack JSON")), importMessage && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      color: T.inkSoft
-    }
-  }, importMessage))), /*#__PURE__*/React.createElement("aside", {
+  }, "\uC5F4\uAE30")))), /*#__PURE__*/React.createElement("aside", {
+    className: "frame-store-card",
     style: {
       ...cardStyle,
       position: mobile ? 'static' : 'sticky',
@@ -2166,7 +2210,8 @@ function FrameStoreScreen({
       fontSize: 11,
       fontWeight: 900,
       letterSpacing: 1.2,
-      textTransform: 'uppercase'
+      textTransform: 'uppercase',
+      cursor: selectedPreset ? 'pointer' : 'default'
     }
   }, "Apply to Booth"), /*#__PURE__*/React.createElement("button", {
     onClick: () => openDesigner?.({
@@ -2182,9 +2227,219 @@ function FrameStoreScreen({
       color: T.ink,
       padding: '0 14px',
       fontSize: 11,
-      fontWeight: 900
+      fontWeight: 900,
+      cursor: selectedPreset ? 'pointer' : 'default'
     }
-  }, "Duplicate & Edit")))));
+  }, "Duplicate & Edit")))), showImportExportModal && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(10, 10, 12, 0.4)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      display: 'grid',
+      placeItems: 'center',
+      zIndex: 1000,
+      padding: 20,
+      animation: 'modalFadeIn 0.25s ease forwards'
+    },
+    onClick: () => setShowImportExportModal(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'rgba(255, 255, 255, 0.85)',
+      border: '1px solid rgba(255, 255, 255, 0.5)',
+      borderRadius: 24,
+      padding: 24,
+      width: '100%',
+      maxWidth: 540,
+      boxShadow: '0 20px 48px rgba(0, 0, 0, 0.15)',
+      display: 'grid',
+      gap: 16,
+      boxSizing: 'border-box',
+      animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: 900,
+      color: T.ink
+    }
+  }, "Import / Export My Frames"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: T.inkSoft,
+      marginTop: 4
+    }
+  }, "\uBC31\uC5C5 \uB370\uC774\uD130\uB97C \uAC00\uC838\uC624\uAC70\uB098 \uD30C\uC77C\uB85C \uB0B4\uBCF4\uB0C5\uB2C8\uB2E4.")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowImportExportModal(false),
+    style: {
+      width: 32,
+      height: 32,
+      borderRadius: 999,
+      border: 'none',
+      background: 'rgba(0,0,0,0.05)',
+      color: T.ink,
+      cursor: 'pointer',
+      display: 'grid',
+      placeItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "14",
+    height: "14",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2.5"
+  }, /*#__PURE__*/React.createElement("line", {
+    x1: "18",
+    y1: "6",
+    x2: "6",
+    y2: "18"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "6",
+    y1: "6",
+    x2: "18",
+    y2: "18"
+  })))), /*#__PURE__*/React.createElement("textarea", {
+    value: importJsonText,
+    onChange: e => setImportJsonText(e.target.value),
+    placeholder: "\uC5EC\uAE30\uC5D0 \uD504\uB808\uC784 \uBC31\uC5C5 JSON \uCF54\uB4DC\uB97C \uBD99\uC5EC\uB123\uC73C\uC138\uC694...",
+    style: {
+      width: '100%',
+      minHeight: 180,
+      resize: 'vertical',
+      borderRadius: 14,
+      border: `1px solid ${T.line}`,
+      padding: 14,
+      fontSize: 12,
+      fontFamily: 'monospace',
+      boxSizing: 'border-box',
+      background: 'rgba(255, 255, 255, 0.6)',
+      outline: 'none',
+      transition: 'border-color 0.2s'
+    },
+    onFocus: e => e.target.style.borderColor = T.ink,
+    onBlur: e => e.target.style.borderColor = T.line
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var raw = exportCustomFramesAsJson?.() || '';
+      if (raw) {
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(raw).then(() => setToastMessage('내 프레임 JSON 복사 완료!')).catch(() => setToastMessage('복사에 실패했습니다. 직접 복사하세요.'));
+        } else {
+          setToastMessage('클립보드 API가 지원되지 않습니다.');
+        }
+        setImportJsonText(raw);
+      } else {
+        setToastMessage('내보낼 프레임이 없습니다.');
+      }
+    },
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      fontSize: 11,
+      fontWeight: 900,
+      cursor: 'pointer',
+      transition: 'opacity 0.2s'
+    },
+    onMouseEnter: e => e.target.style.opacity = 0.9,
+    onMouseLeave: e => e.target.style.opacity = 1
+  }, "\uB0B4 \uD504\uB808\uC784 \uBCF5\uC0AC\uD558\uAE30 (Export)"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (!importJsonText.trim()) {
+        setToastMessage('가져올 JSON 데이터가 비어있습니다.');
+        return;
+      }
+      var result = importFramePackFromJson?.(importJsonText) || {
+        ok: false,
+        error: '가져오기 실패'
+      };
+      if (result.ok) {
+        setToastMessage(`성공적으로 ${result.presets?.length || 0}개의 프레임을 가져왔습니다!`);
+        setStoreTab('imported');
+        setShowImportExportModal(false);
+      } else {
+        setToastMessage(result.error || '잘못된 형식의 데이터입니다.');
+      }
+    },
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 900,
+      cursor: 'pointer',
+      transition: 'background 0.2s'
+    },
+    onMouseEnter: e => e.target.style.background = 'rgba(0,0,0,0.02)',
+    onMouseLeave: e => e.target.style.background = '#fff'
+  }, "\uD504\uB808\uC784 \uB4F1\uB85D\uD558\uAE30 (Import)")))), toastMessage && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      bottom: 30,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: 'rgba(20, 20, 25, 0.9)',
+      color: '#fff',
+      padding: '12px 24px',
+      borderRadius: 999,
+      fontSize: 12,
+      fontWeight: 600,
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+      zIndex: 9999,
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      animation: 'toastFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "14",
+    height: "14",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    style: {
+      color: '#007AFF'
+    }
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "8",
+    cy: "8",
+    r: "7"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "8",
+    y1: "12",
+    x2: "8",
+    y2: "8"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "8",
+    y1: "4",
+    x2: "8.01",
+    y2: "4"
+  })), toastMessage));
 }
 function DeprecatedSetupWithEmbeddedStore({
   T,
@@ -5198,37 +5453,44 @@ function DesignerPreviewCanvas({
         height: r.height,
         borderRadius: Math.max(4, Number(slot.radius || 0) * metrics.scale),
         boxSizing: 'border-box',
-        border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.28)'}`,
-        background: active ? 'rgba(26,26,31,0.04)' : 'rgba(255,255,255,0.04)',
+        border: active ? `1.5px solid #007AFF` : `1px dashed rgba(26,26,31,0.25)`,
+        background: 'transparent',
         cursor: 'move',
         touchAction: 'none',
-        zIndex: 4
+        zIndex: 4,
+        boxShadow: active ? '0 0 0 3px rgba(0, 122, 255, 0.15)' : 'none',
+        transition: 'border-color 0.15s, box-shadow 0.15s'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         position: 'absolute',
-        top: 4,
-        left: 4,
-        padding: '2px 5px',
+        top: 6,
+        left: 6,
+        padding: '2px 6px',
         borderRadius: 999,
-        background: active ? T.ink : 'rgba(26,26,31,0.65)',
-        color: active ? T.bg : '#fff',
-        fontSize: 9,
-        fontWeight: 800
+        background: active ? '#007AFF' : 'rgba(26,26,31,0.45)',
+        color: '#fff',
+        fontSize: 8,
+        fontWeight: 800,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        pointerEvents: 'none'
       }
-    }, index + 1), /*#__PURE__*/React.createElement("div", {
+    }, index + 1), active && /*#__PURE__*/React.createElement("div", {
       onPointerDown: useTouchFallback ? undefined : startDrag('slot', index, 'resize', metrics, viewportRef),
       onTouchStart: useTouchFallback ? startDrag('slot', index, 'resize', metrics, viewportRef) : undefined,
       style: {
         position: 'absolute',
-        right: -4,
-        bottom: -4,
-        width: 16,
-        height: 16,
-        borderRadius: 5,
-        background: T.ink,
+        right: -6,
+        bottom: -6,
+        width: 12,
+        height: 12,
+        borderRadius: '50%',
+        background: '#fff',
+        border: '1.5px solid #007AFF',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.18)',
         cursor: 'nwse-resize',
-        touchAction: 'none'
+        touchAction: 'none',
+        zIndex: 10
       }
     }));
   }), (draft.decorations || []).map((deco, index) => {
@@ -5250,8 +5512,8 @@ function DesignerPreviewCanvas({
         top: r.top,
         width: r.width,
         height: r.height,
-        border: `2px solid ${active ? T.ink : 'rgba(26,26,31,0.18)'}`,
-        background: deco.type === 'text' ? 'rgba(255,255,255,0.7)' : 'rgba(26,26,31,0.04)',
+        border: active ? `1.5px solid #825CFF` : `1px dashed rgba(26,26,31,0.18)`,
+        background: 'transparent',
         borderRadius: deco.shape === 'circle' ? 999 : 10,
         display: 'grid',
         placeItems: 'center',
@@ -5260,7 +5522,9 @@ function DesignerPreviewCanvas({
         opacity: deco.opacity ?? 1,
         transform: `rotate(${deco.rotation || 0}deg)`,
         touchAction: 'none',
-        zIndex: 5
+        zIndex: 5,
+        boxShadow: active ? '0 0 0 3px rgba(130, 92, 255, 0.15)' : 'none',
+        transition: 'border-color 0.15s, box-shadow 0.15s'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -5270,19 +5534,22 @@ function DesignerPreviewCanvas({
         textAlign: 'center',
         padding: 4
       }
-    }, deco.type === 'text' ? deco.text || 'TEXT' : deco.shape || 'shape'), /*#__PURE__*/React.createElement("div", {
+    }, deco.type === 'text' ? deco.text || 'TEXT' : deco.shape || 'shape'), active && /*#__PURE__*/React.createElement("div", {
       onPointerDown: useTouchFallback ? undefined : startDrag('decor', index, 'resize', metrics, viewportRef),
       onTouchStart: useTouchFallback ? startDrag('decor', index, 'resize', metrics, viewportRef) : undefined,
       style: {
         position: 'absolute',
-        right: -4,
-        bottom: -4,
-        width: 16,
-        height: 16,
-        borderRadius: 5,
-        background: T.ink,
+        right: -6,
+        bottom: -6,
+        width: 12,
+        height: 12,
+        borderRadius: '50%',
+        background: '#fff',
+        border: '1.5px solid #825CFF',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.18)',
         cursor: 'nwse-resize',
-        touchAction: 'none'
+        touchAction: 'none',
+        zIndex: 10
       }
     }));
   }), showGuides && (activeGuides || []).map((guide, index) => /*#__PURE__*/React.createElement("div", {
