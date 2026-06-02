@@ -618,7 +618,9 @@ function StickerCanvas({
         minX: (r.left - cRect.left) / cRect.width * 100,
         maxX: (r.right - cRect.left) / cRect.width * 100,
         minY: (r.top - cRect.top) / cRect.height * 100,
-        maxY: (r.bottom - cRect.top) / cRect.height * 100
+        maxY: (r.bottom - cRect.top) / cRect.height * 100,
+        widthPx: r.width,
+        heightPx: r.height
       };
     });
     if (domSlots.length === 0) {
@@ -631,7 +633,9 @@ function StickerCanvas({
           minX: slot.minX,
           maxX: slot.maxX,
           minY: slot.minY,
-          maxY: slot.maxY
+          maxY: slot.maxY,
+          widthPx: slot.width,
+          heightPx: slot.height
         };
       });
     }
@@ -1054,11 +1058,16 @@ function StickerCanvas({
     });
   })(), sortedStickers.filter(s => s.frameSlot == null).map(s => {
     var isSel = s.id === selectedId;
-    var visualScale = getStickerNormScale(s, canvasW);
-    var userScale = s.scale || 1;
+    var containerW = canvasW || width || 200;
+    var containerH = height || 200;
+    var metrics = resolveStickerFidelityMetrics(s, null, containerW, containerH);
+    var raw = getStickerVisualBounds(s);
+    var visualW = metrics.widthPx;
+    var visualH = visualW * (raw.h / (raw.w || 1));
+    var visualScale = visualW / (raw.w || 1);
     var hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
-    var outlineW = hitbox.visualW || hitbox.w;
-    var outlineH = hitbox.visualH || hitbox.h;
+    var outlineW = isSel ? visualW : hitbox.visualW || hitbox.w;
+    var outlineH = isSel ? visualH : hitbox.visualH || hitbox.h;
     if (mode === 'deco-overlay' && window.IMMM_DEBUG_STICKER) {
       console.debug('[IMMM deco sticker]', {
         id: s.id,
@@ -1067,8 +1076,7 @@ function StickerCanvas({
         sizeNorm: s.sizeNorm,
         scale: s.scale,
         visualScale,
-        userScale,
-        rawBounds: getStickerVisualBounds(s),
+        rawBounds: raw,
         interactionBounds: hitbox,
         decoScale,
         canvasW,
@@ -1082,9 +1090,9 @@ function StickerCanvas({
       onClick: e => e.stopPropagation(),
       style: {
         position: 'absolute',
-        left: `${s.x}%`,
-        top: `${s.y}%`,
-        transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg) scale(${userScale})`,
+        left: `${metrics.xPercent}%`,
+        top: `${metrics.yPercent}%`,
+        transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg)`,
         transformOrigin: 'center',
         cursor: dragState?.id === s.id ? 'grabbing' : 'grab',
         zIndex: (s.z || 0) + 1,
@@ -1098,8 +1106,8 @@ function StickerCanvas({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: hitbox.w,
-        height: hitbox.h
+        width: isSel ? visualW : hitbox.w,
+        height: isSel ? visualH : hitbox.h
       }
     }, /*#__PURE__*/React.createElement("div", {
       className: "sticker-outline-box",
@@ -1117,11 +1125,17 @@ function StickerCanvas({
     }, renderStickerVisual(s, visualScale, hideVisuals ? 0 : 1), renderStickerControls(s, isSel))));
   }), sortedStickers.filter(s => s.frameSlot != null).map(s => {
     var isSel = s.id === selectedId;
-    var visualScale = getStickerNormScale(s, canvasW);
-    var userScale = s.scale || 1;
+    var slotClip = slotClips[s.frameSlot];
+    var slotW = slotClip?.widthPx || (canvasW ? canvasW * 0.4 : width ? width * 0.4 : 100);
+    var slotH = slotClip?.heightPx || (height ? height * 0.4 : 100);
+    var metrics = resolveStickerFidelityMetrics(s, null, slotW, slotH);
+    var raw = getStickerVisualBounds(s);
+    var visualW = metrics.widthPx;
+    var visualH = visualW * (raw.h / (raw.w || 1));
+    var visualScale = visualW / (raw.w || 1);
     var hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
-    var outlineW = hitbox.visualW || hitbox.w;
-    var outlineH = hitbox.visualH || hitbox.h;
+    var outlineW = isSel ? visualW : hitbox.visualW || hitbox.w;
+    var outlineH = isSel ? visualH : hitbox.visualH || hitbox.h;
     return /*#__PURE__*/React.createElement(React.Fragment, {
       key: s.id
     }, /*#__PURE__*/React.createElement("div", {
@@ -1132,7 +1146,7 @@ function StickerCanvas({
         position: 'absolute',
         left: `${s.x}%`,
         top: `${s.y}%`,
-        transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg) scale(${userScale})`,
+        transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg)`,
         transformOrigin: 'center',
         cursor: dragState?.id === s.id ? 'grabbing' : 'grab',
         zIndex: (s.z || 0) + 50,
@@ -1141,8 +1155,8 @@ function StickerCanvas({
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        width: hitbox.w,
-        height: hitbox.h,
+        width: visualW,
+        height: visualH,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
@@ -1152,7 +1166,7 @@ function StickerCanvas({
         position: 'absolute',
         left: `${s.x}%`,
         top: `${s.y}%`,
-        transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg) scale(${userScale})`,
+        transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg)`,
         transformOrigin: 'center',
         zIndex: (s.z || 0) + 51,
         pointerEvents: 'none'
@@ -1283,6 +1297,32 @@ function drawCatalogSticker(ctx, item, scalePx = 1) {
   }
   ctx.restore();
 }
+function resolveStickerFidelityMetrics(sticker, geometry, containerWidth, containerHeight) {
+  var isSlotted = sticker.frameSlot != null;
+  var rawSize = getStickerVisualBounds(sticker); // { w, h }
+
+  var xPercent = 50;
+  var yPercent = 50;
+  var sizeNorm = sticker.sizeNorm || 0.16;
+  if (isSlotted) {
+    xPercent = sticker.slotX !== undefined ? sticker.slotX : 50;
+    yPercent = sticker.slotY !== undefined ? sticker.slotY : 50;
+  } else {
+    xPercent = sticker.x !== undefined ? sticker.x : 50;
+    yPercent = sticker.y !== undefined ? sticker.y : 50;
+  }
+  var widthPx = sizeNorm * containerWidth;
+  var heightPx = widthPx * (rawSize.h / (rawSize.w || 1));
+  var scale = sticker.scale || 1.0;
+  return {
+    xPercent,
+    yPercent,
+    widthPx: widthPx * scale,
+    heightPx: heightPx * scale,
+    baseWidthPx: widthPx,
+    baseHeightPx: heightPx
+  };
+}
 Object.assign(window, {
   STICKER_CATALOG,
   getStickerByLibId,
@@ -1293,5 +1333,7 @@ Object.assign(window, {
   makeSticker,
   bringForward,
   sendBackward,
-  drawCatalogSticker
+  drawCatalogSticker,
+  getStickerVisualBounds,
+  resolveStickerFidelityMetrics
 });

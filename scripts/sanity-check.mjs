@@ -346,6 +346,102 @@ function checkCaptureSessionSystem() {
           hasErrors = true;
         }
 
+        // 6.5. validateFrameReadiness VM Tests
+        const validateFrameReadiness = modelObj.validateFrameReadiness;
+        if (typeof validateFrameReadiness !== 'function') {
+          console.error('❌ FAIL: validateFrameReadiness function is missing on IMMMSessionModel');
+          hasErrors = true;
+        } else {
+          // Positive test
+          const posLayout = 'strip';
+          const posShots = [
+            { assetId: 'asset_0', dataUrl: 'data:image/png;base64,1' },
+            { assetId: 'asset_1', dataUrl: 'data:image/png;base64,2' },
+            { assetId: 'asset_2', dataUrl: 'data:image/png;base64,3' },
+            { assetId: 'asset_3', dataUrl: 'data:image/png;base64,4' }
+          ];
+          const posSelected = [
+            { assetId: 'asset_0', targetSlotIndex: 0 },
+            { assetId: 'asset_1', targetSlotIndex: 1 },
+            { assetId: 'asset_2', targetSlotIndex: 2 },
+            { assetId: 'asset_3', targetSlotIndex: 3 }
+          ];
+          const posResult = validateFrameReadiness({ layout: posLayout, shots: posShots, selected: posSelected });
+          if (!posResult.ok) {
+            console.error('❌ FAIL: validateFrameReadiness positive test failed:', posResult.errors);
+            hasErrors = true;
+          }
+
+          // Negative test 1: Selected count mismatch
+          const negSelected1 = [
+            { assetId: 'asset_0', targetSlotIndex: 0 },
+            { assetId: 'asset_1', targetSlotIndex: 1 }
+          ];
+          const negResult1 = validateFrameReadiness({ layout: posLayout, shots: posShots, selected: negSelected1 });
+          if (negResult1.ok) {
+            console.error('❌ FAIL: validateFrameReadiness allowed selected count mismatch');
+            hasErrors = true;
+          }
+
+          // Negative test 2: Slot coverage missing (duplicated targetSlotIndex)
+          const negSelected2 = [
+            { assetId: 'asset_0', targetSlotIndex: 0 },
+            { assetId: 'asset_1', targetSlotIndex: 0 },
+            { assetId: 'asset_2', targetSlotIndex: 2 },
+            { assetId: 'asset_3', targetSlotIndex: 3 }
+          ];
+          const negResult2 = validateFrameReadiness({ layout: posLayout, shots: posShots, selected: negSelected2 });
+          if (negResult2.ok) {
+            console.error('❌ FAIL: validateFrameReadiness allowed duplicated targetSlotIndex / missing slots');
+            hasErrors = true;
+          }
+
+          // Negative test 3: Missing image data
+          const negShots3 = [
+            { assetId: 'asset_0', dataUrl: '' },
+            { assetId: 'asset_1', dataUrl: 'data:image/png;base64,2' },
+            { assetId: 'asset_2', dataUrl: 'data:image/png;base64,3' },
+            { assetId: 'asset_3', dataUrl: 'data:image/png;base64,4' }
+          ];
+          const negResult3 = validateFrameReadiness({ layout: posLayout, shots: negShots3, selected: posSelected });
+          if (negResult3.ok) {
+            console.error('❌ FAIL: validateFrameReadiness allowed missing image data');
+            hasErrors = true;
+          }
+
+          // Positive test with index fallback (no assetId on shots)
+          const fallbackShots = [
+            { dataUrl: 'data:image/png;base64,1' },
+            { dataUrl: 'data:image/png;base64,2' },
+            { dataUrl: 'data:image/png;base64,3' },
+            { dataUrl: 'data:image/png;base64,4' }
+          ];
+          const fallbackSelected = [
+            { assetId: 'asset_0', targetSlotIndex: 0 },
+            { assetId: 'asset_1', targetSlotIndex: 1 },
+            { assetId: 'asset_2', targetSlotIndex: 2 },
+            { assetId: 'asset_3', targetSlotIndex: 3 }
+          ];
+          const fallbackResult = validateFrameReadiness({ layout: posLayout, shots: fallbackShots, selected: fallbackSelected });
+          if (!fallbackResult.ok) {
+            console.error('❌ FAIL: validateFrameReadiness index fallback positive test failed:', fallbackResult.errors);
+            hasErrors = true;
+          }
+
+          // Negative test with index fallback: one asset is missing image
+          const fallbackShotsBad = [
+            { dataUrl: 'data:image/png;base64,1' },
+            { dataUrl: '' },
+            { dataUrl: 'data:image/png;base64,3' },
+            { dataUrl: 'data:image/png;base64,4' }
+          ];
+          const fallbackResultBad = validateFrameReadiness({ layout: posLayout, shots: fallbackShotsBad, selected: fallbackSelected });
+          if (fallbackResultBad.ok) {
+            console.error('❌ FAIL: validateFrameReadiness index fallback allowed missing image data');
+            hasErrors = true;
+          }
+        }
+
         // 7. Foundation Contracts VM Tests
         const distSnapshot = readFile('dist/session-runtime-snapshot.js');
         const distCloudShare = readFile('dist/cloud-share-adapter.js');
@@ -3654,6 +3750,95 @@ function checkProductionHotfix2() {
   }
 }
 
+async function checkCustomCanvasSizePrioritization() {
+  const frameSystem = readFile('frame-system.jsx') || '';
+  if (!frameSystem.includes('baseCanvasSize') || !frameSystem.includes('framePreset.canvasSize')) {
+    console.error('❌ FAIL: frame-system.jsx must prioritize framePreset.canvasSize in renderComposition and renderFrameToCanvas');
+    hasErrors = true;
+  }
+
+  try {
+    const sandbox = {
+      console,
+      Math,
+      Date,
+      JSON,
+      document: {
+        fonts: { ready: Promise.resolve() },
+        createElement(tag) {
+          if (tag === 'canvas') {
+            return {
+              getContext() {
+                return {
+                  save() {}, restore() {}, translate() {}, rotate() {}, scale() {},
+                  fillRect() {}, fillText() {}, beginPath() {}, rect() {}, clip() {}, drawImage() {},
+                  arc() {}, fill() {}, stroke() {}, lineTo() {}, moveTo() {}, closePath() {},
+                  createPattern() { return { setTransform() {} }; }, measureText() { return { width: 10 }; },
+                  ellipse() {}, quadraticCurveTo() {}, bezierCurveTo() {}, clearRect() {}
+                };
+              },
+              width: 0,
+              height: 0,
+            };
+          }
+          return {};
+        }
+      },
+      window: {},
+      Promise
+    };
+    sandbox.window = sandbox;
+    sandbox.getFrameTemplateSafe = () => ({
+      canvasSize: { width: 560, height: 1200 },
+      photoSlots: []
+    });
+    sandbox.getFrameTemplate = sandbox.getFrameTemplateSafe;
+    sandbox.getFrameTheme = () => ({ frameBg: '#fff', photoBg: '#eee' });
+    sandbox.preloadStickerImages = () => Promise.resolve(new Map());
+    sandbox.getFramePresetApiSafe = () => null;
+    sandbox.nowMs = () => Date.now();
+    sandbox.logExportPerf = () => {};
+
+    const ReactMock = {
+      useRef: () => ({ current: null }),
+      useEffect: () => {},
+      useCallback: (fn) => fn,
+      useState: (init) => [init, () => {}],
+      createContext: () => ({ Provider: ({children}) => children }),
+      useContext: () => ({}),
+      useMemo: (fn) => fn(),
+    };
+    sandbox.React = ReactMock;
+
+    vm.createContext(sandbox);
+
+    const distFrameSystem = fs.readFileSync('dist/frame-system.js', 'utf8');
+    vm.runInContext(distFrameSystem, sandbox);
+
+    const renderFrameToCanvasFn = sandbox.window.FrameRenderEngine?.renderToCanvas || sandbox.renderFrameToCanvas;
+    if (typeof renderFrameToCanvasFn === 'function') {
+      const mockInput = {
+        layout: 'strip',
+        framePreset: {
+          canvasSize: { width: 1000, height: 2000 },
+          photoSlots: []
+        }
+      };
+      const canvasResult = await renderFrameToCanvasFn(mockInput);
+      if (canvasResult.width !== 1000 || canvasResult.height !== 2000) {
+        console.error('❌ FAIL: renderFrameToCanvas did not prioritize framePreset.canvasSize, got width:', canvasResult.width, 'height:', canvasResult.height);
+        hasErrors = true;
+      }
+    } else {
+      console.error('❌ FAIL: renderFrameToCanvas function not found in VM sandbox');
+      hasErrors = true;
+    }
+  } catch (vmErr) {
+    console.error('❌ FAIL: framePreset.canvasSize prioritization VM test failed with error:', vmErr.message);
+    hasErrors = true;
+  }
+}
+
 checkStrayFiles();
 checkBlobUrlLifecycle();
 checkStickerPreload();
@@ -3666,7 +3851,7 @@ checkReleaseCandidateLock();
 checkInteractiveCreatorPlatform();
 checkProductionSetupFramesHotfix();
 checkProductionHotfix2();
-
+await checkCustomCanvasSizePrioritization();
 
 if (hasErrors) {
   console.error('\n💥 Sanity check failed! DO NOT REMOVE GUARDS. FIX THE CODE.');

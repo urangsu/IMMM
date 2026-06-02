@@ -360,6 +360,8 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         maxX: (r.right  - cRect.left)   / cRect.width  * 100,
         minY: (r.top    - cRect.top)    / cRect.height * 100,
         maxY: (r.bottom - cRect.top)    / cRect.height * 100,
+        widthPx: r.width,
+        heightPx: r.height,
       };
     });
     if (domSlots.length === 0) {
@@ -373,6 +375,8 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           maxX: slot.maxX,
           minY: slot.minY,
           maxY: slot.maxY,
+          widthPx: slot.width,
+          heightPx: slot.height,
         };
       });
     }
@@ -607,29 +611,37 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Free stickers: full visual render */}
         {sortedStickers.filter(s => s.frameSlot == null).map(s => {
           const isSel = s.id === selectedId;
-          const visualScale = getStickerNormScale(s, canvasW);
-          const userScale = s.scale || 1;
+          const containerW = canvasW || width || 200;
+          const containerH = height || 200;
+          const metrics = resolveStickerFidelityMetrics(s, null, containerW, containerH);
+          const raw = getStickerVisualBounds(s);
+          
+          const visualW = metrics.widthPx;
+          const visualH = visualW * (raw.h / (raw.w || 1));
+          const visualScale = visualW / (raw.w || 1);
+          
           const hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
-          const outlineW = hitbox.visualW || hitbox.w;
-          const outlineH = hitbox.visualH || hitbox.h;
+          const outlineW = isSel ? visualW : (hitbox.visualW || hitbox.w);
+          const outlineH = isSel ? visualH : (hitbox.visualH || hitbox.h);
+          
           if (mode === 'deco-overlay' && window.IMMM_DEBUG_STICKER) {
             console.debug('[IMMM deco sticker]', {
               id: s.id, kind: s.kind, libId: s.payload?.libId,
               sizeNorm: s.sizeNorm,
-              scale: s.scale, visualScale, userScale, rawBounds: getStickerVisualBounds(s),
+              scale: s.scale, visualScale, rawBounds: raw,
               interactionBounds: hitbox, decoScale, canvasW, mode,
             });
           }
           return (
             <div key={s.id} onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>onPointerDown(e, s, 'move')} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>onPointerDown(e, s, 'move') : undefined} onClick={(e)=>e.stopPropagation()}
-              style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-                transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${userScale})`,
+              style={{ position:'absolute', left:`${metrics.xPercent}%`, top:`${metrics.yPercent}%`,
+                transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg)`,
                 transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
                 zIndex:(s.z||0)+1, willChange:'transform',
                 transition: dragState?.id===s.id?'none':'box-shadow 0.2s' }}>
               <div className="sticker-hit-target" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
-                width: hitbox.w,
-                height: hitbox.h }}>
+                width: isSel ? visualW : hitbox.w,
+                height: isSel ? visualH : hitbox.h }}>
                 
                 <div className="sticker-outline-box" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
                   width: outlineW,
@@ -646,27 +658,37 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Slotted stickers: transparent hit area, controls rendered separately when selected */}
         {sortedStickers.filter(s => s.frameSlot != null).map(s => {
           const isSel = s.id === selectedId;
-          const visualScale = getStickerNormScale(s, canvasW);
-          const userScale = s.scale || 1;
+          const slotClip = slotClips[s.frameSlot];
+          const slotW = slotClip?.widthPx || (canvasW ? (canvasW * 0.4) : (width ? width * 0.4 : 100));
+          const slotH = slotClip?.heightPx || (height ? height * 0.4 : 100);
+          
+          const metrics = resolveStickerFidelityMetrics(s, null, slotW, slotH);
+          const raw = getStickerVisualBounds(s);
+          
+          const visualW = metrics.widthPx;
+          const visualH = visualW * (raw.h / (raw.w || 1));
+          const visualScale = visualW / (raw.w || 1);
+          
           const hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
-          const outlineW = hitbox.visualW || hitbox.w;
-          const outlineH = hitbox.visualH || hitbox.h;
+          const outlineW = isSel ? visualW : (hitbox.visualW || hitbox.w);
+          const outlineH = isSel ? visualH : (hitbox.visualH || hitbox.h);
+          
           return (
             <React.Fragment key={s.id}>
               {/* Invisible hit area for drag */}
               <div onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>onPointerDown(e, s, 'move')} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>onPointerDown(e, s, 'move') : undefined} onClick={(e)=>e.stopPropagation()}
                 style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-                  transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${userScale})`,
+                  transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg)`,
                   transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
                   zIndex:(s.z||0)+50, willChange:'transform', opacity:0 }}>
-                <div style={{ width: hitbox.w, height: hitbox.h, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <div style={{ width: visualW, height: visualH, display:'flex', alignItems:'center', justifyContent:'center' }}>
                   {renderStickerVisual(s, visualScale, hideVisuals ? 0 : 1)}
                 </div>
               </div>
               {/* Controls shown separately (not under opacity:0) */}
               {isSel && (
                 <div style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-                  transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${userScale})`,
+                  transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg)`,
                   transformOrigin:'center', zIndex:(s.z||0)+51, pointerEvents:'none' }}>
                   <div className="sticker-outline-box" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
                     width: outlineW,
@@ -784,4 +806,34 @@ function drawCatalogSticker(ctx, item, scalePx = 1) {
   ctx.restore();
 }
 
-Object.assign(window, { STICKER_CATALOG, getStickerByLibId, renderLibSticker, renderStickerInstance, StickerCanvas, SlottedStickersCtx, makeSticker, bringForward, sendBackward, drawCatalogSticker });
+function resolveStickerFidelityMetrics(sticker, geometry, containerWidth, containerHeight) {
+  const isSlotted = sticker.frameSlot != null;
+  const rawSize = getStickerVisualBounds(sticker); // { w, h }
+  
+  let xPercent = 50;
+  let yPercent = 50;
+  let sizeNorm = sticker.sizeNorm || 0.16;
+  
+  if (isSlotted) {
+    xPercent = sticker.slotX !== undefined ? sticker.slotX : 50;
+    yPercent = sticker.slotY !== undefined ? sticker.slotY : 50;
+  } else {
+    xPercent = sticker.x !== undefined ? sticker.x : 50;
+    yPercent = sticker.y !== undefined ? sticker.y : 50;
+  }
+  
+  const widthPx = sizeNorm * containerWidth;
+  const heightPx = widthPx * (rawSize.h / (rawSize.w || 1));
+  const scale = sticker.scale || 1.0;
+  
+  return {
+    xPercent,
+    yPercent,
+    widthPx: widthPx * scale,
+    heightPx: heightPx * scale,
+    baseWidthPx: widthPx,
+    baseHeightPx: heightPx,
+  };
+}
+
+Object.assign(window, { STICKER_CATALOG, getStickerByLibId, renderLibSticker, renderStickerInstance, StickerCanvas, SlottedStickersCtx, makeSticker, bringForward, sendBackward, drawCatalogSticker, getStickerVisualBounds, resolveStickerFidelityMetrics });

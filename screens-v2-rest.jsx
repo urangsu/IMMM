@@ -30,7 +30,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   cameraZoomOptions = [], cameraZoomSupported = false, torchSupported = false, torchActive = false, torchUnavailableReason = '',
   screenFlashOverlay = false, screenLightSupported = false, screenLightActive = false,
   setCameraZoom, setCameraTorch, setScreenLightActive, runScreenFlash, framePreset,
-  setPhotoEditMode
+  setPhotoEditMode, activeSessionId
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -371,7 +371,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
       setShots(prev => {
         const copy = [...prev];
         while (copy.length < shotCount) copy.push(null);
+        const timestamp = Date.now();
         copy[idx] = {
+          assetId: `${activeSessionId || 'session'}_${idx}_${timestamp}`,
           dataUrl,
           filter,
           capturedFilter: filter,
@@ -383,7 +385,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           mirrored: facingMode === 'user',
           width: rect?.width ? Math.round(rect.width) : 720,
           height: rect?.height ? Math.round(rect.height) : 720,
-          ts: Date.now(),
+          ts: timestamp,
         };
         return copy;
       });
@@ -400,7 +402,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
     } else {
       doCapture();
     }
-  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers, enhanceCapturedDataUrl]);
+  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers, enhanceCapturedDataUrl, activeSessionId]);
 
   React.useEffect(()=> {
     if (countdown <= 0) return;
@@ -421,19 +423,32 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
   const startCountdown = () => { if (countdown===0 && idx<shotCount) setCountdown(timerLen); };
   const toggleAuto = () => { setAuto(a=>!a); if (!auto && idx<shotCount && countdown===0) setCountdown(timerLen); };
   const thumbs = Array.from({length:shotCount}, (_,i)=> shots[i]);
-  const cameraOverlay = overlayBox && (countdown > 0 || flashing || visibleCaptureStickers.length > 0)
+  const cameraOverlay = overlayBox && (countdown > 0 || flashing || screenFlashOverlay || visibleCaptureStickers.length > 0)
     ? ReactDOM.createPortal(
         <div style={{
           position:'fixed', top:overlayBox.top, left:overlayBox.left,
           width:overlayBox.width, height:overlayBox.height,
           borderRadius:24, overflow:'hidden', pointerEvents:'none', zIndex:99999,
         }}>
-          {visibleCaptureStickers.map(s => (
-            <div key={s.id} style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-              transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg) scale(${s.scale||1})`, opacity:0.88 }}>
-              {renderStickerInstance(s)}
-            </div>
-          ))}
+          {visibleCaptureStickers.map(s => {
+            const metrics = window.resolveStickerFidelityMetrics
+              ? window.resolveStickerFidelityMetrics(s, null, overlayBox.width, overlayBox.height)
+              : { xPercent: s.x !== undefined ? s.x : 50, yPercent: s.y !== undefined ? s.y : 50, widthPx: null, heightPx: null };
+            const style = {
+              position: 'absolute',
+              left: `${metrics.xPercent}%`,
+              top: `${metrics.yPercent}%`,
+              transform: `translate(-50%,-50%) rotate(${s.rotation||0}deg)`,
+              opacity: 0.88
+            };
+            if (metrics.widthPx != null) style.width = `${metrics.widthPx}px`;
+            if (metrics.heightPx != null) style.height = `${metrics.heightPx}px`;
+            return (
+              <div key={s.id} style={style}>
+                {renderStickerInstance(s)}
+              </div>
+            );
+          })}
           {countdown > 0 && (
             <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
               background:'radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.55))' }}>
@@ -445,6 +460,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             </div>
           )}
           {flashing && <div style={{ position:'absolute', inset:0, background:'#fff', animation:'flash 0.14s ease-out' }}/>}
+          {screenFlashOverlay && <div style={{ position:'absolute', inset:0, background:'#fff', opacity:1 }}/>}
         </div>,
         document.body
       )
@@ -652,23 +668,7 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
             );
           })()}
           
-          {/* Transparent hole for global camera box */}
-          {countdown>0 && (
-            <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
-              background:'radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.55))', zIndex:20 }}>
-              <div key={countdown} style={{
-                fontFamily:'"Plus Jakarta Sans",system-ui', fontSize:220, fontWeight:300, color:'#fff',
-                letterSpacing:-8, textShadow:'0 20px 60px rgba(0,0,0,0.4)',
-                animation:'countPop 0.9s cubic-bezier(0.16,1,0.3,1)',
-              }}>{countdown}</div>
-            </div>
-          )}
-          {flashing && <div style={{ position:'absolute', inset:0, background:'#fff', animation:'flash 0.14s ease-out', zIndex:30 }}/>}
-          
-          {/* Screen Flash Overlay (Selfie Light) */}
-          {screenFlashOverlay && (
-            <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: 1, zIndex: 40 }} />
-          )}
+
 
           <div style={{ position:'absolute', top:14, right:14, padding:'8px 14px',
             background:'rgba(0,0,0,0.3)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
@@ -690,14 +690,14 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
                   key={opt.label}
                   title={window.IMMM_DEBUG_CAMERA ? `reason: ${opt.reason || 'none'}, type: ${opt.type}` : undefined}
                   onClick={() => setCameraZoom(opt.value)}
-                  disabled={cameraToggleBusy || !opt.enabled}
+                  disabled={cameraToggleBusy || !opt.enabled || countdown > 0 || isCapturingRef.current}
                   style={{
                     background: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)',
                     color: isActive ? '#000' : '#fff',
                     border: isActive ? `1.5px solid ${T.pink}` : 'none',
                     borderRadius: 999, padding: '6px 12px', fontSize: 10, fontWeight: 700,
                     cursor: opt.enabled ? 'pointer' : 'not-allowed',
-                    opacity: cameraToggleBusy ? 0.6 : (opt.enabled ? 1 : 0.25),
+                    opacity: (cameraToggleBusy || countdown > 0 || isCapturingRef.current) ? 0.4 : (opt.enabled ? 1 : 0.25),
                     transition: 'all 0.2s', fontFamily: '"Plus Jakarta Sans", system-ui'
                   }}
                 >

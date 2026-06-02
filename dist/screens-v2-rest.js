@@ -83,7 +83,8 @@ function CaptureV2({
   setScreenLightActive,
   runScreenFlash,
   framePreset,
-  setPhotoEditMode
+  setPhotoEditMode,
+  activeSessionId
 }) {
   // ── Quality Policy Documentation ──────────────────────────────────────────
   // 1. Camera input quality: Requested ideal 1080p with 3-step fallback in main.jsx.
@@ -444,7 +445,9 @@ function CaptureV2({
       setShots(prev => {
         var copy = [...prev];
         while (copy.length < shotCount) copy.push(null);
+        var timestamp = Date.now();
         copy[idx] = {
+          assetId: `${activeSessionId || 'session'}_${idx}_${timestamp}`,
           dataUrl,
           filter,
           capturedFilter: filter,
@@ -456,7 +459,7 @@ function CaptureV2({
           mirrored: facingMode === 'user',
           width: rect?.width ? Math.round(rect.width) : 720,
           height: rect?.height ? Math.round(rect.height) : 720,
-          ts: Date.now()
+          ts: timestamp
         };
         return copy;
       });
@@ -479,7 +482,7 @@ function CaptureV2({
     } else {
       doCapture();
     }
-  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers, enhanceCapturedDataUrl]);
+  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers, enhanceCapturedDataUrl, activeSessionId]);
   React.useEffect(() => {
     if (countdown <= 0) return;
     var t = setTimeout(() => {
@@ -504,7 +507,7 @@ function CaptureV2({
   var thumbs = Array.from({
     length: shotCount
   }, (_, i) => shots[i]);
-  var cameraOverlay = overlayBox && (countdown > 0 || flashing || visibleCaptureStickers.length > 0) ? ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+  var cameraOverlay = overlayBox && (countdown > 0 || flashing || screenFlashOverlay || visibleCaptureStickers.length > 0) ? ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       top: overlayBox.top,
@@ -516,16 +519,27 @@ function CaptureV2({
       pointerEvents: 'none',
       zIndex: 99999
     }
-  }, visibleCaptureStickers.map(s => /*#__PURE__*/React.createElement("div", {
-    key: s.id,
-    style: {
+  }, visibleCaptureStickers.map(s => {
+    var metrics = window.resolveStickerFidelityMetrics ? window.resolveStickerFidelityMetrics(s, null, overlayBox.width, overlayBox.height) : {
+      xPercent: s.x !== undefined ? s.x : 50,
+      yPercent: s.y !== undefined ? s.y : 50,
+      widthPx: null,
+      heightPx: null
+    };
+    var style = {
       position: 'absolute',
-      left: `${s.x}%`,
-      top: `${s.y}%`,
-      transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg) scale(${s.scale || 1})`,
+      left: `${metrics.xPercent}%`,
+      top: `${metrics.yPercent}%`,
+      transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg)`,
       opacity: 0.88
-    }
-  }, renderStickerInstance(s))), countdown > 0 && /*#__PURE__*/React.createElement("div", {
+    };
+    if (metrics.widthPx != null) style.width = `${metrics.widthPx}px`;
+    if (metrics.heightPx != null) style.height = `${metrics.heightPx}px`;
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.id,
+      style: style
+    }, renderStickerInstance(s));
+  }), countdown > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       inset: 0,
@@ -551,6 +565,13 @@ function CaptureV2({
       inset: 0,
       background: '#fff',
       animation: 'flash 0.14s ease-out'
+    }
+  }), screenFlashOverlay && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      inset: 0,
+      background: '#fff',
+      opacity: 1
     }
   })), document.body) : null;
   var shotsRail = /*#__PURE__*/React.createElement("div", {
@@ -865,44 +886,7 @@ function CaptureV2({
       viewfinderAspect: viewfinderAspect,
       framePreset: framePreset
     });
-  })(), countdown > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'absolute',
-      inset: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.55))',
-      zIndex: 20
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    key: countdown,
-    style: {
-      fontFamily: '"Plus Jakarta Sans",system-ui',
-      fontSize: 220,
-      fontWeight: 300,
-      color: '#fff',
-      letterSpacing: -8,
-      textShadow: '0 20px 60px rgba(0,0,0,0.4)',
-      animation: 'countPop 0.9s cubic-bezier(0.16,1,0.3,1)'
-    }
-  }, countdown)), flashing && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'absolute',
-      inset: 0,
-      background: '#fff',
-      animation: 'flash 0.14s ease-out',
-      zIndex: 30
-    }
-  }), screenFlashOverlay && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'absolute',
-      inset: 0,
-      background: '#fff',
-      opacity: 1,
-      zIndex: 40
-    }
-  }), /*#__PURE__*/React.createElement("div", {
+  })(), /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       top: 14,
@@ -936,7 +920,7 @@ function CaptureV2({
       key: opt.label,
       title: window.IMMM_DEBUG_CAMERA ? `reason: ${opt.reason || 'none'}, type: ${opt.type}` : undefined,
       onClick: () => setCameraZoom(opt.value),
-      disabled: cameraToggleBusy || !opt.enabled,
+      disabled: cameraToggleBusy || !opt.enabled || countdown > 0 || isCapturingRef.current,
       style: {
         background: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)',
         color: isActive ? '#000' : '#fff',
@@ -946,7 +930,7 @@ function CaptureV2({
         fontSize: 10,
         fontWeight: 700,
         cursor: opt.enabled ? 'pointer' : 'not-allowed',
-        opacity: cameraToggleBusy ? 0.6 : opt.enabled ? 1 : 0.25,
+        opacity: cameraToggleBusy || countdown > 0 || isCapturingRef.current ? 0.4 : opt.enabled ? 1 : 0.25,
         transition: 'all 0.2s',
         fontFamily: '"Plus Jakarta Sans", system-ui'
       }

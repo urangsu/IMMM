@@ -260,10 +260,34 @@ async function preloadStickerImages(stickers = []) {
 async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets = {}) {
   if (!sticker) return;
 
+  const getMetrics = typeof window !== 'undefined' && typeof window.resolveStickerFidelityMetrics === 'function'
+    ? window.resolveStickerFidelityMetrics
+    : null;
+
+  const metrics = getMetrics
+    ? getMetrics(sticker, null, baseW, baseH)
+    : null;
+
+  let xPercent = 50;
+  let yPercent = 50;
+  if (metrics) {
+    xPercent = metrics.xPercent;
+    yPercent = metrics.yPercent;
+  } else {
+    const isSlotted = sticker.frameSlot != null;
+    if (isSlotted) {
+      xPercent = sticker.slotX !== undefined ? sticker.slotX : 50;
+      yPercent = sticker.slotY !== undefined ? sticker.slotY : 50;
+    } else {
+      xPercent = sticker.x !== undefined ? sticker.x : 50;
+      yPercent = sticker.y !== undefined ? sticker.y : 50;
+    }
+  }
+
   // Validate sticker position (should be 0-100)
-  const x = Math.max(0, Math.min(100, Number(sticker.x) || 50));
-  const y = Math.max(0, Math.min(100, Number(sticker.y) || 50));
-  if ((x !== sticker.x || y !== sticker.y) && sticker.x != null && sticker.y != null) {
+  const x = Math.max(0, Math.min(100, Number(xPercent) || 50));
+  const y = Math.max(0, Math.min(100, Number(yPercent) || 50));
+  if ((x !== sticker.x || y !== sticker.y) && sticker.x != null && sticker.y != null && !metrics) {
     console.warn(`[IMMM] Sticker position out of bounds: x=${sticker.x}, y=${sticker.y}`);
   }
 
@@ -272,11 +296,12 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets 
   const cy = (y / 100) * baseH;
   ctx.translate(cx, cy);
   ctx.rotate((sticker.rotation || 0) * Math.PI / 180);
-  const actualSizeNorm = sticker.sizeNorm ?? sticker.payload?.sizeNorm;
 
   let raw = { w: 64, h: 64 };
   if (typeof getStickerVisualBounds === 'function') {
     raw = getStickerVisualBounds(sticker);
+  } else if (typeof window !== 'undefined' && typeof window.getStickerVisualBounds === 'function') {
+    raw = window.getStickerVisualBounds(sticker);
   } else if (sticker.kind === 'preset') {
     const item = typeof getStickerByLibId === 'function' ? getStickerByLibId(sticker.payload?.libId) : null;
     raw = typeof getCatalogStickerBaseSize === 'function' ? getCatalogStickerBaseSize(item) : raw;
@@ -290,9 +315,15 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets 
     raw = { w: 140, h: 64 };
   }
 
-  const targetW = actualSizeNorm ? baseW * actualSizeNorm : raw.w * scalePx;
-  const drawScale = targetW / (raw.w || 1);
-  const effectiveScale = drawScale * (sticker.scale || 1);
+  let effectiveScale = 1;
+  if (metrics) {
+    effectiveScale = metrics.widthPx / (raw.w || 1);
+  } else {
+    const actualSizeNorm = sticker.sizeNorm ?? sticker.payload?.sizeNorm;
+    const targetW = actualSizeNorm ? baseW * actualSizeNorm : raw.w * scalePx;
+    const drawScale = targetW / (raw.w || 1);
+    effectiveScale = drawScale * (sticker.scale || 1);
+  }
   ctx.scale(effectiveScale, effectiveScale);
 
   if (sticker.kind === 'preset') {
@@ -518,10 +549,12 @@ async function renderComposition(ctx, data, options = {}) {
     throw new Error('[IMMM frame template unavailable]');
   }
   const scale = options.scale || 1;
-  const w = template.canvasSize.width * scale;
-  const h = template.canvasSize.height * scale;
   const framePreset = data.framePreset || null;
-
+  const baseCanvasSize = (framePreset && framePreset.canvasSize)
+    ? framePreset.canvasSize
+    : template.canvasSize;
+  const w = baseCanvasSize.width * scale;
+  const h = baseCanvasSize.height * scale;
   const theme = getFrameTheme(template, data);
   const presetApi = getFramePresetApiSafe();
   const drawPresetBackground = presetApi?.drawFramePresetBackground || window.drawFramePresetBackground || null;
@@ -680,8 +713,12 @@ async function renderFrameToCanvas(input) {
     throw new Error('[IMMM] frame template unavailable');
   }
   const scale = input.scale || 1;
-  const w = template.canvasSize.width * scale;
-  const h = template.canvasSize.height * scale;
+  const framePreset = input.framePreset || null;
+  const baseCanvasSize = (framePreset && framePreset.canvasSize)
+    ? framePreset.canvasSize
+    : template.canvasSize;
+  const w = baseCanvasSize.width * scale;
+  const h = baseCanvasSize.height * scale;
   
   const cvs = document.createElement('canvas');
   cvs.width = Math.round(w);

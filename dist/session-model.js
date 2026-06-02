@@ -251,7 +251,7 @@
       slotCount = window.getShotCountForFrameSafe(layout);
     } else {
       // Fallback parser if window method is not loaded yet
-      if (layout && (layout.includes('1x4') || layout.includes('strip'))) slotCount = 4;else if (layout && layout.includes('2x2')) slotCount = 4;else if (layout && layout.includes('wide')) slotCount = 3;
+      if (layout && (layout.includes('1x4') || layout.includes('strip'))) slotCount = 4;else if (layout && layout.includes('2x2')) slotCount = 4;else if (layout && layout.includes('wide')) slotCount = 3;else if (layout && layout.includes('polaroid')) slotCount = 3;else if (layout && layout.includes('trip')) slotCount = 5;else if (layout && layout.includes('grid')) slotCount = 6;
     }
 
     // 1. Check if selected cuts count matches slotCount
@@ -260,7 +260,13 @@
     }
 
     // 2. Check slots index completeness: 0 to slotCount - 1 should exist
-    var slotIndices = new Set(selected.map(c => Number(c.targetSlotIndex !== undefined ? c.targetSlotIndex : c.slotIndex)));
+    var slotIndices = new Set();
+    selected.forEach(c => {
+      var idxVal = c.targetSlotIndex !== undefined ? c.targetSlotIndex : c.slotIndex;
+      if (idxVal !== undefined && idxVal !== null) {
+        slotIndices.add(Number(idxVal));
+      }
+    });
     for (var i = 0; i < slotCount; i++) {
       if (!slotIndices.has(i)) {
         errors.push(`Missing selected cut for slot index ${i}`);
@@ -270,16 +276,34 @@
     // 3. Check if all selected cuts reference valid assetIds in shots, and target assets have valid image data
     selected.forEach((cut, i) => {
       var targetAssetId = cut.assetId;
-      if (!targetAssetId) {
-        errors.push(`Selected cut at index ${i} is missing assetId`);
-        return;
+      var asset = null;
+
+      // 3.1. Try exact assetId match
+      if (targetAssetId) {
+        asset = shots.find(s => s && s.assetId === targetAssetId);
       }
-      var asset = shots.find(s => s.assetId === targetAssetId);
+
+      // 3.2. Fallback matching (index fallback)
       if (!asset) {
-        errors.push(`Selected cut at index ${i} references missing assetId: ${targetAssetId}`);
+        var fallbackIdx = -1;
+        if (cut.sourceShotIndex !== undefined && cut.sourceShotIndex !== null) {
+          fallbackIdx = Number(cut.sourceShotIndex);
+        } else if (targetAssetId && targetAssetId.startsWith('asset_')) {
+          var parsed = Number(targetAssetId.replace('asset_', ''));
+          if (!isNaN(parsed)) {
+            fallbackIdx = parsed;
+          }
+        }
+        if (fallbackIdx >= 0 && fallbackIdx < shots.length) {
+          asset = shots[fallbackIdx];
+        }
+      }
+      if (!asset) {
+        errors.push(`Selected cut at index ${i} references missing assetId or index fallback: ${targetAssetId}`);
       } else {
-        if (!asset.dataUrl && !asset.blobUrl && !asset.remoteUrl) {
-          errors.push(`Asset ${targetAssetId} referenced by slot ${i} has no valid image data (dataUrl, blobUrl, and remoteUrl are all empty)`);
+        var hasImage = typeof asset.dataUrl === 'string' && asset.dataUrl.trim().length > 0 || typeof asset.blobUrl === 'string' && asset.blobUrl.trim().length > 0 || typeof asset.remoteUrl === 'string' && asset.remoteUrl.trim().length > 0;
+        if (!hasImage) {
+          errors.push(`Asset ${targetAssetId || i} referenced by slot ${i} has no valid image data`);
         }
       }
     });

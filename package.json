@@ -7,7 +7,7 @@
     "build:precompile": "node scripts/build-precompile.mjs",
     "dev": "node scripts/build-precompile.mjs && npx -y http-server -p 3000",
     "preview": "npx -y http-server -p 3000",
-    "lint": "echo 'No lint configuration configured, syntax check passing.'",
+    "lint": "node scripts/lint.mjs",
     "sanity-check": "node scripts/sanity-check.mjs"
   },
   "devDependencies": {
