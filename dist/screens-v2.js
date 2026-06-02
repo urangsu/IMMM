@@ -1572,7 +1572,11 @@ function FrameStoreScreen({
     dataUrl: null
   }));
   var previewAspect = preset => {
-    var size = preset?.canvasSize || frameApi?.getCanvasSizeForLayout?.(preset?.layout || layout) || {
+    var geom = typeof window !== 'undefined' && typeof window.getFrameGeometry === 'function' ? window.getFrameGeometry(preset?.layout || layout) : null;
+    var size = preset?.canvasSize || (geom ? {
+      width: geom.width,
+      height: geom.height
+    } : null) || frameApi?.getCanvasSizeForLayout?.(preset?.layout || layout) || {
       width: 560,
       height: 1808
     };
@@ -1615,7 +1619,7 @@ function FrameStoreScreen({
     if (!preset) return;
     var pack = preset.packId ? packById(preset.packId) : null;
     if (pack?.locked && !packUnlocked(pack)) {
-      setToastMessage('이 프레임 팩은 유료 패키지입니다. 곧 잠금 해제 기능이 추가됩니다.');
+      setToastMessage('이 프레임 팩은 체험용입니다! 오프라인 부스 전용 테마로, 곧 정식 업데이트를 통해 만나보실 수 있습니다.');
       return;
     }
     var applied = applyFramePreset?.(preset, {
@@ -2111,7 +2115,7 @@ function FrameStoreScreen({
         cursor: 'pointer'
       }
     }, "Delete"))));
-  }))), (storeTab === 'my-frames' || storeTab === 'imported') && /*#__PURE__*/React.createElement("div", {
+  }))), devUnlockVisible && (storeTab === 'my-frames' || storeTab === 'imported') && /*#__PURE__*/React.createElement("div", {
     className: "frame-store-card",
     style: {
       ...cardStyle,
@@ -2695,7 +2699,11 @@ function DeprecatedSetupWithEmbeddedStore({
   var activePackBlocked = Boolean(selectedPack?.locked && !(frameApi?.isFramePackUnlocked?.(selectedPack.id) ?? unlockedFramePackIds.includes(selectedPack?.id)));
   var devUnlockVisible = typeof window !== 'undefined' && (window.IMMM_FIELD_TEST === true || window.IMMM_DEBUG_BUILD === true || new URLSearchParams(location.search).get('fieldTest') === '1');
   var getFramePreviewAspect = (preset, fallbackLayout = layout) => {
-    var size = preset?.canvasSize || frameApi?.getCanvasSizeForLayout?.(fallbackLayout) || {
+    var geom = typeof window !== 'undefined' && typeof window.getFrameGeometry === 'function' ? window.getFrameGeometry(fallbackLayout) : null;
+    var size = preset?.canvasSize || (geom ? {
+      width: geom.width,
+      height: geom.height
+    } : null) || frameApi?.getCanvasSizeForLayout?.(fallbackLayout) || {
       width: 560,
       height: 1808
     };

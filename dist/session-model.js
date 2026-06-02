@@ -223,6 +223,71 @@
       errors
     };
   };
+  var validateFrameReadiness = ({
+    layout,
+    shots,
+    selected
+  }) => {
+    var errors = [];
+    if (!layout) {
+      errors.push('Layout template name is missing');
+    }
+    if (!Array.isArray(shots)) {
+      errors.push('Shots is not an array');
+    }
+    if (!Array.isArray(selected)) {
+      errors.push('Selected cuts is not an array');
+    }
+    if (errors.length > 0) {
+      return {
+        ok: false,
+        errors
+      };
+    }
+
+    // Get expected slot count
+    var slotCount = 4;
+    if (typeof window !== 'undefined' && typeof window.getShotCountForFrameSafe === 'function') {
+      slotCount = window.getShotCountForFrameSafe(layout);
+    } else {
+      // Fallback parser if window method is not loaded yet
+      if (layout && (layout.includes('1x4') || layout.includes('strip'))) slotCount = 4;else if (layout && layout.includes('2x2')) slotCount = 4;else if (layout && layout.includes('wide')) slotCount = 3;
+    }
+
+    // 1. Check if selected cuts count matches slotCount
+    if (selected.length !== slotCount) {
+      errors.push(`Selected cuts count (${selected.length}) does not match layout slot count (${slotCount})`);
+    }
+
+    // 2. Check slots index completeness: 0 to slotCount - 1 should exist
+    var slotIndices = new Set(selected.map(c => Number(c.targetSlotIndex !== undefined ? c.targetSlotIndex : c.slotIndex)));
+    for (var i = 0; i < slotCount; i++) {
+      if (!slotIndices.has(i)) {
+        errors.push(`Missing selected cut for slot index ${i}`);
+      }
+    }
+
+    // 3. Check if all selected cuts reference valid assetIds in shots, and target assets have valid image data
+    selected.forEach((cut, i) => {
+      var targetAssetId = cut.assetId;
+      if (!targetAssetId) {
+        errors.push(`Selected cut at index ${i} is missing assetId`);
+        return;
+      }
+      var asset = shots.find(s => s.assetId === targetAssetId);
+      if (!asset) {
+        errors.push(`Selected cut at index ${i} references missing assetId: ${targetAssetId}`);
+      } else {
+        if (!asset.dataUrl && !asset.blobUrl && !asset.remoteUrl) {
+          errors.push(`Asset ${targetAssetId} referenced by slot ${i} has no valid image data (dataUrl, blobUrl, and remoteUrl are all empty)`);
+        }
+      }
+    });
+    return {
+      ok: errors.length === 0,
+      errors
+    };
+  };
   var normalizeCaptureSession = input => {
     if (!isPlainObject(input)) return createCaptureSession();
     var base = createCaptureSession();
@@ -301,6 +366,7 @@
     createShareState,
     createExportState,
     validateCaptureSession,
+    validateFrameReadiness,
     normalizeCaptureSession,
     runSessionModelSelfTest
   });

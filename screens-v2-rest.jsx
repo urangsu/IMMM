@@ -1072,7 +1072,30 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
       </div>
         <div style={{ display:'flex', gap:12, justifyContent:'flex-end', alignItems:'center' }}>
           <button onClick={()=>setSelected([])} style={{ background:'transparent', border:'none', cursor:'pointer', color:T.inkSoft, fontSize:13, fontFamily:'Pretendard,system-ui' }}>Clear</button>
-          <BtnPrimary T={T} onClick={()=>selected.length===maxSel && go('deco')} size={mobile?'md':'lg'} disabled={selected.length!==maxSel}>
+          <BtnPrimary T={T} onClick={() => {
+            if (selected.length !== maxSel) return;
+            const checkLayout = layout || 'strip';
+            const mappedSelected = selected.map((shotIdx, targetSlotIndex) => {
+              const asset = shots[shotIdx];
+              return {
+                assetId: asset?.assetId || `asset_${shotIdx}`,
+                targetSlotIndex
+              };
+            });
+            const validation = window.IMMMSessionModel?.validateFrameReadiness
+              ? window.IMMMSessionModel.validateFrameReadiness({
+                  layout: checkLayout,
+                  shots: shots.filter(Boolean),
+                  selected: mappedSelected
+                })
+              : { ok: true };
+            if (!validation.ok) {
+              console.error('[IMMM] validateFrameReadiness failed at SelectV2:', validation.errors);
+              alert('선택된 사진 데이터의 무결성 검증에 실패했습니다. 다시 선택해주세요.');
+              return;
+            }
+            go('deco');
+          }} size={mobile?'md':'lg'} disabled={selected.length!==maxSel}>
             {selected.length===maxSel ? <>Deco studio · 꾸미기  {I.arrowR(16, T.bg)}</> : `Pick ${maxSel-selected.length} more`}
           </BtnPrimary>
         </div>

@@ -421,37 +421,57 @@ function clearDesignerDraftRecovery() {
   } catch (_) {}
 }
 var FRAME_PRESET_LAYOUT_SIZES = {
-  '1x4': {
-    width: 560,
-    height: 1808
+  get '1x4'() {
+    var t = window.FRAME_TEMPLATES?.['1x4'];
+    return t ? {
+      width: t.canvasSize.width,
+      height: t.canvasSize.height
+    } : {
+      width: 560,
+      height: 1808
+    };
   },
-  '2x2': {
-    width: 880,
-    height: 1096
+  get '2x2'() {
+    var t = window.FRAME_TEMPLATES?.['2x2'];
+    return t ? {
+      width: t.canvasSize.width,
+      height: t.canvasSize.height
+    } : {
+      width: 880,
+      height: 1096
+    };
   },
-  '1x3': {
-    width: 700,
-    height: 1380
+  get '1x3'() {
+    var t = window.FRAME_TEMPLATES?.['1x3'];
+    return t ? {
+      width: t.canvasSize.width,
+      height: t.canvasSize.height
+    } : {
+      width: 560,
+      height: 1200
+    };
   },
-  '1x1': {
-    width: 880,
-    height: 1070
+  get '1x1'() {
+    var t = window.FRAME_TEMPLATES?.['1x1'];
+    return t ? {
+      width: t.canvasSize.width,
+      height: t.canvasSize.height
+    } : {
+      width: 880,
+      height: 1070
+    };
   },
-  strip: {
-    width: 560,
-    height: 1808
+  get strip() {
+    return this['1x4'];
   },
-  grid: {
-    width: 880,
-    height: 1096
+  get grid() {
+    return this['2x2'];
   },
-  trip: {
-    width: 700,
-    height: 1380
+  get trip() {
+    return this['1x3'];
   },
-  polaroid: {
-    width: 880,
-    height: 1070
+  get polaroid() {
+    return this['1x1'];
   }
 };
 function normalizePresetLayout(layout) {
@@ -462,158 +482,130 @@ function normalizePresetLayout(layout) {
   return 'strip';
 }
 var FRAME_PRESET_LAYOUT_SLOTS = {
-  '1x4': [{
-    x: 0.093,
-    y: 0.092,
-    width: 0.814,
-    height: 0.189,
-    radius: 0.02
-  }, {
-    x: 0.093,
-    y: 0.297,
-    width: 0.814,
-    height: 0.189,
-    radius: 0.02
-  }, {
-    x: 0.093,
-    y: 0.501,
-    width: 0.814,
-    height: 0.189,
-    radius: 0.02
-  }, {
-    x: 0.093,
-    y: 0.706,
-    width: 0.814,
-    height: 0.189,
-    radius: 0.02
-  }],
-  '2x2': [{
-    x: 0.08,
-    y: 0.155,
-    width: 0.398,
-    height: 0.319,
-    radius: 0.03
-  }, {
-    x: 0.523,
-    y: 0.155,
-    width: 0.398,
-    height: 0.319,
-    radius: 0.03
-  }, {
-    x: 0.08,
-    y: 0.511,
-    width: 0.398,
-    height: 0.319,
-    radius: 0.03
-  }, {
-    x: 0.523,
-    y: 0.511,
-    width: 0.398,
-    height: 0.319,
-    radius: 0.03
-  }],
-  '1x3': [{
-    x: 0.08,
-    y: 0.114,
-    width: 0.84,
-    height: 0.215,
-    radius: 0.03
-  }, {
-    x: 0.08,
-    y: 0.392,
-    width: 0.84,
-    height: 0.215,
-    radius: 0.03
-  }, {
-    x: 0.08,
-    y: 0.67,
-    width: 0.84,
-    height: 0.215,
-    radius: 0.03
-  }],
-  '1x1': [{
-    x: 0.051,
-    y: 0.10,
-    width: 0.898,
-    height: 0.68,
-    radius: 0.035
-  }],
-  strip: [{
-    x: 0.093,
-    y: 0.092,
-    width: 0.814,
-    height: 0.189,
-    radius: 0.02
-  }, {
-    x: 0.093,
-    y: 0.297,
-    width: 0.814,
-    height: 0.189,
-    radius: 0.02
-  }, {
-    x: 0.093,
-    y: 0.501,
-    width: 0.814,
-    height: 0.189,
-    radius: 0.02
-  }, {
-    x: 0.093,
-    y: 0.706,
-    width: 0.814,
-    height: 0.189,
-    radius: 0.02
-  }],
-  grid: [{
-    x: 0.08,
-    y: 0.155,
-    width: 0.398,
-    height: 0.319,
-    radius: 0.03
-  }, {
-    x: 0.523,
-    y: 0.155,
-    width: 0.398,
-    height: 0.319,
-    radius: 0.03
-  }, {
-    x: 0.08,
-    y: 0.511,
-    width: 0.398,
-    height: 0.319,
-    radius: 0.03
-  }, {
-    x: 0.523,
-    y: 0.511,
-    width: 0.398,
-    height: 0.319,
-    radius: 0.03
-  }],
-  trip: [{
-    x: 0.08,
-    y: 0.114,
-    width: 0.84,
-    height: 0.215,
-    radius: 0.03
-  }, {
-    x: 0.08,
-    y: 0.392,
-    width: 0.84,
-    height: 0.215,
-    radius: 0.03
-  }, {
-    x: 0.08,
-    y: 0.67,
-    width: 0.84,
-    height: 0.215,
-    radius: 0.03
-  }],
-  polaroid: [{
-    x: 0.051,
-    y: 0.10,
-    width: 0.898,
-    height: 0.68,
-    radius: 0.035
-  }]
+  get '1x4'() {
+    var t = window.FRAME_TEMPLATES?.['1x4'];
+    return t ? t.photoRects.map(r => ({
+      x: r.x,
+      y: r.y,
+      width: r.w,
+      height: r.h,
+      radius: 0.02
+    })) : [{
+      x: 0.093,
+      y: 0.092,
+      width: 0.814,
+      height: 0.189,
+      radius: 0.02
+    }, {
+      x: 0.093,
+      y: 0.297,
+      width: 0.814,
+      height: 0.189,
+      radius: 0.02
+    }, {
+      x: 0.093,
+      y: 0.501,
+      width: 0.814,
+      height: 0.189,
+      radius: 0.02
+    }, {
+      x: 0.093,
+      y: 0.706,
+      width: 0.814,
+      height: 0.189,
+      radius: 0.02
+    }];
+  },
+  get '2x2'() {
+    var t = window.FRAME_TEMPLATES?.['2x2'];
+    return t ? t.photoRects.map(r => ({
+      x: r.x,
+      y: r.y,
+      width: r.w,
+      height: r.h,
+      radius: 0.03
+    })) : [{
+      x: 0.08,
+      y: 0.155,
+      width: 0.398,
+      height: 0.319,
+      radius: 0.03
+    }, {
+      x: 0.523,
+      y: 0.155,
+      width: 0.398,
+      height: 0.319,
+      radius: 0.03
+    }, {
+      x: 0.08,
+      y: 0.511,
+      width: 0.398,
+      height: 0.319,
+      radius: 0.03
+    }, {
+      x: 0.523,
+      y: 0.511,
+      width: 0.398,
+      height: 0.319,
+      radius: 0.03
+    }];
+  },
+  get '1x3'() {
+    var t = window.FRAME_TEMPLATES?.['1x3'];
+    return t ? t.photoRects.map(r => ({
+      x: r.x,
+      y: r.y,
+      width: r.w,
+      height: r.h,
+      radius: 0.03
+    })) : [{
+      x: 0.08,
+      y: 0.114,
+      width: 0.84,
+      height: 0.215,
+      radius: 0.03
+    }, {
+      x: 0.08,
+      y: 0.392,
+      width: 0.84,
+      height: 0.215,
+      radius: 0.03
+    }, {
+      x: 0.08,
+      y: 0.67,
+      width: 0.84,
+      height: 0.215,
+      radius: 0.03
+    }];
+  },
+  get '1x1'() {
+    var t = window.FRAME_TEMPLATES?.['1x1'];
+    return t ? t.photoRects.map(r => ({
+      x: r.x,
+      y: r.y,
+      width: r.w,
+      height: r.h,
+      radius: 0.035
+    })) : [{
+      x: 0.051,
+      y: 0.10,
+      width: 0.898,
+      height: 0.68,
+      radius: 0.035
+    }];
+  },
+  get strip() {
+    return this['1x4'];
+  },
+  get grid() {
+    return this['2x2'];
+  },
+  get trip() {
+    return this['1x3'];
+  },
+  get polaroid() {
+    return this['1x1'];
+  }
 };
 function clonePlain(value) {
   if (value == null) return value;

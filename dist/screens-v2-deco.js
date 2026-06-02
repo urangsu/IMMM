@@ -13,6 +13,32 @@ var QR_SHARE_FAILURE_REASONS = Object.freeze({
   INVALID_URL: 'invalid-url'
 });
 
+// MARK: - Sticker Hitbox vs Export Coordinate Validator
+function validateStickerHitboxVsExport(sticker, layout, decoScale) {
+  var warnings = [];
+  if (!sticker) return warnings;
+
+  // Expected properties check
+  if (sticker.x == null || sticker.y == null) {
+    warnings.push(`Sticker ${sticker.id} is missing base coordinate properties (x, y).`);
+    return warnings;
+  }
+
+  // Slotted sticker coordinates verification
+  if (sticker.frameSlot != null) {
+    if (sticker.slotX == null || sticker.slotY == null) {
+      warnings.push(`Slotted sticker ${sticker.id} is missing slotted position coordinates (slotX, slotY).`);
+    }
+  }
+
+  // Hitbox scale discrepancy verification
+  var stickerScale = sticker.scale || 1.0;
+  if (decoScale && (decoScale.x > 1.0 || decoScale.y > 1.0)) {
+    warnings.push(`Deco scale ratio exceeds 1.0; potential sticker pixelation on high-res export.`);
+  }
+  return warnings;
+}
+
 // MARK: - Debug Runtime Asset Registry (Phase 3.63)
 
 function publishDebugResultAssetRecord(input) {
@@ -155,6 +181,8 @@ function DecoV2({
 }) {
   var useTouchFallback = typeof window !== 'undefined' && (!('PointerEvent' in window) || typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || ''));
   var [tab, setTab] = React.useState('stickers'); // stickers | draw | text
+  var [showSaveSheet, setShowSaveSheet] = React.useState(false);
+  var [saveFrameName, setSaveFrameName] = React.useState('');
   var [selStId, setSelStId] = React.useState(null);
   var [drawColor, setDrawColor] = React.useState('#D98893');
   var [drawMode, setDrawMode] = React.useState(false);
@@ -399,24 +427,58 @@ function DecoV2({
   }, [layout, mobile]);
   var zoomIn = () => setZoom(z => Math.min(3, +(z + 0.15).toFixed(2)));
   var zoomOut = () => setZoom(z => Math.max(0.2, +(z - 0.15).toFixed(2)));
-  var saveCurrentFrame = React.useCallback(() => {
-    if (typeof saveCustomFrame !== 'function') return;
+  var openSaveSheet = () => {
     var suggested = framePreset?.name ? `${framePreset.name} Copy` : 'My Frame';
-    var name = window.prompt('Save frame as', suggested);
-    if (!name || !name.trim()) return;
-    saveCustomFrame({
-      name: name.trim(),
-      layout,
-      frameColor,
-      stickers,
-      decorations: framePreset?.decorations || [],
-      drawStrokes,
-      background: framePreset?.background,
-      photoSlots: framePreset?.photoSlots,
-      watermark: framePreset?.watermark,
-      canvasSize: framePreset?.canvasSize
+    setSaveFrameName(suggested);
+    setShowSaveSheet(true);
+  };
+  var handleConfirmSaveFrame = () => {
+    if (!saveFrameName.trim()) return;
+    if (typeof saveCustomFrame === 'function') {
+      saveCustomFrame({
+        name: saveFrameName.trim(),
+        layout,
+        frameColor,
+        stickers,
+        decorations: framePreset?.decorations || [],
+        drawStrokes,
+        background: framePreset?.background,
+        photoSlots: framePreset?.photoSlots,
+        watermark: framePreset?.watermark,
+        canvasSize: framePreset?.canvasSize
+      });
+    }
+    setShowSaveSheet(false);
+    if (typeof addToast === 'function') {
+      addToast('프레임이 저장되었습니다.');
+    } else {
+      alert('프레임이 저장되었습니다.');
+    }
+  };
+  var handleDone = () => {
+    var checkLayout = layout || 'strip';
+    var mappedSelected = (selected || []).map((shotIdx, targetSlotIndex) => {
+      var asset = shots[shotIdx];
+      return {
+        assetId: asset?.assetId || `asset_${shotIdx}`,
+        targetSlotIndex
+      };
     });
-  }, [drawStrokes, frameColor, framePreset, layout, saveCustomFrame, stickers]);
+    var validation = window.IMMMSessionModel?.validateFrameReadiness ? window.IMMMSessionModel.validateFrameReadiness({
+      layout: checkLayout,
+      shots: shots.filter(Boolean),
+      selected: mappedSelected
+    }) : {
+      ok: true
+    };
+    if (!validation.ok) {
+      console.error('[IMMM] validateFrameReadiness failed at DecoV2 finish:', validation.errors);
+      alert('세션 데이터의 무결성 검증에 실패했습니다. 사진 선택 화면으로 이동하여 다시 선택해주세요.');
+      go('select');
+      return;
+    }
+    go('result');
+  };
   var resolveFrameTemplate = layout => {
     if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
       return window.getFrameTemplateSafe(layout);
@@ -447,6 +509,160 @@ function DecoV2({
     style: zoomBtnStyle,
     "aria-label": "Zoom in"
   }, /*#__PURE__*/React.createElement(ZoomPlusIcon, null)));
+
+  // iOS/Safari touch event capturing control in draw mode to prevent scroll/pinch zoom conflicts
+  React.useEffect(() => {
+    var el = frameNativeRef.current;
+    if (!el) return;
+    var preventTouchBehavior = e => {
+      if (drawModeRef.current) {
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+
+    // Binding non-passive listeners to guarantee gesture blocking
+    el.addEventListener('touchstart', preventTouchBehavior, {
+      passive: false
+    });
+    el.addEventListener('touchmove', preventTouchBehavior, {
+      passive: false
+    });
+    return () => {
+      el.removeEventListener('touchstart', preventTouchBehavior);
+      el.removeEventListener('touchmove', preventTouchBehavior);
+    };
+  }, [drawMode]);
+  var saveSheetEl = showSaveSheet && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 10000,
+      background: 'rgba(0,0,0,0.6)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'flex-end',
+      justifyContent: 'center'
+    },
+    onClick: () => setShowSaveSheet(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: '100%',
+      maxWidth: 500,
+      background: '#fff',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      padding: '24px 24px calc(24px + var(--sab, 0px))',
+      boxSizing: 'border-box',
+      animation: 'sheetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 16
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("style", null, `
+          @keyframes sheetSlideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+          }
+        `), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: 900,
+      color: T.ink
+    }
+  }, "Save Custom Frame"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowSaveSheet(false),
+    style: {
+      width: 32,
+      height: 32,
+      borderRadius: 999,
+      border: 'none',
+      background: 'rgba(0,0,0,0.05)',
+      color: T.ink,
+      cursor: 'pointer',
+      display: 'grid',
+      placeItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "14",
+    height: "14",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2.5"
+  }, /*#__PURE__*/React.createElement("line", {
+    x1: "18",
+    y1: "6",
+    x2: "6",
+    y2: "18"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "6",
+    y1: "6",
+    x2: "18",
+    y2: "18"
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: T.inkSoft
+    }
+  }, "\uD604\uC7AC \uAFB8\uBBFC \uC2A4\uD2F0\uCEE4\uC640 \uB099\uC11C\uB97C \uD3EC\uD568\uD558\uC5EC \uB098\uB9CC\uC758 \uD504\uB808\uC784\uC73C\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: saveFrameName,
+    onChange: e => setSaveFrameName(e.target.value),
+    placeholder: "\uD504\uB808\uC784 \uC774\uB984 \uC785\uB825...",
+    maxLength: 20,
+    style: {
+      width: '100%',
+      padding: '14px 16px',
+      borderRadius: 14,
+      border: `1px solid ${T.line}`,
+      fontSize: 14,
+      fontFamily: 'Pretendard, system-ui',
+      boxSizing: 'border-box',
+      outline: 'none',
+      background: 'rgba(0,0,0,0.02)'
+    },
+    autoFocus: true
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 12,
+      marginTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowSaveSheet(false),
+    style: {
+      minHeight: 48,
+      borderRadius: 14,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 13,
+      fontWeight: 800,
+      cursor: 'pointer'
+    }
+  }, "\uCDE8\uC18C"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleConfirmSaveFrame,
+    disabled: !saveFrameName.trim(),
+    style: {
+      minHeight: 48,
+      borderRadius: 14,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      fontSize: 13,
+      fontWeight: 800,
+      cursor: 'pointer',
+      opacity: saveFrameName.trim() ? 1 : 0.5
+    }
+  }, "\uC800\uC7A5"))));
   var compositionCanvasRef = React.useRef(null);
   var renderSeqRef = React.useRef(0);
   React.useEffect(() => {
@@ -1121,7 +1337,7 @@ function DecoV2({
       marginBottom: 10
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: saveCurrentFrame,
+    onClick: openSaveSheet,
     style: {
       border: 'none',
       borderRadius: 999,
@@ -1217,7 +1433,7 @@ function DecoV2({
     }), /*#__PURE__*/React.createElement(BtnPrimary, {
       T: T,
       size: "sm",
-      onClick: () => go('result')
+      onClick: handleDone
     }, "Done"))), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1,
@@ -1250,7 +1466,7 @@ function DecoV2({
         background: 'rgba(0,0,0,0.1)',
         margin: '10px auto 0'
       }
-    }), saveFrameBar, tabBar, tabContent)));
+    }), saveFrameBar, tabBar, tabContent)), saveSheetEl);
   }
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1273,7 +1489,7 @@ function DecoV2({
     right: /*#__PURE__*/React.createElement(BtnPrimary, {
       T: T,
       size: "md",
-      onClick: () => go('result')
+      onClick: handleDone
     }, "Finish \xB7 \uC644\uB8CC  ", I.arrowR(14, T.bg))
   }), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1327,7 +1543,7 @@ function DecoV2({
     style: {
       flex: 1
     }
-  }, tabContent)));
+  }, tabContent)), saveSheetEl);
 }
 function chipBtn(T) {
   return {
@@ -1564,6 +1780,28 @@ function ResultV2({
   var [resultPreviewStatus, setResultPreviewStatus] = React.useState('idle'); // idle | building | ready | error
   var [resultPreviewError, setResultPreviewError] = React.useState('');
   async function renderFinalResultBlob() {
+    var checkLayout = layout || 'strip';
+    var mappedSelected = (selected || []).map((shotIdx, targetSlotIndex) => {
+      var asset = shots[shotIdx];
+      return {
+        assetId: asset?.assetId || `asset_${shotIdx}`,
+        targetSlotIndex
+      };
+    });
+    var validation = window.IMMMSessionModel?.validateFrameReadiness ? window.IMMMSessionModel.validateFrameReadiness({
+      layout: checkLayout,
+      shots: shots.filter(Boolean),
+      selected: mappedSelected
+    }) : {
+      ok: true
+    };
+    if (!validation.ok) {
+      var errorMsg = 'Result rendering blocked: Frame readiness check failed. ' + validation.errors.join(', ');
+      console.error(errorMsg);
+      alert('세션 데이터의 무결성 검증에 실패했습니다. 설정 화면으로 이동합니다.');
+      go('setup');
+      throw new Error(errorMsg);
+    }
     var resolveTpl = l => {
       if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
       if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
@@ -2331,6 +2569,14 @@ function ResultV2({
       if (!cloudShareResult.ok) {
         throw Object.assign(new Error(cloudShareResult.error || 'Upload failed'), {
           reason: QR_SHARE_FAILURE_REASONS.UPLOAD_FAILED
+        });
+      }
+      var validation = Adapter.validateCloudShareResult ? Adapter.validateCloudShareResult(cloudShareResult) : {
+        ok: true
+      };
+      if (!validation.ok || !cloudShareResult.remoteUrl || !cloudShareResult.remoteUrl.startsWith('http')) {
+        throw Object.assign(new Error('Invalid remote URL: ' + (validation.errors?.join(', ') || 'missing remoteUrl')), {
+          reason: QR_SHARE_FAILURE_REASONS.INVALID_URL
         });
       }
 

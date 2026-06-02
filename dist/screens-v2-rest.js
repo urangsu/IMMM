@@ -1557,7 +1557,30 @@ function SelectV2({
     }
   }, "Clear"), /*#__PURE__*/React.createElement(BtnPrimary, {
     T: T,
-    onClick: () => selected.length === maxSel && go('deco'),
+    onClick: () => {
+      if (selected.length !== maxSel) return;
+      var checkLayout = layout || 'strip';
+      var mappedSelected = selected.map((shotIdx, targetSlotIndex) => {
+        var asset = shots[shotIdx];
+        return {
+          assetId: asset?.assetId || `asset_${shotIdx}`,
+          targetSlotIndex
+        };
+      });
+      var validation = window.IMMMSessionModel?.validateFrameReadiness ? window.IMMMSessionModel.validateFrameReadiness({
+        layout: checkLayout,
+        shots: shots.filter(Boolean),
+        selected: mappedSelected
+      }) : {
+        ok: true
+      };
+      if (!validation.ok) {
+        console.error('[IMMM] validateFrameReadiness failed at SelectV2:', validation.errors);
+        alert('선택된 사진 데이터의 무결성 검증에 실패했습니다. 다시 선택해주세요.');
+        return;
+      }
+      go('deco');
+    },
     size: mobile ? 'md' : 'lg',
     disabled: selected.length !== maxSel
   }, selected.length === maxSel ? /*#__PURE__*/React.createElement(React.Fragment, null, "Deco studio \xB7 \uAFB8\uBBF8\uAE30  ", I.arrowR(16, T.bg)) : `Pick ${maxSel - selected.length} more`)), previewIdx != null && shots[previewIdx]?.dataUrl && /*#__PURE__*/React.createElement("div", {

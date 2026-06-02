@@ -726,7 +726,10 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
   const selectedPreset = allPresets.find((preset) => preset.id === selectedPresetId) || allPresets.find((preset) => preset.id === selectedFramePresetId) || framePreset || allPresets[0] || null;
   const shotsPreview = (preset) => Array.from({ length: Math.max(1, preset?.photoSlots?.length || getCleanSetupSlotCount(preset?.layout || layout)) }, () => ({ filter: 'original', dataUrl: null }));
   const previewAspect = (preset) => {
-    const size = preset?.canvasSize || frameApi?.getCanvasSizeForLayout?.(preset?.layout || layout) || { width: 560, height: 1808 };
+    const geom = typeof window !== 'undefined' && typeof window.getFrameGeometry === 'function'
+      ? window.getFrameGeometry(preset?.layout || layout)
+      : null;
+    const size = preset?.canvasSize || (geom ? { width: geom.width, height: geom.height } : null) || frameApi?.getCanvasSizeForLayout?.(preset?.layout || layout) || { width: 560, height: 1808 };
     return `${Math.max(1, Number(size.width) || 560)} / ${Math.max(1, Number(size.height) || 1808)}`;
   };
   const packById = (id) => frameApi?.getFramePackById?.(id, savedFrames) || allPacks.find((pack) => pack.id === id) || null;
@@ -766,7 +769,7 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
     if (!preset) return;
     const pack = preset.packId ? packById(preset.packId) : null;
     if (pack?.locked && !packUnlocked(pack)) {
-      setToastMessage('이 프레임 팩은 유료 패키지입니다. 곧 잠금 해제 기능이 추가됩니다.');
+      setToastMessage('이 프레임 팩은 체험용입니다! 오프라인 부스 전용 테마로, 곧 정식 업데이트를 통해 만나보실 수 있습니다.');
       return;
     }
     const applied = applyFramePreset?.(preset, { syncFrameColor: true });
@@ -935,7 +938,7 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
                 )}
               </div>
 
-              {(storeTab === 'my-frames' || storeTab === 'imported') && (
+              {devUnlockVisible && (storeTab === 'my-frames' || storeTab === 'imported') && (
                 <div className="frame-store-card" style={{
                   ...cardStyle,
                   display: 'flex',
@@ -1341,7 +1344,10 @@ function DeprecatedSetupWithEmbeddedStore({ T, go, mobile, variant, layout, setL
     new URLSearchParams(location.search).get('fieldTest') === '1'
   );
   const getFramePreviewAspect = (preset, fallbackLayout = layout) => {
-    const size = preset?.canvasSize || frameApi?.getCanvasSizeForLayout?.(fallbackLayout) || { width: 560, height: 1808 };
+    const geom = typeof window !== 'undefined' && typeof window.getFrameGeometry === 'function'
+      ? window.getFrameGeometry(fallbackLayout)
+      : null;
+    const size = preset?.canvasSize || (geom ? { width: geom.width, height: geom.height } : null) || frameApi?.getCanvasSizeForLayout?.(fallbackLayout) || { width: 560, height: 1808 };
     return `${Math.max(1, Number(size.width) || 560)} / ${Math.max(1, Number(size.height) || 1808)}`;
   };
   const visibleFramePresets = uM(() => {

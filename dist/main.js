@@ -306,6 +306,13 @@ function App() {
     if (stored === 'designer') return 'setup';
     return stored;
   });
+  var [routeToast, setRouteToast] = React.useState('');
+  React.useEffect(() => {
+    if (routeToast) {
+      var t = setTimeout(() => setRouteToast(''), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [routeToast]);
 
   // Session tracking for state isolation
   var [activeSessionId, setActiveSessionId] = React.useState(() => {
@@ -1650,20 +1657,57 @@ function App() {
     }
   }, [screen]);
 
-  // Protected route guard: redirect to setup if protected screen has no photos in current session
+  // Protected route guard: validate session/frame readiness and redirect if invalid
   React.useEffect(() => {
     var protectedScreens = ['select', 'deco', 'result'];
     if (!protectedScreens.includes(screen)) return;
-    var hasPhotosInCurrentSession = shots.some(s => s?.dataUrl);
+
+    // 1. Basic photo check: Must have at least one shot taken (select requires shots, deco/result require them too)
+    var hasPhotosInCurrentSession = shots.some(s => s && (s.dataUrl || s.blobUrl || s.remoteUrl));
     if (!hasPhotosInCurrentSession) {
+      console.warn('[IMMM] Route guard: No photos in current session. Redirecting to setup.');
+      setRouteToast('촬영한 사진이 없습니다. 촬영을 먼저 진행해주세요.');
       setScreen('setup');
       try {
         localStorage.setItem('immm.v2.screen', 'setup');
       } catch (e) {
         console.warn('[IMMM] localStorage update failed:', e);
       }
+      return;
     }
-  }, [screen, shots]);
+
+    // 2. Full readiness check for deco and result screens
+    if (screen === 'deco' || screen === 'result') {
+      var layout = activeFramePreset?.layout || tweaks.layout || 'strip';
+      var mappedSelected = selected.map((shotIdx, targetSlotIndex) => {
+        var asset = shots[shotIdx];
+        return {
+          assetId: asset?.assetId || `asset_${shotIdx}`,
+          targetSlotIndex
+        };
+      });
+      var validation = window.IMMMSessionModel?.validateFrameReadiness ? window.IMMMSessionModel.validateFrameReadiness({
+        layout,
+        shots: shots.filter(Boolean),
+        selected: mappedSelected
+      }) : {
+        ok: true,
+        errors: []
+      };
+      if (!validation.ok) {
+        console.warn('[IMMM] Route guard: Frame readiness validation failed.', validation.errors);
+
+        // Show validation error toast/alert to help recovery
+        setRouteToast('세션 데이터가 무결하지 않아 설정 화면으로 이동합니다.');
+        setScreen('setup');
+        try {
+          localStorage.setItem('immm.v2.screen', 'setup');
+        } catch (e) {
+          console.warn('[IMMM] localStorage update failed:', e);
+        }
+      }
+    }
+  }, [screen, shots, selected, activeFramePreset, tweaks.layout]);
   var go = s => {
     if (s === 'deco' && stickers.length === 0 && preStickers.length > 0) {
       setStickers([...preStickers]);
@@ -1721,6 +1765,21 @@ function App() {
       return null;
     }
     var normalizedLayout = normalizePresetLayout(preset.layout || tweaks.layout);
+
+    // Compatibility check for existing shots
+    var hasExistingShots = shots && shots.some(s => s && (s.dataUrl || s.blobUrl || s.remoteUrl));
+    if (hasExistingShots && !options.force) {
+      var currentSlotCount = getLayoutSlotCount(tweaks.layout);
+      var targetSlotCount = getLayoutSlotCount(normalizedLayout);
+      if (currentSlotCount !== targetSlotCount) {
+        var confirmChange = window.confirm(`현재 촬영된 사진과 선택하신 프레임의 사진 개수(${targetSlotCount}개)가 다릅니다.\n프레임을 변경하시면 촬영된 사진이 모두 초기화되고 재촬영해야 합니다. 계속 진행하시겠습니까?`);
+        if (!confirmChange) return null;
+
+        // Reset existing shots/selection
+        setSelected([]);
+        setShots(Array(6).fill(null));
+      }
+    }
     var slotCount = getLayoutSlotCount(normalizedLayout);
     var captureCount = getLayoutCaptureCount(normalizedLayout);
     var nextSelected = Array.isArray(selected) ? selected.filter(index => Number.isInteger(index) && index >= 0 && index < slotCount).slice(0, slotCount) : [];
@@ -2418,6 +2477,56 @@ function App() {
     }
   })), /*#__PURE__*/React.createElement(ScreenTransition, {
     id: screen
-  }, renderScreen()), /*#__PURE__*/React.createElement(BuildPill, null), /*#__PURE__*/React.createElement(FieldTestPanel, null));
+  }, renderScreen()), /*#__PURE__*/React.createElement(BuildPill, null), /*#__PURE__*/React.createElement(FieldTestPanel, null), routeToast && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("style", null, `
+            @keyframes routeToastFadeIn {
+              from { opacity: 0; transform: translate(-50%, 20px); }
+              to { opacity: 1; transform: translate(-50%, 0); }
+            }
+          `), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      bottom: 80,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: 'rgba(239, 68, 68, 0.95)',
+      color: '#ffffff',
+      padding: '12px 20px',
+      borderRadius: 16,
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+      zIndex: 9999,
+      fontSize: 14,
+      fontWeight: 600,
+      whiteSpace: 'nowrap',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      animation: 'routeToastFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "18",
+    height: "18",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "12",
+    r: "10"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "8",
+    x2: "12",
+    y2: "12"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "16",
+    x2: "12.01",
+    y2: "16"
+  })), routeToast)));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(AppErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));

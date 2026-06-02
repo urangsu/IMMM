@@ -904,6 +904,22 @@ function getShotCountForFrameSafe(layoutOrType) {
   return t?.photoSlots?.length || 4;
 }
 
+function getFrameGeometry(layoutOrType) {
+  const t = getFrameTemplateSafe(layoutOrType);
+  if (!t) return null;
+  return {
+    width: t.canvasSize.width,
+    height: t.canvasSize.height,
+    slotCount: t.photoSlots?.length || 4,
+    photoSlots: t.photoSlots || [],
+    photoRects: t.photoRects || []
+  };
+}
+
+function getLayoutSlotCount(layoutOrType) {
+  return getShotCountForFrameSafe(layoutOrType);
+}
+
 Object.assign(window, {
   FRAME_TEMPLATES,
   FRAME_TEMPLATE_ALIASES,
@@ -911,6 +927,8 @@ Object.assign(window, {
   getFrameTemplateSafe,
   getShotCountForFrame,
   getShotCountForFrameSafe,
+  getFrameGeometry,
+  getLayoutSlotCount,
   FrameRenderEngine,
   renderComposition,
   renderFrameOverlay,

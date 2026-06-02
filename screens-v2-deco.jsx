@@ -13,6 +13,33 @@ const QR_SHARE_FAILURE_REASONS = Object.freeze({
   INVALID_URL: 'invalid-url'
 });
 
+// MARK: - Sticker Hitbox vs Export Coordinate Validator
+function validateStickerHitboxVsExport(sticker, layout, decoScale) {
+  const warnings = [];
+  if (!sticker) return warnings;
+
+  // Expected properties check
+  if (sticker.x == null || sticker.y == null) {
+    warnings.push(`Sticker ${sticker.id} is missing base coordinate properties (x, y).`);
+    return warnings;
+  }
+
+  // Slotted sticker coordinates verification
+  if (sticker.frameSlot != null) {
+    if (sticker.slotX == null || sticker.slotY == null) {
+      warnings.push(`Slotted sticker ${sticker.id} is missing slotted position coordinates (slotX, slotY).`);
+    }
+  }
+
+  // Hitbox scale discrepancy verification
+  const stickerScale = sticker.scale || 1.0;
+  if (decoScale && (decoScale.x > 1.0 || decoScale.y > 1.0)) {
+    warnings.push(`Deco scale ratio exceeds 1.0; potential sticker pixelation on high-res export.`);
+  }
+
+  return warnings;
+}
+
 // MARK: - Debug Runtime Asset Registry (Phase 3.63)
 
 function publishDebugResultAssetRecord(input) {
@@ -122,6 +149,8 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   stickers, setStickers, drawStrokes, setDrawStrokes, logo, dateText, setDateText, accent, frameColor, framePreset, saveCustomFrame, openDesigner, exportPresetId, selectedFramePresetId }) {
   const useTouchFallback = typeof window !== 'undefined' && (!('PointerEvent' in window) || (typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || '')));
   const [tab, setTab] = React.useState('stickers'); // stickers | draw | text
+  const [showSaveSheet, setShowSaveSheet] = React.useState(false);
+  const [saveFrameName, setSaveFrameName] = React.useState('');
   const [selStId, setSelStId] = React.useState(null);
   const [drawColor, setDrawColor] = React.useState('#D98893');
   const [drawMode, setDrawMode] = React.useState(false);
@@ -351,24 +380,60 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
   const zoomIn = () => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)));
   const zoomOut = () => setZoom((z) => Math.max(0.2, +(z - 0.15).toFixed(2)));
-  const saveCurrentFrame = React.useCallback(() => {
-    if (typeof saveCustomFrame !== 'function') return;
+  const openSaveSheet = () => {
     const suggested = framePreset?.name ? `${framePreset.name} Copy` : 'My Frame';
-    const name = window.prompt('Save frame as', suggested);
-    if (!name || !name.trim()) return;
-    saveCustomFrame({
-      name: name.trim(),
-      layout,
-      frameColor,
-      stickers,
-      decorations: framePreset?.decorations || [],
-      drawStrokes,
-      background: framePreset?.background,
-      photoSlots: framePreset?.photoSlots,
-      watermark: framePreset?.watermark,
-      canvasSize: framePreset?.canvasSize,
+    setSaveFrameName(suggested);
+    setShowSaveSheet(true);
+  };
+
+  const handleConfirmSaveFrame = () => {
+    if (!saveFrameName.trim()) return;
+    if (typeof saveCustomFrame === 'function') {
+      saveCustomFrame({
+        name: saveFrameName.trim(),
+        layout,
+        frameColor,
+        stickers,
+        decorations: framePreset?.decorations || [],
+        drawStrokes,
+        background: framePreset?.background,
+        photoSlots: framePreset?.photoSlots,
+        watermark: framePreset?.watermark,
+        canvasSize: framePreset?.canvasSize,
+      });
+    }
+    setShowSaveSheet(false);
+    if (typeof addToast === 'function') {
+      addToast('프레임이 저장되었습니다.');
+    } else {
+      alert('프레임이 저장되었습니다.');
+    }
+  };
+
+  const handleDone = () => {
+    const checkLayout = layout || 'strip';
+    const mappedSelected = (selected || []).map((shotIdx, targetSlotIndex) => {
+      const asset = shots[shotIdx];
+      return {
+        assetId: asset?.assetId || `asset_${shotIdx}`,
+        targetSlotIndex
+      };
     });
-  }, [drawStrokes, frameColor, framePreset, layout, saveCustomFrame, stickers]);
+    const validation = window.IMMMSessionModel?.validateFrameReadiness
+      ? window.IMMMSessionModel.validateFrameReadiness({
+          layout: checkLayout,
+          shots: shots.filter(Boolean),
+          selected: mappedSelected
+        })
+      : { ok: true };
+    if (!validation.ok) {
+      console.error('[IMMM] validateFrameReadiness failed at DecoV2 finish:', validation.errors);
+      alert('세션 데이터의 무결성 검증에 실패했습니다. 사진 선택 화면으로 이동하여 다시 선택해주세요.');
+      go('select');
+      return;
+    }
+    go('result');
+  };
 
   const resolveFrameTemplate = (layout) => {
     if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') {
@@ -400,6 +465,83 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     </button>
   </div>;
 
+
+  // iOS/Safari touch event capturing control in draw mode to prevent scroll/pinch zoom conflicts
+  React.useEffect(() => {
+    const el = frameNativeRef.current;
+    if (!el) return;
+
+    const preventTouchBehavior = (e) => {
+      if (drawModeRef.current) {
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+
+    // Binding non-passive listeners to guarantee gesture blocking
+    el.addEventListener('touchstart', preventTouchBehavior, { passive: false });
+    el.addEventListener('touchmove', preventTouchBehavior, { passive: false });
+    
+    return () => {
+      el.removeEventListener('touchstart', preventTouchBehavior);
+      el.removeEventListener('touchmove', preventTouchBehavior);
+    };
+  }, [drawMode]);
+
+  const saveSheetEl = showSaveSheet && (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 10000,
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+    }} onClick={() => setShowSaveSheet(false)}>
+      <div style={{
+        width: '100%', maxWidth: 500, background: '#fff',
+        borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        padding: '24px 24px calc(24px + var(--sab, 0px))',
+        boxSizing: 'border-box',
+        animation: 'sheetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        display: 'flex', flexDirection: 'column', gap: 16
+      }} onClick={(e) => e.stopPropagation()}>
+        <style>{`
+          @keyframes sheetSlideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+          }
+        `}</style>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 16, fontWeight: 900, color: T.ink }}>Save Custom Frame</div>
+          <button onClick={() => setShowSaveSheet(false)} style={{
+            width: 32, height: 32, borderRadius: 999, border: 'none', background: 'rgba(0,0,0,0.05)', color: T.ink, cursor: 'pointer', display: 'grid', placeItems: 'center'
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+        </div>
+        <div style={{ fontSize: 13, color: T.inkSoft }}>현재 꾸민 스티커와 낙서를 포함하여 나만의 프레임으로 저장합니다.</div>
+        <input
+          type="text"
+          value={saveFrameName}
+          onChange={(e) => setSaveFrameName(e.target.value)}
+          placeholder="프레임 이름 입력..."
+          maxLength={20}
+          style={{
+            width: '100%', padding: '14px 16px', borderRadius: 14, border: `1px solid ${T.line}`,
+            fontSize: 14, fontFamily: 'Pretendard, system-ui', boxSizing: 'border-box',
+            outline: 'none', background: 'rgba(0,0,0,0.02)'
+          }}
+          autoFocus
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
+          <button onClick={() => setShowSaveSheet(false)} style={{
+            minHeight: 48, borderRadius: 14, border: `1px solid ${T.line}`, background: '#fff', color: T.ink,
+            fontSize: 13, fontWeight: 800, cursor: 'pointer'
+          }}>취소</button>
+          <button onClick={handleConfirmSaveFrame} disabled={!saveFrameName.trim()} style={{
+            minHeight: 48, borderRadius: 14, border: 'none', background: T.ink, color: T.bg,
+            fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: saveFrameName.trim() ? 1 : 0.5
+          }}>저장</button>
+        </div>
+      </div>
+    </div>
+  );
 
   const compositionCanvasRef = React.useRef(null);
   const renderSeqRef = React.useRef(0);
@@ -696,7 +838,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
   const saveFrameBar = saveCustomFrame ? (
     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
       <button
-        onClick={saveCurrentFrame}
+        onClick={openSaveSheet}
         style={{
           border: 'none',
           borderRadius: 999,
@@ -743,7 +885,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
               Back
             </button>
             <StepDots step={3} T={T} />
-            <BtnPrimary T={T} size="sm" onClick={() => go('result')}>Done</BtnPrimary>
+            <BtnPrimary T={T} size="sm" onClick={handleDone}>Done</BtnPrimary>
           </div>
         </div>
 
@@ -764,13 +906,14 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
             {tabContent}
           </div>
         </div>
+        {saveSheetEl}
       </div>);
   }
   return (
     <div style={{ height: '100%', background: T.bg, display: 'grid', gridTemplateColumns: '1fr 380px' }}>
       <div style={{ padding: '24px 48px', display: 'flex', flexDirection: 'column' }}>
         <TopBar step={3} back={() => go('select')} T={T} title="Step 4 · Deco Studio"
-        right={<BtnPrimary T={T} size="md" onClick={() => go('result')}>Finish · 완료  {I.arrowR(14, T.bg)}</BtnPrimary>} />
+        right={<BtnPrimary T={T} size="md" onClick={handleDone}>Finish · 완료  {I.arrowR(14, T.bg)}</BtnPrimary>} />
         <div style={{ flex: 1, background: T.bgAlt, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
           {preview}
           <div style={{ position: 'absolute', top: 16, left: 18, display: 'flex', gap: 6 }}>
@@ -784,6 +927,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
         {tabBar}
         <div style={{ flex: 1 }}>{tabContent}</div>
       </div>
+      {saveSheetEl}
     </div>
   );
 }
@@ -968,6 +1112,30 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
   const [resultPreviewError, setResultPreviewError] = React.useState('');
 
   async function renderFinalResultBlob() {
+    const checkLayout = layout || 'strip';
+    const mappedSelected = (selected || []).map((shotIdx, targetSlotIndex) => {
+      const asset = shots[shotIdx];
+      return {
+        assetId: asset?.assetId || `asset_${shotIdx}`,
+        targetSlotIndex
+      };
+    });
+    const validation = window.IMMMSessionModel?.validateFrameReadiness
+      ? window.IMMMSessionModel.validateFrameReadiness({
+          layout: checkLayout,
+          shots: shots.filter(Boolean),
+          selected: mappedSelected
+        })
+      : { ok: true };
+
+    if (!validation.ok) {
+      const errorMsg = 'Result rendering blocked: Frame readiness check failed. ' + validation.errors.join(', ');
+      console.error(errorMsg);
+      alert('세션 데이터의 무결성 검증에 실패했습니다. 설정 화면으로 이동합니다.');
+      go('setup');
+      throw new Error(errorMsg);
+    }
+
     const resolveTpl = (l) => {
       if (typeof window !== 'undefined' && typeof window.getFrameTemplateSafe === 'function') return window.getFrameTemplateSafe(l);
       if (typeof window !== 'undefined' && typeof window.getFrameTemplate === 'function') return window.getFrameTemplate(l);
@@ -1626,6 +1794,11 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
 
       if (!cloudShareResult.ok) {
         throw Object.assign(new Error(cloudShareResult.error || 'Upload failed'), { reason: QR_SHARE_FAILURE_REASONS.UPLOAD_FAILED });
+      }
+
+      const validation = Adapter.validateCloudShareResult ? Adapter.validateCloudShareResult(cloudShareResult) : { ok: true };
+      if (!validation.ok || !cloudShareResult.remoteUrl || !cloudShareResult.remoteUrl.startsWith('http')) {
+        throw Object.assign(new Error('Invalid remote URL: ' + (validation.errors?.join(', ') || 'missing remoteUrl')), { reason: QR_SHARE_FAILURE_REASONS.INVALID_URL });
       }
 
       // Generate QR code with client-side QRCode library
