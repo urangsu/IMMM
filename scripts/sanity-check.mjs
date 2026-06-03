@@ -1475,6 +1475,18 @@ function checkFrameStoreFoundation() {
     console.error('❌ FAIL: screens-v2.jsx missing designer editors');
     hasErrors = true;
   }
+  // Verify devUnlockVisible is defined within FrameStoreScreen function scope in screens-v2.jsx
+  const frameStoreIdx = setup.indexOf('function FrameStoreScreen(');
+  if (frameStoreIdx !== -1) {
+    const checkArea = setup.substring(frameStoreIdx, frameStoreIdx + 2000);
+    if (!checkArea.includes('const devUnlockVisible =')) {
+      console.error('❌ FAIL: screens-v2.jsx is missing devUnlockVisible declaration near FrameStoreScreen start');
+      hasErrors = true;
+    }
+  } else {
+    console.error('❌ FAIL: screens-v2.jsx is missing FrameStoreScreen function definition');
+    hasErrors = true;
+  }
   const cloudQa = readFile('scripts/cloud-qa-check.mjs');
   const exportSamples = readFile('scripts/export-frame-samples.mjs');
   const frameSamplePage = readFile('qa/frame-samples/index.html');

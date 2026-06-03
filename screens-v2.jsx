@@ -705,6 +705,11 @@ function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preS
 }
 
 function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePreset, framePresets = [], framePackList = [], customFrames = [], selectedFramePresetId, applyFramePreset, openDesigner, exportCustomFramesAsJson, importFramePackFromJson, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame, favoriteFramePresetIds = [], toggleFavoriteFramePreset, favoriteFramePackIds = [], toggleFavoriteFramePack, unlockedFramePackIds = [], unlockFramePackForDev, frameLikeIds = [], toggleFrameLike, recordFrameUse, creatorProfiles = [], storeTabFocus = '' }) {
+  const devUnlockVisible = typeof window !== 'undefined' && (
+    window.IMMM_FIELD_TEST === true ||
+    window.IMMM_DEBUG_BUILD === true ||
+    new URLSearchParams(location.search).get('fieldTest') === '1'
+  );
   const frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   const [storeTab, setStoreTab] = uS(storeTabFocus || 'featured');

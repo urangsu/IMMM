@@ -1546,6 +1546,7 @@ function FrameStoreScreen({
   creatorProfiles = [],
   storeTabFocus = ''
 }) {
+  var devUnlockVisible = typeof window !== 'undefined' && (window.IMMM_FIELD_TEST === true || window.IMMM_DEBUG_BUILD === true || new URLSearchParams(location.search).get('fieldTest') === '1');
   var frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   var [storeTab, setStoreTab] = uS(storeTabFocus || 'featured');
