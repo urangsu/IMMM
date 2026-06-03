@@ -1347,12 +1347,13 @@ function App() {
       const mappedSelected = selected.map((shotIdx, targetSlotIndex) => {
         const asset = shots[shotIdx];
         return {
-          assetId: asset?.assetId || `asset_${shotIdx}`,
+          assetId: asset?.assetId || null,
+          sourceShotIndex: shotIdx,
           targetSlotIndex
         };
       });
       const validation = window.IMMMSessionModel?.validateFrameReadiness
-        ? window.IMMMSessionModel.validateFrameReadiness({ layout, shots: shots.filter(Boolean), selected: mappedSelected })
+        ? window.IMMMSessionModel.validateFrameReadiness({ layout, shots, selected: mappedSelected })
         : { ok: true, errors: [] };
 
       if (!validation.ok) {

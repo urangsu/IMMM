@@ -619,17 +619,6 @@ async function renderComposition(ctx, data, options = {}) {
     if (images[i]) {
       drawCoverToCtx(ctx, images[i], sx, sy, sw, sh);
     }
-    
-    // Slotted stickers — only valid slots for this layout
-    const slotted = (data.stickers || [])
-      .filter((s) => Number(s.frameSlot) === i && isStickerValidForLayout(s, data.layout || data.templateType));
-    for (const s of slotted) {
-      const local = { ...s, x: s.slotX ?? 50, y: s.slotY ?? 50 };
-      ctx.save();
-      ctx.translate(sx, sy);
-      await drawStickerToCtx(ctx, local, sw, sh, scale, stickerAssets);
-      ctx.restore();
-    }
     ctx.restore();
   }
 
@@ -689,6 +678,33 @@ async function renderComposition(ctx, data, options = {}) {
       });
   } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'front');
+  }
+
+  // 4b. Slotted sticker pass (after front decorative layers, clipped to slot)
+  for (let i = 0; i < photoSlots.length; i++) {
+    const slot = photoSlots[i];
+    const sx = slot.x * scale;
+    const sy = slot.y * scale;
+    const sw = slot.width * scale;
+    const sh = slot.height * scale;
+
+    const slotted = (data.stickers || [])
+      .filter((s) => Number(s.frameSlot) === i && isStickerValidForLayout(s, data.layout || data.templateType));
+    if (slotted.length === 0) continue;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(sx, sy, sw, sh);
+    ctx.clip();
+
+    ctx.translate(sx, sy);
+    for (const s of slotted) {
+      const local = { ...s, x: s.slotX ?? 50, y: s.slotY ?? 50 };
+      ctx.save();
+      await drawStickerToCtx(ctx, local, sw, sh, scale, stickerAssets);
+      ctx.restore();
+    }
+    ctx.restore();
   }
 
   // 5. Unified Overlay (Logo, Dot, Date)
@@ -944,12 +960,15 @@ function getShotCountForFrameSafe(layoutOrType) {
 function getFrameGeometry(layoutOrType) {
   const t = getFrameTemplateSafe(layoutOrType);
   if (!t) return null;
+  const geom = typeof window !== 'undefined' && typeof window.normalizeFrameGeometry === 'function'
+    ? window.normalizeFrameGeometry(t)
+    : t;
   return {
-    width: t.canvasSize.width,
-    height: t.canvasSize.height,
-    slotCount: t.photoSlots?.length || 4,
-    photoSlots: t.photoSlots || [],
-    photoRects: t.photoRects || []
+    width: geom.canvasSize.width,
+    height: geom.canvasSize.height,
+    slotCount: geom.photoSlots?.length || 4,
+    photoSlots: geom.photoSlots || [],
+    photoRects: geom.photoRects || []
   };
 }
 

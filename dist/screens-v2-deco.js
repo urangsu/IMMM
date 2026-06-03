@@ -460,13 +460,14 @@ function DecoV2({
     var mappedSelected = (selected || []).map((shotIdx, targetSlotIndex) => {
       var asset = shots[shotIdx];
       return {
-        assetId: asset?.assetId || `asset_${shotIdx}`,
+        assetId: asset?.assetId || null,
+        sourceShotIndex: shotIdx,
         targetSlotIndex
       };
     });
     var validation = window.IMMMSessionModel?.validateFrameReadiness ? window.IMMMSessionModel.validateFrameReadiness({
       layout: checkLayout,
-      shots: shots.filter(Boolean),
+      shots: shots,
       selected: mappedSelected
     }) : {
       ok: true
@@ -1784,13 +1785,14 @@ function ResultV2({
     var mappedSelected = (selected || []).map((shotIdx, targetSlotIndex) => {
       var asset = shots[shotIdx];
       return {
-        assetId: asset?.assetId || `asset_${shotIdx}`,
+        assetId: asset?.assetId || null,
+        sourceShotIndex: shotIdx,
         targetSlotIndex
       };
     });
     var validation = window.IMMMSessionModel?.validateFrameReadiness ? window.IMMMSessionModel.validateFrameReadiness({
       layout: checkLayout,
-      shots: shots.filter(Boolean),
+      shots: shots,
       selected: mappedSelected
     }) : {
       ok: true

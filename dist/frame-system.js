@@ -735,7 +735,7 @@ async function renderComposition(ctx, data, options = {}) {
   } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'back');
   }
-  var _loop = async function (i) {
+  for (var i = 0; i < photoSlots.length; i++) {
     var slot = photoSlots[i];
     var sx = slot.x * scale;
     var sy = slot.y * scale;
@@ -750,24 +750,7 @@ async function renderComposition(ctx, data, options = {}) {
     if (images[i]) {
       drawCoverToCtx(ctx, images[i], sx, sy, sw, sh);
     }
-
-    // Slotted stickers — only valid slots for this layout
-    var slotted = (data.stickers || []).filter(s => Number(s.frameSlot) === i && isStickerValidForLayout(s, data.layout || data.templateType));
-    for (var _s of slotted) {
-      var local = {
-        ..._s,
-        x: _s.slotX ?? 50,
-        y: _s.slotY ?? 50
-      };
-      ctx.save();
-      ctx.translate(sx, sy);
-      await drawStickerToCtx(ctx, local, sw, sh, scale, stickerAssets);
-      ctx.restore();
-    }
     ctx.restore();
-  };
-  for (var i = 0; i < photoSlots.length; i++) {
-    await _loop(i);
   }
 
   // 3. Global Stickers (not in slots) — validate layout-slot compatibility
@@ -824,6 +807,36 @@ async function renderComposition(ctx, data, options = {}) {
     });
   } else if (framePreset && typeof drawPresetLayer === 'function') {
     drawPresetLayer(ctx, framePreset, w, h, 'front');
+  }
+
+  // 4b. Slotted sticker pass (after front decorative layers, clipped to slot)
+  var _loop = async function (_i) {
+    var slot = photoSlots[_i];
+    var sx = slot.x * scale;
+    var sy = slot.y * scale;
+    var sw = slot.width * scale;
+    var sh = slot.height * scale;
+    var slotted = (data.stickers || []).filter(s => Number(s.frameSlot) === _i && isStickerValidForLayout(s, data.layout || data.templateType));
+    if (slotted.length === 0) return 1; // continue
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(sx, sy, sw, sh);
+    ctx.clip();
+    ctx.translate(sx, sy);
+    for (var _s of slotted) {
+      var local = {
+        ..._s,
+        x: _s.slotX ?? 50,
+        y: _s.slotY ?? 50
+      };
+      ctx.save();
+      await drawStickerToCtx(ctx, local, sw, sh, scale, stickerAssets);
+      ctx.restore();
+    }
+    ctx.restore();
+  };
+  for (var _i = 0; _i < photoSlots.length; _i++) {
+    if (await _loop(_i)) continue;
   }
 
   // 5. Unified Overlay (Logo, Dot, Date)
@@ -1110,12 +1123,13 @@ function getShotCountForFrameSafe(layoutOrType) {
 function getFrameGeometry(layoutOrType) {
   var t = getFrameTemplateSafe(layoutOrType);
   if (!t) return null;
+  var geom = typeof window !== 'undefined' && typeof window.normalizeFrameGeometry === 'function' ? window.normalizeFrameGeometry(t) : t;
   return {
-    width: t.canvasSize.width,
-    height: t.canvasSize.height,
-    slotCount: t.photoSlots?.length || 4,
-    photoSlots: t.photoSlots || [],
-    photoRects: t.photoRects || []
+    width: geom.canvasSize.width,
+    height: geom.canvasSize.height,
+    slotCount: geom.photoSlots?.length || 4,
+    photoSlots: geom.photoSlots || [],
+    photoRects: geom.photoRects || []
   };
 }
 function getLayoutSlotCount(layoutOrType) {

@@ -309,6 +309,24 @@ function getStickerNormScale(sticker, canvasW) {
   return targetW / baseBounds.w;
 }
 
+function renderStickerVisualElement(s, visualScale, opacity = 1) {
+  const raw = getStickerVisualBounds(s);
+  return (
+    <div style={{
+      width: raw.w,
+      height: raw.h,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transform: `scale(${visualScale})`,
+      transformOrigin: 'center',
+      opacity,
+    }}>
+      {renderStickerInstance(s, 1)}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────
 function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width, height, children, T, hideVisuals = false, mode = 'default', style = {}, decoScale = { x: 1, y: 1 }, canvasW = null, layout = null }) {
   const canvasRef = useRR(null);
@@ -503,26 +521,23 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
 
   const renderStickerControls = (s, isSel) => {
     if (!isSel) return null;
-    const invScale = 1 / Math.max(0.25, Math.min(4, s.scale || 1));
-    const tr = `scale(${invScale})`;
     return (
       <>
         {/* scale+rotate handle (top-right) */}
         <div onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>onPointerDown(e, s, 'scale-rotate')} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>onPointerDown(e, s, 'scale-rotate') : undefined}
-          style={{ position:'absolute', top:-12, right:-12, width:28, height:28,
+          style={{ position:'absolute', top:-16, right:-16, width:32, height:32,
             background:'#fff', borderRadius:999, boxShadow:'0 2px 8px rgba(0,0,0,0.18)',
-            display:'flex', alignItems:'center', justifyContent:'center', cursor:'nwse-resize', zIndex:200,
-            transform: tr, transformOrigin: 'center' }}>
+            display:'flex', alignItems:'center', justifyContent:'center', cursor:'nwse-resize', zIndex:200 }}>
           <svg width="14" height="14" viewBox="0 0 12 12"><path d="M3 3v2M3 3h2M9 9v-2M9 9h-2M3 9h6V3" stroke="#1A1A1F" strokeWidth="1.3" fill="none" strokeLinecap="round"/></svg>
         </div>
         {/* snap-to-frame handle (bottom-center) */}
         <div onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>{ e.stopPropagation(); if(s.frameSlot!=null){ unSnap(s.id); setSnapMode(false); } else { setSnapMode(v=>!v); } }} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>{ e.stopPropagation(); if(s.frameSlot!=null){ unSnap(s.id); setSnapMode(false); } else { setSnapMode(v=>!v); } } : undefined}
           title={s.frameSlot!=null ? '틀에서 꺼내기' : '틀 안에 넣기'}
-          style={{ position:'absolute', bottom:-12, left:'50%', zIndex:200,
-            width:28, height:28, background: s.frameSlot!=null ? '#1A1A1F' : snapMode ? '#D98893' : '#fff',
+          style={{ position:'absolute', bottom:-16, left:'50%', zIndex:200,
+            width:32, height:32, background: s.frameSlot!=null ? '#1A1A1F' : snapMode ? '#D98893' : '#fff',
             borderRadius:999, boxShadow:'0 2px 8px rgba(0,0,0,0.18)',
             display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
-            transform: `translateX(-50%) ${tr}`, transformOrigin: 'center' }}>
+            transform: 'translateX(-50%)' }}>
           {s.frameSlot!=null ? (
             <svg width="14" height="14" viewBox="0 0 12 12">
               <rect x="1" y="1" width="4" height="3" rx="0.5" stroke="#fff" strokeWidth="1.2" fill="none"/>
@@ -540,36 +555,18 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         </div>
         {/* delete (top-left) */}
         <div onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>{ e.stopPropagation(); setStickers(prev => prev.filter(x => x.id !== s.id)); setSelectedId(null); }} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>{ e.stopPropagation(); setStickers(prev => prev.filter(x => x.id !== s.id)); setSelectedId(null); } : undefined}
-          style={{ position:'absolute', top:-12, left:-12, width:28, height:28, zIndex:200,
+          style={{ position:'absolute', top:-16, left:-16, width:32, height:32, zIndex:200,
             background:'#1A1A1F', borderRadius:999, color:'#fff',
             display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
-            boxShadow:'0 2px 8px rgba(0,0,0,0.2)', transform: tr, transformOrigin: 'center' }}>
+            boxShadow:'0 2px 8px rgba(0,0,0,0.2)' }}>
           <svg width="12" height="12" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2L2 8" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
         </div>
       </>
     );
   };
 
-  const renderStickerVisual = (s, visualScale, opacity = 1) => {
-    const raw = getStickerVisualBounds(s);
-    return (
-      <div style={{
-        width: raw.w,
-        height: raw.h,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transform: `scale(${visualScale})`,
-        transformOrigin: 'center',
-        opacity,
-      }}>
-        {renderStickerInstance(s, 1)}
-      </div>
-    );
-  };
-
   return (
-    <SlottedStickersCtx.Provider value={slottedMap}>
+    <SlottedStickersCtx.Provider value={{}}>
       <div ref={canvasRef}
         onPointerDown={USE_TOUCH_FALLBACK ? undefined : () => { setSelectedId(null); setSnapMode(false); }} onTouchStart={USE_TOUCH_FALLBACK ? () => { setSelectedId(null); setSnapMode(false); } : undefined}
         style={{ position:'relative', width, height, touchAction:'none', userSelect:'none', ...style }}>
@@ -648,14 +645,76 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
                   height: outlineH,
                   outline: isSel?`1.5px dashed ${T?.pinkDeep||'#D98893'}`:'none',
                   outlineOffset: isSel?2:0, padding: 0 }}>
-                  {renderStickerVisual(s, visualScale, hideVisuals ? 0 : 1)}
+                  {renderStickerVisualElement(s, visualScale, hideVisuals ? 0 : 1)}
                   {renderStickerControls(s, isSel)}
                 </div>
               </div>
             </div>
           );
         })}
-        {/* Slotted stickers: transparent hit area, controls rendered separately when selected */}
+        {/* Slotted sticker visual layer (clipping applied inside slot containers) */}
+        {Array.from({ length: window.getLayoutSlotCount ? window.getLayoutSlotCount(layout || 'strip') : 4 }).map((_, slotIndex) => {
+          const slotClip = slotClips[slotIndex];
+          if (!slotClip) return null;
+          
+          const slotStickers = sortedStickers.filter(s => s.frameSlot === slotIndex);
+          if (slotStickers.length === 0) return null;
+          
+          return (
+            <div
+              key={`slot-visual-container-${slotIndex}`}
+              className="slotted-sticker-visual-layer"
+              style={{
+                position: 'absolute',
+                left: `${slotClip.left}%`,
+                top: `${slotClip.top}%`,
+                right: `${slotClip.right}%`,
+                bottom: `${slotClip.bottom}%`,
+                overflow: 'hidden',
+                pointerEvents: 'none',
+                zIndex: 50
+              }}
+            >
+              {slotStickers.map(s => {
+                const slotW = slotClip.widthPx;
+                const slotH = slotClip.heightPx;
+                const metrics = resolveStickerFidelityMetrics(s, null, slotW, slotH);
+                const raw = getStickerVisualBounds(s);
+                const visualW = metrics.widthPx;
+                const visualH = visualW * (raw.h / (raw.w || 1));
+                const visualScale = visualW / (raw.w || 1);
+                
+                return (
+                  <div
+                    key={s.id}
+                    className="slotted-sticker-visual-element"
+                    style={{
+                      position: 'absolute',
+                      left: `${metrics.xPercent}%`,
+                      top: `${metrics.yPercent}%`,
+                      transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg)`,
+                      transformOrigin: 'center',
+                      zIndex: s.z || 0,
+                      willChange: 'transform'
+                    }}
+                  >
+                    <div style={{
+                      width: visualW,
+                      height: visualH,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      {renderStickerVisualElement(s, visualScale, hideVisuals ? 0 : 1)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+
+        {/* Slotted sticker interaction & controls layer (not clipped, zIndex 55 & 60) */}
         {sortedStickers.filter(s => s.frameSlot != null).map(s => {
           const isSel = s.id === selectedId;
           const slotClip = slotClips[s.frameSlot];
@@ -667,35 +726,36 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           
           const visualW = metrics.widthPx;
           const visualH = visualW * (raw.h / (raw.w || 1));
-          const visualScale = visualW / (raw.w || 1);
           
-          const hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
-          const outlineW = isSel ? visualW : (hitbox.visualW || hitbox.w);
-          const outlineH = isSel ? visualH : (hitbox.visualH || hitbox.h);
+          const leftPercent = slotClip
+            ? slotClip.left + (metrics.xPercent / 100) * (100 - slotClip.left - slotClip.right)
+            : s.x;
+          const topPercent = slotClip
+            ? slotClip.top + (metrics.yPercent / 100) * (100 - slotClip.top - slotClip.bottom)
+            : s.y;
           
           return (
             <React.Fragment key={s.id}>
               {/* Invisible hit area for drag */}
               <div onPointerDown={USE_TOUCH_FALLBACK ? undefined : (e)=>onPointerDown(e, s, 'move')} onTouchStart={USE_TOUCH_FALLBACK ? (e)=>onPointerDown(e, s, 'move') : undefined} onClick={(e)=>e.stopPropagation()}
-                style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
+                style={{ position:'absolute', left:`${leftPercent}%`, top:`${topPercent}%`,
                   transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg)`,
                   transformOrigin:'center', cursor: dragState?.id===s.id?'grabbing':'grab',
-                  zIndex:(s.z||0)+50, willChange:'transform', opacity:0 }}>
-                <div style={{ width: visualW, height: visualH, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  {renderStickerVisual(s, visualScale, hideVisuals ? 0 : 1)}
-                </div>
+                  zIndex:(s.z||0)+55, willChange:'transform', opacity:0 }}>
+                <div style={{ width: visualW, height: visualH }} />
               </div>
-              {/* Controls shown separately (not under opacity:0) */}
+              {/* Controls shown separately (not under opacity:0, no duplicate renderStickerVisualElement) */}
               {isSel && (
-                <div style={{ position:'absolute', left:`${s.x}%`, top:`${s.y}%`,
-                  transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg)`,
-                  transformOrigin:'center', zIndex:(s.z||0)+51, pointerEvents:'none' }}>
+                <div
+                  className="slotted-sticker-controls-layer"
+                  style={{ position:'absolute', left:`${leftPercent}%`, top:`${topPercent}%`,
+                    transform:`translate(-50%,-50%) rotate(${s.rotation||0}deg)`,
+                    transformOrigin:'center', zIndex:(s.z||0)+60, pointerEvents:'none' }}>
                   <div className="sticker-outline-box" style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
-                    width: outlineW,
-                    height: outlineH,
+                    width: visualW,
+                    height: visualH,
                     outline:`1.5px dashed ${T?.pinkDeep||'#D98893'}`, outlineOffset:2, padding:0,
                     pointerEvents:'auto' }}>
-                    {renderStickerVisual(s, visualScale, 0)}
                     {renderStickerControls(s, true)}
                   </div>
                 </div>
@@ -777,12 +837,76 @@ function drawCatalogSticker(ctx, item, scalePx = 1) {
       ctx.fillText(ch, x + cw / 2, 0);
       x += cw + spacing;
     }
-  } else if (item.type === 'burst' || item.type === 'cloud') {
-    ctx.fillStyle = item.tc || '#111';
-    ctx.font = `800 ${(item.fs || 11) * 2 * scalePx}px "Plus Jakarta Sans", Pretendard, sans-serif`;
+  } else if (item.type === 'burst') {
+    const fill = item.fill || '#FFEB3B';
+    const stroke = '#111';
+    const w = item.w || 90;
+    const h = item.h || 70;
+    const cx = 0;
+    const cy = 0;
+    const rO = Math.min(w, h)/2 - 2;
+    const rI = rO * 0.74;
+    const N = 14;
+    
+    ctx.beginPath();
+    for (let i = 0; i < N*2; i++) {
+      const r = i % 2 === 0 ? rO : rI;
+      const a = (i / (N*2)) * Math.PI * 2 - Math.PI/2;
+      const x = cx + Math.cos(a)*r;
+      const y = cy + Math.sin(a)*r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2 * scalePx;
+    ctx.stroke();
+
+    ctx.fillStyle = item.tc || '#E53935';
+    const fontSize = (item.fs || 11) * 2 * scalePx;
+    ctx.font = `900 ${fontSize}px "Plus Jakarta Sans", Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(item.text || '', 0, 0);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 0.7 * scalePx;
+    ctx.strokeText(item.text || '', cx, cy + fontSize * 0.18);
+    ctx.fillText(item.text || '', cx, cy + fontSize * 0.18);
+  } else if (item.type === 'cloud') {
+    const fill = item.fill || '#fff';
+    const stroke = '#111';
+    const w = item.w || 100;
+    const h = item.h || 60;
+    const halfW = w / 2;
+    const halfH = h / 2;
+    
+    ctx.save();
+    ctx.translate(-halfW, -halfH);
+    ctx.beginPath();
+    ctx.moveTo(10, h/2);
+    ctx.quadraticCurveTo(4, h*0.3, 14, h*0.25);
+    ctx.quadraticCurveTo(18, 8, w*0.35, 12);
+    ctx.quadraticCurveTo(w/2, 4, w*0.65, 10);
+    ctx.quadraticCurveTo(w*0.85, 8, w-14, h*0.3);
+    ctx.quadraticCurveTo(w-2, h/2, w-12, h*0.75);
+    ctx.quadraticCurveTo(w*0.85, h-6, w*0.65, h-10);
+    ctx.quadraticCurveTo(w/2, h-2, w*0.35, h-8);
+    ctx.quadraticCurveTo(w*0.15, h-6, w*0.1, h*0.75);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2 * scalePx;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = item.tc || '#E53935';
+    const fontSize = (item.fs || 11) * 2 * scalePx;
+    ctx.font = `800 ${fontSize}px "Plus Jakarta Sans", Pretendard, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.text || '', 0, fontSize * 0.18);
   } else if (item.type === 'mini') {
     ctx.fillStyle = item.fill || '#111';
     ctx.font = `700 ${32 * scalePx}px "Plus Jakarta Sans", sans-serif`;
@@ -836,4 +960,4 @@ function resolveStickerFidelityMetrics(sticker, geometry, containerWidth, contai
   };
 }
 
-Object.assign(window, { STICKER_CATALOG, getStickerByLibId, renderLibSticker, renderStickerInstance, StickerCanvas, SlottedStickersCtx, makeSticker, bringForward, sendBackward, drawCatalogSticker, getStickerVisualBounds, resolveStickerFidelityMetrics });
+Object.assign(window, { STICKER_CATALOG, getStickerByLibId, renderLibSticker, renderStickerInstance, StickerCanvas, SlottedStickersCtx, makeSticker, bringForward, sendBackward, drawCatalogSticker, getStickerVisualBounds, resolveStickerFidelityMetrics, renderStickerVisualElement });

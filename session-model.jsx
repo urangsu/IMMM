@@ -234,16 +234,16 @@
 
     // Get expected slot count
     let slotCount = 4;
-    if (typeof window !== 'undefined' && typeof window.getShotCountForFrameSafe === 'function') {
-      slotCount = window.getShotCountForFrameSafe(layout);
+    if (typeof window !== 'undefined' && typeof window.getLayoutSlotCount === 'function') {
+      slotCount = window.getLayoutSlotCount(layout);
     } else {
       // Fallback parser if window method is not loaded yet
       if (layout && (layout.includes('1x4') || layout.includes('strip'))) slotCount = 4;
       else if (layout && layout.includes('2x2')) slotCount = 4;
       else if (layout && layout.includes('wide')) slotCount = 3;
-      else if (layout && layout.includes('polaroid')) slotCount = 3;
-      else if (layout && layout.includes('trip')) slotCount = 5;
-      else if (layout && layout.includes('grid')) slotCount = 6;
+      else if (layout && layout.includes('polaroid')) slotCount = 1;
+      else if (layout && layout.includes('trip')) slotCount = 3;
+      else if (layout && layout.includes('grid')) slotCount = 4;
     }
 
     // 1. Check if selected cuts count matches slotCount
@@ -270,25 +270,24 @@
       const targetAssetId = cut.assetId;
       let asset = null;
 
-      // 3.1. Try exact assetId match
+      // 3.1. Try exact assetId match first
       if (targetAssetId) {
         asset = shots.find(s => s && s.assetId === targetAssetId);
       }
 
-      // 3.2. Fallback matching (index fallback)
-      if (!asset) {
-        let fallbackIdx = -1;
-        if (cut.sourceShotIndex !== undefined && cut.sourceShotIndex !== null) {
-          fallbackIdx = Number(cut.sourceShotIndex);
-        } else if (targetAssetId && targetAssetId.startsWith('asset_')) {
-          const parsed = Number(targetAssetId.replace('asset_', ''));
-          if (!isNaN(parsed)) {
-            fallbackIdx = parsed;
-          }
-        }
-        
+      // 3.2. Try sourceShotIndex fallback next
+      if (!asset && cut.sourceShotIndex !== undefined && cut.sourceShotIndex !== null) {
+        const fallbackIdx = Number(cut.sourceShotIndex);
         if (fallbackIdx >= 0 && fallbackIdx < shots.length) {
           asset = shots[fallbackIdx];
+        }
+      }
+
+      // 3.3. Old prefix check (e.g. asset_0) as last resort
+      if (!asset && targetAssetId && targetAssetId.startsWith('asset_')) {
+        const parsed = Number(targetAssetId.replace('asset_', ''));
+        if (!isNaN(parsed) && parsed >= 0 && parsed < shots.length) {
+          asset = shots[parsed];
         }
       }
 

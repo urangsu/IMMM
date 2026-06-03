@@ -433,7 +433,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
           {visibleCaptureStickers.map(s => {
             const metrics = window.resolveStickerFidelityMetrics
               ? window.resolveStickerFidelityMetrics(s, null, overlayBox.width, overlayBox.height)
-              : { xPercent: s.x !== undefined ? s.x : 50, yPercent: s.y !== undefined ? s.y : 50, widthPx: null, heightPx: null };
+              : { xPercent: s.slotX !== undefined ? s.slotX : 50, yPercent: s.slotY !== undefined ? s.slotY : 50, widthPx: 64, heightPx: 64 };
+            const raw = window.getStickerVisualBounds ? window.getStickerVisualBounds(s) : { w: 64, h: 64 };
+            const visualScale = metrics.widthPx / raw.w;
             const style = {
               position: 'absolute',
               left: `${metrics.xPercent}%`,
@@ -441,11 +443,9 @@ function CaptureV2({ T, go, mobile, shots, setShots, filter, layout, preStickers
               transform: `translate(-50%,-50%) rotate(${s.rotation||0}deg)`,
               opacity: 0.88
             };
-            if (metrics.widthPx != null) style.width = `${metrics.widthPx}px`;
-            if (metrics.heightPx != null) style.height = `${metrics.heightPx}px`;
             return (
               <div key={s.id} style={style}>
-                {renderStickerInstance(s)}
+                {window.renderStickerVisualElement ? window.renderStickerVisualElement(s, visualScale) : renderStickerInstance(s)}
               </div>
             );
           })}
@@ -1078,14 +1078,15 @@ function SelectV2({ T, go, mobile, shots, selected, setSelected, layout }) {
             const mappedSelected = selected.map((shotIdx, targetSlotIndex) => {
               const asset = shots[shotIdx];
               return {
-                assetId: asset?.assetId || `asset_${shotIdx}`,
+                assetId: asset?.assetId || null,
+                sourceShotIndex: shotIdx,
                 targetSlotIndex
               };
             });
             const validation = window.IMMMSessionModel?.validateFrameReadiness
               ? window.IMMMSessionModel.validateFrameReadiness({
                   layout: checkLayout,
-                  shots: shots.filter(Boolean),
+                  shots: shots,
                   selected: mappedSelected
                 })
               : { ok: true };

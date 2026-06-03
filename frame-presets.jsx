@@ -999,20 +999,90 @@ const BUILTIN_FRAME_PACKS = [
 
 const BUILTIN_FRAME_PRESETS = buildBuiltinFramePresets();
 
+function normalizeFrameGeometry(preset) {
+  if (!preset) return null;
+  
+  const layout = preset.layout || '1x4';
+  
+  // 1. canvasSize fallback
+  let canvasSize = preset.canvasSize;
+  if (!canvasSize || !canvasSize.width || !canvasSize.height) {
+    const getTpl = typeof window !== 'undefined' ? (window.getFrameTemplateSafe || window.getFrameTemplate) : null;
+    const tpl = typeof getTpl === 'function' ? getTpl(layout) : null;
+    canvasSize = tpl?.canvasSize ? { ...tpl.canvasSize } : { width: 560, height: 1808 };
+  } else {
+    canvasSize = {
+      width: Number(canvasSize.width),
+      height: Number(canvasSize.height)
+    };
+  }
+  
+  // 2. photoSlots
+  let photoSlots = [];
+  if (Array.isArray(preset.photoSlots) && preset.photoSlots.length) {
+    photoSlots = preset.photoSlots.map(slot => ({
+      x: Number(slot.x) || 0,
+      y: Number(slot.y) || 0,
+      width: Number(slot.width) || 0,
+      height: Number(slot.height) || 0,
+      radius: Number(slot.radius) || 0,
+    }));
+  } else {
+    const getTpl = typeof window !== 'undefined' ? (window.getFrameTemplateSafe || window.getFrameTemplate) : null;
+    const tpl = typeof getTpl === 'function' ? getTpl(layout) : null;
+    if (tpl && Array.isArray(tpl.photoSlots) && tpl.photoSlots.length) {
+      photoSlots = tpl.photoSlots.map(slot => ({ ...slot }));
+    } else {
+      const getSlots = typeof window !== 'undefined' && typeof window.getPhotoSlotsForLayout === 'function'
+        ? window.getPhotoSlotsForLayout
+        : (typeof getPhotoSlotsForLayout === 'function' ? getPhotoSlotsForLayout : null);
+      photoSlots = typeof getSlots === 'function' ? getSlots(layout) : [];
+    }
+  }
+  
+  // 3. photoRects (photoSlots -> 0~1 normalized coordinates)
+  let photoRects = [];
+  if (photoSlots.length) {
+    photoRects = photoSlots.map(slot => ({
+      x: slot.x / canvasSize.width,
+      y: slot.y / canvasSize.height,
+      w: slot.width / canvasSize.width,
+      h: slot.height / canvasSize.height
+    }));
+  } else {
+    const getTpl = typeof window !== 'undefined' ? (window.getFrameTemplateSafe || window.getFrameTemplate) : null;
+    const tpl = typeof getTpl === 'function' ? getTpl(layout) : null;
+    if (tpl && Array.isArray(tpl.photoRects) && tpl.photoRects.length) {
+      photoRects = tpl.photoRects.map(rect => ({ ...rect }));
+    } else {
+      photoRects = [];
+    }
+  }
+  
+  return {
+    ...preset,
+    canvasSize,
+    photoSlots,
+    photoRects
+  };
+}
+
 function normalizeFramePreset(preset) {
   if (!preset || typeof preset !== 'object') return null;
   const layout = normalizePresetLayout(preset.layout || '1x4');
-  const size = preset.canvasSize || getCanvasSizeForLayout(layout);
+  
+  const geom = normalizeFrameGeometry({
+    layout,
+    canvasSize: preset.canvasSize,
+    photoSlots: preset.photoSlots
+  });
+  
+  const size = geom.canvasSize;
+  const photoSlots = geom.photoSlots;
+  const photoRects = geom.photoRects;
   const builtinPack = getBuiltinFramePackForPresetId(preset.id) || null;
   const creatorApi = getCreatorApiSafe();
   const motionApi = getMotionApiSafe();
-  const photoSlots = Array.isArray(preset.photoSlots) && preset.photoSlots.length ? preset.photoSlots.map((slot) => ({
-    x: Number(slot.x) || 0,
-    y: Number(slot.y) || 0,
-    width: Number(slot.width) || 0,
-    height: Number(slot.height) || 0,
-    radius: Number(slot.radius) || 0,
-  })) : getPhotoSlotsForLayout(layout);
 
   const decorations = Array.isArray(preset.decorations)
     ? preset.decorations.map((deco) => makeDecoration(deco))
@@ -1036,13 +1106,11 @@ function normalizeFramePreset(preset) {
     name: String(preset.name || 'Untitled Frame'),
     category: String(preset.category || 'basic'),
     layout,
-    canvasSize: {
-      width: Number(size.width) || getCanvasSizeForLayout(layout).width,
-      height: Number(size.height) || getCanvasSizeForLayout(layout).height,
-    },
+    canvasSize: size,
     frameColor: preset.frameColor || (preset.background?.type === 'solid' && typeof preset.background.value === 'string' ? preset.background.value : '#FFFFFF'),
     background: preset.background ? clonePlain(preset.background) : createBackground('solid', '#FFFFFF'),
     photoSlots,
+    photoRects,
     decorations,
     stickers,
     drawStrokes,
@@ -1810,6 +1878,7 @@ const IMMMFramePresets = {
   FRAME_FAVORITE_STORAGE_KEY,
   FRAME_PRESET_CATEGORIES,
   FRAME_PACKS,
+  normalizeFrameGeometry,
   getCanvasSizeForLayout,
   getPhotoSlotsForLayout,
   getBuiltinFramePresets,

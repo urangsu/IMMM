@@ -1682,13 +1682,14 @@ function App() {
       var mappedSelected = selected.map((shotIdx, targetSlotIndex) => {
         var asset = shots[shotIdx];
         return {
-          assetId: asset?.assetId || `asset_${shotIdx}`,
+          assetId: asset?.assetId || null,
+          sourceShotIndex: shotIdx,
           targetSlotIndex
         };
       });
       var validation = window.IMMMSessionModel?.validateFrameReadiness ? window.IMMMSessionModel.validateFrameReadiness({
         layout,
-        shots: shots.filter(Boolean),
+        shots,
         selected: mappedSelected
       }) : {
         ok: true,

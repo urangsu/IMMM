@@ -1471,20 +1471,92 @@ var BUILTIN_FRAME_PACKS = [makePack({
   locked: true
 })];
 var BUILTIN_FRAME_PRESETS = buildBuiltinFramePresets();
+function normalizeFrameGeometry(preset) {
+  if (!preset) return null;
+  var layout = preset.layout || '1x4';
+
+  // 1. canvasSize fallback
+  var canvasSize = preset.canvasSize;
+  if (!canvasSize || !canvasSize.width || !canvasSize.height) {
+    var getTpl = typeof window !== 'undefined' ? window.getFrameTemplateSafe || window.getFrameTemplate : null;
+    var tpl = typeof getTpl === 'function' ? getTpl(layout) : null;
+    canvasSize = tpl?.canvasSize ? {
+      ...tpl.canvasSize
+    } : {
+      width: 560,
+      height: 1808
+    };
+  } else {
+    canvasSize = {
+      width: Number(canvasSize.width),
+      height: Number(canvasSize.height)
+    };
+  }
+
+  // 2. photoSlots
+  var photoSlots = [];
+  if (Array.isArray(preset.photoSlots) && preset.photoSlots.length) {
+    photoSlots = preset.photoSlots.map(slot => ({
+      x: Number(slot.x) || 0,
+      y: Number(slot.y) || 0,
+      width: Number(slot.width) || 0,
+      height: Number(slot.height) || 0,
+      radius: Number(slot.radius) || 0
+    }));
+  } else {
+    var _getTpl = typeof window !== 'undefined' ? window.getFrameTemplateSafe || window.getFrameTemplate : null;
+    var _tpl = typeof _getTpl === 'function' ? _getTpl(layout) : null;
+    if (_tpl && Array.isArray(_tpl.photoSlots) && _tpl.photoSlots.length) {
+      photoSlots = _tpl.photoSlots.map(slot => ({
+        ...slot
+      }));
+    } else {
+      var getSlots = typeof window !== 'undefined' && typeof window.getPhotoSlotsForLayout === 'function' ? window.getPhotoSlotsForLayout : typeof getPhotoSlotsForLayout === 'function' ? getPhotoSlotsForLayout : null;
+      photoSlots = typeof getSlots === 'function' ? getSlots(layout) : [];
+    }
+  }
+
+  // 3. photoRects (photoSlots -> 0~1 normalized coordinates)
+  var photoRects = [];
+  if (photoSlots.length) {
+    photoRects = photoSlots.map(slot => ({
+      x: slot.x / canvasSize.width,
+      y: slot.y / canvasSize.height,
+      w: slot.width / canvasSize.width,
+      h: slot.height / canvasSize.height
+    }));
+  } else {
+    var _getTpl2 = typeof window !== 'undefined' ? window.getFrameTemplateSafe || window.getFrameTemplate : null;
+    var _tpl2 = typeof _getTpl2 === 'function' ? _getTpl2(layout) : null;
+    if (_tpl2 && Array.isArray(_tpl2.photoRects) && _tpl2.photoRects.length) {
+      photoRects = _tpl2.photoRects.map(rect => ({
+        ...rect
+      }));
+    } else {
+      photoRects = [];
+    }
+  }
+  return {
+    ...preset,
+    canvasSize,
+    photoSlots,
+    photoRects
+  };
+}
 function normalizeFramePreset(preset) {
   if (!preset || typeof preset !== 'object') return null;
   var layout = normalizePresetLayout(preset.layout || '1x4');
-  var size = preset.canvasSize || getCanvasSizeForLayout(layout);
+  var geom = normalizeFrameGeometry({
+    layout,
+    canvasSize: preset.canvasSize,
+    photoSlots: preset.photoSlots
+  });
+  var size = geom.canvasSize;
+  var photoSlots = geom.photoSlots;
+  var photoRects = geom.photoRects;
   var builtinPack = getBuiltinFramePackForPresetId(preset.id) || null;
   var creatorApi = getCreatorApiSafe();
   var motionApi = getMotionApiSafe();
-  var photoSlots = Array.isArray(preset.photoSlots) && preset.photoSlots.length ? preset.photoSlots.map(slot => ({
-    x: Number(slot.x) || 0,
-    y: Number(slot.y) || 0,
-    width: Number(slot.width) || 0,
-    height: Number(slot.height) || 0,
-    radius: Number(slot.radius) || 0
-  })) : getPhotoSlotsForLayout(layout);
   var decorations = Array.isArray(preset.decorations) ? preset.decorations.map(deco => makeDecoration(deco)) : [];
   var stickers = Array.isArray(preset.stickers) ? preset.stickers.map(sticker => sanitizeFrameSticker(sticker)).filter(Boolean) : [];
   var drawStrokes = Array.isArray(preset.drawStrokes) ? preset.drawStrokes.map(stroke => sanitizeDrawStroke(stroke)).filter(Boolean) : [];
@@ -1498,13 +1570,11 @@ function normalizeFramePreset(preset) {
     name: String(preset.name || 'Untitled Frame'),
     category: String(preset.category || 'basic'),
     layout,
-    canvasSize: {
-      width: Number(size.width) || getCanvasSizeForLayout(layout).width,
-      height: Number(size.height) || getCanvasSizeForLayout(layout).height
-    },
+    canvasSize: size,
     frameColor: preset.frameColor || (preset.background?.type === 'solid' && typeof preset.background.value === 'string' ? preset.background.value : '#FFFFFF'),
     background: preset.background ? clonePlain(preset.background) : createBackground('solid', '#FFFFFF'),
     photoSlots,
+    photoRects,
     decorations,
     stickers,
     drawStrokes,
@@ -2264,6 +2334,7 @@ var IMMMFramePresets = {
   FRAME_FAVORITE_STORAGE_KEY,
   FRAME_PRESET_CATEGORIES,
   FRAME_PACKS,
+  normalizeFrameGeometry,
   getCanvasSizeForLayout,
   getPhotoSlotsForLayout,
   getBuiltinFramePresets,

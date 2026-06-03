@@ -197,14 +197,30 @@ function checkCaptureSessionSystem() {
           crypto: { randomUUID: () => 'test-uuid-0000-1111' },
           Date,
           Math,
-          console
+          console,
+          React: {
+            createContext: () => ({ Provider: ({ children }) => children }),
+            createElement: (type, props, ...children) => ({ type, props, children }),
+            useState: (val) => [val, () => {}],
+            useEffect: () => {},
+            useRef: () => ({ current: null }),
+            useCallback: (fn) => fn,
+            Fragment: 'React.Fragment'
+          }
         };
         vm.createContext(sandbox);
+
+        const distSticker = readFile('dist/sticker-engine.js');
+        const distFramePresets = readFile('dist/frame-presets.js');
+        const distFrameSystem = readFile('dist/frame-system.js');
 
         // Order matters: model then adapter then store
         vm.runInContext(distModel, sandbox);
         vm.runInContext(distAdapter, sandbox);
         vm.runInContext(distStore, sandbox);
+        if (distSticker) vm.runInContext(distSticker, sandbox);
+        if (distFramePresets) vm.runInContext(distFramePresets, sandbox);
+        if (distFrameSystem) vm.runInContext(distFrameSystem, sandbox);
 
         const modelObj = sandbox.window.IMMMSessionModel;
         const adapterObj = sandbox.window.IMMMSessionAdapter;
@@ -438,6 +454,141 @@ function checkCaptureSessionSystem() {
           const fallbackResultBad = validateFrameReadiness({ layout: posLayout, shots: fallbackShotsBad, selected: fallbackSelected });
           if (fallbackResultBad.ok) {
             console.error('❌ FAIL: validateFrameReadiness index fallback allowed missing image data');
+            hasErrors = true;
+          }
+
+          // 6.6. validateFrameReadiness new Hardening Tests
+          // 6.6.1. Slot count fallback tests (polaroid=1, trip=3, grid=4, strip=4)
+          const testLayoutSlots = (l, expectedCount) => {
+            const tempShots = Array.from({ length: 10 }, () => ({ dataUrl: 'data:image/png;base64,ok' }));
+            const tempSel = Array.from({ length: expectedCount }, (_, i) => ({ sourceShotIndex: i, targetSlotIndex: i }));
+            const res = validateFrameReadiness({ layout: l, shots: tempShots, selected: tempSel });
+            if (!res.ok) {
+              console.error(`❌ FAIL: validateFrameReadiness slot count fallback for layout '${l}' (expected: ${expectedCount}) failed:`, res.errors);
+              hasErrors = true;
+            }
+          };
+          testLayoutSlots('polaroid', 1);
+          testLayoutSlots('trip', 3);
+          testLayoutSlots('grid', 4);
+          testLayoutSlots('strip', 4);
+
+          // 6.6.2. Selected sourceShotIndex sparse array index fallback tests (shots 중간에 null이 있는 경우)
+          const sparseShots = [
+            { assetId: 'asset_0', dataUrl: 'data:image/png;base64,1' },
+            null,
+            { assetId: 'asset_2', dataUrl: 'data:image/png;base64,3' }
+          ];
+          const sparseSelected = [
+            { assetId: null, sourceShotIndex: 2, targetSlotIndex: 0 }
+          ];
+          const sparseResult = validateFrameReadiness({ layout: 'polaroid', shots: sparseShots, selected: sparseSelected });
+          if (!sparseResult.ok) {
+            console.error('❌ FAIL: validateFrameReadiness sparse shots sourceShotIndex fallback failed:', sparseResult.errors);
+            hasErrors = true;
+          }
+
+          // 6.6.3. filter(Boolean) mismatch detection simulation
+          const filteredShots = sparseShots.filter(Boolean); // [asset_0, asset_2]
+          const filteredResult = validateFrameReadiness({ layout: 'polaroid', shots: filteredShots, selected: sparseSelected });
+          if (filteredResult.ok) {
+            // filteredShots[2]는 undefined이므로, validateFrameReadiness는 mismatch를 감지하여 fail 처리해야 정상임
+            console.error('❌ FAIL: validateFrameReadiness filter(Boolean) allowed mismatching index without failure');
+            hasErrors = true;
+          }
+
+          // 6.6.4. Selected shot has no image data failure test
+          const noImageShots = [
+            { assetId: 'asset_0', dataUrl: null, blobUrl: null, remoteUrl: '' }
+          ];
+          const noImageSelected = [
+            { assetId: 'asset_0', sourceShotIndex: 0, targetSlotIndex: 0 }
+          ];
+          const noImageResult = validateFrameReadiness({ layout: 'polaroid', shots: noImageShots, selected: noImageSelected });
+          if (noImageResult.ok) {
+            console.error('❌ FAIL: validateFrameReadiness allowed empty image data for selected shot');
+            hasErrors = true;
+          }
+
+          // 6.6.5. resolveStickerFidelityMetrics VM verification
+          const resolveStickerFidelityMetrics = sandbox.window.resolveStickerFidelityMetrics;
+          if (typeof resolveStickerFidelityMetrics !== 'function') {
+            console.error('❌ FAIL: resolveStickerFidelityMetrics is missing in sticker-engine.jsx');
+            hasErrors = true;
+          } else {
+            // Slotted sticker metrics
+            const slottedSticker = { frameSlot: 0, slotX: 30, slotY: 40, sizeNorm: 0.2, scale: 1.5 };
+            const slottedMetrics = resolveStickerFidelityMetrics(slottedSticker, null, 100, 100);
+            if (slottedMetrics.xPercent !== 30 || slottedMetrics.yPercent !== 40) {
+              console.error('❌ FAIL: resolveStickerFidelityMetrics slotted sticker must use slotX/slotY');
+              hasErrors = true;
+            }
+            if (slottedMetrics.widthPx !== 100 * 0.2 * 1.5) {
+              console.error('❌ FAIL: resolveStickerFidelityMetrics slotted sticker width calculation mismatch');
+              hasErrors = true;
+            }
+
+            // Free sticker metrics
+            const freeSticker = { frameSlot: null, x: 70, y: 80, sizeNorm: 0.1, scale: 2.0 };
+            const freeMetrics = resolveStickerFidelityMetrics(freeSticker, null, 500, 500);
+            if (freeMetrics.xPercent !== 70 || freeMetrics.yPercent !== 80) {
+              console.error('❌ FAIL: resolveStickerFidelityMetrics free sticker must use x/y');
+              hasErrors = true;
+            }
+            if (freeMetrics.widthPx !== 500 * 0.1 * 2.0) {
+              console.error('❌ FAIL: resolveStickerFidelityMetrics free sticker width calculation mismatch');
+              hasErrors = true;
+            }
+          }
+
+          // 6.6.6. Sticker UI/UX Hardening static checks (P0 requirements)
+          const stickerEngineContent = readFile('sticker-engine.jsx') || '';
+          
+          // Requirement 1 & 2: invScale & scale(${invScale}) removal check in renderStickerControls
+          const renderStickerControlsBody = extractFunctionBody(stickerEngineContent, 'const renderStickerControls =');
+          if (renderStickerControlsBody.includes('invScale') || renderStickerControlsBody.includes('scale(')) {
+            console.error('❌ FAIL: renderStickerControls still contains invScale or scale(...) inverse scale logic');
+            hasErrors = true;
+          }
+
+          // Requirement 3 & 4: visual/controls layer classes check
+          if (!stickerEngineContent.includes('slotted-sticker-visual-layer')) {
+            console.error('❌ FAIL: slotted-sticker-visual-layer is missing in sticker-engine.jsx');
+            hasErrors = true;
+          }
+          if (!stickerEngineContent.includes('slotted-sticker-controls-layer')) {
+            console.error('❌ FAIL: slotted-sticker-controls-layer is missing in sticker-engine.jsx');
+            hasErrors = true;
+          }
+
+          // Requirement 5 & 6: visual container should have overflow hidden, controls must not
+          const visualLayerRegex = /className="slotted-sticker-visual-layer"[\s\S]*?overflow:\s*'hidden'/;
+          if (!visualLayerRegex.test(stickerEngineContent)) {
+            console.error('❌ FAIL: slotted-sticker-visual-layer is missing overflow: hidden styling');
+            hasErrors = true;
+          }
+
+          // Requirement 7: check SlottedStickersCtx.Provider value is empty object {} inside StickerCanvas
+          const providerEmptyVal = /<SlottedStickersCtx\.Provider\s+value=\{\{\}\}\s*>/;
+          if (!providerEmptyVal.test(stickerEngineContent)) {
+            console.error('❌ FAIL: SlottedStickersCtx.Provider within StickerCanvas must pass empty object {} value to prevent double render');
+            hasErrors = true;
+          }
+
+          // Requirement 8 & 9: check frame-system.jsx drawStickerToCtx slot placement
+          const frameSystemContent = readFile('frame-system.jsx') || '';
+          
+          // Photo loop must not draw slotted sticker inside slot rendering (623~634)
+          const photoSlotsLoopSection = extractFunctionBody(frameSystemContent, 'for (let i = 0; i < photoSlots.length; i++) {');
+          if (photoSlotsLoopSection.includes('await drawStickerToCtx')) {
+             console.error('❌ FAIL: photo slot loop inside renderComposition still draws slotted sticker directly');
+             hasErrors = true;
+          }
+
+          // Front layer after pass slotted sticker check
+          const hasSlottedStickerPassAfterFront = frameSystemContent.includes('4b. Slotted sticker pass');
+          if (!hasSlottedStickerPassAfterFront) {
+            console.error('❌ FAIL: frame-system.jsx is missing the post-front-layer slotted sticker rendering pass');
             hasErrors = true;
           }
         }

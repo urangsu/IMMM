@@ -553,6 +553,21 @@ function getStickerNormScale(sticker, canvasW) {
   var targetW = sticker.sizeNorm * canvasW;
   return targetW / baseBounds.w;
 }
+function renderStickerVisualElement(s, visualScale, opacity = 1) {
+  var raw = getStickerVisualBounds(s);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: raw.w,
+      height: raw.h,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transform: `scale(${visualScale})`,
+      transformOrigin: 'center',
+      opacity
+    }
+  }, renderStickerInstance(s, 1));
+}
 
 // ─────────────────────────────────────────────────────────────
 function StickerCanvas({
@@ -784,17 +799,15 @@ function StickerCanvas({
   });
   var renderStickerControls = (s, isSel) => {
     if (!isSel) return null;
-    var invScale = 1 / Math.max(0.25, Math.min(4, s.scale || 1));
-    var tr = `scale(${invScale})`;
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       onPointerDown: USE_TOUCH_FALLBACK ? undefined : e => onPointerDown(e, s, 'scale-rotate'),
       onTouchStart: USE_TOUCH_FALLBACK ? e => onPointerDown(e, s, 'scale-rotate') : undefined,
       style: {
         position: 'absolute',
-        top: -12,
-        right: -12,
-        width: 28,
-        height: 28,
+        top: -16,
+        right: -16,
+        width: 32,
+        height: 32,
         background: '#fff',
         borderRadius: 999,
         boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
@@ -802,9 +815,7 @@ function StickerCanvas({
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'nwse-resize',
-        zIndex: 200,
-        transform: tr,
-        transformOrigin: 'center'
+        zIndex: 200
       }
     }, /*#__PURE__*/React.createElement("svg", {
       width: "14",
@@ -838,11 +849,11 @@ function StickerCanvas({
       title: s.frameSlot != null ? '틀에서 꺼내기' : '틀 안에 넣기',
       style: {
         position: 'absolute',
-        bottom: -12,
+        bottom: -16,
         left: '50%',
         zIndex: 200,
-        width: 28,
-        height: 28,
+        width: 32,
+        height: 32,
         background: s.frameSlot != null ? '#1A1A1F' : snapMode ? '#D98893' : '#fff',
         borderRadius: 999,
         boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
@@ -850,8 +861,7 @@ function StickerCanvas({
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
-        transform: `translateX(-50%) ${tr}`,
-        transformOrigin: 'center'
+        transform: 'translateX(-50%)'
       }
     }, s.frameSlot != null ? /*#__PURE__*/React.createElement("svg", {
       width: "14",
@@ -933,10 +943,10 @@ function StickerCanvas({
       } : undefined,
       style: {
         position: 'absolute',
-        top: -12,
-        left: -12,
-        width: 28,
-        height: 28,
+        top: -16,
+        left: -16,
+        width: 32,
+        height: 32,
         zIndex: 200,
         background: '#1A1A1F',
         borderRadius: 999,
@@ -945,9 +955,7 @@ function StickerCanvas({
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-        transform: tr,
-        transformOrigin: 'center'
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
       }
     }, /*#__PURE__*/React.createElement("svg", {
       width: "12",
@@ -960,23 +968,8 @@ function StickerCanvas({
       strokeLinecap: "round"
     }))));
   };
-  var renderStickerVisual = (s, visualScale, opacity = 1) => {
-    var raw = getStickerVisualBounds(s);
-    return /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: raw.w,
-        height: raw.h,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transform: `scale(${visualScale})`,
-        transformOrigin: 'center',
-        opacity
-      }
-    }, renderStickerInstance(s, 1));
-  };
   return /*#__PURE__*/React.createElement(SlottedStickersCtx.Provider, {
-    value: slottedMap
+    value: {}
   }, /*#__PURE__*/React.createElement("div", {
     ref: canvasRef,
     onPointerDown: USE_TOUCH_FALLBACK ? undefined : () => {
@@ -1122,7 +1115,57 @@ function StickerCanvas({
         outlineOffset: isSel ? 2 : 0,
         padding: 0
       }
-    }, renderStickerVisual(s, visualScale, hideVisuals ? 0 : 1), renderStickerControls(s, isSel))));
+    }, renderStickerVisualElement(s, visualScale, hideVisuals ? 0 : 1), renderStickerControls(s, isSel))));
+  }), Array.from({
+    length: window.getLayoutSlotCount ? window.getLayoutSlotCount(layout || 'strip') : 4
+  }).map((_, slotIndex) => {
+    var slotClip = slotClips[slotIndex];
+    if (!slotClip) return null;
+    var slotStickers = sortedStickers.filter(s => s.frameSlot === slotIndex);
+    if (slotStickers.length === 0) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: `slot-visual-container-${slotIndex}`,
+      className: "slotted-sticker-visual-layer",
+      style: {
+        position: 'absolute',
+        left: `${slotClip.left}%`,
+        top: `${slotClip.top}%`,
+        right: `${slotClip.right}%`,
+        bottom: `${slotClip.bottom}%`,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+        zIndex: 50
+      }
+    }, slotStickers.map(s => {
+      var slotW = slotClip.widthPx;
+      var slotH = slotClip.heightPx;
+      var metrics = resolveStickerFidelityMetrics(s, null, slotW, slotH);
+      var raw = getStickerVisualBounds(s);
+      var visualW = metrics.widthPx;
+      var visualH = visualW * (raw.h / (raw.w || 1));
+      var visualScale = visualW / (raw.w || 1);
+      return /*#__PURE__*/React.createElement("div", {
+        key: s.id,
+        className: "slotted-sticker-visual-element",
+        style: {
+          position: 'absolute',
+          left: `${metrics.xPercent}%`,
+          top: `${metrics.yPercent}%`,
+          transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg)`,
+          transformOrigin: 'center',
+          zIndex: s.z || 0,
+          willChange: 'transform'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          width: visualW,
+          height: visualH,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }
+      }, renderStickerVisualElement(s, visualScale, hideVisuals ? 0 : 1)));
+    }));
   }), sortedStickers.filter(s => s.frameSlot != null).map(s => {
     var isSel = s.id === selectedId;
     var slotClip = slotClips[s.frameSlot];
@@ -1132,10 +1175,8 @@ function StickerCanvas({
     var raw = getStickerVisualBounds(s);
     var visualW = metrics.widthPx;
     var visualH = visualW * (raw.h / (raw.w || 1));
-    var visualScale = visualW / (raw.w || 1);
-    var hitbox = getInteractionBounds(s, mode, decoScale, canvasW);
-    var outlineW = isSel ? visualW : hitbox.visualW || hitbox.w;
-    var outlineH = isSel ? visualH : hitbox.visualH || hitbox.h;
+    var leftPercent = slotClip ? slotClip.left + metrics.xPercent / 100 * (100 - slotClip.left - slotClip.right) : s.x;
+    var topPercent = slotClip ? slotClip.top + metrics.yPercent / 100 * (100 - slotClip.top - slotClip.bottom) : s.y;
     return /*#__PURE__*/React.createElement(React.Fragment, {
       key: s.id
     }, /*#__PURE__*/React.createElement("div", {
@@ -1144,31 +1185,29 @@ function StickerCanvas({
       onClick: e => e.stopPropagation(),
       style: {
         position: 'absolute',
-        left: `${s.x}%`,
-        top: `${s.y}%`,
+        left: `${leftPercent}%`,
+        top: `${topPercent}%`,
         transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg)`,
         transformOrigin: 'center',
         cursor: dragState?.id === s.id ? 'grabbing' : 'grab',
-        zIndex: (s.z || 0) + 50,
+        zIndex: (s.z || 0) + 55,
         willChange: 'transform',
         opacity: 0
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         width: visualW,
-        height: visualH,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
+        height: visualH
       }
-    }, renderStickerVisual(s, visualScale, hideVisuals ? 0 : 1))), isSel && /*#__PURE__*/React.createElement("div", {
+    })), isSel && /*#__PURE__*/React.createElement("div", {
+      className: "slotted-sticker-controls-layer",
       style: {
         position: 'absolute',
-        left: `${s.x}%`,
-        top: `${s.y}%`,
+        left: `${leftPercent}%`,
+        top: `${topPercent}%`,
         transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg)`,
         transformOrigin: 'center',
-        zIndex: (s.z || 0) + 51,
+        zIndex: (s.z || 0) + 60,
         pointerEvents: 'none'
       }
     }, /*#__PURE__*/React.createElement("div", {
@@ -1178,14 +1217,14 @@ function StickerCanvas({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: outlineW,
-        height: outlineH,
+        width: visualW,
+        height: visualH,
         outline: `1.5px dashed ${T?.pinkDeep || '#D98893'}`,
         outlineOffset: 2,
         padding: 0,
         pointerEvents: 'auto'
       }
-    }, renderStickerVisual(s, visualScale, 0), renderStickerControls(s, true))));
+    }, renderStickerControls(s, true))));
   })));
 }
 function getDefaultStickerSizeNorm(item) {
@@ -1261,12 +1300,71 @@ function drawCatalogSticker(ctx, item, scalePx = 1) {
       ctx.fillText(ch, x + cw / 2, 0);
       x += cw + spacing;
     }
-  } else if (item.type === 'burst' || item.type === 'cloud') {
-    ctx.fillStyle = item.tc || '#111';
-    ctx.font = `800 ${(item.fs || 11) * 2 * scalePx}px "Plus Jakarta Sans", Pretendard, sans-serif`;
+  } else if (item.type === 'burst') {
+    var fill = item.fill || '#FFEB3B';
+    var stroke = '#111';
+    var w = item.w || 90;
+    var h = item.h || 70;
+    var cx = 0;
+    var cy = 0;
+    var rO = Math.min(w, h) / 2 - 2;
+    var rI = rO * 0.74;
+    var N = 14;
+    ctx.beginPath();
+    for (var i = 0; i < N * 2; i++) {
+      var r = i % 2 === 0 ? rO : rI;
+      var a = i / (N * 2) * Math.PI * 2 - Math.PI / 2;
+      var _x = cx + Math.cos(a) * r;
+      var y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(_x, y);else ctx.lineTo(_x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2 * scalePx;
+    ctx.stroke();
+    ctx.fillStyle = item.tc || '#E53935';
+    var fontSize = (item.fs || 11) * 2 * scalePx;
+    ctx.font = `900 ${fontSize}px "Plus Jakarta Sans", Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(item.text || '', 0, 0);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 0.7 * scalePx;
+    ctx.strokeText(item.text || '', cx, cy + fontSize * 0.18);
+    ctx.fillText(item.text || '', cx, cy + fontSize * 0.18);
+  } else if (item.type === 'cloud') {
+    var _fill = item.fill || '#fff';
+    var _stroke = '#111';
+    var _w = item.w || 100;
+    var _h = item.h || 60;
+    var halfW = _w / 2;
+    var halfH = _h / 2;
+    ctx.save();
+    ctx.translate(-halfW, -halfH);
+    ctx.beginPath();
+    ctx.moveTo(10, _h / 2);
+    ctx.quadraticCurveTo(4, _h * 0.3, 14, _h * 0.25);
+    ctx.quadraticCurveTo(18, 8, _w * 0.35, 12);
+    ctx.quadraticCurveTo(_w / 2, 4, _w * 0.65, 10);
+    ctx.quadraticCurveTo(_w * 0.85, 8, _w - 14, _h * 0.3);
+    ctx.quadraticCurveTo(_w - 2, _h / 2, _w - 12, _h * 0.75);
+    ctx.quadraticCurveTo(_w * 0.85, _h - 6, _w * 0.65, _h - 10);
+    ctx.quadraticCurveTo(_w / 2, _h - 2, _w * 0.35, _h - 8);
+    ctx.quadraticCurveTo(_w * 0.15, _h - 6, _w * 0.1, _h * 0.75);
+    ctx.closePath();
+    ctx.fillStyle = _fill;
+    ctx.fill();
+    ctx.strokeStyle = _stroke;
+    ctx.lineWidth = 2 * scalePx;
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = item.tc || '#E53935';
+    var _fontSize = (item.fs || 11) * 2 * scalePx;
+    ctx.font = `800 ${_fontSize}px "Plus Jakarta Sans", Pretendard, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.text || '', 0, _fontSize * 0.18);
   } else if (item.type === 'mini') {
     ctx.fillStyle = item.fill || '#111';
     ctx.font = `700 ${32 * scalePx}px "Plus Jakarta Sans", sans-serif`;
@@ -1335,5 +1433,6 @@ Object.assign(window, {
   sendBackward,
   drawCatalogSticker,
   getStickerVisualBounds,
-  resolveStickerFidelityMetrics
+  resolveStickerFidelityMetrics,
+  renderStickerVisualElement
 });

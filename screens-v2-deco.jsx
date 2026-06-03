@@ -415,14 +415,15 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     const mappedSelected = (selected || []).map((shotIdx, targetSlotIndex) => {
       const asset = shots[shotIdx];
       return {
-        assetId: asset?.assetId || `asset_${shotIdx}`,
+        assetId: asset?.assetId || null,
+        sourceShotIndex: shotIdx,
         targetSlotIndex
       };
     });
     const validation = window.IMMMSessionModel?.validateFrameReadiness
       ? window.IMMMSessionModel.validateFrameReadiness({
           layout: checkLayout,
-          shots: shots.filter(Boolean),
+          shots: shots,
           selected: mappedSelected
         })
       : { ok: true };
@@ -1116,14 +1117,15 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     const mappedSelected = (selected || []).map((shotIdx, targetSlotIndex) => {
       const asset = shots[shotIdx];
       return {
-        assetId: asset?.assetId || `asset_${shotIdx}`,
+        assetId: asset?.assetId || null,
+        sourceShotIndex: shotIdx,
         targetSlotIndex
       };
     });
     const validation = window.IMMMSessionModel?.validateFrameReadiness
       ? window.IMMMSessionModel.validateFrameReadiness({
           layout: checkLayout,
-          shots: shots.filter(Boolean),
+          shots: shots,
           selected: mappedSelected
         })
       : { ok: true };

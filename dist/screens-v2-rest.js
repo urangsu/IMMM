@@ -521,11 +521,16 @@ function CaptureV2({
     }
   }, visibleCaptureStickers.map(s => {
     var metrics = window.resolveStickerFidelityMetrics ? window.resolveStickerFidelityMetrics(s, null, overlayBox.width, overlayBox.height) : {
-      xPercent: s.x !== undefined ? s.x : 50,
-      yPercent: s.y !== undefined ? s.y : 50,
-      widthPx: null,
-      heightPx: null
+      xPercent: s.slotX !== undefined ? s.slotX : 50,
+      yPercent: s.slotY !== undefined ? s.slotY : 50,
+      widthPx: 64,
+      heightPx: 64
     };
+    var raw = window.getStickerVisualBounds ? window.getStickerVisualBounds(s) : {
+      w: 64,
+      h: 64
+    };
+    var visualScale = metrics.widthPx / raw.w;
     var style = {
       position: 'absolute',
       left: `${metrics.xPercent}%`,
@@ -533,12 +538,10 @@ function CaptureV2({
       transform: `translate(-50%,-50%) rotate(${s.rotation || 0}deg)`,
       opacity: 0.88
     };
-    if (metrics.widthPx != null) style.width = `${metrics.widthPx}px`;
-    if (metrics.heightPx != null) style.height = `${metrics.heightPx}px`;
     return /*#__PURE__*/React.createElement("div", {
       key: s.id,
       style: style
-    }, renderStickerInstance(s));
+    }, window.renderStickerVisualElement ? window.renderStickerVisualElement(s, visualScale) : renderStickerInstance(s));
   }), countdown > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
@@ -1547,13 +1550,14 @@ function SelectV2({
       var mappedSelected = selected.map((shotIdx, targetSlotIndex) => {
         var asset = shots[shotIdx];
         return {
-          assetId: asset?.assetId || `asset_${shotIdx}`,
+          assetId: asset?.assetId || null,
+          sourceShotIndex: shotIdx,
           targetSlotIndex
         };
       });
       var validation = window.IMMMSessionModel?.validateFrameReadiness ? window.IMMMSessionModel.validateFrameReadiness({
         layout: checkLayout,
-        shots: shots.filter(Boolean),
+        shots: shots,
         selected: mappedSelected
       }) : {
         ok: true
