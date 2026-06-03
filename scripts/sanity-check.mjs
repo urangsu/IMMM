@@ -1487,6 +1487,18 @@ function checkFrameStoreFoundation() {
     console.error('❌ FAIL: screens-v2.jsx is missing FrameStoreScreen function definition');
     hasErrors = true;
   }
+  // Verify openDesigner is in ResultV2 destructuring parameter list in screens-v2-deco.jsx
+  const resultV2Idx = deco.indexOf('function ResultV2(');
+  if (resultV2Idx !== -1) {
+    const checkArea = deco.substring(resultV2Idx, resultV2Idx + 500);
+    if (!checkArea.includes('openDesigner')) {
+      console.error('❌ FAIL: screens-v2-deco.jsx is missing openDesigner prop in ResultV2 function signature');
+      hasErrors = true;
+    }
+  } else {
+    console.error('❌ FAIL: screens-v2-deco.jsx is missing ResultV2 function definition');
+    hasErrors = true;
+  }
   const cloudQa = readFile('scripts/cloud-qa-check.mjs');
   const exportSamples = readFile('scripts/export-frame-samples.mjs');
   const frameSamplePage = readFile('qa/frame-samples/index.html');

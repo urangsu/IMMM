@@ -1677,7 +1677,8 @@ function ResultV2({
   accent,
   frameColor,
   framePreset,
-  activeSessionId
+  activeSessionId,
+  openDesigner
 }) {
   var shotCount = typeof getShotCountForLayout === 'function' ? getShotCountForLayout(layout) : layout === 'polaroid' ? 1 : layout === 'trip' ? 3 : 4;
 
