@@ -576,7 +576,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
   });
 
   return (
-    <SlottedStickersCtx.Provider value={{}}>
+    <SlottedStickersCtx.Provider value={{ renderPolicy: 'overlay-owned', slottedMap }}>
       <div ref={canvasRef}
         onPointerDown={USE_TOUCH_FALLBACK ? undefined : () => { setSelectedId(null); setSnapMode(false); }} onTouchStart={USE_TOUCH_FALLBACK ? () => { setSelectedId(null); setSnapMode(false); } : undefined}
         style={{ position:'relative', width, height, touchAction:'none', userSelect:'none', ...style }}>

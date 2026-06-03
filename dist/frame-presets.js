@@ -1935,17 +1935,19 @@ function sanitizeFrameSticker(sticker) {
     rotation: Number.isFinite(sticker.rotation) ? sticker.rotation : 0,
     z: Number.isFinite(sticker.z) ? sticker.z : Date.now()
   };
-  if (sticker.frameSlot !== undefined && sticker.frameSlot !== null && sticker.frameSlot !== '') {
-    cleaned.frameSlot = Number(sticker.frameSlot);
-  }
-  if (Number.isFinite(sticker.slotX)) {
-    cleaned.slotX = Math.max(0, Math.min(100, sticker.slotX));
-  }
-  if (Number.isFinite(sticker.slotY)) {
-    cleaned.slotY = Math.max(0, Math.min(100, sticker.slotY));
+  var rawSlot = sticker.frameSlot !== undefined && sticker.frameSlot !== null && sticker.frameSlot !== '' ? Number(sticker.frameSlot) : NaN;
+  var isSlotValid = Number.isInteger(rawSlot) && rawSlot >= 0;
+  if (isSlotValid) {
+    cleaned.frameSlot = rawSlot;
+    if (Number.isFinite(sticker.slotX)) {
+      cleaned.slotX = Math.max(0, Math.min(100, sticker.slotX));
+    }
+    if (Number.isFinite(sticker.slotY)) {
+      cleaned.slotY = Math.max(0, Math.min(100, sticker.slotY));
+    }
   }
   if (Number.isFinite(sticker.sizeNorm)) {
-    cleaned.sizeNorm = sticker.sizeNorm;
+    cleaned.sizeNorm = Math.max(0.02, Math.min(1.2, sticker.sizeNorm));
   }
   if (cleaned.kind === 'preset') {
     cleaned.payload = {

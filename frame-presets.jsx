@@ -1453,17 +1453,24 @@ function sanitizeFrameSticker(sticker) {
     z: Number.isFinite(sticker.z) ? sticker.z : Date.now(),
   };
 
-  if (sticker.frameSlot !== undefined && sticker.frameSlot !== null && sticker.frameSlot !== '') {
-    cleaned.frameSlot = Number(sticker.frameSlot);
+  const rawSlot = sticker.frameSlot !== undefined && sticker.frameSlot !== null && sticker.frameSlot !== ''
+    ? Number(sticker.frameSlot)
+    : NaN;
+
+  const isSlotValid = Number.isInteger(rawSlot) && rawSlot >= 0;
+
+  if (isSlotValid) {
+    cleaned.frameSlot = rawSlot;
+    if (Number.isFinite(sticker.slotX)) {
+      cleaned.slotX = Math.max(0, Math.min(100, sticker.slotX));
+    }
+    if (Number.isFinite(sticker.slotY)) {
+      cleaned.slotY = Math.max(0, Math.min(100, sticker.slotY));
+    }
   }
-  if (Number.isFinite(sticker.slotX)) {
-    cleaned.slotX = Math.max(0, Math.min(100, sticker.slotX));
-  }
-  if (Number.isFinite(sticker.slotY)) {
-    cleaned.slotY = Math.max(0, Math.min(100, sticker.slotY));
-  }
+
   if (Number.isFinite(sticker.sizeNorm)) {
-    cleaned.sizeNorm = sticker.sizeNorm;
+    cleaned.sizeNorm = Math.max(0.02, Math.min(1.2, sticker.sizeNorm));
   }
 
   if (cleaned.kind === 'preset') {

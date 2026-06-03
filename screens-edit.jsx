@@ -8,10 +8,13 @@ function LegacyFrameThumb({ layout, shots, selected, T, logo = true, dateText = 
   const isDark = frameColor.toLowerCase() === '#111' || frameColor.toLowerCase() === '#111111' || frameColor.toLowerCase() === '#000000';
   const inkColor = isDark ? '#ffffff' : '#111111';
   const getShot = (slot) => shots[selected[slot]];
-  const slottedMap = React.useContext(SlottedStickersCtx);
+  const ctxVal = React.useContext(SlottedStickersCtx);
+  // Support both legacy structure where context was the slottedMap itself, and new hardened structure
+  const slottedMap = ctxVal?.slottedMap || ctxVal || {};
+  const renderPolicy = ctxVal?.renderPolicy;
 
   const renderSlotStickers = (slotIdx) => {
-    if (suppressSlottedStickers) return null;
+    if (suppressSlottedStickers || renderPolicy === 'overlay-owned') return null;
     const list = slottedMap[slotIdx];
     if (!list || !list.length) return null;
     return list.map((s) =>

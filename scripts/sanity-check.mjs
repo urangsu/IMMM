@@ -591,6 +591,60 @@ function checkCaptureSessionSystem() {
               }
             }
 
+            // 6.6.7b. sanitizeFrameSticker boundary and abnormal inputs test (P1-2)
+            const abnormalSticker = {
+              id: 'st_abnormal_777',
+              kind: 'preset',
+              payload: { libId: 'sticker_normal' },
+              x: 10,
+              y: 20,
+              scale: 1.0,
+              rotation: 0,
+              frameSlot: "abc", // invalid slot string
+              slotX: -50,       // invalid slotX
+              slotY: 300,       // invalid slotY
+              sizeNorm: 999     // overflow sizeNorm
+            };
+            const sanitizedAbnormal = sanitizeFrameSticker(abnormalSticker);
+            if (sanitizedAbnormal) {
+              if (sanitizedAbnormal.frameSlot !== undefined) {
+                console.error('❌ FAIL: sanitizeFrameSticker must drop frameSlot if it is not an integer');
+                hasErrors = true;
+              }
+              if (sanitizedAbnormal.slotX !== undefined || sanitizedAbnormal.slotY !== undefined) {
+                console.error('❌ FAIL: sanitizeFrameSticker must not store slotX/slotY when frameSlot is invalid');
+                hasErrors = true;
+              }
+              if (sanitizedAbnormal.sizeNorm !== 1.2) { // 999 should clamp to 1.2
+                console.error('❌ FAIL: sanitizeFrameSticker sizeNorm must clamp to 1.2 when value overflows, got:', sanitizedAbnormal.sizeNorm);
+                hasErrors = true;
+              }
+            } else {
+              console.error('❌ FAIL: sanitizeFrameSticker returned null for abnormal input, should just clean the fields');
+              hasErrors = true;
+            }
+
+            const abnormalStickerUnderflow = {
+              id: 'st_underflow_777',
+              kind: 'preset',
+              payload: { libId: 'sticker_normal' },
+              x: 10,
+              y: 20,
+              sizeNorm: -0.5 // underflow sizeNorm
+            };
+            const sanitizedUnderflow = sanitizeFrameSticker(abnormalStickerUnderflow);
+            if (sanitizedUnderflow && sanitizedUnderflow.sizeNorm !== 0.02) { // -0.5 should clamp to 0.02
+              console.error('❌ FAIL: sanitizeFrameSticker sizeNorm must clamp to 0.02 when value underflows, got:', sanitizedUnderflow.sizeNorm);
+              hasErrors = true;
+            }
+
+            // 6.6.9. LegacyFrameThumb rendering context policy validation (P1-1)
+            const screensEditContent = readFile('screens-edit.jsx') || '';
+            if (!screensEditContent.includes("if (suppressSlottedStickers || renderPolicy === 'overlay-owned')")) {
+              console.error("❌ FAIL: LegacyFrameThumb is missing check for renderPolicy === 'overlay-owned' inside screens-edit.jsx");
+              hasErrors = true;
+            }
+
             // 6.6.8. Custom frame export/import metadata preservation test (P0-2)
             const exportCustomFramePackJson = sandbox.window.exportCustomFramePackJson;
             const importFramePackJson = sandbox.window.importFramePackJson;
@@ -686,10 +740,10 @@ function checkCaptureSessionSystem() {
             hasErrors = true;
           }
 
-          // Requirement 7: check SlottedStickersCtx.Provider value is empty object {} inside StickerCanvas
-          const providerEmptyVal = /<SlottedStickersCtx\.Provider\s+value=\{\{\}\}\s*>/;
-          if (!providerEmptyVal.test(stickerEngineContent)) {
-            console.error('❌ FAIL: SlottedStickersCtx.Provider within StickerCanvas must pass empty object {} value to prevent double render');
+          // Requirement 7: check SlottedStickersCtx.Provider value contains renderPolicy and slottedMap
+          const providerValMatch = /<SlottedStickersCtx\.Provider\s+value=\{\{\s*renderPolicy:\s*'overlay-owned',\s*slottedMap\s*\}\}\s*>/;
+          if (!providerValMatch.test(stickerEngineContent)) {
+            console.error("❌ FAIL: SlottedStickersCtx.Provider within StickerCanvas must pass { renderPolicy: 'overlay-owned', slottedMap } to control duplicate rendering");
             hasErrors = true;
           }
 

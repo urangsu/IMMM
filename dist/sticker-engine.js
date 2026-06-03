@@ -981,7 +981,10 @@ function StickerCanvas({
     return child;
   });
   return /*#__PURE__*/React.createElement(SlottedStickersCtx.Provider, {
-    value: {}
+    value: {
+      renderPolicy: 'overlay-owned',
+      slottedMap
+    }
   }, /*#__PURE__*/React.createElement("div", {
     ref: canvasRef,
     onPointerDown: USE_TOUCH_FALLBACK ? undefined : () => {
