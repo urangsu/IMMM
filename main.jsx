@@ -214,6 +214,86 @@ function createDebugEditRecipeSnapshot(appState) {
   }
 }
 
+// P0-1. normalizeSelectedForLayout
+function normalizeSelectedForLayout(selected, shots, slotCount) {
+  const cleanSelected = Array.isArray(selected) ? selected : [];
+  const cleanShots = Array.isArray(shots) ? shots : [];
+  
+  // 1. 유효한 shot index만 필터링 (shots 범위 내이면서 해당 shot이 존재하는 경우)
+  let validCuts = cleanSelected.filter(idx => 
+    Number.isInteger(idx) && 
+    idx >= 0 && 
+    idx < cleanShots.length && 
+    cleanShots[idx] !== null
+  );
+
+  // 2. 중복 index 제거 (순서 보존)
+  const uniqueCuts = [];
+  const seen = new Set();
+  for (const idx of validCuts) {
+    if (!seen.has(idx)) {
+      seen.add(idx);
+      uniqueCuts.push(idx);
+    }
+  }
+
+  // 3. 부족한 슬롯은 shots 배열에서 실제 이미지가 있는 index로 채운다.
+  const hasImage = (asset) => {
+    if (!asset) return false;
+    return (typeof asset.dataUrl === 'string' && asset.dataUrl.trim().length > 0) ||
+           (typeof asset.blobUrl === 'string' && asset.blobUrl.trim().length > 0) ||
+           (typeof asset.remoteUrl === 'string' && asset.remoteUrl.trim().length > 0);
+  };
+
+  // shots 중 유효한 이미지를 가지고 있는 인덱스 리스트
+  const validImageIndices = [];
+  for (let i = 0; i < cleanShots.length; i++) {
+    if (hasImage(cleanShots[i])) {
+      validImageIndices.push(i);
+    }
+  }
+
+  // uniqueCuts가 slotCount보다 작으면 validImageIndices에서 중복되지 않은 것들로 채워넣음
+  const finalCuts = [...uniqueCuts];
+  for (const idx of validImageIndices) {
+    if (finalCuts.length >= slotCount) break;
+    if (!seen.has(idx)) {
+      seen.add(idx);
+      finalCuts.push(idx);
+    }
+  }
+
+  // 4. 그래도 부족하면 cleanShots 중 null이 아닌 인덱스로 채워본다.
+  const existIndices = [];
+  for (let i = 0; i < cleanShots.length; i++) {
+    if (cleanShots[i] !== null) {
+      existIndices.push(i);
+    }
+  }
+  for (const idx of existIndices) {
+    if (finalCuts.length >= slotCount) break;
+    if (!seen.has(idx)) {
+      seen.add(idx);
+      finalCuts.push(idx);
+    }
+  }
+
+  // 5. 그래도 부족하면, 0부터 slotCount - 1까지 순차적으로 비어있는 슬롯을 채운다.
+  for (let i = 0; i < slotCount; i++) {
+    if (finalCuts.length >= slotCount) break;
+    if (!seen.has(i)) {
+      seen.add(i);
+      finalCuts.push(i);
+    }
+  }
+
+  return finalCuts.slice(0, slotCount);
+}
+
+if (typeof window !== 'undefined') {
+  window.normalizeSelectedForLayout = normalizeSelectedForLayout;
+}
+
 function App() {
   const [tweaks, setTweaks] = React.useState({
     variant: 'A',
@@ -1268,10 +1348,7 @@ function App() {
     if (tweaks.layout !== nextLayout) {
       const slotCount = getLayoutSlotCount(nextLayout);
       const captureCount = getLayoutCaptureCount(nextLayout);
-      const nextSelected = Array.isArray(selected)
-        ? selected.filter((index) => Number.isInteger(index) && index >= 0 && index < slotCount).slice(0, slotCount)
-        : [];
-      const safeSelected = nextSelected.length > 0 ? nextSelected : Array.from({ length: slotCount }, (_, i) => i);
+      const safeSelected = normalizeSelectedForLayout(selected, shots, slotCount);
       const nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
       while (nextShots.length < captureCount) nextShots.push(null);
       setSelectedFramePresetId(activeFramePreset.id || '');
@@ -1344,6 +1421,7 @@ function App() {
     // 2. Full readiness check for deco and result screens
     if (screen === 'deco' || screen === 'result') {
       const layout = activeFramePreset?.layout || tweaks.layout || 'strip';
+      const slotCount = getLayoutSlotCount(layout);
       const mappedSelected = selected.map((shotIdx, targetSlotIndex) => {
         const asset = shots[shotIdx];
         return {
@@ -1358,15 +1436,66 @@ function App() {
 
       if (!validation.ok) {
         console.warn('[IMMM] Route guard: Frame readiness validation failed.', validation.errors);
-        
-        // Show validation error toast/alert to help recovery
-        setRouteToast('세션 데이터가 무결하지 않아 설정 화면으로 이동합니다.');
 
-        setScreen('setup');
-        try {
-          localStorage.setItem('immm.v2.screen', 'setup');
-        } catch (e) {
-          console.warn('[IMMM] localStorage update failed:', e);
+        // check if validation failure is due to selected count mismatch or missing slot
+        const hasMismatchOrMissing = validation.errors.some(err => 
+          err.includes('does not match layout slot count') || 
+          err.includes('Missing selected cut')
+        );
+
+        if (hasMismatchOrMissing) {
+          const repairedSelected = normalizeSelectedForLayout(selected, shots, slotCount);
+          const repairedMappedSelected = repairedSelected.map((shotIdx, targetSlotIndex) => {
+            const asset = shots[shotIdx];
+            return {
+              assetId: asset?.assetId || null,
+              sourceShotIndex: shotIdx,
+              targetSlotIndex
+            };
+          });
+
+          const secondValidation = window.IMMMSessionModel?.validateFrameReadiness
+            ? window.IMMMSessionModel.validateFrameReadiness({ layout, shots, selected: repairedMappedSelected })
+            : { ok: true, errors: [] };
+
+          if (secondValidation.ok) {
+            console.log('[IMMM] Route guard: Restored selected list successfully.', repairedSelected);
+            setSelected(repairedSelected);
+            try {
+              localStorage.setItem('immm.v2.sel', JSON.stringify(repairedSelected));
+            } catch (e) {
+              console.warn('[IMMM] localStorage sync failed:', e);
+            }
+            setRouteToast('선택 순서를 프레임에 맞게 복구했습니다.');
+            return;
+          }
+        }
+
+        // Recovery failed or not applicable, route based on actual image count
+        const hasImage = (asset) => {
+          if (!asset) return false;
+          return (typeof asset.dataUrl === 'string' && asset.dataUrl.trim().length > 0) ||
+                 (typeof asset.blobUrl === 'string' && asset.blobUrl.trim().length > 0) ||
+                 (typeof asset.remoteUrl === 'string' && asset.remoteUrl.trim().length > 0);
+        };
+        const validImageCount = shots.filter(hasImage).length;
+
+        if (validImageCount < slotCount) {
+          setRouteToast('프레임에 넣을 사진이 부족합니다. 사진을 다시 선택해주세요.');
+          setScreen('select');
+          try {
+            localStorage.setItem('immm.v2.screen', 'select');
+          } catch (e) {
+            console.warn('[IMMM] localStorage update failed:', e);
+          }
+        } else {
+          setRouteToast('선택한 사진 데이터를 찾을 수 없습니다. 촬영 또는 업로드를 다시 진행해주세요.');
+          setScreen('setup');
+          try {
+            localStorage.setItem('immm.v2.screen', 'setup');
+          } catch (e) {
+            console.warn('[IMMM] localStorage update failed:', e);
+          }
         }
       }
     }
@@ -1448,12 +1577,17 @@ function App() {
 
     const slotCount = getLayoutSlotCount(normalizedLayout);
     const captureCount = getLayoutCaptureCount(normalizedLayout);
-    const nextSelected = Array.isArray(selected)
-      ? selected.filter((index) => Number.isInteger(index) && index >= 0 && index < slotCount).slice(0, slotCount)
-      : [];
-    const safeSelected = nextSelected.length > 0 ? nextSelected : Array.from({ length: slotCount }, (_, i) => i);
+    const safeSelected = normalizeSelectedForLayout(selected, shots, slotCount);
     const nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
     while (nextShots.length < captureCount) nextShots.push(null);
+
+    const hasImage = (asset) => {
+      if (!asset) return false;
+      return (typeof asset.dataUrl === 'string' && asset.dataUrl.trim().length > 0) ||
+             (typeof asset.blobUrl === 'string' && asset.blobUrl.trim().length > 0) ||
+             (typeof asset.remoteUrl === 'string' && asset.remoteUrl.trim().length > 0);
+    };
+    const validCount = safeSelected.filter(idx => idx >= 0 && idx < nextShots.length && hasImage(nextShots[idx])).length;
 
     setSelectedFramePresetId(preset.id);
     setSelected(safeSelected);
@@ -1467,6 +1601,23 @@ function App() {
     if (options.syncFrameColor !== false && preset.frameColor && preset.background?.type === 'solid') {
       updateTweak('frameColor', preset.frameColor);
     }
+
+    if (safeSelected.length < slotCount || validCount < slotCount) {
+      try {
+        localStorage.setItem('immm.v2.selectedFramePresetId', preset.id);
+        localStorage.removeItem('immm.v2.sel');
+      } catch (e) {
+        console.warn('[IMMM] selected frame sync failed:', e);
+      }
+      if (typeof options.onApply === 'function') {
+        options.onApply(preset);
+      }
+      recordFrameUse(preset.id);
+      setRouteToast('프레임에 넣을 사진이 부족합니다. 사진을 다시 선택해주세요.');
+      go('select');
+      return preset;
+    }
+
     try {
       localStorage.setItem('immm.v2.selectedFramePresetId', preset.id);
       if (safeSelected.length > 0) {

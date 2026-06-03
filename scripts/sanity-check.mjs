@@ -763,6 +763,111 @@ function checkCaptureSessionSystem() {
             console.error('❌ FAIL: frame-system.jsx is missing the post-front-layer slotted sticker rendering pass');
             hasErrors = true;
           }
+
+          // P0-5. Session Integrity Hardening VM & Static Tests
+          const mainContent = readFile('main.jsx') || '';
+          const body = extractFunctionBody(mainContent, 'function normalizeSelectedForLayout(selected, shots, slotCount)');
+          if (!body) {
+            console.error('❌ FAIL: Could not extract normalizeSelectedForLayout from main.jsx');
+            hasErrors = true;
+          } else {
+            try {
+              vm.runInContext(`
+                function normalizeSelectedForLayout(selected, shots, slotCount) {
+                  ${body}
+                }
+                window.normalizeSelectedForLayout = normalizeSelectedForLayout;
+              `, sandbox);
+            } catch (runErr) {
+              console.error('❌ FAIL: Failed to evaluate normalizeSelectedForLayout in VM sandbox:', runErr.message);
+              hasErrors = true;
+            }
+
+            const normalizeSelectedForLayout = sandbox.window.normalizeSelectedForLayout;
+            if (typeof normalizeSelectedForLayout !== 'function') {
+              console.error('❌ FAIL: normalizeSelectedForLayout is not defined on window in sandbox');
+              hasErrors = true;
+            } else {
+              // 1. selected=[0], shots 4장, slotCount=4 => [0,1,2,3]
+              {
+                const testShots = [
+                  { assetId: 'a0', dataUrl: 'data:image/png;base64,1' },
+                  { assetId: 'a1', dataUrl: 'data:image/png;base64,2' },
+                  { assetId: 'a2', dataUrl: 'data:image/png;base64,3' },
+                  { assetId: 'a3', dataUrl: 'data:image/png;base64,4' }
+                ];
+                const res = normalizeSelectedForLayout([0], testShots, 4);
+                if (JSON.stringify(res) !== JSON.stringify([0, 1, 2, 3])) {
+                  console.error('❌ FAIL: normalizeSelectedForLayout test 1 failed. Expected [0,1,2,3], got:', res);
+                  hasErrors = true;
+                }
+              }
+
+              // 2. selected=[0,0,1], shots 4장, slotCount=4 => 중복 제거 후 4개 보정
+              {
+                const testShots = [
+                  { assetId: 'a0', dataUrl: 'data:image/png;base64,1' },
+                  { assetId: 'a1', dataUrl: 'data:image/png;base64,2' },
+                  { assetId: 'a2', dataUrl: 'data:image/png;base64,3' },
+                  { assetId: 'a3', dataUrl: 'data:image/png;base64,4' }
+                ];
+                const res = normalizeSelectedForLayout([0, 0, 1], testShots, 4);
+                if (JSON.stringify(res) !== JSON.stringify([0, 1, 2, 3])) {
+                  console.error('❌ FAIL: normalizeSelectedForLayout test 2 failed. Expected [0,1,2,3], got:', res);
+                  hasErrors = true;
+                }
+              }
+
+              // 3. selected=[5], shots[5] 있음, slotCount=4 => 5 포함하고 나머지 실제 이미지로 보정
+              {
+                const testShots = [
+                  { assetId: 'a0', dataUrl: 'data:image/png;base64,0' },
+                  null,
+                  { assetId: 'a2', dataUrl: 'data:image/png;base64,2' },
+                  null,
+                  { assetId: 'a4', dataUrl: 'data:image/png;base64,4' },
+                  { assetId: 'a5', dataUrl: 'data:image/png;base64,5' }
+                ];
+                const res = normalizeSelectedForLayout([5], testShots, 4);
+                if (JSON.stringify(res) !== JSON.stringify([5, 0, 2, 4])) {
+                  console.error('❌ FAIL: normalizeSelectedForLayout test 3 failed. Expected [5,0,2,4], got:', res);
+                  hasErrors = true;
+                }
+              }
+
+              // 4. selected 부족 + shots 부족 => validateFrameReadiness는 fail 유지
+              {
+                const testShots = [
+                  { assetId: 'a0', dataUrl: 'data:image/png;base64,0' },
+                  null,
+                  { assetId: 'a2', dataUrl: 'data:image/png;base64,2' }
+                ];
+                const repairedSelected = normalizeSelectedForLayout([0], testShots, 4);
+                const mappedSelected = repairedSelected.map((shotIdx, targetSlotIndex) => {
+                  const asset = testShots[shotIdx];
+                  return {
+                    assetId: asset?.assetId || null,
+                    sourceShotIndex: shotIdx,
+                    targetSlotIndex
+                  };
+                });
+                const vRes = validateFrameReadiness({ layout: 'strip', shots: testShots, selected: mappedSelected });
+                if (vRes.ok) {
+                  console.error('❌ FAIL: validateFrameReadiness should fail when shots and selected are insufficient');
+                  hasErrors = true;
+                }
+              }
+            }
+          }
+
+          // 5. route guard가 selected count mismatch만으로 setup 이동하지 않고 repair를 먼저 시도하는지 static check
+          const hasRepairLogic = mainContent.includes('normalizeSelectedForLayout(selected, shots, slotCount)') &&
+                                 mainContent.includes('secondValidation') &&
+                                 mainContent.includes('선택 순서를 프레임에 맞게 복구했습니다.');
+          if (!hasRepairLogic) {
+            console.error('❌ FAIL: main.jsx route guard does not seem to try repairing mismatch before redirecting to setup');
+            hasErrors = true;
+          }
         }
 
         // 7. Foundation Contracts VM Tests
