@@ -539,6 +539,117 @@ function checkCaptureSessionSystem() {
               console.error('❌ FAIL: resolveStickerFidelityMetrics free sticker width calculation mismatch');
               hasErrors = true;
             }
+
+            // frameSlot 문자열 호환성 테스트 (P0-1)
+            const slottedStickerStr = { frameSlot: "0", slotX: 30, slotY: 40, sizeNorm: 0.2, scale: 1.5 };
+            const slottedMetricsStr = resolveStickerFidelityMetrics(slottedStickerStr, null, 100, 100);
+            if (slottedMetricsStr.xPercent !== 30 || slottedMetricsStr.yPercent !== 40) {
+              console.error('❌ FAIL: resolveStickerFidelityMetrics with string frameSlot "0" must use slotX/slotY');
+              hasErrors = true;
+            }
+
+            // 6.6.7. sanitizeFrameSticker metadata preservation validation (P0-2)
+            const sanitizeFrameSticker = sandbox.window.sanitizeFrameSticker;
+            if (typeof sanitizeFrameSticker !== 'function') {
+              console.error('❌ FAIL: sanitizeFrameSticker is missing in frame-presets.jsx');
+              hasErrors = true;
+            } else {
+              const rawSticker = {
+                id: 'st_test_123',
+                kind: 'preset',
+                payload: { libId: 'preset_cat_1' },
+                x: 45,
+                y: 55,
+                scale: 1.2,
+                rotation: 15,
+                frameSlot: "2", // string slot
+                slotX: 60.5,
+                slotY: -10, // clamp to 0
+                sizeNorm: 0.15
+              };
+              const sanitized = sanitizeFrameSticker(rawSticker);
+              if (!sanitized) {
+                console.error('❌ FAIL: sanitizeFrameSticker returned null for valid sticker');
+                hasErrors = true;
+              } else {
+                if (sanitized.frameSlot !== 2) {
+                  console.error('❌ FAIL: sanitizeFrameSticker must cast frameSlot to number, got:', sanitized.frameSlot);
+                  hasErrors = true;
+                }
+                if (sanitized.slotX !== 60.5) {
+                  console.error('❌ FAIL: sanitizeFrameSticker slotX mismatch');
+                  hasErrors = true;
+                }
+                if (sanitized.slotY !== 0) {
+                  console.error('❌ FAIL: sanitizeFrameSticker slotY must be clamped between 0 and 100, got:', sanitized.slotY);
+                  hasErrors = true;
+                }
+                if (sanitized.sizeNorm !== 0.15) {
+                  console.error('❌ FAIL: sanitizeFrameSticker sizeNorm mismatch');
+                  hasErrors = true;
+                }
+              }
+            }
+
+            // 6.6.8. Custom frame export/import metadata preservation test (P0-2)
+            const exportCustomFramePackJson = sandbox.window.exportCustomFramePackJson;
+            const importFramePackJson = sandbox.window.importFramePackJson;
+            if (typeof exportCustomFramePackJson === 'function' && typeof importFramePackJson === 'function') {
+              const testCustomFrame = {
+                id: 'my-custom-frame-test-999',
+                name: 'My Slotted Custom Frame',
+                layout: 'trip',
+                source: 'custom',
+                canvasSize: { width: 500, height: 750 },
+                photoSlots: [],
+                stickers: [
+                  {
+                    id: 'st_slotted_999',
+                    kind: 'preset',
+                    payload: { libId: 'presets_sticker_cool' },
+                    x: 30,
+                    y: 30,
+                    scale: 1.5,
+                    rotation: 45,
+                    frameSlot: 1,
+                    slotX: 45.5,
+                    slotY: 55.5,
+                    sizeNorm: 0.2
+                  }
+                ]
+              };
+              const exportedPackJson = exportCustomFramePackJson([testCustomFrame]);
+              const importedResult = importFramePackJson(exportedPackJson);
+              if (!importedResult.ok) {
+                console.error('❌ FAIL: importFramePackJson failed on valid exported pack:', importedResult.error);
+                hasErrors = true;
+              } else {
+                const importedPreset = importedResult.presets?.[0];
+                if (!importedPreset) {
+                  console.error('❌ FAIL: Imported preset is empty');
+                  hasErrors = true;
+                } else {
+                  const importedSticker = importedPreset.stickers?.[0];
+                  if (!importedSticker) {
+                    console.error('❌ FAIL: Imported preset sticker is missing');
+                    hasErrors = true;
+                  } else {
+                    if (Number(importedSticker.frameSlot) !== 1) {
+                      console.error('❌ FAIL: Slotted sticker frameSlot not preserved after export/import, got:', importedSticker.frameSlot);
+                      hasErrors = true;
+                    }
+                    if (importedSticker.slotX !== 45.5 || importedSticker.slotY !== 55.5) {
+                      console.error('❌ FAIL: Slotted sticker slotX/slotY not preserved after export/import, got:', importedSticker.slotX, importedSticker.slotY);
+                      hasErrors = true;
+                    }
+                    if (importedSticker.sizeNorm !== 0.2) {
+                      console.error('❌ FAIL: Slotted sticker sizeNorm not preserved after export/import, got:', importedSticker.sizeNorm);
+                      hasErrors = true;
+                    }
+                  }
+                }
+              }
+            }
           }
 
           // 6.6.6. Sticker UI/UX Hardening static checks (P0 requirements)
@@ -548,6 +659,13 @@ function checkCaptureSessionSystem() {
           const renderStickerControlsBody = extractFunctionBody(stickerEngineContent, 'const renderStickerControls =');
           if (renderStickerControlsBody.includes('invScale') || renderStickerControlsBody.includes('scale(')) {
             console.error('❌ FAIL: renderStickerControls still contains invScale or scale(...) inverse scale logic');
+            hasErrors = true;
+          }
+
+          // P0-1 static checks: frameSlot filter should be number based
+          const numberFilterMatch = /Number\(s\.frameSlot\)\s*===\s*Number\(slotIndex\)/;
+          if (!numberFilterMatch.test(stickerEngineContent)) {
+            console.error('❌ FAIL: Number conversion filter Number(s.frameSlot) === Number(slotIndex) is missing in sticker-engine.jsx');
             hasErrors = true;
           }
 

@@ -450,7 +450,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
       rectW: rect.width, rectH: rect.height,
       centerX: rect.left + rect.width * (s.x/100),
       centerY: rect.top + rect.height * (s.y/100),
-      slotBounds: s.frameSlot != null ? slotClips[s.frameSlot] : null,
+      slotBounds: s.frameSlot != null ? slotClips[Number(s.frameSlot)] : null,
     });
   };
 
@@ -515,8 +515,9 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
   const sortedStickers = [...stickers].sort((a,b) => (a.z||0) - (b.z||0));
   const slottedMap = {};
   sortedStickers.filter(s => s.frameSlot != null).forEach(s => {
-    if (!slottedMap[s.frameSlot]) slottedMap[s.frameSlot] = [];
-    slottedMap[s.frameSlot].push(s);
+    const slotIdx = Number(s.frameSlot);
+    if (!slottedMap[slotIdx]) slottedMap[slotIdx] = [];
+    slottedMap[slotIdx].push(s);
   });
 
   const renderStickerControls = (s, isSel) => {
@@ -565,12 +566,21 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
     );
   };
 
+  // P1-2. StickerCanvas overlay owns slotted visual rendering.
+  // We clone children and inject suppressSlottedStickers prop to prevent duplicate rendering from children (e.g. FrameThumb).
+  const clonedChildren = React.Children.map(children, child => {
+    if (React.isValidElement(child)) {
+      return React.cloneElement(child, { suppressSlottedStickers: true });
+    }
+    return child;
+  });
+
   return (
     <SlottedStickersCtx.Provider value={{}}>
       <div ref={canvasRef}
         onPointerDown={USE_TOUCH_FALLBACK ? undefined : () => { setSelectedId(null); setSnapMode(false); }} onTouchStart={USE_TOUCH_FALLBACK ? () => { setSelectedId(null); setSnapMode(false); } : undefined}
         style={{ position:'relative', width, height, touchAction:'none', userSelect:'none', ...style }}>
-        {children}
+        {clonedChildren}
         {/* Snap-to-frame slot overlay */}
         {snapMode && (() => {
           const slots = getSlotOverlays();
@@ -657,7 +667,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
           const slotClip = slotClips[slotIndex];
           if (!slotClip) return null;
           
-          const slotStickers = sortedStickers.filter(s => s.frameSlot === slotIndex);
+          const slotStickers = sortedStickers.filter(s => s.frameSlot != null && Number(s.frameSlot) === Number(slotIndex));
           if (slotStickers.length === 0) return null;
           
           return (
@@ -717,7 +727,7 @@ function StickerCanvas({ stickers, setStickers, selectedId, setSelectedId, width
         {/* Slotted sticker interaction & controls layer (not clipped, zIndex 55 & 60) */}
         {sortedStickers.filter(s => s.frameSlot != null).map(s => {
           const isSel = s.id === selectedId;
-          const slotClip = slotClips[s.frameSlot];
+          const slotClip = slotClips[Number(s.frameSlot)];
           const slotW = slotClip?.widthPx || (canvasW ? (canvasW * 0.4) : (width ? width * 0.4 : 100));
           const slotH = slotClip?.heightPx || (height ? height * 0.4 : 100);
           

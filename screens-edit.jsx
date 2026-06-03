@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 // EDITOR (filter + stickers + frame layout)
 // ════════════════════════════════════════════════════════════
-function LegacyFrameThumb({ layout, shots, selected, T, logo = true, dateText = true, accent, stickers = [], scale = 1, orientation = 'portrait', frameColor = '#ffffff' }) {
+function LegacyFrameThumb({ layout, shots, selected, T, logo = true, dateText = true, accent, stickers = [], scale = 1, orientation = 'portrait', frameColor = '#ffffff', suppressSlottedStickers = false }) {
   // Renders a photo strip. layout: 'strip'|'trip'|'grid'|'layered'|'polaroid', orientation: 'portrait'|'landscape'
   const isDark = frameColor.toLowerCase() === '#111' || frameColor.toLowerCase() === '#111111' || frameColor.toLowerCase() === '#000000';
   const inkColor = isDark ? '#ffffff' : '#111111';
@@ -11,6 +11,7 @@ function LegacyFrameThumb({ layout, shots, selected, T, logo = true, dateText = 
   const slottedMap = React.useContext(SlottedStickersCtx);
 
   const renderSlotStickers = (slotIdx) => {
+    if (suppressSlottedStickers) return null;
     const list = slottedMap[slotIdx];
     if (!list || !list.length) return null;
     return list.map((s) =>

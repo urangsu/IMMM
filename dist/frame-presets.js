@@ -1935,6 +1935,18 @@ function sanitizeFrameSticker(sticker) {
     rotation: Number.isFinite(sticker.rotation) ? sticker.rotation : 0,
     z: Number.isFinite(sticker.z) ? sticker.z : Date.now()
   };
+  if (sticker.frameSlot !== undefined && sticker.frameSlot !== null && sticker.frameSlot !== '') {
+    cleaned.frameSlot = Number(sticker.frameSlot);
+  }
+  if (Number.isFinite(sticker.slotX)) {
+    cleaned.slotX = Math.max(0, Math.min(100, sticker.slotX));
+  }
+  if (Number.isFinite(sticker.slotY)) {
+    cleaned.slotY = Math.max(0, Math.min(100, sticker.slotY));
+  }
+  if (Number.isFinite(sticker.sizeNorm)) {
+    cleaned.sizeNorm = sticker.sizeNorm;
+  }
   if (cleaned.kind === 'preset') {
     cleaned.payload = {
       libId: cleaned.payload?.libId || cleaned.payload?.id || ''

@@ -713,7 +713,7 @@ function StickerCanvas({
       rectH: rect.height,
       centerX: rect.left + rect.width * (s.x / 100),
       centerY: rect.top + rect.height * (s.y / 100),
-      slotBounds: s.frameSlot != null ? slotClips[s.frameSlot] : null
+      slotBounds: s.frameSlot != null ? slotClips[Number(s.frameSlot)] : null
     });
   };
   useEE(() => {
@@ -794,8 +794,9 @@ function StickerCanvas({
   var sortedStickers = [...stickers].sort((a, b) => (a.z || 0) - (b.z || 0));
   var slottedMap = {};
   sortedStickers.filter(s => s.frameSlot != null).forEach(s => {
-    if (!slottedMap[s.frameSlot]) slottedMap[s.frameSlot] = [];
-    slottedMap[s.frameSlot].push(s);
+    var slotIdx = Number(s.frameSlot);
+    if (!slottedMap[slotIdx]) slottedMap[slotIdx] = [];
+    slottedMap[slotIdx].push(s);
   });
   var renderStickerControls = (s, isSel) => {
     if (!isSel) return null;
@@ -968,6 +969,17 @@ function StickerCanvas({
       strokeLinecap: "round"
     }))));
   };
+
+  // P1-2. StickerCanvas overlay owns slotted visual rendering.
+  // We clone children and inject suppressSlottedStickers prop to prevent duplicate rendering from children (e.g. FrameThumb).
+  var clonedChildren = React.Children.map(children, child => {
+    if (React.isValidElement(child)) {
+      return React.cloneElement(child, {
+        suppressSlottedStickers: true
+      });
+    }
+    return child;
+  });
   return /*#__PURE__*/React.createElement(SlottedStickersCtx.Provider, {
     value: {}
   }, /*#__PURE__*/React.createElement("div", {
@@ -988,7 +1000,7 @@ function StickerCanvas({
       userSelect: 'none',
       ...style
     }
-  }, children, snapMode && (() => {
+  }, clonedChildren, snapMode && (() => {
     var slots = getSlotOverlays();
     var cRect = canvasRef.current?.getBoundingClientRect();
     if (!cRect) return null;
@@ -1121,7 +1133,7 @@ function StickerCanvas({
   }).map((_, slotIndex) => {
     var slotClip = slotClips[slotIndex];
     if (!slotClip) return null;
-    var slotStickers = sortedStickers.filter(s => s.frameSlot === slotIndex);
+    var slotStickers = sortedStickers.filter(s => s.frameSlot != null && Number(s.frameSlot) === Number(slotIndex));
     if (slotStickers.length === 0) return null;
     return /*#__PURE__*/React.createElement("div", {
       key: `slot-visual-container-${slotIndex}`,
@@ -1168,7 +1180,7 @@ function StickerCanvas({
     }));
   }), sortedStickers.filter(s => s.frameSlot != null).map(s => {
     var isSel = s.id === selectedId;
-    var slotClip = slotClips[s.frameSlot];
+    var slotClip = slotClips[Number(s.frameSlot)];
     var slotW = slotClip?.widthPx || (canvasW ? canvasW * 0.4 : width ? width * 0.4 : 100);
     var slotH = slotClip?.heightPx || (height ? height * 0.4 : 100);
     var metrics = resolveStickerFidelityMetrics(s, null, slotW, slotH);

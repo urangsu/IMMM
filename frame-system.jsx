@@ -622,52 +622,6 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.restore();
   }
 
-  // 3. Global Stickers (not in slots) — validate layout-slot compatibility
-  const freeStickers = (data.stickers || []).filter((st) =>
-    st.frameSlot == null && isStickerValidForLayout(st, data.layout || data.templateType));
-  for (const s of freeStickers) {
-    await drawStickerToCtx(ctx, s, w, h, scale, stickerAssets);
-  }
-  logExportPerf('sticker-draw', { ms: nowMs() - tStickerDrawStart });
-  logExportPerf('render-total', { ms: nowMs() - tStart });
-
-  // 4. Drawing Strokes
-  const drawStrokes = data.drawStrokes || [];
-  drawStrokes.filter(Boolean).forEach((stroke) => {
-    if (!Array.isArray(stroke.points) || stroke.points.length < 1) return;
-
-    // Prefer normalized width (0~1 of frame width), fall back to absolute px * scale
-    const lineWidth = stroke.widthNorm
-      ? stroke.widthNorm * w
-      : (stroke.width || 3) * scale;
-
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    if (stroke.brush === 'sparkle') {
-      renderSparkleStroke(ctx, stroke, w, h, lineWidth);
-    } else {
-      if (stroke.points.length < 2) { ctx.restore(); return; }
-      ctx.strokeStyle = stroke.color || '#111';
-      ctx.lineWidth = lineWidth;
-      ctx.beginPath();
-      stroke.points.forEach(([px, py], idx) => {
-        // Validate point coordinates are valid numbers
-        if (typeof px !== 'number' || typeof py !== 'number') {
-          console.warn(`[IMMM] Invalid stroke point at index ${idx}:`, [px, py]);
-          return;
-        }
-        const tx = (px / 100) * w;
-        const ty = (py / 100) * h;
-        if (idx === 0) ctx.moveTo(tx, ty);
-        else ctx.lineTo(tx, ty);
-      });
-      ctx.stroke();
-    }
-    ctx.restore();
-  });
-
   if (framePreset && typeof drawPresetLayer === 'function' && orderedLayers.length) {
     orderedLayers
       .filter((layer) => layer && layer.visible !== false && Number(layer.zIndex) >= 0)
@@ -707,6 +661,51 @@ async function renderComposition(ctx, data, options = {}) {
     ctx.restore();
   }
 
+  // 4c. Global Stickers (not in slots) — validate layout-slot compatibility
+  const freeStickers = (data.stickers || []).filter((st) =>
+    st.frameSlot == null && isStickerValidForLayout(st, data.layout || data.templateType));
+  for (const s of freeStickers) {
+    await drawStickerToCtx(ctx, s, w, h, scale, stickerAssets);
+  }
+  logExportPerf('sticker-draw', { ms: nowMs() - tStickerDrawStart });
+
+  // 4d. Drawing Strokes
+  const drawStrokes = data.drawStrokes || [];
+  drawStrokes.filter(Boolean).forEach((stroke) => {
+    if (!Array.isArray(stroke.points) || stroke.points.length < 1) return;
+
+    // Prefer normalized width (0~1 of frame width), fall back to absolute px * scale
+    const lineWidth = stroke.widthNorm
+      ? stroke.widthNorm * w
+      : (stroke.width || 3) * scale;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (stroke.brush === 'sparkle') {
+      renderSparkleStroke(ctx, stroke, w, h, lineWidth);
+    } else {
+      if (stroke.points.length < 2) { ctx.restore(); return; }
+      ctx.strokeStyle = stroke.color || '#111';
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      stroke.points.forEach(([px, py], idx) => {
+        // Validate point coordinates are valid numbers
+        if (typeof px !== 'number' || typeof py !== 'number') {
+          console.warn(`[IMMM] Invalid stroke point at index ${idx}:`, [px, py]);
+          return;
+        }
+        const tx = (px / 100) * w;
+        const ty = (py / 100) * h;
+        if (idx === 0) ctx.moveTo(tx, ty);
+        else ctx.lineTo(tx, ty);
+      });
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
+
   // 5. Unified Overlay (Logo, Dot, Date)
   renderFrameOverlay(ctx, template, w, h, {
     frameColor: data.frameColor,
@@ -718,6 +717,9 @@ async function renderComposition(ctx, data, options = {}) {
   if (framePreset && typeof drawPresetWatermark === 'function') {
     drawPresetWatermark(ctx, framePreset, w, h);
   }
+
+  // P1-3. log total render time at the very end
+  logExportPerf('render-total', { ms: nowMs() - tStart });
 }
 
 async function renderFrameToCanvas(input) {
