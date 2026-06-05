@@ -5395,7 +5395,8 @@ function DesignerPreviewCanvas({
         accent: T.pinkDeep,
         framePreset: draft
       }, {
-        scale: 1
+        scale: 1,
+        skipAssetValidation: true
       });
       if (cancelled) return;
     };

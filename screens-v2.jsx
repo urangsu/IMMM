@@ -3220,7 +3220,7 @@ function DesignerPreviewCanvas({
         dateText: false,
         accent: T.pinkDeep,
         framePreset: draft,
-      }, { scale: 1 });
+      }, { scale: 1, skipAssetValidation: true });
       if (cancelled) return;
     };
     draw();
