@@ -62,7 +62,7 @@ function checkRepositoryScope() {
 
 checkRepositoryScope();
 
-function checkCaptureSessionSystem() {
+async function checkCaptureSessionSystem() {
   const model = readFile('session-model.jsx');
   const adapter = readFile('session-adapter.jsx');
   
@@ -797,7 +797,7 @@ function checkCaptureSessionSystem() {
                   { assetId: 'a3', dataUrl: 'data:image/png;base64,4' }
                 ];
                 const res = normalizeSelectedForLayout([0], testShots, 4);
-                if (JSON.stringify(res) !== JSON.stringify([0, 1, 2, 3])) {
+                if (JSON.stringify(res.selected) !== JSON.stringify([0, 1, 2, 3]) || !res.complete) {
                   console.error('❌ FAIL: normalizeSelectedForLayout test 1 failed. Expected [0,1,2,3], got:', res);
                   hasErrors = true;
                 }
@@ -812,7 +812,7 @@ function checkCaptureSessionSystem() {
                   { assetId: 'a3', dataUrl: 'data:image/png;base64,4' }
                 ];
                 const res = normalizeSelectedForLayout([0, 0, 1], testShots, 4);
-                if (JSON.stringify(res) !== JSON.stringify([0, 1, 2, 3])) {
+                if (JSON.stringify(res.selected) !== JSON.stringify([0, 1, 2, 3]) || !res.complete) {
                   console.error('❌ FAIL: normalizeSelectedForLayout test 2 failed. Expected [0,1,2,3], got:', res);
                   hasErrors = true;
                 }
@@ -829,7 +829,7 @@ function checkCaptureSessionSystem() {
                   { assetId: 'a5', dataUrl: 'data:image/png;base64,5' }
                 ];
                 const res = normalizeSelectedForLayout([5], testShots, 4);
-                if (JSON.stringify(res) !== JSON.stringify([5, 0, 2, 4])) {
+                if (JSON.stringify(res.selected) !== JSON.stringify([5, 0, 2, 4]) || !res.complete) {
                   console.error('❌ FAIL: normalizeSelectedForLayout test 3 failed. Expected [5,0,2,4], got:', res);
                   hasErrors = true;
                 }
@@ -842,10 +842,11 @@ function checkCaptureSessionSystem() {
                   null,
                   { assetId: 'a2', dataUrl: 'data:image/png;base64,2' }
                 ];
-                const repairedSelected = normalizeSelectedForLayout([0], testShots, 4);
+                const res = normalizeSelectedForLayout([0], testShots, 4);
+                const repairedSelected = res.selected;
                 // fake fill 제거 확인: testShots의 유효 이미지는 2개(a0, a2)뿐이므로 length는 2여야 하며 4가 되면 안 됨
-                if (repairedSelected.length >= 4) {
-                  console.error('❌ FAIL: normalizeSelectedForLayout should not fake fill to slotCount when shots are insufficient, got length:', repairedSelected.length);
+                if (repairedSelected.length >= 4 || res.complete) {
+                  console.error('❌ FAIL: normalizeSelectedForLayout should not fake fill to slotCount when shots are insufficient, got:', res);
                   hasErrors = true;
                 }
                 const mappedSelected = repairedSelected.map((shotIdx, targetSlotIndex) => {
@@ -859,6 +860,19 @@ function checkCaptureSessionSystem() {
                 const vRes = validateFrameReadiness({ layout: 'strip', shots: testShots, selected: mappedSelected });
                 if (vRes.ok) {
                   console.error('❌ FAIL: validateFrameReadiness should fail when shots and selected are insufficient');
+                  hasErrors = true;
+                }
+              }
+
+              // 4b. loadImageForCanvasDetailed VM unit test
+              const loadImageForCanvasDetailed = sandbox.window.loadImageForCanvasDetailed;
+              if (typeof loadImageForCanvasDetailed !== 'function') {
+                console.error('❌ FAIL: loadImageForCanvasDetailed is missing on window in sandbox');
+                hasErrors = true;
+              } else {
+                const resMissing = await loadImageForCanvasDetailed(null);
+                if (resMissing.ok || resMissing.reason !== 'missing-src') {
+                  console.error('❌ FAIL: loadImageForCanvasDetailed failed to detect missing-src, got:', resMissing);
                   hasErrors = true;
                 }
               }
@@ -886,6 +900,15 @@ function checkCaptureSessionSystem() {
           const hasImageCrossOriginGuard = (readFile('frame-system.jsx') || '').includes("if (typeof src === 'string' && /^https?:\\/\\//.test(src))");
           if (!hasImageCrossOriginGuard) {
              console.error("❌ FAIL: loadImageForCanvas does not restrict crossOrigin to remote http(s) protocols only");
+             hasErrors = true;
+          }
+
+          // 7b. applyFramePreset이 상태 레이스 방지를 위해 workingShots / workingSelected를 사용하는지 static check
+          const hasApplyFramePresetHardening = mainContent.includes('let workingShots =') &&
+                                               mainContent.includes('let workingSelected =') &&
+                                               mainContent.includes('normalizeSelectedForLayout(workingSelected, nextShots, slotCount)');
+          if (!hasApplyFramePresetHardening) {
+             console.error("❌ FAIL: main.jsx applyFramePreset does not use workingShots / workingSelected to prevent state race condition");
              hasErrors = true;
           }
         }
@@ -1113,7 +1136,7 @@ function checkCaptureSessionSystem() {
   }
 }
 
-checkCaptureSessionSystem();
+await checkCaptureSessionSystem();
 
 function checkWebGL() {
   const webgl = readFile('webgl-engine.jsx');
@@ -4294,7 +4317,8 @@ async function checkCustomCanvasSizePrioritization() {
         framePreset: {
           canvasSize: { width: 1000, height: 2000 },
           photoSlots: []
-        }
+        },
+        skipAssetValidation: true
       };
       const canvasResult = await renderFrameToCanvasFn(mockInput);
       if (canvasResult.width !== 1000 || canvasResult.height !== 2000) {

@@ -204,6 +204,79 @@ function loadImageForCanvas(src) {
   });
 }
 
+function loadImageForCanvasDetailed(src) {
+  return new Promise((resolve) => {
+    if (!src) {
+      resolve({ ok: false, img: null, reason: 'missing-src', src: null });
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      if (typeof src === 'string' && /^https?:\/\//.test(src)) {
+        if (!isCanvasSafeImage(img)) {
+          resolve({ ok: false, img: null, reason: 'taint-error', src });
+          return;
+        }
+      }
+      resolve({ ok: true, img, reason: null, src });
+    };
+    img.onerror = () => {
+      resolve({ ok: false, img: null, reason: 'load-error', src });
+    };
+    if (typeof src === 'string' && /^https?:\/\//.test(src)) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.src = src;
+  });
+}
+
+function isCanvasSafeImage(img) {
+  try {
+    const probe = document.createElement('canvas');
+    probe.width = 1;
+    probe.height = 1;
+    const pctx = probe.getContext('2d');
+    pctx.drawImage(img, 0, 0, 1, 1);
+    pctx.getImageData(0, 0, 1, 1);
+    return true;
+  } catch (e) {
+    console.warn('[IMMM export] Canvas safety check failed (tainted image):', e);
+    return false;
+  }
+}
+
+async function validateExportAssets(data) {
+  const selected = data.selected || [];
+  const shots = data.shots || [];
+  const stickers = data.stickers || [];
+  const failures = [];
+
+  const template = getFrameTemplateSafe(data.layout || data.templateType);
+  const photoSlots = template?.photoSlots || [];
+  for (let i = 0; i < photoSlots.length; i++) {
+    const shot = shots[selected[i]];
+    const src = shot?.dataUrl || shot?.blobUrl || shot?.remoteUrl;
+    const res = await loadImageForCanvasDetailed(src);
+    if (!res.ok) {
+      failures.push({ type: 'photo', slotIndex: i, reason: res.reason, src: res.src });
+    }
+  }
+
+  const uploadStickers = stickers.filter(s => s?.kind === 'upload');
+  for (const s of uploadStickers) {
+    const src = s.payload?.dataUrl || s.payload?.blobUrl || s.payload?.remoteUrl;
+    const res = await loadImageForCanvasDetailed(src);
+    if (!res.ok) {
+      failures.push({ type: 'sticker', stickerId: s.id, reason: res.reason, src: res.src });
+    }
+  }
+
+  return {
+    ok: failures.length === 0,
+    failures
+  };
+}
+
 function drawCoverToCtx(ctx, img, x, y, w, h) {
   if (!img) return;
   const ar = img.width / img.height;
@@ -551,6 +624,15 @@ async function renderComposition(ctx, data, options = {}) {
   if (!template) {
     throw new Error('[IMMM frame template unavailable]');
   }
+
+  // 0. Export Asset Validation (로드 및 오염 검사)
+  if (options.skipAssetValidation !== true) {
+    const validation = await validateExportAssets(data);
+    if (!validation.ok) {
+      const reasons = validation.failures.map(f => `${f.type} error: ${f.reason}`).join(', ');
+      throw new Error(`[IMMM export assets error] ${reasons}`);
+    }
+  }
   const scale = options.scale || 1;
   const framePreset = data.framePreset || null;
   const baseCanvasSize = (framePreset && framePreset.canvasSize)
@@ -747,7 +829,7 @@ async function renderFrameToCanvas(input) {
   cvs.height = Math.round(h);
   const ctx = cvs.getContext('2d');
 
-  await window.renderComposition(ctx, input, { scale });
+  await window.renderComposition(ctx, input, { scale, skipAssetValidation: input.skipAssetValidation });
 
   return cvs;
 }
@@ -999,4 +1081,7 @@ Object.assign(window, {
   ShareStore,
   generateQrDataUrl,
   getFrameTheme,
+  loadImageForCanvasDetailed,
+  isCanvasSafeImage,
+  validateExportAssets,
 });

@@ -226,6 +226,8 @@ function normalizeSelectedForLayout(selected, shots, slotCount) {
            (typeof asset.remoteUrl === 'string' && asset.remoteUrl.trim().length > 0);
   };
 
+  const validImageCount = cleanShots.filter(hasImage).length;
+
   // 1. 유효한 shot index만 필터링 (shots 범위 내이면서 실제 이미지가 있는 경우)
   let validCuts = cleanSelected.filter(idx => 
     Number.isInteger(idx) && 
@@ -262,7 +264,16 @@ function normalizeSelectedForLayout(selected, shots, slotCount) {
     }
   }
 
-  return finalCuts.slice(0, slotCount);
+  const resultSelected = finalCuts.slice(0, slotCount);
+  const complete = resultSelected.length === slotCount;
+
+  return {
+    selected: resultSelected,
+    complete,
+    validImageCount,
+    requiredSlotCount: slotCount,
+    missingSlotCount: Math.max(0, slotCount - resultSelected.length)
+  };
 }
 
 if (typeof window !== 'undefined') {
@@ -1323,7 +1334,8 @@ function App() {
     if (tweaks.layout !== nextLayout) {
       const slotCount = getLayoutSlotCount(nextLayout);
       const captureCount = getLayoutCaptureCount(nextLayout);
-      const safeSelected = normalizeSelectedForLayout(selected, shots, slotCount);
+      const safeSelectedResult = normalizeSelectedForLayout(selected, shots, slotCount);
+      const safeSelected = safeSelectedResult.selected;
       const nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
       while (nextShots.length < captureCount) nextShots.push(null);
       setSelectedFramePresetId(activeFramePreset.id || '');
@@ -1419,9 +1431,10 @@ function App() {
         );
 
         if (hasMismatchOrMissing) {
-          const repairedSelected = normalizeSelectedForLayout(selected, shots, slotCount);
+          const repairedResult = normalizeSelectedForLayout(selected, shots, slotCount);
+          const repairedSelected = repairedResult.selected;
           
-          if (repairedSelected.length < slotCount) {
+          if (!repairedResult.complete) {
             setRouteToast('프레임에 넣을 사진이 부족합니다. 사진을 다시 선택해주세요.');
             setScreen('select');
             try {
@@ -1544,8 +1557,12 @@ function App() {
 
     const normalizedLayout = normalizePresetLayout(preset.layout || tweaks.layout);
 
+    let workingShots = Array.isArray(shots) ? shots : [];
+    let workingSelected = Array.isArray(selected) ? selected : [];
+    let didResetForLayoutChange = false;
+
     // Compatibility check for existing shots
-    const hasExistingShots = shots && shots.some(s => s && (s.dataUrl || s.blobUrl || s.remoteUrl));
+    const hasExistingShots = workingShots && workingShots.some(s => s && (s.dataUrl || s.blobUrl || s.remoteUrl));
     if (hasExistingShots && !options.force) {
       const currentSlotCount = getLayoutSlotCount(tweaks.layout);
       const targetSlotCount = getLayoutSlotCount(normalizedLayout);
@@ -1556,18 +1573,23 @@ function App() {
         );
         if (!confirmChange) return null;
 
-        // Reset existing shots/selection using the target layout's capture count
+        // Reset working shots/selection dynamically
         const targetCaptureCount = getLayoutCaptureCount(normalizedLayout);
-        setSelected([]);
-        setShots(Array(targetCaptureCount).fill(null));
+        workingShots = Array.from({ length: targetCaptureCount }, () => null);
+        workingSelected = [];
+        didResetForLayoutChange = true;
       }
     }
 
     const slotCount = getLayoutSlotCount(normalizedLayout);
     const captureCount = getLayoutCaptureCount(normalizedLayout);
-    const safeSelected = normalizeSelectedForLayout(selected, shots, slotCount);
-    const nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
+    
+    // nextShots and safeSelected are evaluated against working variables
+    const nextShots = workingShots.slice(0, captureCount);
     while (nextShots.length < captureCount) nextShots.push(null);
+
+    const safeSelectedResult = normalizeSelectedForLayout(workingSelected, nextShots, slotCount);
+    const safeSelected = safeSelectedResult.selected;
 
     const hasImage = (asset) => {
       if (!asset) return false;
@@ -1588,6 +1610,24 @@ function App() {
     }
     if (options.syncFrameColor !== false && preset.frameColor && preset.background?.type === 'solid') {
       updateTweak('frameColor', preset.frameColor);
+    }
+
+    if (didResetForLayoutChange) {
+      try {
+        localStorage.setItem('immm.v2.selectedFramePresetId', preset.id);
+        localStorage.removeItem('immm.v2.sel');
+      } catch (e) {
+        console.warn('[IMMM] selected frame sync failed:', e);
+      }
+      if (typeof options.onApply === 'function') {
+        options.onApply(preset);
+      }
+      recordFrameUse(preset.id);
+      
+      // Redirect to capture screen when layout shifts and photos reset
+      setRouteToast('프레임 규격 변경으로 사진이 초기화되었습니다. 다시 촬영해 주세요.');
+      go('capture');
+      return preset;
     }
 
     if (safeSelected.length < slotCount || validCount < slotCount) {

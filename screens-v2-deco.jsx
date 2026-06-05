@@ -580,7 +580,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
       const renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) {
-        await renderComp(offCtx, data, { scale: 1 });
+        await renderComp(offCtx, data, { scale: 1, skipAssetValidation: true });
       } else {
         console.warn('[IMMM] skip render: renderComposition missing');
       }
@@ -1236,7 +1236,12 @@ function ResultV2({ T, go, mobile, variant, shots, selected, filter, layout, ori
     } catch (err) {
       console.error('[IMMM] buildFinalResultAsset error:', err);
       setResultPreviewStatus('error');
-      setResultPreviewError(err.message || '이미지를 준비하지 못했습니다');
+      let friendlyMsg = err.message || '이미지를 준비하지 못했습니다';
+      if (friendlyMsg.includes('IMMM export assets error')) {
+        friendlyMsg = '선택한 사진 또는 스티커 중 일부를 불러오지 못했습니다. 사진을 다시 선택하거나 다시 촬영해 주세요.';
+        alert(friendlyMsg);
+      }
+      setResultPreviewError(friendlyMsg);
     }
   };
 

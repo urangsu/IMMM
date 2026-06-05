@@ -293,6 +293,7 @@ function normalizeSelectedForLayout(selected, shots, slotCount) {
     if (!asset) return false;
     return typeof asset.dataUrl === 'string' && asset.dataUrl.trim().length > 0 || typeof asset.blobUrl === 'string' && asset.blobUrl.trim().length > 0 || typeof asset.remoteUrl === 'string' && asset.remoteUrl.trim().length > 0;
   };
+  var validImageCount = cleanShots.filter(hasImage).length;
 
   // 1. 유효한 shot index만 필터링 (shots 범위 내이면서 실제 이미지가 있는 경우)
   var validCuts = cleanSelected.filter(idx => Number.isInteger(idx) && idx >= 0 && idx < cleanShots.length && hasImage(cleanShots[idx]));
@@ -324,7 +325,15 @@ function normalizeSelectedForLayout(selected, shots, slotCount) {
       finalCuts.push(_idx);
     }
   }
-  return finalCuts.slice(0, slotCount);
+  var resultSelected = finalCuts.slice(0, slotCount);
+  var complete = resultSelected.length === slotCount;
+  return {
+    selected: resultSelected,
+    complete,
+    validImageCount,
+    requiredSlotCount: slotCount,
+    missingSlotCount: Math.max(0, slotCount - resultSelected.length)
+  };
 }
 if (typeof window !== 'undefined') {
   window.normalizeSelectedForLayout = normalizeSelectedForLayout;
@@ -1649,7 +1658,8 @@ function App() {
     if (tweaks.layout !== nextLayout) {
       var slotCount = getLayoutSlotCount(nextLayout);
       var captureCount = getLayoutCaptureCount(nextLayout);
-      var safeSelected = normalizeSelectedForLayout(selected, shots, slotCount);
+      var safeSelectedResult = normalizeSelectedForLayout(selected, shots, slotCount);
+      var safeSelected = safeSelectedResult.selected;
       var nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
       while (nextShots.length < captureCount) nextShots.push(null);
       setSelectedFramePresetId(activeFramePreset.id || '');
@@ -1744,8 +1754,9 @@ function App() {
         // check if validation failure is due to selected count mismatch or missing slot
         var hasMismatchOrMissing = validation.errors.some(err => err.includes('does not match layout slot count') || err.includes('Missing selected cut'));
         if (hasMismatchOrMissing) {
-          var repairedSelected = normalizeSelectedForLayout(selected, shots, slotCount);
-          if (repairedSelected.length < slotCount) {
+          var repairedResult = normalizeSelectedForLayout(selected, shots, slotCount);
+          var repairedSelected = repairedResult.selected;
+          if (!repairedResult.complete) {
             setRouteToast('프레임에 넣을 사진이 부족합니다. 사진을 다시 선택해주세요.');
             setScreen('select');
             try {
@@ -1867,9 +1878,12 @@ function App() {
       return null;
     }
     var normalizedLayout = normalizePresetLayout(preset.layout || tweaks.layout);
+    var workingShots = Array.isArray(shots) ? shots : [];
+    var workingSelected = Array.isArray(selected) ? selected : [];
+    var didResetForLayoutChange = false;
 
     // Compatibility check for existing shots
-    var hasExistingShots = shots && shots.some(s => s && (s.dataUrl || s.blobUrl || s.remoteUrl));
+    var hasExistingShots = workingShots && workingShots.some(s => s && (s.dataUrl || s.blobUrl || s.remoteUrl));
     if (hasExistingShots && !options.force) {
       var currentSlotCount = getLayoutSlotCount(tweaks.layout);
       var targetSlotCount = getLayoutSlotCount(normalizedLayout);
@@ -1877,17 +1891,23 @@ function App() {
         var confirmChange = window.confirm(`현재 촬영된 사진과 선택하신 프레임의 사진 개수(${targetSlotCount}개)가 다릅니다.\n프레임을 변경하시면 촬영된 사진이 모두 초기화되고 재촬영해야 합니다. 계속 진행하시겠습니까?`);
         if (!confirmChange) return null;
 
-        // Reset existing shots/selection using the target layout's capture count
+        // Reset working shots/selection dynamically
         var targetCaptureCount = getLayoutCaptureCount(normalizedLayout);
-        setSelected([]);
-        setShots(Array(targetCaptureCount).fill(null));
+        workingShots = Array.from({
+          length: targetCaptureCount
+        }, () => null);
+        workingSelected = [];
+        didResetForLayoutChange = true;
       }
     }
     var slotCount = getLayoutSlotCount(normalizedLayout);
     var captureCount = getLayoutCaptureCount(normalizedLayout);
-    var safeSelected = normalizeSelectedForLayout(selected, shots, slotCount);
-    var nextShots = Array.isArray(shots) ? shots.slice(0, captureCount) : [];
+
+    // nextShots and safeSelected are evaluated against working variables
+    var nextShots = workingShots.slice(0, captureCount);
     while (nextShots.length < captureCount) nextShots.push(null);
+    var safeSelectedResult = normalizeSelectedForLayout(workingSelected, nextShots, slotCount);
+    var safeSelected = safeSelectedResult.selected;
     var hasImage = asset => {
       if (!asset) return false;
       return typeof asset.dataUrl === 'string' && asset.dataUrl.trim().length > 0 || typeof asset.blobUrl === 'string' && asset.blobUrl.trim().length > 0 || typeof asset.remoteUrl === 'string' && asset.remoteUrl.trim().length > 0;
@@ -1904,6 +1924,23 @@ function App() {
     }
     if (options.syncFrameColor !== false && preset.frameColor && preset.background?.type === 'solid') {
       updateTweak('frameColor', preset.frameColor);
+    }
+    if (didResetForLayoutChange) {
+      try {
+        localStorage.setItem('immm.v2.selectedFramePresetId', preset.id);
+        localStorage.removeItem('immm.v2.sel');
+      } catch (e) {
+        console.warn('[IMMM] selected frame sync failed:', e);
+      }
+      if (typeof options.onApply === 'function') {
+        options.onApply(preset);
+      }
+      recordFrameUse(preset.id);
+
+      // Redirect to capture screen when layout shifts and photos reset
+      setRouteToast('프레임 규격 변경으로 사진이 초기화되었습니다. 다시 촬영해 주세요.');
+      go('capture');
+      return preset;
     }
     if (safeSelected.length < slotCount || validCount < slotCount) {
       try {
