@@ -1877,9 +1877,10 @@ function App() {
         var confirmChange = window.confirm(`현재 촬영된 사진과 선택하신 프레임의 사진 개수(${targetSlotCount}개)가 다릅니다.\n프레임을 변경하시면 촬영된 사진이 모두 초기화되고 재촬영해야 합니다. 계속 진행하시겠습니까?`);
         if (!confirmChange) return null;
 
-        // Reset existing shots/selection
+        // Reset existing shots/selection using the target layout's capture count
+        var targetCaptureCount = getLayoutCaptureCount(normalizedLayout);
         setSelected([]);
-        setShots(Array(6).fill(null));
+        setShots(Array(targetCaptureCount).fill(null));
       }
     }
     var slotCount = getLayoutSlotCount(normalizedLayout);

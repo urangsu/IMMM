@@ -1556,9 +1556,10 @@ function App() {
         );
         if (!confirmChange) return null;
 
-        // Reset existing shots/selection
+        // Reset existing shots/selection using the target layout's capture count
+        const targetCaptureCount = getLayoutCaptureCount(normalizedLayout);
         setSelected([]);
-        setShots(Array(6).fill(null));
+        setShots(Array(targetCaptureCount).fill(null));
       }
     }
 

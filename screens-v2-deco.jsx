@@ -587,8 +587,8 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
 
       if (cancelled || seq !== renderSeqRef.current) return;
 
-      cvs.width = baseW;
-      cvs.height = baseH;
+      if (cvs.width !== baseW) cvs.width = baseW;
+      if (cvs.height !== baseH) cvs.height = baseH;
       ctx.clearRect(0, 0, baseW, baseH);
       ctx.drawImage(off, 0, 0);
     };

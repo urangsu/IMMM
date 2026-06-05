@@ -881,6 +881,13 @@ function checkCaptureSessionSystem() {
             console.error("❌ FAIL: main.jsx applyFramePreset does not restrict toast warning to deco or result screens only");
             hasErrors = true;
           }
+
+          // 7. loadImageForCanvas가 외부 http(s) 원격 주소에만 crossOrigin을 anonymous로 세팅하는지 static check
+          const hasImageCrossOriginGuard = (readFile('frame-system.jsx') || '').includes("if (typeof src === 'string' && /^https?:\\/\\//.test(src))");
+          if (!hasImageCrossOriginGuard) {
+             console.error("❌ FAIL: loadImageForCanvas does not restrict crossOrigin to remote http(s) protocols only");
+             hasErrors = true;
+          }
         }
 
         // 7. Foundation Contracts VM Tests

@@ -197,7 +197,9 @@ function loadImageForCanvas(src) {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
-    img.crossOrigin = 'anonymous';
+    if (typeof src === 'string' && /^https?:\/\//.test(src)) {
+      img.crossOrigin = 'anonymous';
+    }
     img.src = src;
   });
 }
@@ -233,8 +235,9 @@ function drawFallbackSticker(ctx, item, scalePx = 1) {
 function collectUploadStickerSources(stickers = []) {
   const sources = new Set();
   for (const s of stickers || []) {
-    if (s?.kind === 'upload' && s?.payload?.dataUrl) {
-      sources.add(s.payload.dataUrl);
+    if (s?.kind === 'upload') {
+      const src = s.payload?.dataUrl || s.payload?.blobUrl || s.payload?.remoteUrl;
+      if (src) sources.add(src);
     }
   }
   return Array.from(sources);
@@ -340,7 +343,7 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets 
       if (item) drawFallbackSticker(ctx, item, 1);
     }
   } else if (sticker.kind === 'upload') {
-    const src = sticker.payload.dataUrl;
+    const src = sticker.payload.dataUrl || sticker.payload.blobUrl || sticker.payload.remoteUrl;
     const hasPreload = assets?.uploadImages?.has?.(src);
     const preloaded = hasPreload ? assets.uploadImages.get(src) : undefined;
     const img = hasPreload ? preloaded : await loadImageForCanvas(src);
@@ -586,7 +589,8 @@ async function renderComposition(ctx, data, options = {}) {
   const photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : template.photoSlots;
   const images = await Promise.all(photoSlots.map((_, i) => {
     const shot = shots[selected[i]];
-    return loadImageForCanvas(shot?.dataUrl);
+    const src = shot?.dataUrl || shot?.blobUrl || shot?.remoteUrl;
+    return loadImageForCanvas(src);
   }));
   logExportPerf('photo-slots', { ms: nowMs() - tPhotoStart, count: images.length });
 

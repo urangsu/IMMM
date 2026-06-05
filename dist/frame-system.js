@@ -333,7 +333,9 @@ function loadImageForCanvas(src) {
     var img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
-    img.crossOrigin = 'anonymous';
+    if (typeof src === 'string' && /^https?:\/\//.test(src)) {
+      img.crossOrigin = 'anonymous';
+    }
     img.src = src;
   });
 }
@@ -369,8 +371,9 @@ function drawFallbackSticker(ctx, item, scalePx = 1) {
 function collectUploadStickerSources(stickers = []) {
   var sources = new Set();
   for (var s of stickers || []) {
-    if (s?.kind === 'upload' && s?.payload?.dataUrl) {
-      sources.add(s.payload.dataUrl);
+    if (s?.kind === 'upload') {
+      var src = s.payload?.dataUrl || s.payload?.blobUrl || s.payload?.remoteUrl;
+      if (src) sources.add(src);
     }
   }
   return Array.from(sources);
@@ -473,7 +476,7 @@ async function drawStickerToCtx(ctx, sticker, baseW, baseH, scalePx = 1, assets 
       if (_item) drawFallbackSticker(ctx, _item, 1);
     }
   } else if (sticker.kind === 'upload') {
-    var src = sticker.payload.dataUrl;
+    var src = sticker.payload.dataUrl || sticker.payload.blobUrl || sticker.payload.remoteUrl;
     var hasPreload = assets?.uploadImages?.has?.(src);
     var preloaded = hasPreload ? assets.uploadImages.get(src) : undefined;
     var img = hasPreload ? preloaded : await loadImageForCanvas(src);
@@ -719,7 +722,8 @@ async function renderComposition(ctx, data, options = {}) {
   var photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : template.photoSlots;
   var images = await Promise.all(photoSlots.map((_, i) => {
     var shot = shots[selected[i]];
-    return loadImageForCanvas(shot?.dataUrl);
+    var src = shot?.dataUrl || shot?.blobUrl || shot?.remoteUrl;
+    return loadImageForCanvas(src);
   }));
   logExportPerf('photo-slots', {
     ms: nowMs() - tPhotoStart,

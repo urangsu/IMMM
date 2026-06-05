@@ -482,7 +482,7 @@ function CaptureV2({
     } else {
       doCapture();
     }
-  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers, enhanceCapturedDataUrl, activeSessionId]);
+  }, [idx, filter, setShots, canvasActive, captureFromVideo, facingMode, shotCount, bakePreStickers, enhanceCapturedDataUrl, activeSessionId, screenLightActive]);
   React.useEffect(() => {
     if (countdown <= 0) return;
     var t = setTimeout(() => {
