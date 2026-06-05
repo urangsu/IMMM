@@ -1782,7 +1782,9 @@ function ResultV2({
   var [resultPreviewSrc, setResultPreviewSrc] = React.useState(null);
   var [resultPreviewStatus, setResultPreviewStatus] = React.useState('idle'); // idle | building | ready | error
   var [resultPreviewError, setResultPreviewError] = React.useState('');
-  async function renderFinalResultBlob() {
+  var [resultPreviewFailures, setResultPreviewFailures] = React.useState([]);
+  var [ignoredStickerIds, setIgnoredStickerIds] = React.useState([]);
+  async function renderFinalResultBlob(filteredStickers = stickers) {
     var checkLayout = layout || 'strip';
     var mappedSelected = (selected || []).map((shotIdx, targetSlotIndex) => {
       var asset = shots[shotIdx];
@@ -1802,7 +1804,6 @@ function ResultV2({
     if (!validation.ok) {
       var errorMsg = 'Result rendering blocked: Frame readiness check failed. ' + validation.errors.join(', ');
       console.error(errorMsg);
-      alert('세션 데이터의 무결성 검증에 실패했습니다. 설정 화면으로 이동합니다.');
       go('setup');
       throw new Error(errorMsg);
     }
@@ -1828,7 +1829,7 @@ function ResultV2({
       selected,
       filter,
       frameColor,
-      stickers,
+      stickers: filteredStickers,
       drawStrokes,
       logo,
       dateText,
@@ -1837,7 +1838,8 @@ function ResultV2({
       framePreset
     };
     await renderComp(ctx, data, {
-      scale: 1
+      scale: 1,
+      skipAssetValidation: true
     });
     return new Promise((resolve, reject) => {
       canvas.toBlob(blob => {
@@ -1850,15 +1852,56 @@ function ResultV2({
     var capturedSessionId = sessionIdRef.current;
     setResultPreviewStatus('building');
     setResultPreviewError('');
+    setResultPreviewFailures([]);
     try {
-      // 1. Generate high-quality blob using direct offscreen render
-      var blob = await renderFinalResultBlob();
+      var filteredStickers = (stickers || []).filter(s => !ignoredStickerIds.includes(s.id));
+      var data = {
+        layout,
+        shots,
+        selected,
+        filter,
+        frameColor,
+        stickers: filteredStickers,
+        drawStrokes,
+        logo,
+        dateText,
+        accent,
+        orientation,
+        framePreset
+      };
+
+      // 1. Export validation 직접 수행
+      if (window.validateExportAssets) {
+        var valResult = await window.validateExportAssets(data);
+        if (!valResult.ok) {
+          setResultPreviewFailures(valResult.failures);
+          setResultPreviewStatus('error');
+          var hasExpiredBlob = valResult.failures.some(f => f.reason === 'expired-blob-url');
+          var friendlyMsg = '';
+          if (hasExpiredBlob) {
+            friendlyMsg = '임시 이미지가 만료되었습니다. 사진을 다시 업로드하거나 다시 촬영해주세요.';
+          } else {
+            var hasPhotoError = valResult.failures.some(f => f.type === 'photo');
+            if (hasPhotoError) {
+              friendlyMsg = '선택한 사진 중 일부를 불러오지 못했습니다. 사진을 다시 선택하거나 다시 촬영해 주세요.';
+            } else {
+              friendlyMsg = '일부 데코 스티커를 불러오지 못했습니다.';
+            }
+          }
+          setResultPreviewError(friendlyMsg);
+          console.error('[IMMM] Export validation failures:', valResult.failures);
+          return;
+        }
+      }
+
+      // 2. Generate high-quality blob using direct offscreen render
+      var blob = await renderFinalResultBlob(filteredStickers);
       if (!blob) throw new Error('결과물을 생성하지 못했습니다');
 
       // Guard: drop result if session changed during async render (stale session)
       if (sessionIdRef.current !== capturedSessionId) return;
 
-      // 2. Create local URL for preview <img>
+      // 3. Create local URL for preview <img>
       var url = URL.createObjectURL(blob);
 
       // Explicit Owner Cleanup: Revoke previous preview URL before setting new one
@@ -1867,13 +1910,13 @@ function ResultV2({
       setResultPreviewSrc(url);
       setResultPreviewStatus('ready');
 
-      // 3. Cache it for save/share to ensure 100% consistency
+      // 4. Cache it for save/share to ensure 100% consistency
       exportBlobRef.current = {
         key: getExportKey(),
         blob
       };
 
-      // 4. Register with ResultAssetStore (Phase 3.64)
+      // 5. Register with ResultAssetStore (Phase 3.64)
       try {
         var Store = window.IMMMResultAssetStore;
         if (Store) {
@@ -1904,22 +1947,18 @@ function ResultV2({
         console.debug('[IMMM] ResultAssetStore registration failed:', e);
       }
 
-      // 5. Start intro only after asset is ready
+      // 6. Start intro only after asset is ready
       setShowPrintIntro(true);
     } catch (err) {
       console.error('[IMMM] buildFinalResultAsset error:', err);
       setResultPreviewStatus('error');
-      var friendlyMsg = err.message || '이미지를 준비하지 못했습니다';
-      if (friendlyMsg.includes('IMMM export assets error')) {
-        friendlyMsg = '선택한 사진 또는 스티커 중 일부를 불러오지 못했습니다. 사진을 다시 선택하거나 다시 촬영해 주세요.';
-        alert(friendlyMsg);
-      }
-      setResultPreviewError(friendlyMsg);
+      var _friendlyMsg = err.message || '이미지를 준비하지 못했습니다';
+      setResultPreviewError(_friendlyMsg);
     }
   };
   React.useEffect(() => {
     buildFinalResultAsset();
-  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset]);
+  }, [layout, shots, selected, filter, frameColor, stickers, drawStrokes, logo, dateText, accent, orientation, framePreset, ignoredStickerIds]);
 
   // Consolidated Cleanup: ResultV2 unmount cleanup for preview and save sheet
   React.useEffect(() => {
@@ -2058,35 +2097,105 @@ function ResultV2({
     style: {
       position: 'absolute',
       inset: 0,
-      background: 'rgba(255,255,255,0.9)',
+      background: 'rgba(255,255,255,0.96)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 10,
+      padding: 20,
       borderRadius: 4,
       textAlign: 'center',
-      zIndex: 10
+      zIndex: 10,
+      backdropFilter: 'blur(8px)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11,
-      color: T.pinkDeep,
-      marginBottom: 8
+      fontSize: 24,
+      marginBottom: 12
     }
-  }, resultPreviewError), /*#__PURE__*/React.createElement("button", {
-    onClick: buildFinalResultAsset,
+  }, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: '6px 12px',
+      fontSize: 11,
+      fontWeight: 600,
+      color: T.ink || '#111',
+      marginBottom: 16,
+      lineHeight: 1.5,
+      maxWidth: '85%'
+    }
+  }, resultPreviewError), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      width: '85%'
+    }
+  }, resultPreviewFailures.length > 0 && resultPreviewFailures.every(f => f.type === 'sticker') && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var badStickerIds = resultPreviewFailures.filter(f => f.type === 'sticker').map(f => f.stickerId);
+      setIgnoredStickerIds(prev => [...prev, ...badStickerIds]);
+    },
+    style: {
+      padding: '10px 14px',
       borderRadius: 8,
       border: 'none',
-      background: T.ink,
-      color: T.bg,
+      background: T.pinkDeep || '#ff4a7d',
+      color: '#fff',
       fontSize: 11,
       fontWeight: 700,
-      cursor: 'pointer'
+      cursor: 'pointer',
+      boxShadow: '0 4px 12px rgba(255, 74, 125, 0.2)',
+      transition: 'all 0.2s'
     }
-  }, "Retry"))));
+  }, "\uBB38\uC81C \uC2A4\uD2F0\uCEE4 \uC81C\uAC70\uD558\uACE0 \uC800\uC7A5"), /*#__PURE__*/React.createElement("button", {
+    onClick: buildFinalResultAsset,
+    style: {
+      padding: '8px 14px',
+      borderRadius: 8,
+      border: `1px solid ${T.ink || '#111'}`,
+      background: '#fff',
+      color: T.ink || '#111',
+      fontSize: 11,
+      fontWeight: 700,
+      cursor: 'pointer',
+      transition: 'all 0.2s'
+    }
+  }, "\uB2E4\uC2DC \uC2DC\uB3C4"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      justifyContent: 'center',
+      marginTop: 4
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => go('select'),
+    style: {
+      flex: 1,
+      padding: '8px 10px',
+      borderRadius: 8,
+      border: 'none',
+      background: 'rgba(0,0,0,0.05)',
+      color: T.ink || '#111',
+      fontSize: 10,
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'all 0.2s'
+    }
+  }, "\uC0AC\uC9C4 \uB2E4\uC2DC \uC120\uD0DD"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => go('capture'),
+    style: {
+      flex: 1,
+      padding: '8px 10px',
+      borderRadius: 8,
+      border: 'none',
+      background: 'rgba(0,0,0,0.05)',
+      color: T.ink || '#111',
+      fontSize: 10,
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'all 0.2s'
+    }
+  }, "\uB2E4\uC2DC \uCD2C\uC601"))))));
   var containerRef = React.useRef(null);
   var frameRef = React.useRef(null);
   var captureRef = React.useRef(null);

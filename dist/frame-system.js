@@ -371,10 +371,11 @@ function loadImageForCanvasDetailed(src) {
       });
     };
     img.onerror = () => {
+      var isBlob = typeof src === 'string' && src.startsWith('blob:');
       resolve({
         ok: false,
         img: null,
-        reason: 'load-error',
+        reason: isBlob ? 'expired-blob-url' : 'load-error',
         src
       });
     };
@@ -403,9 +404,19 @@ async function validateExportAssets(data) {
   var shots = data.shots || [];
   var stickers = data.stickers || [];
   var failures = [];
+  var framePreset = data.framePreset || null;
   var template = getFrameTemplateSafe(data.layout || data.templateType);
-  var photoSlots = template?.photoSlots || [];
+  var photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : template?.photoSlots || [];
   for (var i = 0; i < photoSlots.length; i++) {
+    if (i >= selected.length) {
+      failures.push({
+        type: 'photo',
+        slotIndex: i,
+        reason: 'missing-src',
+        src: null
+      });
+      continue;
+    }
     var shot = shots[selected[i]];
     var src = shot?.dataUrl || shot?.blobUrl || shot?.remoteUrl;
     var res = await loadImageForCanvasDetailed(src);

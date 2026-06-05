@@ -198,6 +198,32 @@ async function checkCaptureSessionSystem() {
           Date,
           Math,
           console,
+          Image: class {
+            constructor() {
+              setTimeout(() => {
+                if (this.src && (this.src.includes('fail') || this.src.includes('expired'))) {
+                  if (typeof this.onerror === 'function') this.onerror();
+                } else {
+                  if (typeof this.onload === 'function') this.onload();
+                }
+              }, 0);
+            }
+          },
+          document: {
+            createElement: (tag) => {
+              if (tag === 'canvas') {
+                return {
+                  getContext: () => ({
+                    drawImage: () => {},
+                    getImageData: () => ({ data: new Uint8ClampedArray(4) })
+                  }),
+                  width: 1,
+                  height: 1
+                };
+              }
+              return {};
+            }
+          },
           React: {
             createContext: () => ({ Provider: ({ children }) => children }),
             createElement: (type, props, ...children) => ({ type, props, children }),
@@ -208,6 +234,8 @@ async function checkCaptureSessionSystem() {
             Fragment: 'React.Fragment'
           }
         };
+        sandbox.window.Image = sandbox.Image;
+        sandbox.window.document = sandbox.document;
         vm.createContext(sandbox);
 
         const distSticker = readFile('dist/sticker-engine.js');
@@ -875,6 +903,68 @@ async function checkCaptureSessionSystem() {
                   console.error('❌ FAIL: loadImageForCanvasDetailed failed to detect missing-src, got:', resMissing);
                   hasErrors = true;
                 }
+
+                // P1-3: 만료된 blobUrl 감지 VM 테스트
+                const resExpired = await loadImageForCanvasDetailed('blob:https://immm.app/expired-uuid-1234');
+                if (resExpired.ok || resExpired.reason !== 'expired-blob-url') {
+                  console.error('❌ FAIL: loadImageForCanvasDetailed failed to detect expired-blob-url, got:', resExpired);
+                  hasErrors = true;
+                }
+              }
+
+              // P1-0: validateExportAssets custom frame geometry parity VM 테스트
+              const validateExportAssets = sandbox.window.validateExportAssets;
+              if (typeof validateExportAssets !== 'function') {
+                console.error('❌ FAIL: validateExportAssets is missing on window in sandbox');
+                hasErrors = true;
+              } else {
+                const customPreset = {
+                  id: 'custom-frame-3slots',
+                  layout: 'strip',
+                  photoSlots: [
+                    { x: 0, y: 0, w: 100, h: 100 },
+                    { x: 0, y: 110, w: 100, h: 100 },
+                    { x: 0, y: 220, w: 100, h: 100 }
+                  ]
+                };
+
+                const testShots = [
+                  { assetId: 'a0', dataUrl: 'data:image/png;base64,0' },
+                  { assetId: 'a1', dataUrl: 'data:image/png;base64,1' },
+                  { assetId: 'a2', dataUrl: 'data:image/png;base64,2' }
+                ];
+
+                // selected 3개 + shots 3개 => 통과해야 함
+                const passRes = await validateExportAssets({
+                  layout: 'strip',
+                  framePreset: customPreset,
+                  selected: [0, 1, 2],
+                  shots: testShots,
+                  stickers: []
+                });
+                if (!passRes.ok) {
+                  console.error('❌ FAIL: validateExportAssets custom frame 3 slots with 3 selected shots failed:', passRes);
+                  hasErrors = true;
+                }
+
+                // selected 2개 => 실패해야 함 (missing-src)
+                const failRes = await validateExportAssets({
+                  layout: 'strip',
+                  framePreset: customPreset,
+                  selected: [0, 1],
+                  shots: testShots,
+                  stickers: []
+                });
+                if (failRes.ok) {
+                  console.error('❌ FAIL: validateExportAssets custom frame 3 slots with 2 selected shots should pass fail check but passed');
+                  hasErrors = true;
+                } else {
+                  const hasMissingSrc = failRes.failures.some(f => f.reason === 'missing-src' && f.slotIndex === 2);
+                  if (!hasMissingSrc) {
+                    console.error('❌ FAIL: validateExportAssets did not report missing-src at slotIndex 2, got:', failRes);
+                    hasErrors = true;
+                  }
+                }
               }
             }
           }
@@ -900,6 +990,14 @@ async function checkCaptureSessionSystem() {
           const hasImageCrossOriginGuard = (readFile('frame-system.jsx') || '').includes("if (typeof src === 'string' && /^https?:\\/\\//.test(src))");
           if (!hasImageCrossOriginGuard) {
              console.error("❌ FAIL: loadImageForCanvas does not restrict crossOrigin to remote http(s) protocols only");
+             hasErrors = true;
+          }
+
+          // 7a. loadImageForCanvasDetailed가 blobUrl 만료 에러를 식별하고 expired-blob-url을 반환하는지 static check
+          const hasExpiredBlobGuard = (readFile('frame-system.jsx') || '').includes('expired-blob-url') &&
+                                      (readFile('frame-system.jsx') || '').includes("src.startsWith('blob:')");
+          if (!hasExpiredBlobGuard) {
+             console.error("❌ FAIL: loadImageForCanvasDetailed does not check for expired blob urls");
              hasErrors = true;
           }
 

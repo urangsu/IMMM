@@ -221,7 +221,8 @@ function loadImageForCanvasDetailed(src) {
       resolve({ ok: true, img, reason: null, src });
     };
     img.onerror = () => {
-      resolve({ ok: false, img: null, reason: 'load-error', src });
+      const isBlob = typeof src === 'string' && src.startsWith('blob:');
+      resolve({ ok: false, img: null, reason: isBlob ? 'expired-blob-url' : 'load-error', src });
     };
     if (typeof src === 'string' && /^https?:\/\//.test(src)) {
       img.crossOrigin = 'anonymous';
@@ -250,10 +251,16 @@ async function validateExportAssets(data) {
   const shots = data.shots || [];
   const stickers = data.stickers || [];
   const failures = [];
+  const framePreset = data.framePreset || null;
 
   const template = getFrameTemplateSafe(data.layout || data.templateType);
-  const photoSlots = template?.photoSlots || [];
+  const photoSlots = framePreset?.photoSlots?.length ? framePreset.photoSlots : (template?.photoSlots || []);
+
   for (let i = 0; i < photoSlots.length; i++) {
+    if (i >= selected.length) {
+      failures.push({ type: 'photo', slotIndex: i, reason: 'missing-src', src: null });
+      continue;
+    }
     const shot = shots[selected[i]];
     const src = shot?.dataUrl || shot?.blobUrl || shot?.remoteUrl;
     const res = await loadImageForCanvasDetailed(src);
