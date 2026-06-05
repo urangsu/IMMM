@@ -843,6 +843,11 @@ function checkCaptureSessionSystem() {
                   { assetId: 'a2', dataUrl: 'data:image/png;base64,2' }
                 ];
                 const repairedSelected = normalizeSelectedForLayout([0], testShots, 4);
+                // fake fill 제거 확인: testShots의 유효 이미지는 2개(a0, a2)뿐이므로 length는 2여야 하며 4가 되면 안 됨
+                if (repairedSelected.length >= 4) {
+                  console.error('❌ FAIL: normalizeSelectedForLayout should not fake fill to slotCount when shots are insufficient, got length:', repairedSelected.length);
+                  hasErrors = true;
+                }
                 const mappedSelected = repairedSelected.map((shotIdx, targetSlotIndex) => {
                   const asset = testShots[shotIdx];
                   return {
@@ -866,6 +871,14 @@ function checkCaptureSessionSystem() {
                                  mainContent.includes('선택 순서를 프레임에 맞게 복구했습니다.');
           if (!hasRepairLogic) {
             console.error('❌ FAIL: main.jsx route guard does not seem to try repairing mismatch before redirecting to setup');
+            hasErrors = true;
+          }
+
+          // 6. applyFramePreset이 screen === 'deco' || screen === 'result' 조건 하에서만 토스트/이동을 유발하는지 static check
+          const hasApplyFramePresetScreenCheck = mainContent.includes("if (screen === 'deco' || screen === 'result')") &&
+                                                 mainContent.includes("setRouteToast('프레임에 넣을 사진이 부족합니다. 사진을 다시 선택해주세요.');");
+          if (!hasApplyFramePresetScreenCheck) {
+            console.error("❌ FAIL: main.jsx applyFramePreset does not restrict toast warning to deco or result screens only");
             hasErrors = true;
           }
         }
