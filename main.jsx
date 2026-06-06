@@ -281,16 +281,27 @@ if (typeof window !== 'undefined') {
 }
 
 function App() {
-  const [tweaks, setTweaks] = React.useState({
-    variant: 'A',
-    layout: 'strip',
-    orientation: 'portrait',
-    filter: 'smooth',
-    sound: true,
-    logo: true,
-    dateText: true,
-    frameColor: '#ffffff',
-    useWebgl: window.innerWidth >= 640, // Default off on mobile for stability
+  const [tweaks, setTweaks] = React.useState(() => {
+    let storedFilter = 'smooth';
+    try {
+      const saved = localStorage.getItem('immm.v2.filter');
+      if (saved) {
+        storedFilter = saved;
+      }
+    } catch (_) {}
+    const initialFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(storedFilter) : storedFilter;
+
+    return {
+      variant: 'A',
+      layout: 'strip',
+      orientation: 'portrait',
+      filter: initialFilter,
+      sound: true,
+      logo: true,
+      dateText: true,
+      frameColor: '#ffffff',
+      useWebgl: typeof window !== 'undefined' ? window.innerWidth >= 640 : true,
+    };
   });
 
   const [screen, setScreen] = React.useState(() => {
@@ -1378,6 +1389,17 @@ function App() {
     }
   }, [selected, activeSessionId]);
 
+  React.useEffect(() => {
+    try {
+      if (tweaks.filter) {
+        const safe = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
+        localStorage.setItem('immm.v2.filter', safe);
+      }
+    } catch (e) {
+      console.warn('[IMMM] filter sync failed:', e);
+    }
+  }, [tweaks.filter]);
+
   // Samsung Internet suspends background video (opacity:0, zIndex:-1 screens).
   // Force-resume when user enters capture so the camera feed is guaranteed live.
   React.useEffect(() => {
@@ -2165,6 +2187,7 @@ function App() {
           shots={effShots} selected={effSelected}
           stickers={stickers} setStickers={setStickers}
           drawStrokes={drawStrokes} setDrawStrokes={setDrawStrokes}
+          setFilter={v => updateTweak('filter', v)}
           setDateText={v => updateTweak('dateText', v)}
           framePreset={activeFramePreset}
           saveCustomFrame={saveCustomFrame}

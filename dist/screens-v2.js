@@ -1131,7 +1131,90 @@ function SetupScreen({
       letterSpacing: 1.2,
       textTransform: 'uppercase'
     }
-  }, "\uD504\uB808\uC784 \uACE0\uB974\uAE30")), setupPreviewPreset && /*#__PURE__*/React.createElement("div", {
+  }, "\uD504\uB808\uC784 \uACE0\uB974\uAE30")), !isCreator && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20,
+      paddingTop: 16,
+      borderTop: `1px solid ${T.line}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: T.ink,
+      marginBottom: 8,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "\uD544\uD130 \uD1A4 \uC120\uD0DD"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      fontWeight: 400,
+      color: T.inkSoft
+    }
+  }, "(\uAE30\uBCF8\uAC12: \uD06C\uB9BC \uC2A4\uD0A8)")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: 8
+    }
+  }, [{
+    id: 'porcelain',
+    name: '자연광',
+    desc: 'Window Light'
+  }, {
+    id: 'smooth',
+    name: '크림 스킨',
+    desc: 'Cream Skin'
+  }, {
+    id: 'bw',
+    name: '흑백',
+    desc: 'B&W'
+  }].map(item => {
+    var active = filter === item.id;
+    return /*#__PURE__*/React.createElement("button", {
+      key: item.id,
+      onClick: () => setFilter(item.id),
+      style: {
+        padding: '8px 4px',
+        borderRadius: 12,
+        border: 'none',
+        background: active ? T.ink : T.card,
+        color: active ? T.bg : T.ink,
+        cursor: 'pointer',
+        boxShadow: active ? `0 0 0 1px ${T.ink}` : `0 0 0 1px ${T.line} inset`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+        minHeight: 52,
+        transition: 'all 0.15s ease'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700
+      }
+    }, item.name), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 8,
+        opacity: active ? 0.8 : 0.6,
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, item.desc));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      fontSize: 10,
+      color: T.inkSoft,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 2,
+      lineHeight: 1.4
+    }
+  }, /*#__PURE__*/React.createElement("div", null, "\u2022 \uCD2C\uC601 \uACB0\uACFC\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("div", null, "\u2022 \uC800\uC7A5 \uC804 \uB2E4\uC2DC \uBC14\uAFC0 \uC218 \uC788\uC5B4\uC694."))), setupPreviewPreset && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
       padding: 12,

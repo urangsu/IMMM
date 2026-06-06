@@ -339,16 +339,26 @@ if (typeof window !== 'undefined') {
   window.normalizeSelectedForLayout = normalizeSelectedForLayout;
 }
 function App() {
-  var [tweaks, setTweaks] = React.useState({
-    variant: 'A',
-    layout: 'strip',
-    orientation: 'portrait',
-    filter: 'smooth',
-    sound: true,
-    logo: true,
-    dateText: true,
-    frameColor: '#ffffff',
-    useWebgl: window.innerWidth >= 640 // Default off on mobile for stability
+  var [tweaks, setTweaks] = React.useState(() => {
+    var storedFilter = 'smooth';
+    try {
+      var saved = localStorage.getItem('immm.v2.filter');
+      if (saved) {
+        storedFilter = saved;
+      }
+    } catch (_) {}
+    var initialFilter = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(storedFilter) : storedFilter;
+    return {
+      variant: 'A',
+      layout: 'strip',
+      orientation: 'portrait',
+      filter: initialFilter,
+      sound: true,
+      logo: true,
+      dateText: true,
+      frameColor: '#ffffff',
+      useWebgl: typeof window !== 'undefined' ? window.innerWidth >= 640 : true
+    };
   });
   var [screen, setScreen] = React.useState(() => {
     if (location.hash.startsWith('#/s/')) return 'share';
@@ -1700,6 +1710,16 @@ function App() {
       });
     }
   }, [selected, activeSessionId]);
+  React.useEffect(() => {
+    try {
+      if (tweaks.filter) {
+        var safe = typeof getSafeFilterKey === 'function' ? getSafeFilterKey(tweaks.filter) : tweaks.filter;
+        localStorage.setItem('immm.v2.filter', safe);
+      }
+    } catch (e) {
+      console.warn('[IMMM] filter sync failed:', e);
+    }
+  }, [tweaks.filter]);
 
   // Samsung Internet suspends background video (opacity:0, zIndex:-1 screens).
   // Force-resume when user enters capture so the camera feed is guaranteed live.
@@ -2556,6 +2576,7 @@ function App() {
           setStickers: setStickers,
           drawStrokes: drawStrokes,
           setDrawStrokes: setDrawStrokes,
+          setFilter: v => updateTweak('filter', v),
           setDateText: v => updateTweak('dateText', v),
           framePreset: activeFramePreset,
           saveCustomFrame: saveCustomFrame

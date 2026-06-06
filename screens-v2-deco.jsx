@@ -145,7 +145,7 @@ function getDragPoint(event) {
   return null;
 }
 
-function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orientation,
+function DecoV2({ T, go, mobile, variant, shots, selected, filter, setFilter, layout, orientation,
   stickers, setStickers, drawStrokes, setDrawStrokes, logo, dateText, setDateText, accent, frameColor, framePreset, saveCustomFrame, openDesigner, exportPresetId, selectedFramePresetId }) {
   const useTouchFallback = typeof window !== 'undefined' && (!('PointerEvent' in window) || (typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || '')));
   const [tab, setTab] = React.useState('stickers'); // stickers | draw | text
@@ -859,6 +859,56 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
     </div>
   ) : null;
 
+  const filterSelectionSection = (
+    <div style={{ marginBottom: 20, padding: '12px 14px', background: 'rgba(26,26,31,0.04)', borderRadius: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 800, color: T.ink, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          <path d="M2 12h20"/>
+        </svg>
+        <span style={{ fontFamily: 'Pretendard, system-ui' }}>사진 필터 톤 (Filter)</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        {[
+          { id: 'original', name: '노 필터', desc: 'No Filter' },
+          { id: 'porcelain', name: '자연광', desc: 'Window Light' },
+          { id: 'smooth', name: '크림 스킨', desc: 'Cream Skin' },
+          { id: 'blush', name: '첫사랑', desc: 'First Love' },
+          { id: 'grain', name: '소프트 필름', desc: 'Soft Film' },
+          { id: 'bw', name: '흑백', desc: 'B&W' }
+        ].map((item) => {
+          const active = filter === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setFilter && setFilter(item.id)}
+              style={{
+                padding: '6px 4px',
+                borderRadius: 10,
+                border: 'none',
+                background: active ? T.ink : T.card,
+                color: active ? T.bg : T.ink,
+                cursor: 'pointer',
+                boxShadow: active ? `0 0 0 1px ${T.ink}` : `0 0 0 1px ${T.line} inset`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1,
+                minHeight: 48,
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span style={{ fontSize: 10.5, fontWeight: 700, fontFamily: 'Pretendard, system-ui' }}>{item.name}</span>
+              <span style={{ fontSize: 8, opacity: active ? 0.8 : 0.6, fontFamily: '"Plus Jakarta Sans",system-ui' }}>{item.desc}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const tabBar =
   <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${T.line}`, marginBottom: 16 }}>
       {[['stickers', 'Stickers'], ['draw', 'Draw'], ['text', 'Text']].map(([k, en]) =>
@@ -903,6 +953,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
           <div style={{ background: T.bg, padding: '0 16px 60px' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'rgba(0,0,0,0.1)', margin: '10px auto 0' }} />
             {saveFrameBar}
+            {filterSelectionSection}
             {tabBar}
             {tabContent}
           </div>
@@ -925,6 +976,7 @@ function DecoV2({ T, go, mobile, variant, shots, selected, filter, layout, orien
       </div>
       <div style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', borderLeft: '1px solid rgba(0,0,0,0.07)', padding: '24px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
         {saveFrameBar}
+        {filterSelectionSection}
         {tabBar}
         <div style={{ flex: 1 }}>{tabContent}</div>
       </div>

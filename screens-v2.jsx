@@ -597,6 +597,52 @@ function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preS
           </button>
         )}
       </div>
+      {!isCreator && (
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${T.line}` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: T.ink, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>필터 톤 선택</span>
+            <span style={{ fontSize: 9, fontWeight: 400, color: T.inkSoft }}>(기본값: 크림 스킨)</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {[
+              { id: 'porcelain', name: '자연광', desc: 'Window Light' },
+              { id: 'smooth', name: '크림 스킨', desc: 'Cream Skin' },
+              { id: 'bw', name: '흑백', desc: 'B&W' }
+            ].map((item) => {
+              const active = filter === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setFilter(item.id)}
+                  style={{
+                    padding: '8px 4px',
+                    borderRadius: 12,
+                    border: 'none',
+                    background: active ? T.ink : T.card,
+                    color: active ? T.bg : T.ink,
+                    cursor: 'pointer',
+                    boxShadow: active ? `0 0 0 1px ${T.ink}` : `0 0 0 1px ${T.line} inset`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 2,
+                    minHeight: 52,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span style={{ fontSize: 11, fontWeight: 700 }}>{item.name}</span>
+                  <span style={{ fontSize: 8, opacity: active ? 0.8 : 0.6, fontFamily: '"Plus Jakarta Sans",system-ui' }}>{item.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 8, fontSize: 10, color: T.inkSoft, display: 'flex', flexDirection: 'column', gap: 2, lineHeight: 1.4 }}>
+            <div>• 촬영 결과에 적용됩니다.</div>
+            <div>• 저장 전 다시 바꿀 수 있어요.</div>
+          </div>
+        </div>
+      )}
       {setupPreviewPreset && (
         <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(26,26,31,0.04)', color: T.inkSoft, fontSize: 11, lineHeight: 1.45, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div>적용 중: {setupPreviewPreset.name}. 기본 카드 선택 시 기본 프레임으로 돌아갑니다.</div>

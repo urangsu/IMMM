@@ -162,6 +162,7 @@ function DecoV2({
   shots,
   selected,
   filter,
+  setFilter,
   layout,
   orientation,
   stickers,
@@ -1354,6 +1355,109 @@ function DecoV2({
       fontFamily: '"Plus Jakarta Sans",system-ui'
     }
   }, "Save frame")) : null;
+  var filterSelectionSection = /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 20,
+      padding: '12px 14px',
+      background: 'rgba(26,26,31,0.04)',
+      borderRadius: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 800,
+      color: T.ink,
+      marginBottom: 8,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "12",
+    height: "12",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "12",
+    r: "10"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M2 12h20"
+  })), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'Pretendard, system-ui'
+    }
+  }, "\uC0AC\uC9C4 \uD544\uD130 \uD1A4 (Filter)")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: 8
+    }
+  }, [{
+    id: 'original',
+    name: '노 필터',
+    desc: 'No Filter'
+  }, {
+    id: 'porcelain',
+    name: '자연광',
+    desc: 'Window Light'
+  }, {
+    id: 'smooth',
+    name: '크림 스킨',
+    desc: 'Cream Skin'
+  }, {
+    id: 'blush',
+    name: '첫사랑',
+    desc: 'First Love'
+  }, {
+    id: 'grain',
+    name: '소프트 필름',
+    desc: 'Soft Film'
+  }, {
+    id: 'bw',
+    name: '흑백',
+    desc: 'B&W'
+  }].map(item => {
+    var active = filter === item.id;
+    return /*#__PURE__*/React.createElement("button", {
+      key: item.id,
+      onClick: () => setFilter && setFilter(item.id),
+      style: {
+        padding: '6px 4px',
+        borderRadius: 10,
+        border: 'none',
+        background: active ? T.ink : T.card,
+        color: active ? T.bg : T.ink,
+        cursor: 'pointer',
+        boxShadow: active ? `0 0 0 1px ${T.ink}` : `0 0 0 1px ${T.line} inset`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 1,
+        minHeight: 48,
+        transition: 'all 0.15s ease'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10.5,
+        fontWeight: 700,
+        fontFamily: 'Pretendard, system-ui'
+      }
+    }, item.name), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 8,
+        opacity: active ? 0.8 : 0.6,
+        fontFamily: '"Plus Jakarta Sans",system-ui'
+      }
+    }, item.desc));
+  })));
   var tabBar = /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -1468,7 +1572,7 @@ function DecoV2({
         background: 'rgba(0,0,0,0.1)',
         margin: '10px auto 0'
       }
-    }), saveFrameBar, tabBar, tabContent)), saveSheetEl);
+    }), saveFrameBar, filterSelectionSection, tabBar, tabContent)), saveSheetEl);
   }
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1541,7 +1645,7 @@ function DecoV2({
       display: 'flex',
       flexDirection: 'column'
     }
-  }, saveFrameBar, tabBar, /*#__PURE__*/React.createElement("div", {
+  }, saveFrameBar, filterSelectionSection, tabBar, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }

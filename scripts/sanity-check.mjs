@@ -1372,6 +1372,121 @@ function checkVisibleFilters() {
   }
 }
 
+function checkFiltersParityVM() {
+  const distFilters = readFile('dist/filters.js');
+  const distWebglEngine = readFile('dist/webgl-engine.js');
+
+  if (!distFilters || !distWebglEngine) {
+    console.error('❌ FAIL: dist/filters.js or dist/webgl-engine.js missing for VM check');
+    hasErrors = true;
+    return;
+  }
+
+  try {
+    const sandbox = {
+      window: {},
+      React: {
+        createElement: () => ({}),
+        useRef: () => ({ current: null }),
+        useEffect: () => {},
+        useState: (v) => [v, () => {}],
+      },
+      performance: {
+        now: () => Date.now(),
+      },
+      console,
+    };
+    sandbox.window.React = sandbox.React;
+    vm.createContext(sandbox);
+
+    vm.runInContext(distFilters, sandbox);
+    vm.runInContext(distWebglEngine, sandbox);
+
+    const windowObj = sandbox.window;
+    const FILTERS = windowObj.FILTERS;
+    const VISIBLE_FILTER_KEYS = windowObj.VISIBLE_FILTER_KEYS;
+    const FILTER_PIPELINES = windowObj.FILTER_PIPELINES;
+    const getSafeFilterKey = windowObj.getSafeFilterKey;
+
+    if (!FILTERS || !VISIBLE_FILTER_KEYS || !FILTER_PIPELINES) {
+      console.error('❌ FAIL: FILTERS, VISIBLE_FILTER_KEYS or FILTER_PIPELINES not found in VM window');
+      hasErrors = true;
+      return;
+    }
+
+    // 1. VISIBLE_FILTER_KEYS 내 모든 키가 FILTERS 레지스트리에 존재해야 함.
+    VISIBLE_FILTER_KEYS.forEach(key => {
+      if (!FILTERS[key]) {
+        console.error(`❌ FAIL: VISIBLE_FILTER_KEYS contains '${key}' which is missing in FILTERS`);
+        hasErrors = true;
+      }
+    });
+
+    // 2. 노출 필터의 webglPipelineKey가 null이 아닐 경우, FILTER_PIPELINES 내에 해당하는 렌더 파이프라인이 1:1 매칭되어야 함.
+    VISIBLE_FILTER_KEYS.forEach(key => {
+      const filter = FILTERS[key];
+      if (filter && filter.webglPipelineKey !== null && filter.webglPipelineKey !== undefined) {
+        const pipelineKey = filter.webglPipelineKey;
+        if (!FILTER_PIPELINES[pipelineKey]) {
+          console.error(`❌ FAIL: Visible filter '${key}' specifies webglPipelineKey '${pipelineKey}' but no such pipeline exists in FILTER_PIPELINES`);
+          hasErrors = true;
+        }
+      }
+    });
+
+    // 3. FILTER_PIPELINES에는 정의되어 있으나 FILTERS에 아예 선언조차 되지 않은 visible pipeline이 존재하면 fail 처리 (legacy 마킹 필수).
+    Object.keys(FILTER_PIPELINES).forEach(pipelineKey => {
+      const matchedFilterKey = Object.keys(FILTERS).find(k => FILTERS[k].webglPipelineKey === pipelineKey);
+      if (!matchedFilterKey) {
+        console.error(`❌ FAIL: FILTER_PIPELINES contains '${pipelineKey}' but it is not associated with any filter in FILTERS (legacy marking required or missing definition)`);
+        hasErrors = true;
+      }
+    });
+
+    // 4. CSS fallback 및 WebGL pipeline 둘 다 부재한 visible filter가 감지될 시 fail 처리.
+    VISIBLE_FILTER_KEYS.forEach(key => {
+      const filter = FILTERS[key];
+      if (filter) {
+        const hasCss = !!filter.css;
+        const pipelineKey = filter.webglPipelineKey;
+        const hasWebGL = pipelineKey && FILTER_PIPELINES[pipelineKey];
+        if (!hasCss && !hasWebGL) {
+          console.error(`❌ FAIL: Visible filter '${key}' has neither CSS fallback nor WebGL pipeline`);
+          hasErrors = true;
+        }
+      }
+    });
+
+    // 5. 로컬스토리지 복구 가드 테스트 시나리오
+    if (typeof getSafeFilterKey !== 'function') {
+      console.error('❌ FAIL: getSafeFilterKey is not a function');
+      hasErrors = true;
+    } else {
+      const fallbackHidden = getSafeFilterKey('aurora');
+      if (fallbackHidden !== 'original') {
+        console.error(`❌ FAIL: getSafeFilterKey('aurora') returned '${fallbackHidden}' instead of 'original'`);
+        hasErrors = true;
+      }
+
+      const fallbackInvalid = getSafeFilterKey('invalid-key-xyz');
+      if (fallbackInvalid !== 'original') {
+        console.error(`❌ FAIL: getSafeFilterKey('invalid-key-xyz') returned '${fallbackInvalid}' instead of 'original'`);
+        hasErrors = true;
+      }
+
+      const normalFilter = getSafeFilterKey('smooth');
+      if (normalFilter !== 'smooth') {
+        console.error(`❌ FAIL: getSafeFilterKey('smooth') returned '${normalFilter}' instead of 'smooth'`);
+        hasErrors = true;
+      }
+    }
+
+  } catch (err) {
+    console.error('❌ FAIL: Error during VM filter parity check:', err.message || err);
+    hasErrors = true;
+  }
+}
+
 function checkWebglVisiblePipelines() {
   const content = readFile('webgl-engine.jsx');
   if (!content) return;
@@ -3231,6 +3346,7 @@ checkWidePickerSafety();
 checkWebGL();
 checkVisibleFilters();
 checkWebglVisiblePipelines();
+checkFiltersParityVM();
 checkEmergencyFaceSafety();
 checkEmergencyFrameGlobals();
 checkFrameStoreFoundation();
