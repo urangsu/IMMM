@@ -212,10 +212,18 @@ async function checkCaptureSessionSystem() {
           document: {
             createElement: (tag) => {
               if (tag === 'canvas') {
+                let lastSrc = null;
                 return {
                   getContext: () => ({
-                    drawImage: () => {},
-                    getImageData: () => ({ data: new Uint8ClampedArray(4) })
+                    drawImage: (img) => {
+                      lastSrc = img?.src;
+                    },
+                    getImageData: () => {
+                      if (lastSrc && lastSrc.includes('taint')) {
+                        throw new Error('Tainted canvas');
+                      }
+                      return { data: new Uint8ClampedArray(4) };
+                    }
                   }),
                   width: 1,
                   height: 1
@@ -962,6 +970,76 @@ async function checkCaptureSessionSystem() {
                   const hasMissingSrc = failRes.failures.some(f => f.reason === 'missing-src' && f.slotIndex === 2);
                   if (!hasMissingSrc) {
                     console.error('❌ FAIL: validateExportAssets did not report missing-src at slotIndex 2, got:', failRes);
+                    hasErrors = true;
+                  }
+                }
+
+                // P0-2: 배경 이미지 export validation VM 테스트
+                // 1. 정상 배경 이미지 (dataUrl) -> pass
+                const passBgPreset = {
+                  id: 'pass-bg-preset',
+                  layout: 'strip',
+                  background: { type: 'image', value: 'data:image/png;base64,pass' },
+                  photoSlots: [{ x: 0, y: 0, w: 100, h: 100 }]
+                };
+                const passBgRes = await validateExportAssets({
+                  layout: 'strip',
+                  framePreset: passBgPreset,
+                  selected: [0],
+                  shots: [{ assetId: 'a0', dataUrl: 'data:image/png;base64,0' }],
+                  stickers: []
+                });
+                if (!passBgRes.ok) {
+                  console.error('❌ FAIL: validateExportAssets background pass test failed:', passBgRes);
+                  hasErrors = true;
+                }
+
+                // 2. 만료된 blob 배경 이미지 -> fail (reason: 'expired-blob-url')
+                const expiredBgPreset = {
+                  id: 'expired-bg-preset',
+                  layout: 'strip',
+                  background: { type: 'image', value: 'blob:https://immm.app/expired-uuid' },
+                  photoSlots: [{ x: 0, y: 0, w: 100, h: 100 }]
+                };
+                const expiredBgRes = await validateExportAssets({
+                  layout: 'strip',
+                  framePreset: expiredBgPreset,
+                  selected: [0],
+                  shots: [{ assetId: 'a0', dataUrl: 'data:image/png;base64,0' }],
+                  stickers: []
+                });
+                if (expiredBgRes.ok) {
+                  console.error('❌ FAIL: validateExportAssets background expired blob test should fail but passed');
+                  hasErrors = true;
+                } else {
+                  const hasExpiredBg = expiredBgRes.failures.some(f => f.type === 'background' && f.reason === 'expired-blob-url');
+                  if (!hasExpiredBg) {
+                    console.error('❌ FAIL: validateExportAssets did not report expired-blob-url background failure, got:', expiredBgRes);
+                    hasErrors = true;
+                  }
+                }
+
+                // 3. 오염/에러 remote 배경 -> fail (reason: 'taint-error')
+                const taintBgPreset = {
+                  id: 'taint-bg-preset',
+                  layout: 'strip',
+                  background: { type: 'image', value: 'https://immm.app/taint-image.png' },
+                  photoSlots: [{ x: 0, y: 0, w: 100, h: 100 }]
+                };
+                const taintBgRes = await validateExportAssets({
+                  layout: 'strip',
+                  framePreset: taintBgPreset,
+                  selected: [0],
+                  shots: [{ assetId: 'a0', dataUrl: 'data:image/png;base64,0' }],
+                  stickers: []
+                });
+                if (taintBgRes.ok) {
+                  console.error('❌ FAIL: validateExportAssets background taint test should fail but passed');
+                  hasErrors = true;
+                } else {
+                  const hasTaintBg = taintBgRes.failures.some(f => f.type === 'background' && f.reason === 'taint-error');
+                  if (!hasTaintBg) {
+                    console.error('❌ FAIL: validateExportAssets did not report taint-error background failure, got:', taintBgRes);
                     hasErrors = true;
                   }
                 }

@@ -1876,9 +1876,12 @@ function ResultV2({
         if (!valResult.ok) {
           setResultPreviewFailures(valResult.failures);
           setResultPreviewStatus('error');
+          var hasBackgroundError = valResult.failures.some(f => f.type === 'background');
           var hasExpiredBlob = valResult.failures.some(f => f.reason === 'expired-blob-url');
           var friendlyMsg = '';
-          if (hasExpiredBlob) {
+          if (hasBackgroundError) {
+            friendlyMsg = '배경 이미지를 불러오지 못했습니다. 디자이너에서 배경 이미지를 다시 업로드해 주세요.';
+          } else if (hasExpiredBlob) {
             friendlyMsg = '임시 이미지가 만료되었습니다. 사진을 다시 업로드하거나 다시 촬영해주세요.';
           } else {
             var hasPhotoError = valResult.failures.some(f => f.type === 'photo');

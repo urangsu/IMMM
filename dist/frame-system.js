@@ -429,16 +429,27 @@ async function validateExportAssets(data) {
       });
     }
   }
-  var uploadStickers = stickers.filter(s => s?.kind === 'upload');
-  for (var s of uploadStickers) {
-    var _src = s.payload?.dataUrl || s.payload?.blobUrl || s.payload?.remoteUrl;
+  if (framePreset?.background?.type === 'image') {
+    var _src = framePreset.background.value;
     var _res = await loadImageForCanvasDetailed(_src);
     if (!_res.ok) {
       failures.push({
-        type: 'sticker',
-        stickerId: s.id,
+        type: 'background',
         reason: _res.reason,
         src: _res.src
+      });
+    }
+  }
+  var uploadStickers = stickers.filter(s => s?.kind === 'upload');
+  for (var s of uploadStickers) {
+    var _src2 = s.payload?.dataUrl || s.payload?.blobUrl || s.payload?.remoteUrl;
+    var _res2 = await loadImageForCanvasDetailed(_src2);
+    if (!_res2.ok) {
+      failures.push({
+        type: 'sticker',
+        stickerId: s.id,
+        reason: _res2.reason,
+        src: _res2.src
       });
     }
   }

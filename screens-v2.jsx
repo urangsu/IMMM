@@ -3559,22 +3559,90 @@ function DesignerScreen({
   const handleBgImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setStatusMessage('이미지가 너무 큽니다. 더 작은 이미지를 선택해주세요.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
-      setBackgroundPatch({
-        type: 'image',
-        value: reader.result,
-      });
-      if (typeof window !== 'undefined') {
-        if (!window.__IMMM_BACKGROUND_IMAGE_CACHE__) {
-          window.__IMMM_BACKGROUND_IMAGE_CACHE__ = new Map();
+      const originalResult = reader.result;
+      const img = new Image();
+      img.onload = () => {
+        const longEdgeLimit = 2048;
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+
+        let needsResize = false;
+        if (width > longEdgeLimit || height > longEdgeLimit) {
+          needsResize = true;
+          if (width > height) {
+            height = Math.round((height * longEdgeLimit) / width);
+            width = longEdgeLimit;
+          } else {
+            width = Math.round((width * longEdgeLimit) / height);
+            height = longEdgeLimit;
+          }
         }
-        const img = new Image();
-        img.onload = () => {
-          window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(reader.result, img);
-        };
-        img.src = reader.result;
-      }
+
+        let finalResult = originalResult;
+        if (needsResize) {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            finalResult = canvas.toDataURL(file.type || 'image/png');
+          } catch (err) {
+            console.error('[IMMM] Resize background image failed:', err);
+            setStatusMessage('배경 이미지를 불러오지 못했습니다.');
+            e.target.value = '';
+            return;
+          }
+        }
+
+        if (typeof window !== 'undefined') {
+          if (!window.__IMMM_BACKGROUND_IMAGE_CACHE__) {
+            window.__IMMM_BACKGROUND_IMAGE_CACHE__ = new Map();
+          }
+          if (needsResize) {
+            const resizedImg = new Image();
+            resizedImg.onload = () => {
+              window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(finalResult, resizedImg);
+              setBackgroundPatch({
+                type: 'image',
+                value: finalResult,
+              });
+            };
+            resizedImg.onerror = () => {
+              setStatusMessage('배경 이미지를 불러오지 못했습니다.');
+            };
+            resizedImg.src = finalResult;
+          } else {
+            window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(finalResult, img);
+            setBackgroundPatch({
+              type: 'image',
+              value: finalResult,
+            });
+          }
+        } else {
+          setBackgroundPatch({
+            type: 'image',
+            value: finalResult,
+          });
+        }
+      };
+      img.onerror = () => {
+        setStatusMessage('배경 이미지를 불러오지 못했습니다.');
+      };
+      img.src = originalResult;
+    };
+    reader.onerror = () => {
+      setStatusMessage('배경 이미지를 불러오지 못했습니다.');
     };
     reader.readAsDataURL(file);
   };
@@ -4069,16 +4137,20 @@ function DesignerScreen({
     return (
       <div style={{ minHeight: '100%', padding: 24, background: T.bg, color: T.ink, fontFamily: '"Plus Jakarta Sans", Pretendard, system-ui', display: 'grid', placeItems: 'center' }}>
         <div style={{ width: 'min(100%, 420px)', border: `1px solid ${T.line}`, borderRadius: 18, background: '#fff', padding: 18, display: 'grid', gap: 12 }}>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>Designer draft unavailable</div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>
+            {!isCreator ? '프레임을 불러올 수 없습니다' : 'Designer draft unavailable'}
+          </div>
           <div style={{ fontSize: 12, lineHeight: 1.5, color: T.inkSoft }}>
-            The previous designer route did not include a recoverable frame draft.
+            {!isCreator 
+              ? '이전 디자이너 경로에 복구 가능한 프레임 초안이 포함되어 있지 않습니다.' 
+              : 'The previous designer route did not include a recoverable frame draft.'}
           </div>
           <button onClick={() => go('frames')} style={{ minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
-            Back to Frame Store
+            {!isCreator ? '프레임 목록으로' : 'Back to Frame Store'}
           </button>
           {openDesigner && (
             <button onClick={() => openDesigner({ mode: 'new' })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
-              Create Default Frame
+              {!isCreator ? '기본 프레임 생성' : 'Create Default Frame'}
             </button>
           )}
         </div>
@@ -4166,25 +4238,27 @@ function DesignerScreen({
                 }}>{tab.label}</button>
               ))}
             </div>
-            <button onClick={() => {
-              const next = !showAdvancedLayers;
-              setShowAdvancedLayers(next);
-              if (!next && activeTab === 'layers') {
-                setActiveTab('layout');
-              }
-            }} style={{
-              minHeight: 36,
-              padding: '0 12px',
-              borderRadius: 999,
-              border: `1px solid ${T.line}`,
-              background: showAdvancedLayers ? T.ink : '#fff',
-              color: showAdvancedLayers ? T.bg : T.ink,
-              fontSize: 10,
-              fontWeight: 800,
-              cursor: 'pointer',
-            }}>
-              고급 레이어 {showAdvancedLayers ? 'ON' : 'OFF'}
-            </button>
+            {isCreator && (
+              <button onClick={() => {
+                const next = !showAdvancedLayers;
+                setShowAdvancedLayers(next);
+                if (!next && activeTab === 'layers') {
+                  setActiveTab('layout');
+                }
+              }} style={{
+                minHeight: 36,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: `1px solid ${T.line}`,
+                background: showAdvancedLayers ? T.ink : '#fff',
+                color: showAdvancedLayers ? T.bg : T.ink,
+                fontSize: 10,
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}>
+                고급 레이어 {showAdvancedLayers ? 'ON' : 'OFF'}
+              </button>
+            )}
           </div>
 
           <DesignerPreviewCanvas
@@ -4212,13 +4286,25 @@ function DesignerScreen({
       }}>
         <div style={{ padding: 14, borderRadius: 18, border: `1px solid ${T.line}`, background: '#fff', display: 'grid', gap: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 900 }}>Status</div>
+            <div style={{ fontSize: 12, fontWeight: 900 }}>{!isCreator ? '상태' : 'Status'}</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <StoreBadge T={T} tone="light">{isDirty ? 'Unsaved' : 'Saved'}</StoreBadge>
+              <StoreBadge T={T} tone="light">
+                {!isCreator 
+                  ? (isDirty ? '저장되지 않음' : '저장됨') 
+                  : (isDirty ? 'Unsaved' : 'Saved')}
+              </StoreBadge>
               {designerBasePresetId && <StoreBadge T={T} tone="light">{designerBasePresetId}</StoreBadge>}
             </div>
           </div>
-          <div style={{ fontSize: 11, color: T.inkSoft }}>{validation.ok ? 'Draft is valid.' : validation.error}</div>
+          <div style={{ fontSize: 11, color: T.inkSoft }}>
+            {!isCreator 
+              ? (validation.ok 
+                  ? '저장할 수 있어요' 
+                  : (validation.error === 'Designer draft unavailable' 
+                      ? '프레임을 불러올 수 없습니다' 
+                      : validation.error)) 
+              : (validation.ok ? 'Draft is valid.' : validation.error)}
+          </div>
           {statusMessage && <div style={{ fontSize: 11, color: T.ink }}>{statusMessage}</div>}
           {validationError && <div style={{ fontSize: 11, color: '#B64B4B' }}>{validationError}</div>}
         </div>

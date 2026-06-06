@@ -5756,22 +5756,85 @@ function DesignerScreen({
   var handleBgImageUpload = e => {
     var file = e.target.files?.[0];
     if (!file) return;
+    var MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setStatusMessage('이미지가 너무 큽니다. 더 작은 이미지를 선택해주세요.');
+      e.target.value = '';
+      return;
+    }
     var reader = new FileReader();
     reader.onload = () => {
-      setBackgroundPatch({
-        type: 'image',
-        value: reader.result
-      });
-      if (typeof window !== 'undefined') {
-        if (!window.__IMMM_BACKGROUND_IMAGE_CACHE__) {
-          window.__IMMM_BACKGROUND_IMAGE_CACHE__ = new Map();
+      var originalResult = reader.result;
+      var img = new Image();
+      img.onload = () => {
+        var longEdgeLimit = 2048;
+        var width = img.naturalWidth;
+        var height = img.naturalHeight;
+        var needsResize = false;
+        if (width > longEdgeLimit || height > longEdgeLimit) {
+          needsResize = true;
+          if (width > height) {
+            height = Math.round(height * longEdgeLimit / width);
+            width = longEdgeLimit;
+          } else {
+            width = Math.round(width * longEdgeLimit / height);
+            height = longEdgeLimit;
+          }
         }
-        var img = new Image();
-        img.onload = () => {
-          window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(reader.result, img);
-        };
-        img.src = reader.result;
-      }
+        var finalResult = originalResult;
+        if (needsResize) {
+          try {
+            var canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            finalResult = canvas.toDataURL(file.type || 'image/png');
+          } catch (err) {
+            console.error('[IMMM] Resize background image failed:', err);
+            setStatusMessage('배경 이미지를 불러오지 못했습니다.');
+            e.target.value = '';
+            return;
+          }
+        }
+        if (typeof window !== 'undefined') {
+          if (!window.__IMMM_BACKGROUND_IMAGE_CACHE__) {
+            window.__IMMM_BACKGROUND_IMAGE_CACHE__ = new Map();
+          }
+          if (needsResize) {
+            var resizedImg = new Image();
+            resizedImg.onload = () => {
+              window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(finalResult, resizedImg);
+              setBackgroundPatch({
+                type: 'image',
+                value: finalResult
+              });
+            };
+            resizedImg.onerror = () => {
+              setStatusMessage('배경 이미지를 불러오지 못했습니다.');
+            };
+            resizedImg.src = finalResult;
+          } else {
+            window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(finalResult, img);
+            setBackgroundPatch({
+              type: 'image',
+              value: finalResult
+            });
+          }
+        } else {
+          setBackgroundPatch({
+            type: 'image',
+            value: finalResult
+          });
+        }
+      };
+      img.onerror = () => {
+        setStatusMessage('배경 이미지를 불러오지 못했습니다.');
+      };
+      img.src = originalResult;
+    };
+    reader.onerror = () => {
+      setStatusMessage('배경 이미지를 불러오지 못했습니다.');
     };
     reader.readAsDataURL(file);
   };
@@ -6479,13 +6542,13 @@ function DesignerScreen({
         fontSize: 18,
         fontWeight: 800
       }
-    }, "Designer draft unavailable"), /*#__PURE__*/React.createElement("div", {
+    }, !isCreator ? '프레임을 불러올 수 없습니다' : 'Designer draft unavailable'), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 12,
         lineHeight: 1.5,
         color: T.inkSoft
       }
-    }, "The previous designer route did not include a recoverable frame draft."), /*#__PURE__*/React.createElement("button", {
+    }, !isCreator ? '이전 디자이너 경로에 복구 가능한 프레임 초안이 포함되어 있지 않습니다.' : 'The previous designer route did not include a recoverable frame draft.'), /*#__PURE__*/React.createElement("button", {
       onClick: () => go('frames'),
       style: {
         minHeight: 44,
@@ -6497,7 +6560,7 @@ function DesignerScreen({
         fontWeight: 800,
         textTransform: 'uppercase'
       }
-    }, "Back to Frame Store"), openDesigner && /*#__PURE__*/React.createElement("button", {
+    }, !isCreator ? '프레임 목록으로' : 'Back to Frame Store'), openDesigner && /*#__PURE__*/React.createElement("button", {
       onClick: () => openDesigner({
         mode: 'new'
       }),
@@ -6511,7 +6574,7 @@ function DesignerScreen({
         fontWeight: 800,
         textTransform: 'uppercase'
       }
-    }, "Create Default Frame")));
+    }, !isCreator ? '기본 프레임 생성' : 'Create Default Frame')));
   }
   var previewWidth = 540;
   var previewHeight = Math.round(previewWidth * (previewCanvas.height / previewCanvas.width));
@@ -6693,7 +6756,7 @@ function DesignerScreen({
       letterSpacing: 1,
       cursor: 'pointer'
     }
-  }, tab.label))), /*#__PURE__*/React.createElement("button", {
+  }, tab.label))), isCreator && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       var next = !showAdvancedLayers;
       setShowAdvancedLayers(next);
@@ -6753,7 +6816,7 @@ function DesignerScreen({
       fontSize: 12,
       fontWeight: 900
     }
-  }, "Status"), /*#__PURE__*/React.createElement("div", {
+  }, !isCreator ? '상태' : 'Status'), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 6,
@@ -6763,7 +6826,7 @@ function DesignerScreen({
   }, /*#__PURE__*/React.createElement(StoreBadge, {
     T: T,
     tone: "light"
-  }, isDirty ? 'Unsaved' : 'Saved'), designerBasePresetId && /*#__PURE__*/React.createElement(StoreBadge, {
+  }, !isCreator ? isDirty ? '저장되지 않음' : '저장됨' : isDirty ? 'Unsaved' : 'Saved'), designerBasePresetId && /*#__PURE__*/React.createElement(StoreBadge, {
     T: T,
     tone: "light"
   }, designerBasePresetId))), /*#__PURE__*/React.createElement("div", {
@@ -6771,7 +6834,7 @@ function DesignerScreen({
       fontSize: 11,
       color: T.inkSoft
     }
-  }, validation.ok ? 'Draft is valid.' : validation.error), statusMessage && /*#__PURE__*/React.createElement("div", {
+  }, !isCreator ? validation.ok ? '저장할 수 있어요' : validation.error === 'Designer draft unavailable' ? '프레임을 불러올 수 없습니다' : validation.error : validation.ok ? 'Draft is valid.' : validation.error), statusMessage && /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: T.ink

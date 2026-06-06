@@ -269,6 +269,14 @@ async function validateExportAssets(data) {
     }
   }
 
+  if (framePreset?.background?.type === 'image') {
+    const src = framePreset.background.value;
+    const res = await loadImageForCanvasDetailed(src);
+    if (!res.ok) {
+      failures.push({ type: 'background', reason: res.reason, src: res.src });
+    }
+  }
+
   const uploadStickers = stickers.filter(s => s?.kind === 'upload');
   for (const s of uploadStickers) {
     const src = s.payload?.dataUrl || s.payload?.blobUrl || s.payload?.remoteUrl;
