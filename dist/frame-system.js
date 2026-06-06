@@ -1209,7 +1209,8 @@ function FrameThumb({
       }
       var renderComp = window.renderComposition || (typeof renderComposition === 'function' ? renderComposition : null);
       if (renderComp) await renderComp(ctx, data, {
-        scale: 1
+        scale: 1,
+        skipAssetValidation: true
       });
     };
     idleId = requestIdleCallbackSafe(() => {
