@@ -6,6 +6,21 @@ var {
   useRef: uR,
   useMemo: uM
 } = React;
+function getCreatorMode() {
+  if (typeof window === 'undefined') return false;
+  var params = new URLSearchParams(window.location.search);
+  var isCreatorParam = params.get('creator') === '1' || params.get('creatorMode') === '1';
+  var isCreatorStorage = window.localStorage.getItem('immm_creator_mode') === 'true';
+  if (isCreatorParam) {
+    window.localStorage.setItem('immm_creator_mode', 'true');
+    return true;
+  }
+  if (params.get('creator') === '0' || params.get('creatorMode') === '0') {
+    window.localStorage.removeItem('immm_creator_mode');
+    return false;
+  }
+  return isCreatorStorage;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // Shared primitives
@@ -815,6 +830,7 @@ function SetupScreen({
   setSetupStoreTabFocus,
   resetAppliedFramePreset
 }) {
+  var isCreator = getCreatorMode();
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
   var [tab, setTab] = uS(editMode ? 'photos' : 'frame');
   var [selStId, setSelStId] = uS(null);
@@ -836,6 +852,11 @@ function SetupScreen({
   var selectedPreview = Array.from({
     length: Math.max(1, slotCount)
   }, (_, i) => i);
+  uE(() => {
+    if (!isCreator && tab !== 'frame' && tab !== 'photos') {
+      setTab('frame');
+    }
+  }, [isCreator, tab]);
   uE(() => {
     var fit = () => {
       if (!setupContainerRef.current || !setupFrameRef.current) return;
@@ -1058,7 +1079,7 @@ function SetupScreen({
       display: 'grid',
       gap: 8
     }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, isCreator ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     onClick: () => goFrames('featured'),
     style: {
       minHeight: 44,
@@ -1097,7 +1118,20 @@ function SetupScreen({
       letterSpacing: 1.2,
       textTransform: 'uppercase'
     }
-  }, "\uD504\uB808\uC784 \uC2A4\uD1A0\uC5B4 \uAC00\uAE30")), setupPreviewPreset && /*#__PURE__*/React.createElement("div", {
+  }, "\uD504\uB808\uC784 \uC2A4\uD1A0\uC5B4 \uAC00\uAE30")) : /*#__PURE__*/React.createElement("button", {
+    onClick: () => goFrames('featured'),
+    style: {
+      minHeight: 48,
+      borderRadius: 12,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      fontSize: 12,
+      fontWeight: 900,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase'
+    }
+  }, "\uD504\uB808\uC784 \uACE0\uB974\uAE30")), setupPreviewPreset && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
       padding: 12,
@@ -1351,7 +1385,7 @@ function SetupScreen({
     }
   })))));
   var tabContent = tab === 'photos' ? photosTab : tab === 'frame' ? frameTab : tab === 'filter' ? filterTab : tab === 'stickers' ? stickersTab : optionsTab;
-  var tabs = [...(editMode ? [['photos', '사진']] : []), ['frame', '프레임'], ['filter', '필터'], ['stickers', '스티커'], ['options', '옵션']];
+  var tabs = isCreator ? [...(editMode ? [['photos', '사진']] : []), ['frame', '프레임'], ['filter', '필터'], ['stickers', '스티커'], ['options', '옵션']] : [...(editMode ? [['photos', '사진']] : []), ['frame', '프레임']];
   var tabBar = /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -1396,14 +1430,14 @@ function SetupScreen({
         size: "sm",
         onClick: () => editMode ? go('deco') : startNewCaptureSession(),
         disabled: editMode && uploadedCount < captureCount
-      }, editMode ? '편집 시작' : 'Next')
+      }, editMode ? '편집 시작' : isCreator ? 'Next' : '이 프레임으로 촬영하기')
     }), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: '1 1 0',
         minHeight: 0,
         position: 'relative'
       }
-    }, preview, /*#__PURE__*/React.createElement("div", {
+    }, preview, isCreator && /*#__PURE__*/React.createElement("div", {
       style: {
         position: 'absolute',
         bottom: 14,
@@ -1457,7 +1491,7 @@ function SetupScreen({
       size: "md",
       onClick: () => editMode ? go('deco') : startNewCaptureSession(),
       disabled: editMode && uploadedCount < captureCount
-    }, editMode ? '편집 시작' : 'Continue · 다음', " ", !editMode && I.arrowR(14, T.bg))
+    }, editMode ? '편집 시작' : isCreator ? 'Continue · 다음' : '이 프레임으로 촬영하기', " ", !editMode && isCreator && I.arrowR(14, T.bg))
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
@@ -1481,7 +1515,7 @@ function SetupScreen({
       fontFamily: '"Plus Jakarta Sans",system-ui',
       letterSpacing: 1.5
     }
-  }, "LIVE PREVIEW"), /*#__PURE__*/React.createElement("div", {
+  }, "LIVE PREVIEW"), isCreator && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       bottom: 18,
@@ -1546,6 +1580,7 @@ function FrameStoreScreen({
   creatorProfiles = [],
   storeTabFocus = ''
 }) {
+  var isCreator = getCreatorMode();
   var devUnlockVisible = typeof window !== 'undefined' && (window.IMMM_FIELD_TEST === true || window.IMMM_DEBUG_BUILD === true || new URLSearchParams(location.search).get('fieldTest') === '1');
   var frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
   var WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function' ? window.FrameThumb : null;
@@ -1557,6 +1592,11 @@ function FrameStoreScreen({
   var [showImportExportModal, setShowImportExportModal] = uS(false);
   var [selectedPresetId, setSelectedPresetId] = uS(selectedFramePresetId || '');
   var savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter(preset => !preset.deletedAt), [customFrames]);
+  uE(() => {
+    if (!isCreator && storeTab !== 'featured' && storeTab !== 'my-frames') {
+      setStoreTab('featured');
+    }
+  }, [isCreator, storeTab]);
   var allPresets = uM(() => {
     var byId = new Map();
     [...(Array.isArray(framePresets) ? framePresets : []), ...savedFrames].forEach(preset => {
@@ -1667,7 +1707,7 @@ function FrameStoreScreen({
     T: T,
     size: "sm"
   }));
-  var tabs = [['featured', '추천'], ['free', '기본'], ['my-frames', '내 프레임'], ['premium', '유료 예정']];
+  var tabs = isCreator ? [['featured', '추천'], ['free', '기본'], ['my-frames', '내 프레임'], ['premium', '유료 예정']] : [['featured', '추천'], ['my-frames', '내 프레임']];
   var cardStyle = {
     border: `1px solid ${T.line}`,
     borderRadius: 18,
@@ -1762,7 +1802,7 @@ function FrameStoreScreen({
       fontSize: mobile ? 22 : 30,
       fontWeight: 900
     }
-  }, "Choose or create a frame")), /*#__PURE__*/React.createElement("button", {
+  }, "Choose or create a frame")), isCreator && /*#__PURE__*/React.createElement("button", {
     onClick: () => openDesigner?.({
       mode: 'new',
       preset: selectedPreset
@@ -1947,9 +1987,31 @@ function FrameStoreScreen({
       display: 'grid',
       gap: 10
     }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between'
+    }
   }, /*#__PURE__*/React.createElement(Kick, {
     T: T
-  }, storeTab === 'my-frames' ? 'My Frames' : 'All Frames'), visiblePresets.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, storeTab === 'my-frames' ? '내 프레임' : '전체 프레임'), !isCreator && storeTab === 'my-frames' && /*#__PURE__*/React.createElement("button", {
+    onClick: () => openDesigner?.({
+      mode: 'new',
+      preset: selectedPreset
+    }),
+    style: {
+      minHeight: 32,
+      borderRadius: 8,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      padding: '0 12px',
+      fontSize: 10,
+      fontWeight: 800,
+      cursor: 'pointer'
+    }
+  }, "\uC0C8 \uD504\uB808\uC784 \uB9CC\uB4E4\uAE30")), visiblePresets.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "frame-store-card",
     style: cardStyle
   }, /*#__PURE__*/React.createElement("div", {
@@ -1957,12 +2019,12 @@ function FrameStoreScreen({
       fontSize: 15,
       fontWeight: 900
     }
-  }, "No frames here yet"), /*#__PURE__*/React.createElement("div", {
+  }, "\uC800\uC7A5\uB41C \uD504\uB808\uC784\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: T.inkSoft
     }
-  }, "Create your first frame or import a frame pack."), /*#__PURE__*/React.createElement("button", {
+  }, "\uB098\uB9CC\uC758 \uD504\uB808\uC784\uC744 \uC9C1\uC811 \uB9CC\uB4E4\uACE0 \uC800\uC7A5\uD574 \uBCF4\uC138\uC694."), /*#__PURE__*/React.createElement("button", {
     onClick: () => openDesigner?.({
       mode: 'new',
       preset: selectedPreset
@@ -1978,7 +2040,7 @@ function FrameStoreScreen({
       fontWeight: 900,
       justifySelf: 'start'
     }
-  }, "Create your first frame")) : /*#__PURE__*/React.createElement("div", {
+  }, "\uC0C8 \uD504\uB808\uC784 \uB9CC\uB4E4\uAE30")) : /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(220px, 1fr))',
@@ -2116,7 +2178,7 @@ function FrameStoreScreen({
         cursor: 'pointer'
       }
     }, "Delete"))));
-  }))), devUnlockVisible && (storeTab === 'my-frames' || storeTab === 'imported') && /*#__PURE__*/React.createElement("div", {
+  }))), isCreator && (storeTab === 'my-frames' || storeTab === 'imported') && /*#__PURE__*/React.createElement("div", {
     className: "frame-store-card",
     style: {
       ...cardStyle,
@@ -2218,7 +2280,7 @@ function FrameStoreScreen({
       textTransform: 'uppercase',
       cursor: selectedPreset ? 'pointer' : 'default'
     }
-  }, "Apply to Booth"), /*#__PURE__*/React.createElement("button", {
+  }, "Apply to Booth"), (isCreator || selectedPreset?.source === 'custom' || selectedPreset?.source === 'imported') && /*#__PURE__*/React.createElement("button", {
     onClick: () => openDesigner?.({
       mode: 'duplicate',
       preset: selectedPreset
@@ -5612,6 +5674,7 @@ function DesignerScreen({
   exportPresetId = 'hd',
   setExportPresetId
 }) {
+  var isCreator = getCreatorMode();
   var frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
   var useTouchFallback = typeof window !== 'undefined' && (!('PointerEvent' in window) || typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || ''));
   var previewRef = uR(null);
@@ -5634,6 +5697,84 @@ function DesignerScreen({
   var [activeLayerIndex, setActiveLayerIndex] = uS(0);
   var [activeMotionPreview, setActiveMotionPreview] = uS(false);
   var [showAdvancedLayers, setShowAdvancedLayers] = uS(false);
+  var applySlotGeometryPreset = presetType => {
+    if (!draftFrame || !frameApi) return;
+    var backup = JSON.parse(JSON.stringify(draftFrame));
+    var nextFrame = JSON.parse(JSON.stringify(draftFrame));
+    var slots = nextFrame.photoSlots || [];
+    if (presetType === 'default') {
+      var defaultSlots = frameApi.getPhotoSlotsForLayout?.(nextFrame.layout) || [];
+      nextFrame.photoSlots = slots.map((slot, i) => ({
+        ...slot,
+        borderRadius: 0,
+        width: defaultSlots[i]?.width || slot.width,
+        height: defaultSlots[i]?.height || slot.height,
+        x: defaultSlots[i]?.x || slot.x,
+        y: defaultSlots[i]?.y || slot.y
+      }));
+    } else if (presetType === 'round') {
+      slots.forEach(slot => {
+        slot.borderRadius = 24;
+      });
+    } else if (presetType === 'wide-margin') {
+      slots.forEach(slot => {
+        var shrinkW = Math.round(slot.width * 0.1);
+        var shrinkH = Math.round(slot.height * 0.1);
+        slot.width -= shrinkW;
+        slot.height -= shrinkH;
+        slot.x += Math.round(shrinkW / 2);
+        slot.y += Math.round(shrinkH / 2);
+        slot.borderRadius = 8;
+      });
+    } else if (presetType === 'tight') {
+      slots.forEach(slot => {
+        var expandW = Math.round(slot.width * 0.05);
+        var expandH = Math.round(slot.height * 0.05);
+        slot.width += expandW;
+        slot.height += expandH;
+        slot.x -= Math.round(expandW / 2);
+        slot.y -= Math.round(expandH / 2);
+        slot.borderRadius = 0;
+      });
+    } else if (presetType === 'center') {
+      var canvasW = nextFrame.canvasSize?.width || 560;
+      slots.forEach(slot => {
+        slot.x = Math.round((canvasW - slot.width) / 2);
+      });
+    }
+    var val = frameApi.validateDesignerDraft?.(nextFrame) || {
+      ok: true
+    };
+    if (val.ok) {
+      setDraftFrame(nextFrame);
+      setStatusMessage('레이아웃 프리셋이 적용되었습니다.');
+    } else {
+      setDraftFrame(backup);
+      setStatusMessage(`적용 실패(롤백됨): ${val.error || '유효하지 않은 레이아웃'}`);
+    }
+  };
+  var handleBgImageUpload = e => {
+    var file = e.target.files?.[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = () => {
+      setBackgroundPatch({
+        type: 'image',
+        value: reader.result
+      });
+      if (typeof window !== 'undefined') {
+        if (!window.__IMMM_BACKGROUND_IMAGE_CACHE__) {
+          window.__IMMM_BACKGROUND_IMAGE_CACHE__ = new Map();
+        }
+        var img = new Image();
+        img.onload = () => {
+          window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(reader.result, img);
+        };
+        img.src = reader.result;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
   var normalizedDraft = uM(() => frameApi?.normalizeDesignerDraft?.(draftFrame) || draftFrame || null, [draftFrame, frameApi]);
   var normalizedInitial = uM(() => frameApi?.normalizeDesignerDraft?.(initialDraftFrame) || initialDraftFrame || null, [initialDraftFrame, frameApi]);
   var slotDefaults = uM(() => normalizedDraft ? frameApi?.getPhotoSlotsForLayout?.(normalizedDraft.layout) || normalizedDraft.photoSlots || [] : [], [frameApi, normalizedDraft]);
@@ -5654,7 +5795,12 @@ function DesignerScreen({
     ok: false,
     error: 'Draft missing'
   }, [frameApi, normalizedDraft]);
-  var tabs = [{
+  React.useEffect(() => {
+    if (!isCreator && !['layout', 'background', 'decorations', 'save'].includes(activeTab)) {
+      setActiveTab('layout');
+    }
+  }, [isCreator, activeTab]);
+  var tabs = isCreator ? [{
     id: 'layout',
     label: 'Layout'
   }, {
@@ -5675,6 +5821,18 @@ function DesignerScreen({
   }, {
     id: 'save',
     label: 'Save'
+  }] : [{
+    id: 'layout',
+    label: '모양'
+  }, {
+    id: 'background',
+    label: '배경'
+  }, {
+    id: 'decorations',
+    label: '꾸미기'
+  }, {
+    id: 'save',
+    label: '저장'
   }];
   var currentLayoutSlots = normalizedDraft?.photoSlots || [];
   var currentDecorations = normalizedDraft?.decorations || [];
@@ -6417,7 +6575,7 @@ function DesignerScreen({
       flexWrap: 'wrap',
       justifyContent: 'flex-end'
     }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, isCreator ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     onClick: () => go('frames'),
     style: {
       minHeight: 44,
@@ -6469,7 +6627,34 @@ function DesignerScreen({
       fontWeight: 800,
       textTransform: 'uppercase'
     }
-  }, "Save Frame"))), /*#__PURE__*/React.createElement("div", {
+  }, "Save Frame")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (isDirty && !window.confirm('저장하지 않은 변경사항이 있습니다. 정말로 닫으시겠습니까?')) return;
+      go('frames');
+    },
+    style: {
+      minHeight: 44,
+      padding: '0 18px',
+      borderRadius: 999,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 12,
+      fontWeight: 800
+    }
+  }, "\uB2EB\uAE30"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSaveFrame,
+    style: {
+      minHeight: 44,
+      padding: '0 18px',
+      borderRadius: 999,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      fontSize: 12,
+      fontWeight: 800
+    }
+  }, "\uC800\uC7A5")))), /*#__PURE__*/React.createElement("div", {
     style: {
       border: `1px solid ${T.line}`,
       borderRadius: 18,
@@ -6610,7 +6795,7 @@ function DesignerScreen({
       fontSize: 12,
       fontWeight: 900
     }
-  }, "Layout"), /*#__PURE__*/React.createElement("input", {
+  }, isCreator ? 'Layout' : '프레임 이름 및 형태'), /*#__PURE__*/React.createElement("input", {
     value: normalizedDraft.name,
     onChange: e => normalizeNextDraft({
       name: e.target.value
@@ -6622,7 +6807,7 @@ function DesignerScreen({
       padding: '0 12px',
       fontSize: 12
     },
-    placeholder: "Frame name"
+    placeholder: "\uD504\uB808\uC784 \uC774\uB984"
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
@@ -6642,7 +6827,76 @@ function DesignerScreen({
       fontWeight: 800,
       textTransform: 'uppercase'
     }
-  }, nextLayout))), /*#__PURE__*/React.createElement("button", {
+  }, nextLayout))), !isCreator ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 900,
+      color: T.inkSoft
+    }
+  }, "\uC0AC\uC9C4\uCE78 \uBAA8\uC591 \uD504\uB9AC\uC14B"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => applySlotGeometryPreset('default'),
+    style: {
+      minHeight: 40,
+      borderRadius: 10,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 11,
+      fontWeight: 700
+    }
+  }, "\uAE30\uBCF8"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => applySlotGeometryPreset('round'),
+    style: {
+      minHeight: 40,
+      borderRadius: 10,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 11,
+      fontWeight: 700
+    }
+  }, "\uB465\uAE00\uAC8C"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => applySlotGeometryPreset('wide-margin'),
+    style: {
+      minHeight: 40,
+      borderRadius: 10,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 11,
+      fontWeight: 700
+    }
+  }, "\uC5EC\uBC31 \uB113\uAC8C"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => applySlotGeometryPreset('tight'),
+    style: {
+      minHeight: 40,
+      borderRadius: 10,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 11,
+      fontWeight: 700
+    }
+  }, "\uAF49 \uCC28\uAC8C"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => applySlotGeometryPreset('center'),
+    style: {
+      minHeight: 40,
+      borderRadius: 10,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 11,
+      fontWeight: 700,
+      gridColumn: 'span 2'
+    }
+  }, "\uC911\uC559 \uC815\uB82C"))) : /*#__PURE__*/React.createElement("button", {
     onClick: restoreLayoutSlots,
     style: {
       minHeight: 44,
@@ -6668,7 +6922,7 @@ function DesignerScreen({
       fontSize: 12,
       fontWeight: 900
     }
-  }, "Background"), /*#__PURE__*/React.createElement("div", {
+  }, "\uBC30\uACBD \uC124\uC815"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(4, 1fr)',
@@ -6688,7 +6942,7 @@ function DesignerScreen({
       boxShadow: normalizedDraft.background?.value === swatch ? `0 0 0 2px ${T.ink}` : 'inset 0 0 0 1px rgba(0,0,0,0.12)'
     }
   }))), /*#__PURE__*/React.createElement("input", {
-    value: String(normalizedDraft.background?.value || '#ffffff'),
+    value: typeof normalizedDraft.background?.value === 'string' && !normalizedDraft.background.value.startsWith('data:') ? normalizedDraft.background.value : '#ffffff',
     onChange: e => setBackgroundPatch({
       type: 'solid',
       value: e.target.value
@@ -6706,7 +6960,7 @@ function DesignerScreen({
       fontSize: 11,
       color: T.inkSoft
     }
-  }, "Opacity"), /*#__PURE__*/React.createElement("input", {
+  }, "\uBD88\uD22C\uBA85\uB3C4 (Opacity)"), /*#__PURE__*/React.createElement("input", {
     type: "range",
     min: "0",
     max: "1",
@@ -6733,9 +6987,12 @@ function DesignerScreen({
           color: '#FFFFFF',
           dotColor: 'rgba(17,17,17,0.05)'
         }
+      });else if (type === 'image') setBackgroundPatch({
+        type,
+        value: ''
       });else setBackgroundPatch({
         type: 'solid',
-        value: normalizedDraft.background?.value || '#FFFFFF'
+        value: '#FFFFFF'
       });
     },
     style: {
@@ -6747,11 +7004,13 @@ function DesignerScreen({
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: "solid"
-  }, "Solid"), /*#__PURE__*/React.createElement("option", {
+  }, "Solid (\uB2E8\uC0C9)"), /*#__PURE__*/React.createElement("option", {
     value: "gradient"
-  }, "Gradient"), /*#__PURE__*/React.createElement("option", {
+  }, "Gradient (\uADF8\uB77C\uB370\uC774\uC158)"), /*#__PURE__*/React.createElement("option", {
     value: "pattern"
-  }, "Pattern")), normalizedDraft.background?.type === 'gradient' && /*#__PURE__*/React.createElement("div", {
+  }, "Pattern (\uD328\uD134)"), /*#__PURE__*/React.createElement("option", {
+    value: "image"
+  }, "Image (\uC774\uBBF8\uC9C0)")), normalizedDraft.background?.type === 'gradient' && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gap: 8
@@ -6799,7 +7058,39 @@ function DesignerScreen({
     value: "confetti"
   }, "Confetti"), /*#__PURE__*/React.createElement("option", {
     value: "bubbles"
-  }, "Bubbles")))), activeTab === 'slots' && /*#__PURE__*/React.createElement("div", {
+  }, "Bubbles"))), normalizedDraft.background?.type === 'image' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    onChange: handleBgImageUpload,
+    style: {
+      display: 'none'
+    },
+    id: "bg-image-upload-input"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => document.getElementById('bg-image-upload-input')?.click(),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: T.ink,
+      fontSize: 11,
+      fontWeight: 800
+    }
+  }, "\uBC30\uACBD \uC774\uBBF8\uC9C0 \uC5C5\uB85C\uB4DC"), normalizedDraft.background?.value && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: T.inkSoft,
+      textOverflow: 'ellipsis',
+      overflow: 'hidden',
+      whiteSpace: 'nowrap'
+    }
+  }, "\uB4F1\uB85D\uB428: ", normalizedDraft.background.value.slice(0, 40), "..."))), activeTab === 'slots' && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 14,
       borderRadius: 18,
@@ -7173,7 +7464,105 @@ function DesignerScreen({
       fontSize: 12,
       fontWeight: 900
     }
-  }, "Decorations"), /*#__PURE__*/React.createElement("div", {
+  }, "\uC2A4\uD2F0\uCEE4 \uBC0F \uAFB8\uBBF8\uAE30"), !isCreator ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 900,
+      color: T.inkSoft
+    }
+  }, "\uC774\uBAA8\uC9C0 \uC2A4\uD2F0\uCEE4 \uCD94\uAC00"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(5, 1fr)',
+      gap: 8
+    }
+  }, ['🍒', '⭐', '🎈', '💖', '🍀', '🐾', '🎀', '🧸', '👻', '🎉'].map(emoji => /*#__PURE__*/React.createElement("button", {
+    key: emoji,
+    onClick: () => {
+      if (!normalizedDraft) return;
+      var w = 60,
+        h = 60;
+      var canvasW = normalizedDraft.canvasSize?.width || 560;
+      var canvasH = normalizedDraft.canvasSize?.height || 1808;
+      var cx = Math.round((canvasW - w) / 2);
+      var cy = Math.round((canvasH - h) / 2);
+      var id = `deco_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+      var deco = {
+        id,
+        type: 'text',
+        text: emoji,
+        x: cx,
+        y: cy,
+        width: w,
+        height: h,
+        rotation: 0,
+        opacity: 1,
+        zIndex: 10,
+        fill: '#111111',
+        fontWeight: 800,
+        layer: 'front'
+      };
+      normalizeNextDraft(prev => ({
+        ...prev,
+        decorations: [...(prev.decorations || []), deco]
+      }));
+      setSelectedDecorationIndex(normalizedDraft.decorations?.length || 0);
+    },
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 18
+    }
+  }, emoji))), selectedDecoration && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 8,
+      marginTop: 10,
+      padding: 10,
+      background: 'rgba(26,26,31,0.03)',
+      borderRadius: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 800
+    }
+  }, "\uC120\uD0DD\uB41C \uC2A4\uD2F0\uCEE4: ", selectedDecoration.type === 'text' ? selectedDecoration.text : selectedDecoration.shape), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => duplicateDecoration(selectedDecorationIndex),
+    style: {
+      flex: 1,
+      minHeight: 36,
+      borderRadius: 8,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      fontSize: 11,
+      fontWeight: 700
+    }
+  }, "\uBCF5\uC0AC"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deleteDecoration(selectedDecorationIndex),
+    style: {
+      flex: 1,
+      minHeight: 36,
+      borderRadius: 8,
+      border: `1px solid ${T.line}`,
+      background: '#fff',
+      color: 'red',
+      fontSize: 11,
+      fontWeight: 700
+    }
+  }, "\uC0AD\uC81C")))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(2, 1fr)',
@@ -7322,7 +7711,7 @@ function DesignerScreen({
       fontSize: 11,
       fontWeight: 800
     }
-  }, "Delete")))), activeTab === 'text' && /*#__PURE__*/React.createElement("div", {
+  }, "Delete"))))), activeTab === 'text' && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 14,
       borderRadius: 18,
@@ -7336,7 +7725,7 @@ function DesignerScreen({
       fontSize: 12,
       fontWeight: 900
     }
-  }, "Text / Watermark"), /*#__PURE__*/React.createElement("button", {
+  }, "\uD14D\uC2A4\uD2B8 / \uC6CC\uD130\uB9C8\uD06C"), /*#__PURE__*/React.createElement("button", {
     onClick: () => addDecoration('TEXT', 'text'),
     style: {
       minHeight: 44,
@@ -7344,54 +7733,9 @@ function DesignerScreen({
       border: `1px solid ${T.line}`,
       background: '#fff',
       fontSize: 11,
-      fontWeight: 800,
-      textTransform: 'uppercase'
+      fontWeight: 800
     }
-  }, "Add text"), selectedDecoration?.type === 'text' && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'grid',
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("label", {
-    style: {
-      display: 'grid',
-      gap: 4,
-      fontSize: 11,
-      color: T.inkSoft
-    }
-  }, "Text", /*#__PURE__*/React.createElement("input", {
-    value: selectedDecoration.text || '',
-    onChange: e => setDecorationPatch(selectedDecorationIndex, {
-      text: e.target.value
-    }),
-    style: {
-      minHeight: 44,
-      borderRadius: 12,
-      border: `1px solid ${T.line}`,
-      padding: '0 10px',
-      fontSize: 12
-    }
-  })), /*#__PURE__*/React.createElement("label", {
-    style: {
-      display: 'grid',
-      gap: 4,
-      fontSize: 11,
-      color: T.inkSoft
-    }
-  }, "Font weight", /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: Number(selectedDecoration.fontWeight || 800),
-    onChange: e => setDecorationPatch(selectedDecorationIndex, {
-      fontWeight: Number(e.target.value)
-    }),
-    style: {
-      minHeight: 44,
-      borderRadius: 12,
-      border: `1px solid ${T.line}`,
-      padding: '0 10px',
-      fontSize: 12
-    }
-  }))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD14D\uC2A4\uD2B8 \uCD94\uAC00"), /*#__PURE__*/React.createElement("div", {
     style: {
       borderTop: `1px solid ${T.line}`,
       paddingTop: 10,
@@ -7404,7 +7748,7 @@ function DesignerScreen({
       fontWeight: 900,
       color: T.ink
     }
-  }, "Watermark"), /*#__PURE__*/React.createElement("input", {
+  }, "\uC6CC\uD130\uB9C8\uD06C"), /*#__PURE__*/React.createElement("input", {
     value: normalizedDraft.watermark?.text || '',
     onChange: e => normalizeNextDraft(prev => ({
       ...prev,
@@ -7420,40 +7764,8 @@ function DesignerScreen({
       padding: '0 10px',
       fontSize: 12
     },
-    placeholder: "IMMM"
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: 8
-    }
-  }, ['x', 'y', 'opacity'].map(key => /*#__PURE__*/React.createElement("label", {
-    key: key,
-    style: {
-      display: 'grid',
-      gap: 4,
-      fontSize: 11,
-      color: T.inkSoft
-    }
-  }, key.toUpperCase(), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    step: key === 'opacity' ? '0.01' : '0.01',
-    value: Number(normalizedDraft.watermark?.[key] ?? (key === 'opacity' ? 0.48 : 0.5)),
-    onChange: e => normalizeNextDraft(prev => ({
-      ...prev,
-      watermark: {
-        ...(prev.watermark || {}),
-        [key]: Number(e.target.value)
-      }
-    })),
-    style: {
-      minHeight: 44,
-      borderRadius: 12,
-      border: `1px solid ${T.line}`,
-      padding: '0 10px',
-      fontSize: 12
-    }
-  })))))), activeTab === 'save' && /*#__PURE__*/React.createElement("div", {
+    placeholder: "\uC6CC\uD130\uB9C8\uD06C \uD14D\uC2A4\uD2B8"
+  }))), activeTab === 'save' && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 14,
       borderRadius: 18,
@@ -7467,7 +7779,7 @@ function DesignerScreen({
       fontSize: 12,
       fontWeight: 900
     }
-  }, "Save / Pack Export"), /*#__PURE__*/React.createElement("label", {
+  }, isCreator ? 'Save / Pack Export' : '프레임 저장'), isCreator ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
     style: {
       display: 'grid',
       gap: 4,
@@ -7597,7 +7909,43 @@ function DesignerScreen({
       fontWeight: 800,
       textTransform: 'uppercase'
     }
-  }, "Save as Pack Draft"), /*#__PURE__*/React.createElement("button", {
+  }, "Save as Pack Draft")) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'grid',
+      gap: 4,
+      fontSize: 11,
+      color: T.inkSoft
+    }
+  }, "\uD504\uB808\uC784 \uC774\uB984", /*#__PURE__*/React.createElement("input", {
+    value: normalizedDraft.name,
+    onChange: e => normalizeNextDraft({
+      name: e.target.value
+    }),
+    style: {
+      minHeight: 44,
+      borderRadius: 12,
+      border: `1px solid ${T.line}`,
+      padding: '0 12px',
+      fontSize: 12
+    },
+    placeholder: "\uB098\uB9CC\uC758 \uD504\uB808\uC784 \uC774\uB984"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSaveFrame,
+    style: {
+      minHeight: 48,
+      borderRadius: 12,
+      border: 'none',
+      background: T.ink,
+      color: T.bg,
+      fontSize: 12,
+      fontWeight: 800
+    }
+  }, "\uB0B4 \uD504\uB808\uC784\uC5D0 \uC800\uC7A5")), isCreator && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       var prompt = window.prompt('Describe an idea', 'kawaii pink y2k');
       if (!prompt) return;
@@ -7686,7 +8034,7 @@ function DesignerScreen({
       textTransform: 'uppercase',
       padding: '0 12px'
     }
-  }, "Discard Recovery"))), /*#__PURE__*/React.createElement("div", {
+  }, "Discard Recovery"))), isCreator && /*#__PURE__*/React.createElement("div", {
     style: {
       borderTop: `1px solid ${T.line}`,
       paddingTop: 10,

@@ -1817,6 +1817,42 @@ function drawFramePresetBackground(ctx, preset, width, height) {
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
       }
+    } else if (background.type === 'image') {
+      const src = background.value;
+      if (src) {
+        const cachedImg = typeof window !== 'undefined' && window.__IMMM_BACKGROUND_IMAGE_CACHE__ && window.__IMMM_BACKGROUND_IMAGE_CACHE__.get(src);
+        if (cachedImg) {
+          ctx.save();
+          const ar = cachedImg.width / cachedImg.height;
+          const dar = width / height;
+          let sx = 0, sy = 0, sw = cachedImg.width, sh = cachedImg.height;
+          if (ar > dar) {
+            sh = cachedImg.height;
+            sw = sh * dar;
+            sx = (cachedImg.width - sw) / 2;
+          } else {
+            sw = cachedImg.width;
+            sh = sw / dar;
+            sy = (cachedImg.height - sh) / 2;
+          }
+          ctx.drawImage(cachedImg, sx, sy, sw, sh, 0, 0, width, height);
+          ctx.restore();
+        } else {
+          if (typeof window !== 'undefined') {
+            if (!window.__IMMM_BACKGROUND_IMAGE_CACHE__) {
+              window.__IMMM_BACKGROUND_IMAGE_CACHE__ = new Map();
+            }
+            const img = new Image();
+            img.onload = () => {
+              window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(src, img);
+            };
+            if (typeof src === 'string' && /^https?:\/\//.test(src)) {
+              img.crossOrigin = 'anonymous';
+            }
+            img.src = src;
+          }
+        }
+      }
     }
   }
   ctx.restore();

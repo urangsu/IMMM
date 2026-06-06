@@ -2,6 +2,23 @@
 
 const { useState: uS, useEffect: uE, useRef: uR, useMemo: uM } = React;
 
+function getCreatorMode() {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  const isCreatorParam = params.get('creator') === '1' || params.get('creatorMode') === '1';
+  const isCreatorStorage = window.localStorage.getItem('immm_creator_mode') === 'true';
+  if (isCreatorParam) {
+    window.localStorage.setItem('immm_creator_mode', 'true');
+    return true;
+  }
+  if (params.get('creator') === '0' || params.get('creatorMode') === '0') {
+    window.localStorage.removeItem('immm_creator_mode');
+    return false;
+  }
+  return isCreatorStorage;
+}
+
+
 // ═══════════════════════════════════════════════════════════════
 // Shared primitives
 // ═══════════════════════════════════════════════════════════════
@@ -390,6 +407,7 @@ function CleanFrameMiniPreview({ layout, T }) {
 }
 
 function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preStickers, setPreStickers, logo, setLogo, dateText, setDateText, orientation, setOrientation, frameColor, setFrameColor, accent, editMode, shots, setShots, setSelected, setUseWebgl, tweaks, startNewCaptureSession, framePreset, selectedFramePresetId, setSetupStoreTabFocus, resetAppliedFramePreset }) {
+  const isCreator = getCreatorMode();
   const WFrameThumb = typeof window !== 'undefined' && typeof window.FrameThumb === 'function'
     ? window.FrameThumb
     : null;
@@ -406,6 +424,12 @@ function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preS
   const setupPreviewPreset = framePreset && selectedFramePresetId && selectedPresetLayout === layout ? framePreset : null;
   const shotsPreview = Array.from({ length: Math.max(1, slotCount) }, () => ({ filter: filter || 'original', dataUrl: null }));
   const selectedPreview = Array.from({ length: Math.max(1, slotCount) }, (_, i) => i);
+
+  uE(() => {
+    if (!isCreator && tab !== 'frame' && tab !== 'photos') {
+      setTab('frame');
+    }
+  }, [isCreator, tab]);
 
   uE(() => {
     const fit = () => {
@@ -555,15 +579,23 @@ function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preS
         })}
       </div>
       <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-        <button onClick={() => goFrames('featured')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
-          추천 프레임
-        </button>
-        <button onClick={() => goFrames('my-frames')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
-          내 프레임
-        </button>
-        <button onClick={() => goFrames('featured')} style={{ minHeight: 48, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-          프레임 스토어 가기
-        </button>
+        {isCreator ? (
+          <>
+            <button onClick={() => goFrames('featured')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+              추천 프레임
+            </button>
+            <button onClick={() => goFrames('my-frames')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+              내 프레임
+            </button>
+            <button onClick={() => goFrames('featured')} style={{ minHeight: 48, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+              프레임 스토어 가기
+            </button>
+          </>
+        ) : (
+          <button onClick={() => goFrames('featured')} style={{ minHeight: 48, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 12, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+            프레임 고르기
+          </button>
+        )}
       </div>
       {setupPreviewPreset && (
         <div style={{ marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(26,26,31,0.04)', color: T.inkSoft, fontSize: 11, lineHeight: 1.45, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -655,7 +687,9 @@ function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preS
   );
 
   const tabContent = tab === 'photos' ? photosTab : tab === 'frame' ? frameTab : tab === 'filter' ? filterTab : tab === 'stickers' ? stickersTab : optionsTab;
-  const tabs = [...(editMode ? [['photos', '사진']] : []), ['frame', '프레임'], ['filter', '필터'], ['stickers', '스티커'], ['options', '옵션']];
+  const tabs = isCreator
+    ? [...(editMode ? [['photos', '사진']] : []), ['frame', '프레임'], ['filter', '필터'], ['stickers', '스티커'], ['options', '옵션']]
+    : [...(editMode ? [['photos', '사진']] : []), ['frame', '프레임']];
   const tabBar = (
     <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${T.line}`, marginBottom: 18 }}>
       {tabs.map(([k, ko]) => (
@@ -667,13 +701,15 @@ function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preS
   if (mobile) {
     return (
       <div style={{ height: '100%', background: T.bg, padding: '50px 0 0', display: 'flex', flexDirection: 'column' }}>
-        <TopBar step={0} back={() => go('landing')} T={T} mobile title={editMode ? '편집하기' : 'Setup · 세팅'} right={<BtnPrimary T={T} size="sm" onClick={() => editMode ? go('deco') : startNewCaptureSession()} disabled={editMode && uploadedCount < captureCount}>{editMode ? '편집 시작' : 'Next'}</BtnPrimary>} />
+        <TopBar step={0} back={() => go('landing')} T={T} mobile title={editMode ? '편집하기' : 'Setup · 세팅'} right={<BtnPrimary T={T} size="sm" onClick={() => editMode ? go('deco') : startNewCaptureSession()} disabled={editMode && uploadedCount < captureCount}>{editMode ? '편집 시작' : (isCreator ? 'Next' : '이 프레임으로 촬영하기')}</BtnPrimary>} />
         <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
           {preview}
-          <div style={{ position: 'absolute', bottom: 14, right: 14, display: 'flex', gap: 10, zIndex: 20 }}>
-            <button onClick={zoomOut} style={zoomBtnStyle} aria-label="Zoom out"><ZoomMinusIcon /></button>
-            <button onClick={zoomIn} style={zoomBtnStyle} aria-label="Zoom in"><ZoomPlusIcon /></button>
-          </div>
+          {isCreator && (
+            <div style={{ position: 'absolute', bottom: 14, right: 14, display: 'flex', gap: 10, zIndex: 20 }}>
+              <button onClick={zoomOut} style={zoomBtnStyle} aria-label="Zoom out"><ZoomMinusIcon /></button>
+              <button onClick={zoomIn} style={zoomBtnStyle} aria-label="Zoom in"><ZoomPlusIcon /></button>
+            </div>
+          )}
         </div>
         <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', padding: '20px 20px 28px', borderTop: '1px solid rgba(0,0,0,0.08)', maxHeight: '58%', overflow: 'auto' }}>
           {tabBar}
@@ -686,14 +722,16 @@ function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preS
   return (
     <div style={{ height: '100%', background: 'transparent', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px' }}>
       <div style={{ padding: '24px 48px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <TopBar step={0} back={() => go('landing')} T={T} title={editMode ? '편집하기 · Upload & Edit' : 'Step 1 · Setup the booth'} right={<BtnPrimary T={T} size="md" onClick={() => editMode ? go('deco') : startNewCaptureSession()} disabled={editMode && uploadedCount < captureCount}>{editMode ? '편집 시작' : 'Continue · 다음'} {!editMode && I.arrowR(14, T.bg)}</BtnPrimary>} />
+        <TopBar step={0} back={() => go('landing')} T={T} title={editMode ? '편집하기 · Upload & Edit' : 'Step 1 · Setup the booth'} right={<BtnPrimary T={T} size="md" onClick={() => editMode ? go('deco') : startNewCaptureSession()} disabled={editMode && uploadedCount < captureCount}>{editMode ? '편집 시작' : (isCreator ? 'Continue · 다음' : '이 프레임으로 촬영하기')} {!editMode && isCreator && I.arrowR(14, T.bg)}</BtnPrimary>} />
         <div style={{ flex: 1, minHeight: 0, background: T.bgAlt, borderRadius: 28, display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden', border: `1px solid ${T.line}`, boxShadow: '0 8px 32px rgba(0,0,0,0.04)' }}>
           {preview}
           <div style={{ position: 'absolute', bottom: 16, left: 18, fontSize: 11, color: T.inkSoft, fontFamily: '"Plus Jakarta Sans",system-ui', letterSpacing: 1.5 }}>LIVE PREVIEW</div>
-          <div style={{ position: 'absolute', bottom: 18, right: 18, display: 'flex', gap: 10, zIndex: 20 }}>
-            <button onClick={zoomOut} style={zoomBtnStyle} aria-label="Zoom out"><ZoomMinusIcon /></button>
-            <button onClick={zoomIn} style={zoomBtnStyle} aria-label="Zoom in"><ZoomPlusIcon /></button>
-          </div>
+          {isCreator && (
+            <div style={{ position: 'absolute', bottom: 18, right: 18, display: 'flex', gap: 10, zIndex: 20 }}>
+              <button onClick={zoomOut} style={zoomBtnStyle} aria-label="Zoom out"><ZoomMinusIcon /></button>
+              <button onClick={zoomIn} style={zoomBtnStyle} aria-label="Zoom in"><ZoomPlusIcon /></button>
+            </div>
+          )}
         </div>
       </div>
       <div style={{ background: 'rgba(255,255,255,0.74)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderLeft: '1px solid rgba(255,255,255,0.5)', padding: '24px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -705,6 +743,7 @@ function SetupScreen({ T, go, mobile, layout, setLayout, filter, setFilter, preS
 }
 
 function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePreset, framePresets = [], framePackList = [], customFrames = [], selectedFramePresetId, applyFramePreset, openDesigner, exportCustomFramesAsJson, importFramePackFromJson, renameCustomFrame, duplicateCustomFrame, deleteCustomFrame, favoriteFramePresetIds = [], toggleFavoriteFramePreset, favoriteFramePackIds = [], toggleFavoriteFramePack, unlockedFramePackIds = [], unlockFramePackForDev, frameLikeIds = [], toggleFrameLike, recordFrameUse, creatorProfiles = [], storeTabFocus = '' }) {
+  const isCreator = getCreatorMode();
   const devUnlockVisible = typeof window !== 'undefined' && (
     window.IMMM_FIELD_TEST === true ||
     window.IMMM_DEBUG_BUILD === true ||
@@ -720,6 +759,12 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
   const [showImportExportModal, setShowImportExportModal] = uS(false);
   const [selectedPresetId, setSelectedPresetId] = uS(selectedFramePresetId || '');
   const savedFrames = uM(() => (Array.isArray(customFrames) ? customFrames : []).filter((preset) => !preset.deletedAt), [customFrames]);
+
+  uE(() => {
+    if (!isCreator && storeTab !== 'featured' && storeTab !== 'my-frames') {
+      setStoreTab('featured');
+    }
+  }, [isCreator, storeTab]);
   const allPresets = uM(() => {
     const byId = new Map();
     [...(Array.isArray(framePresets) ? framePresets : []), ...savedFrames].forEach((preset) => {
@@ -800,12 +845,17 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
       )}
     </div>
   );
-  const tabs = [
-    ['featured', '추천'],
-    ['free', '기본'],
-    ['my-frames', '내 프레임'],
-    ['premium', '유료 예정'],
-  ];
+  const tabs = isCreator
+    ? [
+        ['featured', '추천'],
+        ['free', '기본'],
+        ['my-frames', '내 프레임'],
+        ['premium', '유료 예정'],
+      ]
+    : [
+        ['featured', '추천'],
+        ['my-frames', '내 프레임'],
+      ];
   const cardStyle = {
     border: `1px solid ${T.line}`,
     borderRadius: 18,
@@ -851,7 +901,9 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
             <div style={{ fontSize: 12, color: T.inkSoft, letterSpacing: 3, fontWeight: 900, textTransform: 'uppercase' }}>Frame Store</div>
             <div style={{ marginTop: 4, fontSize: mobile ? 22 : 30, fontWeight: 900 }}>Choose or create a frame</div>
           </div>
-          <button onClick={() => openDesigner?.({ mode: 'new', preset: selectedPreset })} style={{ minHeight: 48, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 18px', fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase' }}>Create Frame</button>
+          {isCreator && (
+            <button onClick={() => openDesigner?.({ mode: 'new', preset: selectedPreset })} style={{ minHeight: 48, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 18px', fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase' }}>Create Frame</button>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'minmax(0, 1fr) minmax(300px, 380px)', gap: 18, alignItems: 'start' }}>
@@ -902,12 +954,17 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
               )}
 
               <div style={{ display: 'grid', gap: 10 }}>
-                <Kick T={T}>{storeTab === 'my-frames' ? 'My Frames' : 'All Frames'}</Kick>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Kick T={T}>{storeTab === 'my-frames' ? '내 프레임' : '전체 프레임'}</Kick>
+                  {!isCreator && storeTab === 'my-frames' && (
+                    <button onClick={() => openDesigner?.({ mode: 'new', preset: selectedPreset })} style={{ minHeight: 32, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 12px', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>새 프레임 만들기</button>
+                  )}
+                </div>
                 {visiblePresets.length === 0 ? (
                   <div className="frame-store-card" style={cardStyle}>
-                    <div style={{ fontSize: 15, fontWeight: 900 }}>No frames here yet</div>
-                    <div style={{ fontSize: 12, color: T.inkSoft }}>Create your first frame or import a frame pack.</div>
-                    <button onClick={() => openDesigner?.({ mode: 'new', preset: selectedPreset })} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 900, justifySelf: 'start' }}>Create your first frame</button>
+                    <div style={{ fontSize: 15, fontWeight: 900 }}>저장된 프레임이 없습니다</div>
+                    <div style={{ fontSize: 12, color: T.inkSoft }}>나만의 프레임을 직접 만들고 저장해 보세요.</div>
+                    <button onClick={() => openDesigner?.({ mode: 'new', preset: selectedPreset })} style={{ minHeight: 44, borderRadius: 999, border: 'none', background: T.ink, color: T.bg, padding: '0 14px', fontSize: 11, fontWeight: 900, justifySelf: 'start' }}>새 프레임 만들기</button>
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
@@ -943,7 +1000,7 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
                 )}
               </div>
 
-              {devUnlockVisible && (storeTab === 'my-frames' || storeTab === 'imported') && (
+              {isCreator && (storeTab === 'my-frames' || storeTab === 'imported') && (
                 <div className="frame-store-card" style={{
                   ...cardStyle,
                   display: 'flex',
@@ -993,7 +1050,9 @@ function FrameStoreScreen({ T, go, mobile, layout, frameColor, accent, framePres
               </div>
             </div>
             <button disabled={!selectedPreset} onClick={() => applyToBooth(selectedPreset)} style={{ minHeight: 48, borderRadius: 999, border: 'none', background: selectedPreset ? T.ink : 'rgba(26,26,31,0.08)', color: selectedPreset ? T.bg : T.inkSoft, padding: '0 16px', fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase', cursor: selectedPreset ? 'pointer' : 'default' }}>Apply to Booth</button>
-            <button onClick={() => openDesigner?.({ mode: 'duplicate', preset: selectedPreset })} disabled={!selectedPreset} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 900, cursor: selectedPreset ? 'pointer' : 'default' }}>Duplicate & Edit</button>
+            {(isCreator || selectedPreset?.source === 'custom' || selectedPreset?.source === 'imported') && (
+              <button onClick={() => openDesigner?.({ mode: 'duplicate', preset: selectedPreset })} disabled={!selectedPreset} style={{ minHeight: 44, borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, padding: '0 14px', fontSize: 11, fontWeight: 900, cursor: selectedPreset ? 'pointer' : 'default' }}>Duplicate & Edit</button>
+            )}
           </aside>
         </div>
       </div>
@@ -3415,6 +3474,7 @@ function DesignerScreen({
   exportPresetId = 'hd',
   setExportPresetId,
 }) {
+  const isCreator = getCreatorMode();
   const frameApi = typeof window !== 'undefined' ? window.IMMMFramePresets : null;
   const useTouchFallback = typeof window !== 'undefined'
     && (!('PointerEvent' in window) || (typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent || '')));
@@ -3439,6 +3499,86 @@ function DesignerScreen({
   const [activeMotionPreview, setActiveMotionPreview] = uS(false);
   const [showAdvancedLayers, setShowAdvancedLayers] = uS(false);
 
+  const applySlotGeometryPreset = (presetType) => {
+    if (!draftFrame || !frameApi) return;
+    const backup = JSON.parse(JSON.stringify(draftFrame));
+    const nextFrame = JSON.parse(JSON.stringify(draftFrame));
+    const slots = nextFrame.photoSlots || [];
+
+    if (presetType === 'default') {
+      const defaultSlots = frameApi.getPhotoSlotsForLayout?.(nextFrame.layout) || [];
+      nextFrame.photoSlots = slots.map((slot, i) => ({
+        ...slot,
+        borderRadius: 0,
+        width: defaultSlots[i]?.width || slot.width,
+        height: defaultSlots[i]?.height || slot.height,
+        x: defaultSlots[i]?.x || slot.x,
+        y: defaultSlots[i]?.y || slot.y,
+      }));
+    } else if (presetType === 'round') {
+      slots.forEach((slot) => {
+        slot.borderRadius = 24;
+      });
+    } else if (presetType === 'wide-margin') {
+      slots.forEach((slot) => {
+        const shrinkW = Math.round(slot.width * 0.1);
+        const shrinkH = Math.round(slot.height * 0.1);
+        slot.width -= shrinkW;
+        slot.height -= shrinkH;
+        slot.x += Math.round(shrinkW / 2);
+        slot.y += Math.round(shrinkH / 2);
+        slot.borderRadius = 8;
+      });
+    } else if (presetType === 'tight') {
+      slots.forEach((slot) => {
+        const expandW = Math.round(slot.width * 0.05);
+        const expandH = Math.round(slot.height * 0.05);
+        slot.width += expandW;
+        slot.height += expandH;
+        slot.x -= Math.round(expandW / 2);
+        slot.y -= Math.round(expandH / 2);
+        slot.borderRadius = 0;
+      });
+    } else if (presetType === 'center') {
+      const canvasW = nextFrame.canvasSize?.width || 560;
+      slots.forEach((slot) => {
+        slot.x = Math.round((canvasW - slot.width) / 2);
+      });
+    }
+
+    const val = frameApi.validateDesignerDraft?.(nextFrame) || { ok: true };
+    if (val.ok) {
+      setDraftFrame(nextFrame);
+      setStatusMessage('레이아웃 프리셋이 적용되었습니다.');
+    } else {
+      setDraftFrame(backup);
+      setStatusMessage(`적용 실패(롤백됨): ${val.error || '유효하지 않은 레이아웃'}`);
+    }
+  };
+
+  const handleBgImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setBackgroundPatch({
+        type: 'image',
+        value: reader.result,
+      });
+      if (typeof window !== 'undefined') {
+        if (!window.__IMMM_BACKGROUND_IMAGE_CACHE__) {
+          window.__IMMM_BACKGROUND_IMAGE_CACHE__ = new Map();
+        }
+        const img = new Image();
+        img.onload = () => {
+          window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(reader.result, img);
+        };
+        img.src = reader.result;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const normalizedDraft = uM(() => frameApi?.normalizeDesignerDraft?.(draftFrame) || draftFrame || null, [draftFrame, frameApi]);
   const normalizedInitial = uM(() => frameApi?.normalizeDesignerDraft?.(initialDraftFrame) || initialDraftFrame || null, [initialDraftFrame, frameApi]);
   const slotDefaults = uM(() => normalizedDraft ? (frameApi?.getPhotoSlotsForLayout?.(normalizedDraft.layout) || normalizedDraft.photoSlots || []) : [], [frameApi, normalizedDraft]);
@@ -3448,15 +3588,29 @@ function DesignerScreen({
     return JSON.stringify(normalizedDraft) !== JSON.stringify(normalizedInitial);
   }, [normalizedDraft, normalizedInitial]);
   const validation = uM(() => normalizedDraft ? (frameApi?.validateDesignerDraft?.(normalizedDraft) || { ok: false, error: 'Designer validation unavailable' }) : { ok: false, error: 'Draft missing' }, [frameApi, normalizedDraft]);
-  const tabs = [
-    { id: 'layout', label: 'Layout' },
-    { id: 'background', label: 'Background' },
-    { id: 'slots', label: 'Slots' },
-    ...(showAdvancedLayers ? [{ id: 'layers', label: 'Layers' }] : []),
-    { id: 'decorations', label: 'Decorations' },
-    { id: 'text', label: 'Text' },
-    { id: 'save', label: 'Save' },
-  ];
+
+  React.useEffect(() => {
+    if (!isCreator && !['layout', 'background', 'decorations', 'save'].includes(activeTab)) {
+      setActiveTab('layout');
+    }
+  }, [isCreator, activeTab]);
+
+  const tabs = isCreator
+    ? [
+        { id: 'layout', label: 'Layout' },
+        { id: 'background', label: 'Background' },
+        { id: 'slots', label: 'Slots' },
+        ...(showAdvancedLayers ? [{ id: 'layers', label: 'Layers' }] : []),
+        { id: 'decorations', label: 'Decorations' },
+        { id: 'text', label: 'Text' },
+        { id: 'save', label: 'Save' },
+      ]
+    : [
+        { id: 'layout', label: '모양' },
+        { id: 'background', label: '배경' },
+        { id: 'decorations', label: '꾸미기' },
+        { id: 'save', label: '저장' },
+      ];
   const currentLayoutSlots = normalizedDraft?.photoSlots || [];
   const currentDecorations = normalizedDraft?.decorations || [];
   const currentLayers = normalizedDraft?.layers || [];
@@ -3967,10 +4121,22 @@ function DesignerScreen({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button onClick={() => go('frames')} style={{ minHeight: 44, padding: '0 12px', borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Back to Store</button>
-            <button onClick={handleDiscard} style={{ minHeight: 44, padding: '0 12px', borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Discard</button>
-            <button onClick={handleSaveAsNew} style={{ minHeight: 44, padding: '0 14px', borderRadius: 999, border: 'none', background: 'rgba(26,26,31,0.08)', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save as New</button>
-            <button onClick={handleSaveFrame} style={{ minHeight: 44, padding: '0 14px', borderRadius: 999, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save Frame</button>
+            {isCreator ? (
+              <>
+                <button onClick={() => go('frames')} style={{ minHeight: 44, padding: '0 12px', borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Back to Store</button>
+                <button onClick={handleDiscard} style={{ minHeight: 44, padding: '0 12px', borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Discard</button>
+                <button onClick={handleSaveAsNew} style={{ minHeight: 44, padding: '0 14px', borderRadius: 999, border: 'none', background: 'rgba(26,26,31,0.08)', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save as New</button>
+                <button onClick={handleSaveFrame} style={{ minHeight: 44, padding: '0 14px', borderRadius: 999, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save Frame</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => {
+                  if (isDirty && !window.confirm('저장하지 않은 변경사항이 있습니다. 정말로 닫으시겠습니까?')) return;
+                  go('frames');
+                }} style={{ minHeight: 44, padding: '0 18px', borderRadius: 999, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 12, fontWeight: 800 }}>닫기</button>
+                <button onClick={handleSaveFrame} style={{ minHeight: 44, padding: '0 18px', borderRadius: 999, border: 'none', background: T.ink, color: T.bg, fontSize: 12, fontWeight: 800 }}>저장</button>
+              </>
+            )}
           </div>
         </div>
 
@@ -4059,8 +4225,8 @@ function DesignerScreen({
 
         {activeTab === 'layout' && (
           <div style={{ padding: 14, borderRadius: 18, border: `1px solid ${T.line}`, background: '#fff', display: 'grid', gap: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 900 }}>Layout</div>
-            <input value={normalizedDraft.name} onChange={(e) => normalizeNextDraft({ name: e.target.value })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 12px', fontSize: 12 }} placeholder="Frame name" />
+            <div style={{ fontSize: 12, fontWeight: 900 }}>{isCreator ? 'Layout' : '프레임 이름 및 형태'}</div>
+            <input value={normalizedDraft.name} onChange={(e) => normalizeNextDraft({ name: e.target.value })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 12px', fontSize: 12 }} placeholder="프레임 이름" />
             <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 8 }}>
               {['strip', 'grid', 'trip', 'polaroid'].map((nextLayout) => (
                 <button key={nextLayout} onClick={() => setDraftLayout(nextLayout)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: normalizedDraft.layout === nextLayout ? T.ink : '#fff', color: normalizedDraft.layout === nextLayout ? T.bg : T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
@@ -4068,32 +4234,47 @@ function DesignerScreen({
                 </button>
               ))}
             </div>
-            <button onClick={restoreLayoutSlots} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
-              Restore layout defaults
-            </button>
+            {!isCreator ? (
+              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 900, color: T.inkSoft }}>사진칸 모양 프리셋</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                  <button onClick={() => applySlotGeometryPreset('default')} style={{ minHeight: 40, borderRadius: 10, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 700 }}>기본</button>
+                  <button onClick={() => applySlotGeometryPreset('round')} style={{ minHeight: 40, borderRadius: 10, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 700 }}>둥글게</button>
+                  <button onClick={() => applySlotGeometryPreset('wide-margin')} style={{ minHeight: 40, borderRadius: 10, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 700 }}>여백 넓게</button>
+                  <button onClick={() => applySlotGeometryPreset('tight')} style={{ minHeight: 40, borderRadius: 10, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 700 }}>꽉 차게</button>
+                  <button onClick={() => applySlotGeometryPreset('center')} style={{ minHeight: 40, borderRadius: 10, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 700, gridColumn: 'span 2' }}>중앙 정렬</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={restoreLayoutSlots} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
+                Restore layout defaults
+              </button>
+            )}
           </div>
         )}
 
         {activeTab === 'background' && (
           <div style={{ padding: 14, borderRadius: 18, border: `1px solid ${T.line}`, background: '#fff', display: 'grid', gap: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 900 }}>Background</div>
+            <div style={{ fontSize: 12, fontWeight: 900 }}>배경 설정</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {['#ffffff', '#111111', '#f5e8f0', '#e5f2ff', '#f8ead7', '#dbeee1'].map((swatch) => (
                 <button key={swatch} onClick={() => setBackgroundPatch({ type: 'solid', value: swatch })} style={{ height: 36, borderRadius: 999, border: 'none', background: swatch, boxShadow: normalizedDraft.background?.value === swatch ? `0 0 0 2px ${T.ink}` : 'inset 0 0 0 1px rgba(0,0,0,0.12)' }} />
               ))}
             </div>
-            <input value={String(normalizedDraft.background?.value || '#ffffff')} onChange={(e) => setBackgroundPatch({ type: 'solid', value: e.target.value })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 12px', fontSize: 12 }} placeholder="#ffffff" />
-            <label style={{ fontSize: 11, color: T.inkSoft }}>Opacity</label>
+            <input value={typeof normalizedDraft.background?.value === 'string' && !normalizedDraft.background.value.startsWith('data:') ? normalizedDraft.background.value : '#ffffff'} onChange={(e) => setBackgroundPatch({ type: 'solid', value: e.target.value })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 12px', fontSize: 12 }} placeholder="#ffffff" />
+            <label style={{ fontSize: 11, color: T.inkSoft }}>불투명도 (Opacity)</label>
             <input type="range" min="0" max="1" step="0.01" value={Number(normalizedDraft.background?.opacity ?? 1)} onChange={(e) => setBackgroundPatch({ opacity: Number(e.target.value) })} />
             <select value={normalizedDraft.background?.type || 'solid'} onChange={(e) => {
               const type = e.target.value;
               if (type === 'gradient') setBackgroundPatch({ type, value: { type: 'linear', angle: 0, stops: ['#FFFFFF', '#F5F5F5'] } });
               else if (type === 'pattern') setBackgroundPatch({ type, value: { pattern: 'dots', color: '#FFFFFF', dotColor: 'rgba(17,17,17,0.05)' } });
-              else setBackgroundPatch({ type: 'solid', value: normalizedDraft.background?.value || '#FFFFFF' });
+              else if (type === 'image') setBackgroundPatch({ type, value: '' });
+              else setBackgroundPatch({ type: 'solid', value: '#FFFFFF' });
             }} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 12px', fontSize: 12 }}>
-              <option value="solid">Solid</option>
-              <option value="gradient">Gradient</option>
-              <option value="pattern">Pattern</option>
+              <option value="solid">Solid (단색)</option>
+              <option value="gradient">Gradient (그라데이션)</option>
+              <option value="pattern">Pattern (패턴)</option>
+              <option value="image">Image (이미지)</option>
             </select>
             {normalizedDraft.background?.type === 'gradient' && (
               <div style={{ display: 'grid', gap: 8 }}>
@@ -4113,6 +4294,19 @@ function DesignerScreen({
                   <option value="confetti">Confetti</option>
                   <option value="bubbles">Bubbles</option>
                 </select>
+              </div>
+            )}
+            {normalizedDraft.background?.type === 'image' && (
+              <div style={{ display: 'grid', gap: 8 }}>
+                <input type="file" accept="image/*" onChange={handleBgImageUpload} style={{ display: 'none' }} id="bg-image-upload-input" />
+                <button onClick={() => document.getElementById('bg-image-upload-input')?.click()} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800 }}>
+                  배경 이미지 업로드
+                </button>
+                {normalizedDraft.background?.value && (
+                  <div style={{ fontSize: 11, color: T.inkSoft, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                    등록됨: {normalizedDraft.background.value.slice(0, 40)}...
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -4216,125 +4410,152 @@ function DesignerScreen({
 
         {activeTab === 'decorations' && (
           <div style={{ padding: 14, borderRadius: 18, border: `1px solid ${T.line}`, background: '#fff', display: 'grid', gap: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 900 }}>Decorations</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-              {['circle', 'roundedRect', 'heart', 'star', 'line', 'ribbon', 'speech', 'ticket', 'stamp'].map((shape) => (
-                <button key={shape} onClick={() => addDecoration(shape, 'shape')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>{shape}</button>
-              ))}
-              <button onClick={() => addDecoration('text', 'text')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Text</button>
-            </div>
-            <div style={{ display: 'grid', gap: 8 }}>
-              {currentDecorations.map((deco, index) => (
-                <button key={deco.id || index} onClick={() => setSelectedDecorationIndex(index)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${selectedDecorationIndex === index ? T.ink : T.line}`, background: selectedDecorationIndex === index ? T.card : '#fff', padding: '8px 12px', textAlign: 'left' }}>
-                  {deco.type === 'text' ? `Text: ${deco.text || 'TEXT'}` : `${deco.shape || 'shape'} · ${index + 1}`}
-                </button>
-              ))}
-            </div>
-            {selectedDecoration && (
-              <div style={{ display: 'grid', gap: 8 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                  {['x', 'y', 'width', 'height', 'rotation', 'opacity'].map((key) => (
-                    <label key={key} style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
-                      {key.toUpperCase()}
-                      <input type="number" step={key === 'opacity' ? '0.01' : '1'} value={Number(selectedDecoration[key] || 0)} onChange={(e) => setDecorationPatch(selectedDecorationIndex, { [key]: Number(e.target.value) })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} />
-                    </label>
+            <div style={{ fontSize: 12, fontWeight: 900 }}>스티커 및 꾸미기</div>
+            {!isCreator ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <label style={{ fontSize: 11, fontWeight: 900, color: T.inkSoft }}>이모지 스티커 추가</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                  {['🍒', '⭐', '🎈', '💖', '🍀', '🐾', '🎀', '🧸', '👻', '🎉'].map((emoji) => (
+                    <button key={emoji} onClick={() => {
+                      if (!normalizedDraft) return;
+                      const w = 60, h = 60;
+                      const canvasW = normalizedDraft.canvasSize?.width || 560;
+                      const canvasH = normalizedDraft.canvasSize?.height || 1808;
+                      const cx = Math.round((canvasW - w) / 2);
+                      const cy = Math.round((canvasH - h) / 2);
+                      const id = `deco_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                      const deco = { id, type: 'text', text: emoji, x: cx, y: cy, width: w, height: h, rotation: 0, opacity: 1, zIndex: 10, fill: '#111111', fontWeight: 800, layer: 'front' };
+                      normalizeNextDraft((prev) => ({ ...prev, decorations: [...(prev.decorations || []), deco] }));
+                      setSelectedDecorationIndex(normalizedDraft.decorations?.length || 0);
+                    }} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', fontSize: 18 }}>{emoji}</button>
                   ))}
                 </div>
-                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
-                  Fill
-                  <input value={selectedDecoration.fill || '#111111'} onChange={(e) => setDecorationPatch(selectedDecorationIndex, { fill: e.target.value })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} />
-                </label>
-                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
-                  Layer
-                  <select value={selectedDecoration.layer || (Number(selectedDecoration.zIndex) < 0 ? 'back' : 'front')} onChange={(e) => setDecorationPatch(selectedDecorationIndex, { layer: e.target.value, zIndex: e.target.value === 'back' ? -1 : 10 })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }}>
-                    <option value="back">Back</option>
-                    <option value="front">Front</option>
-                  </select>
-                </label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button onClick={() => duplicateDecoration(selectedDecorationIndex)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', padding: '0 12px', fontSize: 11, fontWeight: 800 }}>Duplicate</button>
-                  <button onClick={() => deleteDecoration(selectedDecorationIndex)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', padding: '0 12px', fontSize: 11, fontWeight: 800 }}>Delete</button>
-                </div>
+                {selectedDecoration && (
+                  <div style={{ display: 'grid', gap: 8, marginTop: 10, padding: 10, background: 'rgba(26,26,31,0.03)', borderRadius: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800 }}>선택된 스티커: {selectedDecoration.type === 'text' ? selectedDecoration.text : selectedDecoration.shape}</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => duplicateDecoration(selectedDecorationIndex)} style={{ flex: 1, minHeight: 36, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 700 }}>복사</button>
+                      <button onClick={() => deleteDecoration(selectedDecorationIndex)} style={{ flex: 1, minHeight: 36, borderRadius: 8, border: `1px solid ${T.line}`, background: '#fff', color: 'red', fontSize: 11, fontWeight: 700 }}>삭제</button>
+                    </div>
+                  </div>
+                )}
               </div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                  {['circle', 'roundedRect', 'heart', 'star', 'line', 'ribbon', 'speech', 'ticket', 'stamp'].map((shape) => (
+                    <button key={shape} onClick={() => addDecoration(shape, 'shape')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>{shape}</button>
+                  ))}
+                  <button onClick={() => addDecoration('text', 'text')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Text</button>
+                </div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {currentDecorations.map((deco, index) => (
+                    <button key={deco.id || index} onClick={() => setSelectedDecorationIndex(index)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${selectedDecorationIndex === index ? T.ink : T.line}`, background: selectedDecorationIndex === index ? T.card : '#fff', padding: '8px 12px', textAlign: 'left' }}>
+                      {deco.type === 'text' ? `Text: ${deco.text || 'TEXT'}` : `${deco.shape || 'shape'} · ${index + 1}`}
+                    </button>
+                  ))}
+                </div>
+                {selectedDecoration && (
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                      {['x', 'y', 'width', 'height', 'rotation', 'opacity'].map((key) => (
+                        <label key={key} style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
+                          {key.toUpperCase()}
+                          <input type="number" step={key === 'opacity' ? '0.01' : '1'} value={Number(selectedDecoration[key] || 0)} onChange={(e) => setDecorationPatch(selectedDecorationIndex, { [key]: Number(e.target.value) })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} />
+                        </label>
+                      ))}
+                    </div>
+                    <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
+                      Fill
+                      <input value={selectedDecoration.fill || '#111111'} onChange={(e) => setDecorationPatch(selectedDecorationIndex, { fill: e.target.value })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
+                      Layer
+                      <select value={selectedDecoration.layer || (Number(selectedDecoration.zIndex) < 0 ? 'back' : 'front')} onChange={(e) => setDecorationPatch(selectedDecorationIndex, { layer: e.target.value, zIndex: e.target.value === 'back' ? -1 : 10 })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }}>
+                        <option value="back">Back</option>
+                        <option value="front">Front</option>
+                      </select>
+                    </label>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button onClick={() => duplicateDecoration(selectedDecorationIndex)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', padding: '0 12px', fontSize: 11, fontWeight: 800 }}>Duplicate</button>
+                      <button onClick={() => deleteDecoration(selectedDecorationIndex)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', padding: '0 12px', fontSize: 11, fontWeight: 800 }}>Delete</button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
 
         {activeTab === 'text' && (
           <div style={{ padding: 14, borderRadius: 18, border: `1px solid ${T.line}`, background: '#fff', display: 'grid', gap: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 900 }}>Text / Watermark</div>
-            <button onClick={() => addDecoration('TEXT', 'text')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Add text</button>
-            {selectedDecoration?.type === 'text' && (
-              <div style={{ display: 'grid', gap: 8 }}>
-                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
-                  Text
-                  <input value={selectedDecoration.text || ''} onChange={(e) => setDecorationPatch(selectedDecorationIndex, { text: e.target.value })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} />
-                </label>
-                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
-                  Font weight
-                  <input type="number" value={Number(selectedDecoration.fontWeight || 800)} onChange={(e) => setDecorationPatch(selectedDecorationIndex, { fontWeight: Number(e.target.value) })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} />
-                </label>
-              </div>
-            )}
+            <div style={{ fontSize: 12, fontWeight: 900 }}>텍스트 / 워터마크</div>
+            <button onClick={() => addDecoration('TEXT', 'text')} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', fontSize: 11, fontWeight: 800 }}>텍스트 추가</button>
             <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 10, display: 'grid', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, color: T.ink }}>Watermark</div>
-              <input value={normalizedDraft.watermark?.text || ''} onChange={(e) => normalizeNextDraft((prev) => ({ ...prev, watermark: { ...(prev.watermark || {}), text: e.target.value } }))} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="IMMM" />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                {['x', 'y', 'opacity'].map((key) => (
-                  <label key={key} style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
-                    {key.toUpperCase()}
-                    <input type="number" step={key === 'opacity' ? '0.01' : '0.01'} value={Number(normalizedDraft.watermark?.[key] ?? (key === 'opacity' ? 0.48 : 0.5))} onChange={(e) => normalizeNextDraft((prev) => ({ ...prev, watermark: { ...(prev.watermark || {}), [key]: Number(e.target.value) } }))} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} />
-                  </label>
-                ))}
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 900, color: T.ink }}>워터마크</div>
+              <input value={normalizedDraft.watermark?.text || ''} onChange={(e) => normalizeNextDraft((prev) => ({ ...prev, watermark: { ...(prev.watermark || {}), text: e.target.value } }))} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="워터마크 텍스트" />
             </div>
           </div>
         )}
 
         {activeTab === 'save' && (
           <div style={{ padding: 14, borderRadius: 18, border: `1px solid ${T.line}`, background: '#fff', display: 'grid', gap: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 900 }}>Save / Pack Export</div>
-            <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
-              Export preset
-              <select value={exportPresetId} onChange={(e) => setExportPresetId && setExportPresetId(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }}>
-                {(frameApi?.getExportPresets?.() || [
-                  { id: 'hd', name: 'HD' },
-                  { id: 'instagram-story', name: 'Instagram Story' },
-                  { id: 'instagram-post', name: 'Instagram Post' },
-                  { id: 'wallpaper', name: 'Wallpaper' },
-                ]).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
-              </select>
-            </label>
-            <input value={exportPackName} onChange={(e) => setExportPackName(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="Pack name" />
-            <input value={exportPackDescription} onChange={(e) => setExportPackDescription(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="Pack description" />
-            <input value={exportPackAuthor} onChange={(e) => setExportPackAuthor(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="Author name" />
-            <select value={exportPackLicense} onChange={(e) => setExportPackLicense(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }}>
-              <option value="personal">personal</option>
-              <option value="commercial">commercial</option>
-              <option value="brand-collab">brand-collab</option>
-              <option value="internal">internal</option>
-            </select>
-            <input value={exportPackTags} onChange={(e) => setExportPackTags(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="tags, comma, separated" />
-            <button onClick={handleSaveFrame} style={{ minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Update Existing</button>
-            <button onClick={handleSaveAsNew} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Duplicate & Save</button>
-            <button onClick={handlePackExport} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save as Pack Draft</button>
-            <button onClick={() => {
-              const prompt = window.prompt('Describe an idea', 'kawaii pink y2k');
-              if (!prompt) return;
-              const idea = generateFrameIdea ? generateFrameIdea(prompt) : null;
-              if (!idea) return;
-              normalizeNextDraft((prev) => ({
-                ...prev,
-                background: idea.background || prev.background,
-                decorations: [...(idea.decorations || []), ...(prev.decorations || [])],
-                watermark: idea.watermark ? { ...(prev.watermark || {}), ...idea.watermark } : prev.watermark,
-                layout: idea.recommendedLayout || prev.layout,
-              }));
-              setActiveTab('background');
-              setStatusMessage(`Idea generated for ${prompt}`);
-            }} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
-              Generate Ideas
-            </button>
+            <div style={{ fontSize: 12, fontWeight: 900 }}>{isCreator ? 'Save / Pack Export' : '프레임 저장'}</div>
+            {isCreator ? (
+              <>
+                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
+                  Export preset
+                  <select value={exportPresetId} onChange={(e) => setExportPresetId && setExportPresetId(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }}>
+                    {(frameApi?.getExportPresets?.() || [
+                      { id: 'hd', name: 'HD' },
+                      { id: 'instagram-story', name: 'Instagram Story' },
+                      { id: 'instagram-post', name: 'Instagram Post' },
+                      { id: 'wallpaper', name: 'Wallpaper' },
+                    ]).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+                  </select>
+                </label>
+                <input value={exportPackName} onChange={(e) => setExportPackName(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="Pack name" />
+                <input value={exportPackDescription} onChange={(e) => setExportPackDescription(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="Pack description" />
+                <input value={exportPackAuthor} onChange={(e) => setExportPackAuthor(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="Author name" />
+                <select value={exportPackLicense} onChange={(e) => setExportPackLicense(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }}>
+                  <option value="personal">personal</option>
+                  <option value="commercial">commercial</option>
+                  <option value="brand-collab">brand-collab</option>
+                  <option value="internal">internal</option>
+                </select>
+                <input value={exportPackTags} onChange={(e) => setExportPackTags(e.target.value)} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 10px', fontSize: 12 }} placeholder="tags, comma, separated" />
+                <button onClick={handleSaveFrame} style={{ minHeight: 44, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Update Existing</button>
+                <button onClick={handleSaveAsNew} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Duplicate & Save</button>
+                <button onClick={handlePackExport} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Save as Pack Draft</button>
+              </>
+            ) : (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: T.inkSoft }}>
+                  프레임 이름
+                  <input value={normalizedDraft.name} onChange={(e) => normalizeNextDraft({ name: e.target.value })} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, padding: '0 12px', fontSize: 12 }} placeholder="나만의 프레임 이름" />
+                </label>
+                <button onClick={handleSaveFrame} style={{ minHeight: 48, borderRadius: 12, border: 'none', background: T.ink, color: T.bg, fontSize: 12, fontWeight: 800 }}>내 프레임에 저장</button>
+              </div>
+            )}
+            {isCreator && (
+              <button onClick={() => {
+                const prompt = window.prompt('Describe an idea', 'kawaii pink y2k');
+                if (!prompt) return;
+                const idea = generateFrameIdea ? generateFrameIdea(prompt) : null;
+                if (!idea) return;
+                normalizeNextDraft((prev) => ({
+                  ...prev,
+                  background: idea.background || prev.background,
+                  decorations: [...(idea.decorations || []), ...(prev.decorations || [])],
+                  watermark: idea.watermark ? { ...(prev.watermark || {}), ...idea.watermark } : prev.watermark,
+                  layout: idea.recommendedLayout || prev.layout,
+                }));
+                setActiveTab('background');
+                setStatusMessage(`Idea generated for ${prompt}`);
+              }} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
+                Generate Ideas
+              </button>
+            )}
             {designerDraftRecovery && (
               <div style={{ borderRadius: 12, border: `1px solid ${T.line}`, padding: 12, background: 'rgba(26,26,31,0.03)', display: 'grid', gap: 8 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, color: T.ink }}>Recovery available</div>
@@ -4359,17 +4580,19 @@ function DesignerScreen({
                 </div>
               </div>
             )}
-            <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 10, display: 'grid', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, color: T.ink }}>Import Pack JSON</div>
-              <textarea
-                value={importPackJson}
-                onChange={(e) => setImportPackJson(e.target.value)}
-                placeholder="Paste frame pack JSON here"
-                rows={5}
-                style={{ minHeight: 120, resize: 'vertical', borderRadius: 12, border: `1px solid ${T.line}`, padding: '10px 12px', fontSize: 12, lineHeight: 1.45 }}
-              />
-              <button onClick={handlePackImport} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Import Pack JSON</button>
-            </div>
+            {isCreator && (
+              <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 10, display: 'grid', gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: T.ink }}>Import Pack JSON</div>
+                <textarea
+                  value={importPackJson}
+                  onChange={(e) => setImportPackJson(e.target.value)}
+                  placeholder="Paste frame pack JSON here"
+                  rows={5}
+                  style={{ minHeight: 120, resize: 'vertical', borderRadius: 12, border: `1px solid ${T.line}`, padding: '10px 12px', fontSize: 12, lineHeight: 1.45 }}
+                />
+                <button onClick={handlePackImport} style={{ minHeight: 44, borderRadius: 12, border: `1px solid ${T.line}`, background: '#fff', color: T.ink, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>Import Pack JSON</button>
+              </div>
+            )}
           </div>
         )}
       </div>

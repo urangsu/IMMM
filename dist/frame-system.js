@@ -814,6 +814,22 @@ async function renderComposition(ctx, data, options = {}) {
   var drawPresetWatermark = presetApi?.drawFramePresetWatermark || window.drawFramePresetWatermark || null;
   var orderedLayers = framePreset?.layers?.length ? presetApi?.getFrameLayerOrder?.(framePreset) || framePreset.layers : [];
 
+  // Preload Background Image if exists
+  if (framePreset && framePreset.background?.type === 'image' && framePreset.background.value) {
+    var bgSrc = framePreset.background.value;
+    if (typeof window !== 'undefined') {
+      if (!window.__IMMM_BACKGROUND_IMAGE_CACHE__) {
+        window.__IMMM_BACKGROUND_IMAGE_CACHE__ = new Map();
+      }
+      if (!window.__IMMM_BACKGROUND_IMAGE_CACHE__.has(bgSrc)) {
+        var bgImg = await loadImageForCanvas(bgSrc);
+        if (bgImg) {
+          window.__IMMM_BACKGROUND_IMAGE_CACHE__.set(bgSrc, bgImg);
+        }
+      }
+    }
+  }
+
   // 1. Background
   if (framePreset && typeof drawPresetBackground === 'function') {
     drawPresetBackground(ctx, framePreset, w, h);
